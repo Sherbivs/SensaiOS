@@ -16,7 +16,8 @@
  */
 import { prisma } from '../shared/prisma.js';
 import { getErrorMessage } from '../shared/utils/error-utils.js';
-import { log } from "../shared/logging/index.js";
+import { getLogger } from "../shared/logging/index.js";
+const logger = getLogger();
 import { resolveDiscordUser, hasDiscordIdentity } from './discord-identity.js';
 // ============================================================================
 // Player Resolver Service
@@ -128,19 +129,21 @@ export class PlayerResolver {
                 data: resolved,
                 expiresAt: Date.now() + this.CACHE_TTL_MS,
             });
-            log.detail('[PlayerResolver] Resolved player', {
-                discordId,
-                username: resolved.username,
-                identityResolved: resolved.identityResolved,
-                latencyMs: Date.now() - startTime,
+            logger.debug('player-resolver', 'resolve', 'Resolved player', {
+                userId: discordId,
+                durationMs: Date.now() - startTime,
+                metadata: {
+                    username: resolved.username,
+                    identityResolved: resolved.identityResolved,
+                },
             });
             return resolved;
         }
         catch (error) {
-            log.error('[PlayerResolver] Resolution failed', {
-                discordId,
+            logger.error('player-resolver', 'resolve', 'Resolution failed', {
+                userId: discordId,
                 guildId: options.guildId,
-                error: getErrorMessage(error),
+                metadata: { errorMsg: getErrorMessage(error) },
             });
             return null;
         }
@@ -289,10 +292,12 @@ export class PlayerResolver {
                 coins: 500, // Starting coins
             }
         });
-        log.info('[PlayerResolver] Created new player', {
-            id: newUser.id,
-            discordId,
-            username: identity?.username ?? 'unknown',
+        logger.info('player-resolver', 'create', 'Created new player', {
+            userId: discordId,
+            metadata: {
+                id: newUser.id,
+                username: identity?.username ?? 'unknown',
+            },
         });
         return {
             id: newUser.id,

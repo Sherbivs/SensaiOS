@@ -13,8 +13,9 @@
  *
  * @module shared/service-registry
  */
-import { log } from "../shared/logging/index.js";
+import { getLogger } from "../shared/logging/index.js";
 import { getErrorMessage } from './utils/error-utils.js';
+const logger = getLogger();
 // ============================================================================
 // Service Registry Class
 // ============================================================================
@@ -88,9 +89,11 @@ export class ServiceRegistry {
             },
         };
         this.services.set(config.name, metadata);
-        log('info', `[ServiceRegistry] Registered service: ${config.name}`, {
-            startupOrder: metadata.config.startupOrder,
-            dependencies: metadata.config.dependencies,
+        logger.info('ServiceRegistry', 'register', `Registered service: ${config.name}`, {
+            metadata: {
+                startupOrder: metadata.config.startupOrder,
+                dependencies: metadata.config.dependencies,
+            },
         });
     }
     /**
@@ -111,11 +114,11 @@ export class ServiceRegistry {
      */
     async initializeAll() {
         if (this.isInitialized) {
-            log('warn', '[ServiceRegistry] Already initialized, skipping');
+            logger.warn('ServiceRegistry', 'initializeAll', 'Already initialized, skipping');
             return;
         }
-        log('info', '[ServiceRegistry] Starting initialization', {
-            serviceCount: this.services.size,
+        logger.info('ServiceRegistry', 'initializeAll', 'Starting initialization', {
+            metadata: { serviceCount: this.services.size },
         });
         try {
             // Build dependency graph and detect circular dependencies
@@ -123,23 +126,25 @@ export class ServiceRegistry {
             this.detectCircularDependencies(graph);
             // Resolve initialization order
             this.initializationOrder = this.resolveInitializationOrder();
-            log('info', '[ServiceRegistry] Initialization order resolved', {
-                order: this.initializationOrder,
+            logger.info('ServiceRegistry', 'initializeAll', 'Initialization order resolved', {
+                metadata: { order: this.initializationOrder },
             });
             // Initialize services in order
             for (const serviceName of this.initializationOrder) {
                 await this.initializeService(serviceName);
             }
             this.isInitialized = true;
-            log('info', '[ServiceRegistry] All services initialized successfully', {
-                count: this.services.size,
-                duration: this.calculateTotalInitTime(),
+            logger.info('ServiceRegistry', 'initializeAll', 'All services initialized successfully', {
+                metadata: {
+                    count: this.services.size,
+                    duration: this.calculateTotalInitTime(),
+                },
             });
             // Start health checks for all services
             this.startAllHealthChecks();
         }
         catch (error) {
-            log('error', '[ServiceRegistry] Initialization failed', error);
+            logger.error('ServiceRegistry', 'initializeAll', 'Initialization failed', { metadata: { error } });
             // Attempt to shutdown any partially initialized services
             await this.shutdownAll();
             throw error;
@@ -154,10 +159,10 @@ export class ServiceRegistry {
             throw new Error(`Service '${serviceName}' not found in registry`);
         }
         if (metadata.status === 'healthy') {
-            log('info', `[ServiceRegistry] Service '${serviceName}' already initialized, skipping`);
+            logger.info('ServiceRegistry', 'initializeService', `Service '${serviceName}' already initialized, skipping`);
             return;
         }
-        log('info', `[ServiceRegistry] Initializing service: ${serviceName}`);
+        logger.info('ServiceRegistry', 'initializeService', `Initializing service: ${serviceName}`);
         metadata.status = 'initializing';
         metadata.initializationStartedAt = new Date();
         metadata.initializationTimeoutMs = 5 * 60 * 1000; // 5 minutes timeout
@@ -171,14 +176,14 @@ export class ServiceRegistry {
             metadata.instance = instance;
             metadata.status = 'healthy';
             metadata.stats.initializedAt = new Date();
-            log('info', `[ServiceRegistry] Service initialized: ${serviceName}`, {
-                duration: `${duration}ms`,
-                dependencies: Object.keys(dependencies),
+            logger.info('ServiceRegistry', 'initializeService', `Service initialized: ${serviceName}`, {
+                durationMs: duration,
+                metadata: { dependencies: Object.keys(dependencies) },
             });
         }
         catch (error) {
             metadata.status = 'error';
-            log('error', `[ServiceRegistry] Failed to initialize service: ${serviceName}`, error);
+            logger.error('ServiceRegistry', 'initializeService', `Failed to initialize service: ${serviceName}`, { metadata: { error } });
             throw new Error(`Failed to initialize service '${serviceName}': ${getErrorMessage(error)}`);
         }
     }
@@ -308,27 +313,31 @@ export class ServiceRegistry {
                     if (initElapsed > timeout) {
                         // Timeout exceeded - mark as degraded
                         metadata.status = 'degraded';
-                        log('warn', `[ServiceRegistry] Service initialization timeout: ${serviceName}`, {
-                            elapsedMs: initElapsed,
-                            timeoutMs: timeout,
-                            failures: metadata.stats.healthCheckFailures,
+                        logger.warn('ServiceRegistry', 'runHealthCheck', `Service initialization timeout: ${serviceName}`, {
+                            durationMs: initElapsed,
+                            metadata: {
+                                timeoutMs: timeout,
+                                failures: metadata.stats.healthCheckFailures,
+                            },
                         });
                     }
                     else {
                         // Still within initialization window - keep status as 'initializing'
                         // Log at info level with initialization progress
-                        log('info', `[ServiceRegistry] Service still initializing: ${serviceName}`, {
-                            elapsedMs: initElapsed,
-                            timeoutMs: timeout,
-                            remainingMs: timeout - initElapsed,
+                        logger.info('ServiceRegistry', 'runHealthCheck', `Service still initializing: ${serviceName}`, {
+                            durationMs: initElapsed,
+                            metadata: {
+                                timeoutMs: timeout,
+                                remainingMs: timeout - initElapsed,
+                            },
                         });
                     }
                 }
                 else if (metadata.status === 'healthy') {
                     // Service was healthy but now failing - mark as degraded
                     metadata.status = 'degraded';
-                    log('warn', `[ServiceRegistry] Service degraded: ${serviceName}`, {
-                        failures: metadata.stats.healthCheckFailures,
+                    logger.warn('ServiceRegistry', 'runHealthCheck', `Service degraded: ${serviceName}`, {
+                        metadata: { failures: metadata.stats.healthCheckFailures },
                     });
                 }
             }
@@ -336,14 +345,14 @@ export class ServiceRegistry {
                 // Health check passed
                 if (metadata.status === 'degraded') {
                     metadata.status = 'healthy';
-                    log('info', `[ServiceRegistry] Service recovered: ${serviceName}`);
+                    logger.info('ServiceRegistry', 'runHealthCheck', `Service recovered: ${serviceName}`);
                 }
                 else if (metadata.status === 'initializing') {
                     // First successful health check - transition from initializing to healthy
                     metadata.status = 'healthy';
                     const initElapsed = Date.now() - (metadata.initializationStartedAt?.getTime() || 0);
-                    log('info', `[ServiceRegistry] Service initialization complete: ${serviceName}`, {
-                        initializationTimeMs: initElapsed,
+                    logger.info('ServiceRegistry', 'runHealthCheck', `Service initialization complete: ${serviceName}`, {
+                        durationMs: initElapsed,
                     });
                 }
             }
@@ -351,7 +360,7 @@ export class ServiceRegistry {
         catch (error) {
             metadata.stats.healthCheckFailures++;
             metadata.status = 'error';
-            log('error', `[ServiceRegistry] Health check failed for service: ${serviceName}`, error);
+            logger.error('ServiceRegistry', 'runHealthCheck', `Health check failed for service: ${serviceName}`, { metadata: { error } });
         }
     }
     // ============================================================================
@@ -362,12 +371,12 @@ export class ServiceRegistry {
      */
     async shutdownAll() {
         if (this.isShuttingDown) {
-            log('warn', '[ServiceRegistry] Shutdown already in progress');
+            logger.warn('ServiceRegistry', 'shutdownAll', 'Shutdown already in progress');
             return;
         }
         this.isShuttingDown = true;
-        log('info', '[ServiceRegistry] Starting graceful shutdown', {
-            serviceCount: this.services.size,
+        logger.info('ServiceRegistry', 'shutdownAll', 'Starting graceful shutdown', {
+            metadata: { serviceCount: this.services.size },
         });
         try {
             // Stop all health checks
@@ -382,10 +391,10 @@ export class ServiceRegistry {
             for (const serviceName of shutdownOrder) {
                 await this.shutdownService(serviceName);
             }
-            log('info', '[ServiceRegistry] All services shut down successfully');
+            logger.info('ServiceRegistry', 'shutdownAll', 'All services shut down successfully');
         }
         catch (error) {
-            log('error', '[ServiceRegistry] Shutdown failed', error);
+            logger.error('ServiceRegistry', 'shutdownAll', 'Shutdown failed', { metadata: { error } });
             throw error;
         }
         finally {
@@ -402,17 +411,17 @@ export class ServiceRegistry {
         if (metadata.status === 'shutdown' || metadata.status === 'registered') {
             return;
         }
-        log('info', `[ServiceRegistry] Shutting down service: ${serviceName}`);
+        logger.info('ServiceRegistry', 'shutdownService', `Shutting down service: ${serviceName}`);
         try {
             if (metadata.config.shutdown) {
                 await metadata.config.shutdown(metadata.instance);
             }
             metadata.status = 'shutdown';
             metadata.stats.shutdownAt = new Date();
-            log('info', `[ServiceRegistry] Service shut down: ${serviceName}`);
+            logger.info('ServiceRegistry', 'shutdownService', `Service shut down: ${serviceName}`);
         }
         catch (error) {
-            log('error', `[ServiceRegistry] Failed to shut down service: ${serviceName}`, error);
+            logger.error('ServiceRegistry', 'shutdownService', `Failed to shut down service: ${serviceName}`, { metadata: { error } });
             // Continue with other shutdowns even if this one fails
         }
     }
@@ -421,13 +430,13 @@ export class ServiceRegistry {
      */
     setupShutdownHandlers() {
         const handleShutdown = async (signal) => {
-            log('info', `[ServiceRegistry] Received ${signal}, initiating graceful shutdown`);
+            logger.info('ServiceRegistry', 'handleShutdown', `Received ${signal}, initiating graceful shutdown`);
             try {
                 await this.shutdownAll();
                 process.exit(0);
             }
             catch (error) {
-                log('error', '[ServiceRegistry] Shutdown failed', error);
+                logger.error('ServiceRegistry', 'handleShutdown', 'Shutdown failed', { metadata: { error } });
                 process.exit(1);
             }
         };

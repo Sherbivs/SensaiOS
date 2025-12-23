@@ -23,12 +23,30 @@
 
 import { EventBus, type BusEvent, type SubscriptionId } from '../../shared/event-bus.js';
 import { OBSERVABILITY_CONFIG } from './observability-config.js';
+import { lokiTransport } from '../../shared/logging/loki-transport.js';
 import type {
   ObservabilityEvent,
   ObservabilityLevel,
   IObservabilityBackend,
   HubStatus,
 } from './observability-types.js';
+
+/**
+ * Forward a log entry directly to Loki (bypasses logger to avoid circular dep)
+ */
+function forwardToLoki(level: string, message: string, data?: Record<string, unknown>): void {
+  try {
+    lokiTransport.push({
+      level,
+      message,
+      timestamp: new Date().toISOString(),
+      service: 'ObservabilityHub',
+      data
+    });
+  } catch {
+    // Graceful degradation - Loki not available
+  }
+}
 
 // ============================================================================
 // Observability Hub Class
@@ -122,6 +140,7 @@ export class ObservabilityHub {
         console.info(`[ObservabilityHub] Backend started: ${name}`);
       } catch (error) {
         console.error(`[ObservabilityHub] Failed to start backend '${name}':`, error);
+        forwardToLoki('error', `Failed to start backend '${name}'`, { backendName: name, error: String(error) });
         // Continue — don't let one backend failure prevent others
       }
     }
@@ -133,6 +152,7 @@ export class ObservabilityHub {
       console.info('[ObservabilityHub] Subscribed to Event Bus (pattern: **)');
     } catch (error) {
       console.error('[ObservabilityHub] Failed to subscribe to Event Bus:', error);
+      forwardToLoki('error', 'Failed to subscribe to Event Bus', { error: String(error) });
       // Continue without Event Bus — direct ingestion still works
     }
 
@@ -159,6 +179,7 @@ export class ObservabilityHub {
         console.info('[ObservabilityHub] Unsubscribed from Event Bus');
       } catch (error) {
         console.error('[ObservabilityHub] Error unsubscribing from Event Bus:', error);
+        forwardToLoki('error', 'Error unsubscribing from Event Bus', { error: String(error) });
       }
     }
 
@@ -169,6 +190,7 @@ export class ObservabilityHub {
         console.info(`[ObservabilityHub] Backend stopped: ${name}`);
       } catch (error) {
         console.error(`[ObservabilityHub] Error stopping backend '${name}':`, error);
+        forwardToLoki('error', `Error stopping backend '${name}'`, { backendName: name, error: String(error) });
       }
     }
 
@@ -196,6 +218,7 @@ export class ObservabilityHub {
     } catch (error) {
       // Silently drop — never propagate to Event Bus
       console.error('[ObservabilityHub] Error handling event:', error);
+      forwardToLoki('error', 'Error handling event', { error: String(error) });
     }
   }
 
@@ -224,6 +247,7 @@ export class ObservabilityHub {
     } catch (error) {
       // Silently drop — never propagate errors
       console.error('[ObservabilityHub] Error ingesting event:', error);
+      forwardToLoki('error', 'Error ingesting event', { topic, source, error: String(error) });
     }
   }
 
@@ -240,6 +264,7 @@ export class ObservabilityHub {
       } catch (error) {
         // Isolate backend errors — don't let one backend affect others
         console.error(`[ObservabilityHub] Backend '${backend.name}' error:`, error);
+        forwardToLoki('error', `Backend '${backend.name}' error`, { backendName: backend.name, error: String(error) });
       }
     }
   }

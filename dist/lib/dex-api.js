@@ -1,5 +1,6 @@
-import { log } from '../shared/logging/index.js';
+import { getLogger } from '../shared/logging/index.js';
 import { getDexpack, getSpecies as lookupSpecies, getMove as lookupMove, suggestSpecies, getSpeciesBaseStats, getSpeciesMatchups, } from '../data/dexpack.js';
+const logger = getLogger();
 // ============================================================================
 // Module State
 // ============================================================================
@@ -157,7 +158,7 @@ function initialise() {
     }
     catch (err) {
         disabled = true;
-        log.warn('⚠️  dex-api: Failed to load dexpack', { error: err?.message ?? String(err) });
+        logger.warn('DexApi', 'initialise', 'Failed to load dexpack', { metadata: { error: err?.message ?? String(err) } });
     }
 }
 // Initialize on module load

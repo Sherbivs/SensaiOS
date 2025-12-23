@@ -12,9 +12,10 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
-import { log } from '../shared/logging/index.js';
+import { getLogger } from '../shared/logging/index.js';
 import { getErrorMessage } from '../shared/utils/index.js';
 import { CACHE_CONSTANTS } from '../shared/constants.js';
+const logger = getLogger();
 // ─────────────────────────────────────────────────────────────────────────────
 // Constants
 // ─────────────────────────────────────────────────────────────────────────────
@@ -39,12 +40,12 @@ function logCacheIssue(level, tag, err, meta = {}) {
     const prefix = contextParts.length ? `${contextParts.join(' ')} ` : '';
     const fullMessage = `[CACHE ${tag}] ${prefix}${message}`;
     if (level === 'warn') {
-        log('warn', fullMessage, { error: err, ...meta });
+        logger.warn('cache', tag, fullMessage, { metadata: { error: err, ...meta } });
     }
     else {
-        log('error', fullMessage, { error: err, ...meta });
+        logger.error('cache', tag, fullMessage, { metadata: { error: err, ...meta } });
         if (err instanceof Error && err.stack) {
-            log('error', err.stack);
+            logger.error('cache', tag, err.stack);
         }
     }
 }
@@ -241,7 +242,7 @@ function pruneCache() {
         try {
             fs.unlinkSync(e.filePath);
             total -= e.size;
-            log('info', '[CACHE PRUNE] File removed', { file: path.basename(e.filePath) });
+            logger.info('cache', 'prune', 'File removed', { metadata: { file: path.basename(e.filePath) } });
         }
         catch (err) {
             logCacheIssue('warn', 'PRUNE', err, { file: path.basename(e.filePath) });
@@ -266,7 +267,7 @@ function cleanOldCache() {
             const st = fs.statSync(fp);
             if (now - st.mtimeMs > MAX_CACHE_FILE_AGE_MS) {
                 fs.unlinkSync(fp);
-                log('info', '[CACHE CLEANUP] File removed', { file: path.basename(fp) });
+                logger.info('cache', 'cleanup', 'File removed', { metadata: { file: path.basename(fp) } });
             }
         }
         catch (err) {

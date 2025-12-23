@@ -36,6 +36,9 @@ import { join } from 'path';
 import type { IntegrityReport } from '../services/homestead-verification.js';
 import { getErrorMessage } from '../shared/utils/error-utils.js';
 import { daysAgo } from '../shared/utils/date-utils.js';
+import { getLogger, errorContext } from '../shared/logging/index.js';
+
+const logger = getLogger();
 
 // ============================================================================
 // CONFIGURATION
@@ -91,16 +94,21 @@ function emitIntegrityAlert(report: IntegrityReport, reportPath: string): void {
     recommendedAction: 'Review integrity report and run /ops homestead:cleanup for affected guild'
   };
 
-  // Log to stderr for worker output visibility
-  process.stderr.write(
-    `[HomesteadIntegrity] ALERT: ${severity} integrity issues in guild ${report.guildId}\n` +
-    `  Issue Rate: ${payload.issueRate} (${totalIssues}/${report.totalHomesteads})\n` +
-    `  Orphans: ${report.orphans} | Ghosts: ${report.ghosts}\n` +
-    `  Report: ${reportPath}\n`
-  );
+  // Log alert - will be forwarded to Loki
+  logger.warn('HomesteadIntegrity', 'emitIntegrityAlert', `ALERT: ${severity} integrity issues in guild ${report.guildId}`, {
+    guildId: report.guildId,
+    metadata: {
+      severity,
+      issueRate: payload.issueRate,
+      totalIssues,
+      totalHomesteads: report.totalHomesteads,
+      orphans: report.orphans,
+      ghosts: report.ghosts,
+      reportPath
+    }
+  });
 
   // TODO: Integrate with DripAlerts system when available
-  // For now, rely on stderr logging which is captured by Render logs
 }
 
 // ============================================================================
@@ -146,11 +154,11 @@ async function cleanupOldReports(): Promise<void> {
 
       if (stats.mtimeMs < cutoffTime) {
         await fs.unlink(filepath);
-        process.stdout.write(`[HomesteadIntegrity] Deleted old report: ${file}\n`);
+        logger.info('HomesteadIntegrity', 'cleanupOldReports', `Deleted old report: ${file}`);
       }
     }
   } catch (err) {
-    process.stderr.write(`[HomesteadIntegrity] Cleanup error: ${getErrorMessage(err)}\n`);
+    logger.error('HomesteadIntegrity', 'cleanupOldReports', `Cleanup error: ${getErrorMessage(err)}`, errorContext(err as Error));
   }
 }
 
@@ -164,7 +172,7 @@ async function cleanupOldReports(): Promise<void> {
  */
 export async function runHomesteadIntegrityCheck(client: Client): Promise<void> {
   const startTime = Date.now();
-  process.stdout.write(`[HomesteadIntegrity] Starting integrity check at ${new Date().toISOString()}\n`);
+  logger.info('HomesteadIntegrity', 'runCheck', `Starting integrity check at ${new Date().toISOString()}`);
 
   try {
     // Get all unique guilds with homesteads
@@ -174,7 +182,7 @@ export async function runHomesteadIntegrityCheck(client: Client): Promise<void> 
       where: { status: { in: ['active', 'suspended'] } } // Skip deleted/orphaned
     });
 
-    process.stdout.write(`[HomesteadIntegrity] Checking ${guilds.length} guilds\n`);
+    logger.info('HomesteadIntegrity', 'runCheck', `Checking ${guilds.length} guilds`);
 
     const verificationService = new HomesteadVerificationService(client);
     let totalGuildsChecked = 0;
@@ -206,20 +214,22 @@ export async function runHomesteadIntegrityCheck(client: Client): Promise<void> 
         }
 
         // Log summary
-        process.stdout.write(
-          `[HomesteadIntegrity] Guild ${guildId}: ` +
-          `${report.totalHomesteads} homesteads, ` +
-          `${report.orphans} orphans, ` +
-          `${report.ghosts} ghosts ` +
-          `(${(issueRate * 100).toFixed(1)}%)\n`
-        );
+        logger.info('HomesteadIntegrity', 'guildCheck', `Guild ${guildId}: ${report.totalHomesteads} homesteads, ${report.orphans} orphans, ${report.ghosts} ghosts (${(issueRate * 100).toFixed(1)}%)`, {
+          guildId,
+          metadata: {
+            totalHomesteads: report.totalHomesteads,
+            orphans: report.orphans,
+            ghosts: report.ghosts,
+            issueRate: issueRate * 100
+          }
+        });
 
       } catch (guildErr) {
         // Log guild-specific error but continue checking other guilds
-        process.stderr.write(
-          `[HomesteadIntegrity] Error checking guild ${guildId}: ` +
-          `${getErrorMessage(guildErr)}\n`
-        );
+        logger.error('HomesteadIntegrity', 'guildCheck', `Error checking guild ${guildId}: ${getErrorMessage(guildErr)}`, {
+          guildId,
+          ...errorContext(guildErr as Error)
+        });
       }
     }
 
@@ -228,17 +238,18 @@ export async function runHomesteadIntegrityCheck(client: Client): Promise<void> 
 
     // Final summary
     const duration = Date.now() - startTime;
-    process.stdout.write(
-      `[HomesteadIntegrity] Check complete in ${duration}ms\n` +
-      `  Guilds Checked: ${totalGuildsChecked}/${guilds.length}\n` +
-      `  Total Issues: ${totalIssuesFound}\n` +
-      `  Alerts Emitted: ${totalAlertsEmitted}\n`
-    );
+    logger.info('HomesteadIntegrity', 'runCheck', `Check complete in ${duration}ms`, {
+      durationMs: duration,
+      metadata: {
+        guildsChecked: totalGuildsChecked,
+        totalGuilds: guilds.length,
+        totalIssues: totalIssuesFound,
+        alertsEmitted: totalAlertsEmitted
+      }
+    });
 
   } catch (err) {
-    process.stderr.write(
-      `[HomesteadIntegrity] Fatal error: ${getErrorMessage(err)}\n`
-    );
+    logger.error('HomesteadIntegrity', 'runCheck', `Fatal error: ${getErrorMessage(err)}`, errorContext(err as Error));
     throw err;
   }
 }
@@ -252,7 +263,7 @@ export async function runHomesteadIntegrityCheck(client: Client): Promise<void> 
  * Initializes Discord client and runs integrity check.
  */
 async function main(): Promise<void> {
-  process.stdout.write(`[HomesteadIntegrity] Worker starting...\n`);
+  logger.info('HomesteadIntegrity', 'main', 'Worker starting...');
 
   // Initialize Discord client with minimal intents (read-only)
   const client = new Client({
@@ -265,7 +276,7 @@ async function main(): Promise<void> {
   try {
     // Login to Discord
     await client.login(process.env.BOT_TOKEN);
-    process.stdout.write(`[HomesteadIntegrity] Discord client ready\n`);
+    logger.info('HomesteadIntegrity', 'main', 'Discord client ready');
 
     // Wait for client to be fully ready
     await new Promise<void>((resolve) => {
@@ -277,13 +288,11 @@ async function main(): Promise<void> {
 
     // Graceful shutdown
     await client.destroy();
-    process.stdout.write(`[HomesteadIntegrity] Worker complete\n`);
+    logger.info('HomesteadIntegrity', 'main', 'Worker complete');
     process.exit(0);
 
   } catch (err) {
-    process.stderr.write(
-      `[HomesteadIntegrity] Worker failed: ${getErrorMessage(err)}\n`
-    );
+    logger.error('HomesteadIntegrity', 'main', `Worker failed: ${getErrorMessage(err)}`, errorContext(err as Error));
     await client.destroy();
     process.exit(1);
   }
@@ -292,7 +301,7 @@ async function main(): Promise<void> {
 // Run worker if executed directly
 if (import.meta.url === `file://${process.argv[1]}`) {
   main().catch((err) => {
-    process.stderr.write(`[HomesteadIntegrity] Unhandled error: ${err}\n`);
+    logger.error('HomesteadIntegrity', 'main', `Unhandled error: ${err}`, errorContext(err as Error));
     process.exit(1);
   });
 }

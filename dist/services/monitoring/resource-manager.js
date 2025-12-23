@@ -12,9 +12,10 @@
  * Integration with error detection system for leak monitoring and alerting.
  */
 import { errorTracker } from './error-tracker.js';
-import { log } from "../../shared/logging/index.js";
+import { getLogger } from "../../shared/logging/index.js";
 import { getErrorMessage } from '../../shared/utils/error-utils.js';
 import { generateResourceId } from './monitoring-utils.js';
+const logger = getLogger();
 // ============================================================================
 // Resource Manager Class
 // ============================================================================
@@ -42,16 +43,15 @@ class ResourceManager {
         }
         // Start background monitoring (runs every 5 minutes)
         this.startMonitoring();
-        log('info', '[ResourceManager] Initialized', {
-            limits: this.limits,
-            monitoringIntervalMs: this.MONITORING_INTERVAL_MS,
+        logger.info('resource-manager', 'init', '[ResourceManager] Initialized', {
+            metadata: { limits: this.limits, monitoringIntervalMs: this.MONITORING_INTERVAL_MS },
         });
         // Note: Lightweight resource monitor (runs twice daily) is started separately
         // via startResourceMonitoring() in src/index.ts
     }
     async shutdown() {
-        log('info', '[ResourceManager] Shutdown initiated', {
-            totalResources: this.resources.size,
+        logger.info('resource-manager', 'shutdown', '[ResourceManager] Shutdown initiated', {
+            metadata: { totalResources: this.resources.size },
         });
         // Stop monitoring
         if (this.monitoringInterval) {
@@ -60,8 +60,8 @@ class ResourceManager {
         }
         // Cleanup all resources
         await this.cleanupAll();
-        log('info', '[ResourceManager] Shutdown complete', {
-            remainingResources: this.resources.size,
+        logger.info('resource-manager', 'shutdown', '[ResourceManager] Shutdown complete', {
+            metadata: { remainingResources: this.resources.size },
         });
     }
     // ============================================================================
@@ -100,11 +100,8 @@ class ResourceManager {
         this.ownerTimerCounts.set(owner, currentCount + 1);
         // Log only in debug mode (reduce I/O overhead)
         if (process.env.LOG_LEVEL === 'detail') {
-            log('detail', '[ResourceManager] Interval registered', {
-                id,
-                owner,
-                name,
-                intervalMs,
+            logger.debug('resource-manager', 'register-interval', '[ResourceManager] Interval registered', {
+                metadata: { id, owner, name, intervalMs },
             });
         }
         return handle;
@@ -146,11 +143,8 @@ class ResourceManager {
         this.ownerTimerCounts.set(owner, currentCount + 1);
         // Log only in debug mode
         if (process.env.LOG_LEVEL === 'detail') {
-            log('detail', '[ResourceManager] Timeout registered', {
-                id,
-                owner,
-                name,
-                timeoutMs,
+            logger.debug('resource-manager', 'register-timeout', '[ResourceManager] Timeout registered', {
+                metadata: { id, owner, name, timeoutMs },
             });
         }
         return handle;
@@ -165,11 +159,8 @@ class ResourceManager {
         this.resources.delete(id);
         const currentCount = this.ownerTimerCounts.get(timer.owner) ?? 1;
         this.ownerTimerCounts.set(timer.owner, currentCount - 1);
-        log('detail', '[ResourceManager] Timer unregistered', {
-            id,
-            owner: timer.owner,
-            name: timer.name,
-            type: timer.timerType,
+        logger.debug('resource-manager', 'unregister-timer', '[ResourceManager] Timer unregistered', {
+            metadata: { id, owner: timer.owner, name: timer.name, type: timer.timerType },
         });
         return true;
     }
@@ -228,13 +219,8 @@ class ResourceManager {
         emitter.on(eventName, listener);
         this.resources.set(id, handle);
         emitterCounts.set(eventName, currentCount + 1);
-        log('detail', '[ResourceManager] Listener registered', {
-            id,
-            owner,
-            name,
-            eventName,
-            currentCount: currentCount + 1,
-            maxListeners: limit,
+        logger.debug('resource-manager', 'register-listener', '[ResourceManager] Listener registered', {
+            metadata: { id, owner, name, eventName, currentCount: currentCount + 1, maxListeners: limit },
         });
         return handle;
     }
@@ -252,11 +238,8 @@ class ResourceManager {
             emitterCounts.set(listener.eventName, currentCount - 1);
         }
         this.resources.delete(id);
-        log('detail', '[ResourceManager] Listener unregistered', {
-            id,
-            owner: listener.owner,
-            name: listener.name,
-            eventName: listener.eventName,
+        logger.debug('resource-manager', 'unregister-listener', '[ResourceManager] Listener unregistered', {
+            metadata: { id, owner: listener.owner, name: listener.name, eventName: listener.eventName },
         });
         return true;
     }
@@ -306,11 +289,8 @@ class ResourceManager {
         };
         this.resources.set(id, handle);
         this.ownerConnectionCounts.set(owner, currentCount + 1);
-        log('detail', '[ResourceManager] Connection registered', {
-            id,
-            owner,
-            name,
-            connectionType,
+        logger.debug('resource-manager', 'register-connection', '[ResourceManager] Connection registered', {
+            metadata: { id, owner, name, connectionType },
         });
         return handle;
     }
@@ -324,20 +304,15 @@ class ResourceManager {
             await connection.cleanup();
         }
         catch (error) {
-            log('error', '[ResourceManager] Connection cleanup failed', {
-                id,
-                owner: connection.owner,
-                name: connection.name,
-                error: getErrorMessage(error),
+            logger.error('resource-manager', 'cleanup-connection', '[ResourceManager] Connection cleanup failed', {
+                metadata: { id, owner: connection.owner, name: connection.name, errorMsg: getErrorMessage(error) },
             });
         }
         this.resources.delete(id);
         const currentCount = this.ownerConnectionCounts.get(connection.owner) ?? 1;
         this.ownerConnectionCounts.set(connection.owner, currentCount - 1);
-        log('detail', '[ResourceManager] Connection unregistered', {
-            id,
-            owner: connection.owner,
-            name: connection.name,
+        logger.debug('resource-manager', 'unregister-connection', '[ResourceManager] Connection unregistered', {
+            metadata: { id, owner: connection.owner, name: connection.name },
         });
         return true;
     }
@@ -374,15 +349,17 @@ class ResourceManager {
             metadata: options?.metadata,
         };
         this.resources.set(id, handle);
-        log('detail', '[ResourceManager] Disk cache registered', {
-            id,
-            owner,
-            name,
-            cacheType,
-            path,
-            sizeBytes: `${(sizeBytes / (1024 * 1024)).toFixed(2)} MB`,
-            hotLayerBytes: options?.hotLayerBytes ? `${(options.hotLayerBytes / (1024 * 1024)).toFixed(2)} MB` : 'N/A',
-            diskBytes: options?.diskBytes ? `${(options.diskBytes / (1024 * 1024)).toFixed(2)} MB` : 'N/A',
+        logger.debug('resource-manager', 'register-disk-cache', '[ResourceManager] Disk cache registered', {
+            metadata: {
+                id,
+                owner,
+                name,
+                cacheType,
+                path,
+                sizeBytes: `${(sizeBytes / (1024 * 1024)).toFixed(2)} MB`,
+                hotLayerBytes: options?.hotLayerBytes ? `${(options.hotLayerBytes / (1024 * 1024)).toFixed(2)} MB` : 'N/A',
+                diskBytes: options?.diskBytes ? `${(options.diskBytes / (1024 * 1024)).toFixed(2)} MB` : 'N/A',
+            },
         });
         return handle;
     }
@@ -396,20 +373,13 @@ class ResourceManager {
             await diskCache.cleanup();
         }
         catch (error) {
-            log('error', '[ResourceManager] Disk cache cleanup failed', {
-                id,
-                owner: diskCache.owner,
-                name: diskCache.name,
-                path: diskCache.path,
-                error: getErrorMessage(error),
+            logger.error('resource-manager', 'cleanup-disk-cache', '[ResourceManager] Disk cache cleanup failed', {
+                metadata: { id, owner: diskCache.owner, name: diskCache.name, path: diskCache.path, errorMsg: getErrorMessage(error) },
             });
         }
         this.resources.delete(id);
-        log('detail', '[ResourceManager] Disk cache unregistered', {
-            id,
-            owner: diskCache.owner,
-            name: diskCache.name,
-            cacheType: diskCache.cacheType,
+        logger.debug('resource-manager', 'unregister-disk-cache', '[ResourceManager] Disk cache unregistered', {
+            metadata: { id, owner: diskCache.owner, name: diskCache.name, cacheType: diskCache.cacheType },
         });
         return true;
     }
@@ -450,14 +420,8 @@ class ResourceManager {
             metadata,
         };
         this.resources.set(id, handle);
-        log('detail', '[ResourceManager] Disk buffer registered', {
-            id,
-            owner,
-            name,
-            bufferType,
-            path,
-            maxQueueSize,
-            flushIntervalMs: `${flushIntervalMs}ms`,
+        logger.debug('resource-manager', 'register-disk-buffer', '[ResourceManager] Disk buffer registered', {
+            metadata: { id, owner, name, bufferType, path, maxQueueSize, flushIntervalMs: `${flushIntervalMs}ms` },
         });
         return handle;
     }
@@ -471,20 +435,13 @@ class ResourceManager {
             await diskBuffer.cleanup();
         }
         catch (error) {
-            log('error', '[ResourceManager] Disk buffer cleanup failed', {
-                id,
-                owner: diskBuffer.owner,
-                name: diskBuffer.name,
-                path: diskBuffer.path,
-                error: getErrorMessage(error),
+            logger.error('resource-manager', 'cleanup-disk-buffer', '[ResourceManager] Disk buffer cleanup failed', {
+                metadata: { id, owner: diskBuffer.owner, name: diskBuffer.name, path: diskBuffer.path, errorMsg: getErrorMessage(error) },
             });
         }
         this.resources.delete(id);
-        log('detail', '[ResourceManager] Disk buffer unregistered', {
-            id,
-            owner: diskBuffer.owner,
-            name: diskBuffer.name,
-            bufferType: diskBuffer.bufferType,
+        logger.debug('resource-manager', 'unregister-disk-buffer', '[ResourceManager] Disk buffer unregistered', {
+            metadata: { id, owner: diskBuffer.owner, name: diskBuffer.name, bufferType: diskBuffer.bufferType },
         });
         return true;
     }
@@ -520,13 +477,8 @@ class ResourceManager {
             metadata,
         };
         this.resources.set(id, handle);
-        log('detail', '[ResourceManager] Disk log registered', {
-            id,
-            owner,
-            name,
-            logType,
-            path,
-            retentionDays,
+        logger.debug('resource-manager', 'register-disk-log', '[ResourceManager] Disk log registered', {
+            metadata: { id, owner, name, logType, path, retentionDays },
         });
         return handle;
     }
@@ -540,20 +492,18 @@ class ResourceManager {
             await diskLog.cleanup();
         }
         catch (error) {
-            log('error', '[ResourceManager] Disk log cleanup failed', {
-                id,
-                owner: diskLog.owner,
-                name: diskLog.name,
-                path: diskLog.path,
-                error: getErrorMessage(error),
+            logger.error('resource-manager', 'cleanup-disk-log', '[ResourceManager] Disk log cleanup failed', {
+                metadata: { id, owner: diskLog.owner, name: diskLog.name, path: diskLog.path, errorMsg: getErrorMessage(error) },
             });
         }
         this.resources.delete(id);
-        log('detail', '[ResourceManager] Disk log unregistered', {
-            id,
-            owner: diskLog.owner,
-            name: diskLog.name,
-            logType: diskLog.logType,
+        logger.debug('resource-manager', 'unregister-disk-log', '[ResourceManager] Disk log unregistered', {
+            metadata: {
+                id,
+                owner: diskLog.owner,
+                name: diskLog.name,
+                logType: diskLog.logType,
+            },
         });
         return true;
     }
@@ -699,16 +649,18 @@ class ResourceManager {
         const stats = this.getStats();
         // Alert on leak suspects
         if (this.limits.alertOnLeakSuspect && stats.leakSuspects.length > 0) {
-            log('warn', '[ResourceManager] Leak suspects detected', {
-                count: stats.leakSuspects.length,
-                thresholdMs: this.limits.leakDetectionThresholdMs,
-                suspects: stats.leakSuspects.map(r => ({
-                    id: r.id,
-                    type: r.type,
-                    owner: r.owner,
-                    name: r.name,
-                    ageMs: Date.now() - r.createdAt.getTime(),
-                })),
+            logger.warn('resource-manager', 'detect-leaks', '[ResourceManager] Leak suspects detected', {
+                metadata: {
+                    count: stats.leakSuspects.length,
+                    thresholdMs: this.limits.leakDetectionThresholdMs,
+                    suspects: stats.leakSuspects.map(r => ({
+                        id: r.id,
+                        type: r.type,
+                        owner: r.owner,
+                        name: r.name,
+                        ageMs: Date.now() - r.createdAt.getTime(),
+                    })),
+                },
             });
             // Report to error tracker
             for (const suspect of stats.leakSuspects) {
@@ -730,17 +682,19 @@ class ResourceManager {
             }
         }
         // Log statistics
-        log('info', '[ResourceManager] Resource statistics', {
-            total: stats.total,
-            byType: stats.byType,
-            byOwner: stats.byOwner,
-            leakSuspects: stats.leakSuspects.length,
-            oldestResource: stats.oldest ? {
-                type: stats.oldest.type,
-                owner: stats.oldest.owner,
-                name: stats.oldest.name,
-                ageMs: Date.now() - stats.oldest.createdAt.getTime(),
-            } : null,
+        logger.info('resource-manager', 'resource-stats', '[ResourceManager] Resource statistics', {
+            metadata: {
+                total: stats.total,
+                byType: stats.byType,
+                byOwner: stats.byOwner,
+                leakSuspects: stats.leakSuspects.length,
+                oldestResource: stats.oldest ? {
+                    type: stats.oldest.type,
+                    owner: stats.oldest.owner,
+                    name: stats.oldest.name,
+                    ageMs: Date.now() - stats.oldest.createdAt.getTime(),
+                } : null,
+            },
         });
     }
     // ============================================================================
@@ -761,8 +715,8 @@ class ResourceManager {
         for (const owner of owners) {
             await this.cleanupByOwner(owner);
         }
-        log('info', '[ResourceManager] All resources cleaned up', {
-            totalCleaned: this.resources.size,
+        logger.info('resource-manager', 'cleanup-all', '[ResourceManager] All resources cleaned up', {
+            metadata: { totalCleaned: this.resources.size },
         });
         // Final cleanup of any remaining resources
         this.resources.clear();
@@ -778,8 +732,8 @@ class ResourceManager {
     }
     updateLimits(newLimits) {
         this.limits = { ...this.limits, ...newLimits };
-        log('info', '[ResourceManager] Limits updated', {
-            newLimits: this.limits,
+        logger.info('resource-manager', 'update-limits', '[ResourceManager] Limits updated', {
+            metadata: { newLimits: this.limits },
         });
     }
 }

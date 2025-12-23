@@ -20,6 +20,29 @@
 /* eslint-disable no-console */
 import { randomUUID } from 'crypto';
 import { getErrorMessage } from './utils/error-utils.js';
+import { lokiTransport } from './logging/loki-transport.js';
+// NOTE: Event Bus uses console.log for internal logging to avoid circular dependency
+// with logger.js during early initialization. The intelligent-logger subscribes to
+// Event Bus during its constructor, which would trigger log() calls before LOG_LABEL
+// is initialized, causing "Cannot access before initialization" errors.
+// HOWEVER, errors are forwarded directly to Loki for observability.
+/**
+ * Forward a log entry directly to Loki (bypasses logger to avoid circular dep)
+ */
+function forwardToLoki(level, message, data) {
+    try {
+        lokiTransport.push({
+            level,
+            message,
+            timestamp: new Date().toISOString(),
+            service: 'EventBus',
+            data
+        });
+    }
+    catch {
+        // Graceful degradation - Loki not available
+    }
+}
 /// ---- Pattern Matching ----
 /**
  * Pattern cache for compiled regex matchers
@@ -224,13 +247,16 @@ class Subscription {
             }
             catch (error) {
                 this.stats.failedInvocations++;
-                console.error('[EventBus] Handler error:', {
+                const errorContext = {
                     subscriptionId: this.id,
                     pattern: this.pattern,
                     topic: event.topic,
                     correlationId: event.correlationId,
                     error: getErrorMessage(error),
-                });
+                };
+                console.error('[EventBus] Handler error:', errorContext);
+                // Forward to Loki for observability
+                forwardToLoki('error', 'Handler error', errorContext);
             }
             const latencyNs = Number(process.hrtime.bigint() - start);
             this.stats.totalLatency += latencyNs;
@@ -347,12 +373,15 @@ export class EventBus {
         }
         // Log backpressure events
         if (backpressureCount > 0) {
-            console.warn('[EventBus] Backpressure detected:', {
+            const backpressureContext = {
                 topic,
                 correlationId,
                 droppedSubscribers: backpressureCount,
                 totalSubscribers: matchingSubscriptions.length,
-            });
+            };
+            console.warn('[EventBus] Backpressure detected:', backpressureContext);
+            // Forward to Loki for observability
+            forwardToLoki('warn', 'Backpressure detected', backpressureContext);
         }
         return correlationId;
     }

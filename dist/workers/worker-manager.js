@@ -1,4 +1,3 @@
-/* eslint-disable no-console */
 /**
  * Worker Manager — Orchestration Layer for Database Workers
  *
@@ -22,7 +21,9 @@
  *
  * @module workers/worker-manager
  */
+import { getLogger } from '../shared/logging/index.js';
 import { getProdPostgresWorker, getTimescaleDBWorker, getEngineReadWorker, getEngineWriteWorker, } from './database/index.js';
+const logger = getLogger();
 /**
  * Worker Manager — Orchestrates all database workers.
  */
@@ -39,34 +40,34 @@ export class WorkerManager {
      */
     async initializeAll() {
         if (this.initialized) {
-            console.warn('[WorkerManager] Already initialized');
+            logger.warn('WorkerManager', 'initializeAll', 'Already initialized');
             return;
         }
-        console.log('[WorkerManager] Starting initialization...');
+        logger.info('WorkerManager', 'initializeAll', 'Starting initialization...');
         const startTime = Date.now();
         try {
             // Step 1: Initialize PROD PostgreSQL (foundation for all queries)
-            console.log('[WorkerManager] [1/4] Initializing PROD PostgreSQL Worker...');
+            logger.info('WorkerManager', 'initializeAll', '[1/4] Initializing PROD PostgreSQL Worker...');
             this.prodPostgresWorker = getProdPostgresWorker();
             await this.prodPostgresWorker.initialize();
             // Step 2: Initialize TimescaleDB (log ingestion, error tracking)
-            console.log('[WorkerManager] [2/4] Initializing TimescaleDB Worker...');
+            logger.info('WorkerManager', 'initializeAll', '[2/4] Initializing TimescaleDB Worker...');
             this.timescaleDBWorker = getTimescaleDBWorker();
             await this.timescaleDBWorker.initialize();
             // Step 3: Initialize Engine Read-DB (Pokémon data cache)
-            console.log('[WorkerManager] [3/4] Initializing Engine Read-DB Worker...');
+            logger.info('WorkerManager', 'initializeAll', '[3/4] Initializing Engine Read-DB Worker...');
             this.engineReadWorker = getEngineReadWorker();
             await this.engineReadWorker.initialize();
             // Step 4: Initialize Engine Write-DB (battle log tracking)
-            console.log('[WorkerManager] [4/4] Initializing Engine Write-DB Worker...');
+            logger.info('WorkerManager', 'initializeAll', '[4/4] Initializing Engine Write-DB Worker...');
             this.engineWriteWorker = getEngineWriteWorker();
             await this.engineWriteWorker.initialize();
             this.initialized = true;
             const duration = Date.now() - startTime;
-            console.log(`[WorkerManager] ✅ All workers initialized in ${duration}ms`);
+            logger.info('WorkerManager', 'initializeAll', `✅ All workers initialized in ${duration}ms`, { durationMs: duration });
         }
         catch (error) {
-            console.error('[WorkerManager] ❌ Initialization failed:', error);
+            logger.error('WorkerManager', 'initializeAll', '❌ Initialization failed', { error });
             throw error;
         }
     }
@@ -78,10 +79,10 @@ export class WorkerManager {
             throw new Error('Workers not initialized. Call initializeAll() first.');
         }
         if (this.started) {
-            console.warn('[WorkerManager] Already started');
+            logger.warn('WorkerManager', 'startAll', 'Already started');
             return;
         }
-        console.log('[WorkerManager] Starting all workers...');
+        logger.info('WorkerManager', 'startAll', 'Starting all workers...');
         try {
             // Start all workers (parallel execution)
             await Promise.all([
@@ -91,10 +92,10 @@ export class WorkerManager {
                 this.engineWriteWorker.start(),
             ]);
             this.started = true;
-            console.log('[WorkerManager] ✅ All workers started');
+            logger.info('WorkerManager', 'startAll', '✅ All workers started');
         }
         catch (error) {
-            console.error('[WorkerManager] ❌ Start failed:', error);
+            logger.error('WorkerManager', 'startAll', '❌ Start failed', { error });
             throw error;
         }
     }
@@ -104,33 +105,33 @@ export class WorkerManager {
      */
     async stopAll() {
         if (!this.started) {
-            console.warn('[WorkerManager] Not started, nothing to stop');
+            logger.warn('WorkerManager', 'stopAll', 'Not started, nothing to stop');
             return;
         }
-        console.log('[WorkerManager] Stopping all workers...');
+        logger.info('WorkerManager', 'stopAll', 'Stopping all workers...');
         try {
             // Stop workers in reverse order (sequential for proper cleanup)
             if (this.engineWriteWorker) {
-                console.log('[WorkerManager] [1/4] Stopping Engine Write-DB Worker...');
+                logger.info('WorkerManager', 'stopAll', '[1/4] Stopping Engine Write-DB Worker...');
                 await this.engineWriteWorker.stop();
             }
             if (this.engineReadWorker) {
-                console.log('[WorkerManager] [2/4] Stopping Engine Read-DB Worker...');
+                logger.info('WorkerManager', 'stopAll', '[2/4] Stopping Engine Read-DB Worker...');
                 await this.engineReadWorker.stop();
             }
             if (this.timescaleDBWorker) {
-                console.log('[WorkerManager] [3/4] Stopping TimescaleDB Worker...');
+                logger.info('WorkerManager', 'stopAll', '[3/4] Stopping TimescaleDB Worker...');
                 await this.timescaleDBWorker.stop();
             }
             if (this.prodPostgresWorker) {
-                console.log('[WorkerManager] [4/4] Stopping PROD PostgreSQL Worker...');
+                logger.info('WorkerManager', 'stopAll', '[4/4] Stopping PROD PostgreSQL Worker...');
                 await this.prodPostgresWorker.stop();
             }
             this.started = false;
-            console.log('[WorkerManager] ✅ All workers stopped');
+            logger.info('WorkerManager', 'stopAll', '✅ All workers stopped');
         }
         catch (error) {
-            console.error('[WorkerManager] ❌ Stop failed:', error);
+            logger.error('WorkerManager', 'stopAll', '❌ Stop failed', { error });
             throw error;
         }
     }

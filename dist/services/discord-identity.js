@@ -14,7 +14,8 @@
  */
 import { prisma } from "../shared/prisma.js";
 import { getErrorMessage } from "../shared/utils/error-utils.js";
-import { log } from "../shared/logging/index.js";
+import { getLogger } from "../shared/logging/index.js";
+const logger = getLogger();
 // ============================================================================
 // Discord Identity Service Class
 // ============================================================================
@@ -99,10 +100,10 @@ export class DiscordIdentityService {
             return identity;
         }
         catch (error) {
-            log.error('[DiscordIdentity] Failed to fetch user', {
-                discordUserId,
+            logger.error('discord-identity', 'getUserByDiscordId', 'Failed to fetch user', {
+                userId: discordUserId,
                 guildId,
-                error: getErrorMessage(error),
+                metadata: { errorMsg: getErrorMessage(error) },
             });
             return null;
         }
@@ -138,10 +139,9 @@ export class DiscordIdentityService {
             return identity;
         }
         catch (error) {
-            log.error('[DiscordIdentity] Failed to fetch user by username', {
-                username,
+            logger.error('discord-identity', 'getUserByUsername', 'Failed to fetch user by username', {
                 guildId,
-                error: getErrorMessage(error),
+                metadata: { username, errorMsg: getErrorMessage(error) },
             });
             return null;
         }
@@ -197,10 +197,9 @@ export class DiscordIdentityService {
                 }
             }
             catch (error) {
-                log.error('[DiscordIdentity] Batch user lookup failed', {
+                logger.error('discord-identity', 'batchLookup', 'Batch user lookup failed', {
                     guildId,
-                    count: toFetch.length,
-                    error: getErrorMessage(error),
+                    metadata: { count: toFetch.length, errorMsg: getErrorMessage(error) },
                 });
                 // All unfetched IDs are considered not found
                 notFound.push(...toFetch);
@@ -232,10 +231,9 @@ export class DiscordIdentityService {
             return members.map(m => this.mapMemberToIdentity(m));
         }
         catch (error) {
-            log.error('[DiscordIdentity] User search failed', {
-                query,
+            logger.error('discord-identity', 'searchUsers', 'User search failed', {
                 guildId,
-                error: getErrorMessage(error),
+                metadata: { query, errorMsg: getErrorMessage(error) },
             });
             return [];
         }
@@ -258,9 +256,9 @@ export class DiscordIdentityService {
             return members.map(m => this.mapMemberToIdentity(m));
         }
         catch (error) {
-            log.error('[DiscordIdentity] Admin lookup failed', {
+            logger.error('discord-identity', 'getAdmins', 'Admin lookup failed', {
                 guildId,
-                error: getErrorMessage(error),
+                metadata: { errorMsg: getErrorMessage(error) },
             });
             return [];
         }
@@ -279,9 +277,9 @@ export class DiscordIdentityService {
             return member ? this.mapMemberToIdentity(member) : null;
         }
         catch (error) {
-            log.error('[DiscordIdentity] Owner lookup failed', {
+            logger.error('discord-identity', 'getOwner', 'Owner lookup failed', {
                 guildId,
-                error: getErrorMessage(error),
+                metadata: { errorMsg: getErrorMessage(error) },
             });
             return null;
         }
@@ -317,9 +315,9 @@ export class DiscordIdentityService {
             return identity;
         }
         catch (error) {
-            log.error('[DiscordIdentity] Failed to fetch guild', {
+            logger.error('discord-identity', 'getGuild', 'Failed to fetch guild', {
                 guildId,
-                error: getErrorMessage(error),
+                metadata: { errorMsg: getErrorMessage(error) },
             });
             return null;
         }
@@ -335,8 +333,8 @@ export class DiscordIdentityService {
             return guilds.map(g => this.mapGuildToIdentity(g));
         }
         catch (error) {
-            log.error('[DiscordIdentity] Failed to fetch all guilds', {
-                error: getErrorMessage(error),
+            logger.error('discord-identity', 'getAllGuilds', 'Failed to fetch all guilds', {
+                metadata: { errorMsg: getErrorMessage(error) },
             });
             return [];
         }
@@ -351,9 +349,9 @@ export class DiscordIdentityService {
             });
         }
         catch (error) {
-            log.error('[DiscordIdentity] Failed to count guild members', {
+            logger.error('discord-identity', 'getMemberCount', 'Failed to count guild members', {
                 guildId,
-                error: getErrorMessage(error),
+                metadata: { errorMsg: getErrorMessage(error) },
             });
             return 0;
         }
@@ -408,7 +406,7 @@ export class DiscordIdentityService {
     clearCache() {
         this.userCache.clear();
         this.guildCache.clear();
-        log.info('[DiscordIdentity] Cache cleared');
+        logger.info('discord-identity', 'clear-cache', 'Cache cleared');
     }
     /**
      * Clear cache for a specific guild

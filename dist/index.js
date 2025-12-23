@@ -33,12 +33,13 @@ import { initializeMetrics as initializePrometheusMetrics, shutdownMetrics as sh
 // import { getCacheBudget, getCacheSnapshot } from "./services/cache.js";
 // import { getCacheMetadata } from "./services/pokemonService.js";
 import { config } from "./shared/config.js";
-import { log } from "./shared/log.js";
+import { getLogger } from "./shared/logging/index.js";
 import { setupLogBuffer } from "./shared/logBufferInit.js";
 import { destroyLogBuffer } from "./shared/logBuffer.js";
 import { startAutoRefresh as startLoggerAutoRefresh } from "./shared/logging/index.js";
 import { onPrismaHeartbeat, startPrismaHeartbeat, fireProdHeartbeatEvent, getPrismaTransport, getDatabaseStats, } from "./shared/prisma.js";
 import cliStatus from "./utils/cliStatus.js";
+const log = getLogger();
 import { validateEngineDbConfig } from "./config/engine-db-config.js";
 import { startEngineWorkers, stopEngineWorkers } from "./workers/engine-workers.js";
 import { startHeapPruner, stopHeapPruner, getHeapPrunerStatus } from "./workers/heap-pruner.js";
@@ -131,8 +132,8 @@ function withMonitor(callback) {
     }
     catch (error) {
         monitorActive = false;
-        log.warn("CLI monitor disabled after write failure", {
-            error: getErrorMessage(error),
+        log.warn("index", "withMonitor", "CLI monitor disabled after write failure", {
+            error: { name: 'MonitorError', message: getErrorMessage(error) },
         });
     }
 }
@@ -159,8 +160,8 @@ function startMonitor() {
     }
     catch (error) {
         monitorActive = false;
-        log.warn("CLI monitor unavailable; continuing without interactive dashboard", {
-            error: getErrorMessage(error),
+        log.warn("index", "startMonitor", "CLI monitor unavailable; continuing without interactive dashboard", {
+            error: { name: 'MonitorError', message: getErrorMessage(error) },
         });
     }
 }
@@ -343,7 +344,7 @@ function refreshCacheSection() {
         }
         catch (error) {
             const message = getErrorMessage(error);
-            log.error("Cache telemetry update failed", error);
+            log.error("index", "refreshCacheSection", "Cache telemetry update failed", { error: { name: 'CacheTelemetryError', message } });
             setSection("cache", {
                 title: "Runtime Cache",
                 status: "error",
@@ -352,7 +353,7 @@ function refreshCacheSection() {
         }
     })
         .catch((importError) => {
-        log.error("Failed to load cache monitoring module", importError);
+        log.error("index", "refreshCacheSection", "Failed to load cache monitoring module", { error: { name: importError?.name || 'ImportError', message: getErrorMessage(importError) } });
         setSection("cache", {
             title: "Runtime Cache",
             status: "error",
@@ -415,7 +416,7 @@ function refreshPokedexSection() {
         }
         catch (error) {
             const message = getErrorMessage(error);
-            log.error("PokéAPI telemetry update failed", error);
+            log.error("index", "refreshPokedexSection", "PokéAPI telemetry update failed", { error: { name: 'PokedexTelemetryError', message } });
             setSection("pokedex", {
                 title: "PokéAPI Cache",
                 status: "error",
@@ -424,7 +425,7 @@ function refreshPokedexSection() {
         }
     })
         .catch((importError) => {
-        log.error("Failed to load pokemonService module", importError);
+        log.error("index", "refreshPokedexSection", "Failed to load pokemonService module", { error: { name: importError?.name || 'ImportError', message: getErrorMessage(importError) } });
         setSection("pokedex", {
             title: "PokéAPI Cache",
             status: "error",
@@ -535,7 +536,7 @@ function bindDiscordLifecycle(client) {
     client.on("shardResume", updateOnline);
     // Global Discord error handler - captures all Discord.js client errors
     client.on("error", async (error) => {
-        log.error("Discord client error", error);
+        log.error("index", "discordClient", "Discord client error", { error: { name: error?.name || 'DiscordError', message: error?.message || String(error) } });
         // Check if it's a DiscordAPIError before using the specific handler
         if ('status' in error && 'code' in error && 'method' in error) {
             await botErrorHandler.handleDiscordAPIError(error, {
@@ -557,7 +558,7 @@ function bindDiscordLifecycle(client) {
     });
     // Warning handler for Discord connection issues
     client.on("warn", (info) => {
-        log.warn("Discord client warning", { info });
+        log.warn("index", "discordClient", "Discord client warning", { metadata: { info } });
     });
 }
 function updateSecuritySection(client, status) {
@@ -629,7 +630,7 @@ function updateEngineSection(workerStatus) {
     }
     catch (error) {
         const message = getErrorMessage(error);
-        log.error('Engine DB telemetry update failed', error);
+        log.error("index", "updateEngineSection", "Engine DB telemetry update failed", { error: { name: 'EngineTelemetryError', message } });
         setSection("engine", {
             title: "Engine DB",
             status: "error",
@@ -645,7 +646,7 @@ function bindSecurityLifecycle(client) {
     client.on("shardResume", updateOnline);
     // Global Discord error handler for security bot
     client.on("error", async (error) => {
-        log.error("Security bot client error", error);
+        log.error("index", "securityBot", "Security bot client error", { error: { name: error?.name || 'DiscordError', message: error?.message || String(error) } });
         // Check if it's a DiscordAPIError before using the specific handler
         if ('status' in error && 'code' in error && 'method' in error) {
             await botErrorHandler.handleDiscordAPIError(error, {
@@ -667,7 +668,7 @@ function bindSecurityLifecycle(client) {
     });
     // Warning handler for security bot connection issues
     client.on("warn", (info) => {
-        log.warn("Security bot client warning", { info });
+        log.warn("index", "securityBot", "Security bot client warning", { metadata: { info } });
     });
 }
 async function bootSecurityBot() {
@@ -697,7 +698,7 @@ async function bootSecurityBot() {
             status: "error",
             metrics: [metric("error", message)],
         });
-        log.error("Security bot startup failed", error);
+        log.error("index", "bootSecurityBot", "Security bot startup failed", { error: { name: 'SecurityBotError', message } });
         throw error;
     }
 }
@@ -710,12 +711,14 @@ function scheduleAutoRestart() {
         clearTimeout(autoRestartTimer);
     }
     const restartTime = new Date(Date.now() + AUTO_RESTART_INTERVAL_MS);
-    log.info("⏰ Scheduled automatic restart", {
-        interval_hours: 12,
-        scheduled_time: restartTime.toISOString(),
+    log.info("index", "scheduleAutoRestart", "⏰ Scheduled automatic restart", {
+        metadata: {
+            interval_hours: 12,
+            scheduled_time: restartTime.toISOString(),
+        }
     });
     autoRestartTimer = setTimeout(() => {
-        log.info("🔄 Initiating scheduled 12-hour restart");
+        log.info("index", "scheduleAutoRestart", "🔄 Initiating scheduled 12-hour restart");
         void gracefulShutdown("scheduled-restart");
     }, AUTO_RESTART_INTERVAL_MS);
     // Prevent the timer from keeping the process alive during shutdown
@@ -727,7 +730,7 @@ async function gracefulShutdown(signal) {
     }
     shuttingDown = true;
     setPhase(`Shutting down (${signal})`);
-    log.warn("Shutdown requested", { signal });
+    log.warn("index", "gracefulShutdown", "Shutdown requested", { metadata: { signal } });
     // Calculate uptime for shutdown notification
     const uptimeMs = process.uptime() * 1000;
     // Cancel auto-restart timer if it exists
@@ -740,8 +743,8 @@ async function gracefulShutdown(signal) {
     // ══════════════════════════════════════════════════════════════════════════
     // Send Discord webhook BEFORE shutdown (fire-and-forget, non-blocking)
     notifyShutdown(signal, uptimeMs).catch((error) => {
-        log.warn("Lifecycle webhook failed (non-critical)", {
-            error: getErrorMessage(error),
+        log.warn("index", "gracefulShutdown", "Lifecycle webhook failed (non-critical)", {
+            error: { name: 'WebhookError', message: getErrorMessage(error) },
         });
     });
     // ══════════════════════════════════════════════════════════════════════════
@@ -755,7 +758,7 @@ async function gracefulShutdown(signal) {
     // Parallel execution of all critical saves to minimize data loss window.
     // Target: <500ms total snapshot time via Promise.allSettled parallelism.
     // All errors are caught and logged; failures are non-blocking.
-    log.info("PHASE 0: Instant state snapshot starting (parallel execution)");
+    log.info("index", "gracefulShutdown", "PHASE 0: Instant state snapshot starting (parallel execution)");
     const snapshotStart = Date.now();
     const snapshotResults = await Promise.allSettled([
         // Security bot state (auto-saves every 30s, this is final snapshot)
@@ -763,7 +766,7 @@ async function gracefulShutdown(signal) {
             if (global.securityBotState) {
                 const { shutdownState } = await import("./bot/state/persistence.js");
                 await shutdownState(global.securityBotState, signal);
-                log.info("✅ SNAPSHOT: Security bot state saved");
+                log.info("index", "gracefulShutdown", "✅ SNAPSHOT: Security bot state saved");
             }
         })(),
         // Cooldowns (auto-saves every 30s, this is final snapshot)
@@ -771,40 +774,44 @@ async function gracefulShutdown(signal) {
             const cooldownModule = await import("./lib/cooldown.js");
             if ('shutdown' in cooldownModule && typeof cooldownModule.shutdown === 'function') {
                 await cooldownModule.shutdown();
-                log.info("✅ SNAPSHOT: Cooldowns persisted");
+                log.info("index", "gracefulShutdown", "✅ SNAPSHOT: Cooldowns persisted");
             }
         })(),
         // Engine Write Buffer (auto-flushes every 10s, this is final flush)
         (async () => {
             if (engineWriteBuffer) {
                 await engineWriteBuffer.flush();
-                log.info("✅ SNAPSHOT: Engine Write Buffer flushed");
+                log.info("index", "gracefulShutdown", "✅ SNAPSHOT: Engine Write Buffer flushed");
             }
         })(),
         // AI Logger (diagnostic data)
         (async () => {
             await aiLogger.flush();
-            log.info("✅ SNAPSHOT: AI logs flushed");
+            log.info("index", "gracefulShutdown", "✅ SNAPSHOT: AI logs flushed");
         })(),
     ]);
     const snapshotDuration = Date.now() - snapshotStart;
     const snapshotFailures = snapshotResults.filter(r => r.status === 'rejected').length;
     const snapshotSuccesses = snapshotResults.filter(r => r.status === 'fulfilled').length;
-    log.info(`PHASE 0 COMPLETE: Instant state snapshot finished`, {
-        duration: `${snapshotDuration}ms`,
-        successes: snapshotSuccesses,
-        failures: snapshotFailures,
-        target: '500ms',
-        result: snapshotFailures === 0 ? '✅ PERFECT SNAPSHOT (zero data loss)' : '⚠️ PARTIAL SNAPSHOT (some data loss)'
+    log.info("index", "gracefulShutdown", "PHASE 0 COMPLETE: Instant state snapshot finished", {
+        durationMs: snapshotDuration,
+        metadata: {
+            successes: snapshotSuccesses,
+            failures: snapshotFailures,
+            target: '500ms',
+            result: snapshotFailures === 0 ? '✅ PERFECT SNAPSHOT (zero data loss)' : '⚠️ PARTIAL SNAPSHOT (some data loss)'
+        }
     });
     if (snapshotFailures > 0) {
-        log.warn("Some snapshots failed (continuing shutdown)", {
-            failures: snapshotResults
-                .filter(r => r.status === 'rejected')
-                .map((r, i) => ({
-                index: i,
-                reason: r.reason
-            }))
+        log.warn("index", "gracefulShutdown", "Some snapshots failed (continuing shutdown)", {
+            metadata: {
+                failures: snapshotResults
+                    .filter(r => r.status === 'rejected')
+                    .map((r, i) => ({
+                    index: i,
+                    reason: r.reason
+                }))
+            }
         });
     }
     // ═══════════════════════════════════════════════════════════════════════════
@@ -815,181 +822,181 @@ async function gracefulShutdown(signal) {
     // attempt at each critical save completes successfully.
     // These operations must complete BEFORE service shutdown to prevent data loss.
     // Each is wrapped in try-catch to ensure one failure doesn't block others.
-    log.info("PHASE 1: Critical data persistence starting (redundant safety layer)");
+    log.info("index", "gracefulShutdown", "PHASE 1: Critical data persistence starting (redundant safety layer)");
     // 1A. Flush Engine Write Buffer (battle data - highest priority)
     try {
-        log.info("PRIORITY: Flushing Engine Write Buffer");
+        log.info("index", "gracefulShutdown", "PRIORITY: Flushing Engine Write Buffer");
         if (engineWriteBuffer) {
             await engineWriteBuffer.flush();
-            log.info("Engine Write Buffer flushed successfully");
+            log.info("index", "gracefulShutdown", "Engine Write Buffer flushed successfully");
         }
     }
     catch (error) {
-        log.error("CRITICAL: Engine Write Buffer flush failed", error);
+        log.error("index", "gracefulShutdown", "CRITICAL: Engine Write Buffer flush failed", { error: { name: 'BufferFlushError', message: getErrorMessage(error) } });
     }
     // 1B. Save security bot state (operational metrics)
     try {
-        log.info("PRIORITY: Saving security bot state");
+        log.info("index", "gracefulShutdown", "PRIORITY: Saving security bot state");
         const securityBotState = global.securityBotState;
         if (securityBotState) {
             const { shutdownState } = await import("./bot/state/persistence.js");
             await shutdownState(securityBotState, signal);
-            log.info("Security bot state saved successfully");
+            log.info("index", "gracefulShutdown", "Security bot state saved successfully");
         }
     }
     catch (error) {
-        log.error("CRITICAL: Security bot state save failed", error);
+        log.error("index", "gracefulShutdown", "CRITICAL: Security bot state save failed", { error: { name: 'StateSaveError', message: getErrorMessage(error) } });
     }
     // 1C. Flush AI logs (diagnostic data)
     try {
-        log.info("PRIORITY: Flushing AI logs");
+        log.info("index", "gracefulShutdown", "PRIORITY: Flushing AI logs");
         await aiLogger.flush();
-        log.info("AI logs flushed successfully");
+        log.info("index", "gracefulShutdown", "AI logs flushed successfully");
     }
     catch (error) {
-        log.error("CRITICAL: AI log flush failed", error);
+        log.error("index", "gracefulShutdown", "CRITICAL: AI log flush failed", { error: { name: 'AILogFlushError', message: getErrorMessage(error) } });
     }
     // 1D. Persist cooldowns (user experience)
     try {
-        log.info("PRIORITY: Persisting cooldowns");
+        log.info("index", "gracefulShutdown", "PRIORITY: Persisting cooldowns");
         const cooldownModule = await import("./lib/cooldown.js");
         if ('shutdown' in cooldownModule && typeof cooldownModule.shutdown === 'function') {
             await cooldownModule.shutdown();
-            log.info("Cooldowns persisted successfully");
+            log.info("index", "gracefulShutdown", "Cooldowns persisted successfully");
         }
     }
     catch (error) {
-        log.error("CRITICAL: Cooldown persist failed", error);
+        log.error("index", "gracefulShutdown", "CRITICAL: Cooldown persist failed", { error: { name: 'CooldownPersistError', message: getErrorMessage(error) } });
     }
     // 1E. Save Pokémon service cache (optional, non-critical)
     try {
-        log.info("OPTIONAL: Saving Pokémon service cache");
+        log.info("index", "gracefulShutdown", "OPTIONAL: Saving Pokémon service cache");
         const pokemonService = await import("./services/pokemonService.js");
         if ('saveCache' in pokemonService && typeof pokemonService.saveCache === 'function') {
             await pokemonService.saveCache();
-            log.info("Pokémon service cache saved successfully");
+            log.info("index", "gracefulShutdown", "Pokémon service cache saved successfully");
         }
     }
     catch (error) {
         const message = getErrorMessage(error);
-        log.warn("Pokémon cache save failed (non-critical)", { error: message });
+        log.warn("index", "gracefulShutdown", "Pokémon cache save failed (non-critical)", { error: { name: 'CacheSaveError', message } });
     }
-    log.info("PHASE 1: Critical data persistence complete");
+    log.info("index", "gracefulShutdown", "PHASE 1: Critical data persistence complete");
     // ═══════════════════════════════════════════════════════════════════════════
     // PHASE 2: GRACEFUL SERVICE SHUTDOWN (Existing Flow)
     // ═══════════════════════════════════════════════════════════════════════════
-    log.info("PHASE 2: Service shutdown starting");
+    log.info("index", "gracefulShutdown", "PHASE 2: Service shutdown starting");
     // Step 1: Mark engine as not ready (stop accepting new battles)
     global.engineReady = false;
     // Step 2: Stop Engine DB workers
     if (engineWorkersRunning) {
         try {
-            log.info("Stopping Engine DB workers");
+            log.info("index", "gracefulShutdown", "Stopping Engine DB workers");
             stopEngineWorkers();
             engineWorkersRunning = false;
         }
         catch (error) {
-            log.error("Error stopping Engine DB workers", error);
+            log.error("index", "gracefulShutdown", "Error stopping Engine DB workers", { error: { name: 'WorkerStopError', message: getErrorMessage(error) } });
         }
     }
     // Stop error learning worker
     try {
-        log.info("Stopping error learning worker");
+        log.info("index", "gracefulShutdown", "Stopping error learning worker");
         errorLearningWorker.stop();
     }
     catch (error) {
-        log.error("Error stopping error learning worker", error);
+        log.error("index", "gracefulShutdown", "Error stopping error learning worker", { error: { name: 'WorkerStopError', message: getErrorMessage(error) } });
     }
     // Stop heap snapshot pruner
     try {
-        log.info("Stopping heap snapshot pruner");
+        log.info("index", "gracefulShutdown", "Stopping heap snapshot pruner");
         stopHeapPruner();
     }
     catch (error) {
-        log.error("Error stopping heap snapshot pruner", error);
+        log.error("index", "gracefulShutdown", "Error stopping heap snapshot pruner", { error: { name: 'PrunerStopError', message: getErrorMessage(error) } });
     }
     // Stop alert dispatcher
     try {
-        log.info("Stopping alert dispatcher");
+        log.info("index", "gracefulShutdown", "Stopping alert dispatcher");
         alertDispatcher.stop();
     }
     catch (error) {
-        log.error("Error stopping alert dispatcher", error);
+        log.error("index", "gracefulShutdown", "Error stopping alert dispatcher", { error: { name: 'DispatcherStopError', message: getErrorMessage(error) } });
     }
     // Shutdown Prometheus metrics (unsubscribe from EventBus, clear registry)
     try {
-        log.info("Shutting down Prometheus metrics");
+        log.info("index", "gracefulShutdown", "Shutting down Prometheus metrics");
         shutdownPrometheusMetrics();
     }
     catch (error) {
-        log.error("Error shutting down Prometheus metrics", error);
+        log.error("index", "gracefulShutdown", "Error shutting down Prometheus metrics", { error: { name: 'MetricsShutdownError', message: getErrorMessage(error) } });
     }
     // Stop unified resource monitoring (includes memory guardian)
     try {
-        log.info("Stopping resource monitor (includes memory guardian)");
+        log.info("index", "gracefulShutdown", "Stopping resource monitor (includes memory guardian)");
         if (resourceMonitor) {
             resourceMonitor.resourceMonitor.stop();
         }
     }
     catch (error) {
-        log.error("Error stopping resource monitor", error);
+        log.error("index", "gracefulShutdown", "Error stopping resource monitor", { error: { name: 'MonitorStopError', message: getErrorMessage(error) } });
     }
     // Shutdown Services via Service Registry (graceful, reverse dependency order)
     // This handles: ResourceManager, ErrorTracker, EngineCache (EngineWriteBuffer already flushed)
     try {
-        log.info("Shutting down services via Service Registry");
+        log.info("index", "gracefulShutdown", "Shutting down services via Service Registry");
         await registry.shutdownAll();
-        log.info("All services shut down successfully");
+        log.info("index", "gracefulShutdown", "All services shut down successfully");
     }
     catch (error) {
-        log.error("Error during Service Registry shutdown", error);
+        log.error("index", "gracefulShutdown", "Error during Service Registry shutdown", { error: { name: 'RegistryShutdownError', message: getErrorMessage(error) } });
     }
     // Shutdown Event Bus to drain subscriptions and clear replay buffer
     try {
-        log.info("Shutting down Event Bus");
+        log.info("index", "gracefulShutdown", "Shutting down Event Bus");
         const eventBus = EventBus.getInstance();
         await eventBus.shutdown();
     }
     catch (error) {
-        log.error("Error during Event Bus shutdown", error);
+        log.error("index", "gracefulShutdown", "Error during Event Bus shutdown", { error: { name: 'EventBusShutdownError', message: getErrorMessage(error) } });
     }
     // Shutdown Observability Suite (flush Loki queues, stop workers)
     try {
-        log.info("Shutting down Observability Suite");
+        log.info("index", "gracefulShutdown", "Shutting down Observability Suite");
         await stopObservabilitySuite();
-        log.info("Observability Suite shut down successfully");
+        log.info("index", "gracefulShutdown", "Observability Suite shut down successfully");
     }
     catch (error) {
-        log.error("Error during Observability Suite shutdown", error);
+        log.error("index", "gracefulShutdown", "Error during Observability Suite shutdown", { error: { name: 'ObservabilityShutdownError', message: getErrorMessage(error) } });
     }
     // Shutdown AI Logging System (flush logs, save analysis state)
     try {
-        log.info("Shutting down AI Logging System");
+        log.info("index", "gracefulShutdown", "Shutting down AI Logging System");
         await aiLogger.shutdown();
         await aiLogAnalyzer.shutdown();
     }
     catch (error) {
-        log.error("Error during AI Logging System shutdown", error);
+        log.error("index", "gracefulShutdown", "Error during AI Logging System shutdown", { error: { name: 'AILoggingShutdownError', message: getErrorMessage(error) } });
     }
     // Save Write-DB to disk (final persistence)
     try {
-        log.info("Saving Engine Write-DB");
+        log.info("index", "gracefulShutdown", "Saving Engine Write-DB");
         if (engineWriteDbService) {
             await engineWriteDbService.close();
         }
     }
     catch (error) {
-        log.error("Error closing Engine Write-DB", error);
+        log.error("index", "gracefulShutdown", "Error closing Engine Write-DB", { error: { name: 'WriteDBCloseError', message: getErrorMessage(error) } });
     }
     // Close Read-DB
     try {
-        log.info("Closing Engine Read-DB");
+        log.info("index", "gracefulShutdown", "Closing Engine Read-DB");
         if (engineReadDbService) {
             await engineReadDbService.close();
         }
     }
     catch (error) {
-        log.error("Error closing Engine Read-DB", error);
+        log.error("index", "gracefulShutdown", "Error closing Engine Read-DB", { error: { name: 'ReadDBCloseError', message: getErrorMessage(error) } });
     }
     // Disconnect Prisma and other services
     try {
@@ -1002,14 +1009,14 @@ async function gracefulShutdown(signal) {
         await prisma.$disconnect();
     }
     catch (error) {
-        log.error("Error during Prisma disconnect", error);
+        log.error("index", "gracefulShutdown", "Error during Prisma disconnect", { error: { name: 'PrismaDisconnectError', message: getErrorMessage(error) } });
     }
     if (activeClient) {
         try {
             await activeClient.destroy();
         }
         catch (error) {
-            log.error("Error during Discord client destroy", error);
+            log.error("index", "gracefulShutdown", "Error during Discord client destroy", { error: { name: 'ClientDestroyError', message: getErrorMessage(error) } });
         }
         activeClient = null;
     }
@@ -1018,18 +1025,18 @@ async function gracefulShutdown(signal) {
             await securityClient.destroy();
         }
         catch (error) {
-            log.error("Error during security client destroy", error);
+            log.error("index", "gracefulShutdown", "Error during security client destroy", { error: { name: 'ClientDestroyError', message: getErrorMessage(error) } });
         }
         securityClient = null;
     }
     stopMonitor();
     // Stop health check server (external monitors will see 503 or connection refused)
     try {
-        log.info("Stopping health check server");
+        log.info("index", "gracefulShutdown", "Stopping health check server");
         await stopHealthServer();
     }
     catch (error) {
-        log.error("Error stopping health server", error);
+        log.error("index", "gracefulShutdown", "Error stopping health server", { error: { name: 'HealthServerStopError', message: getErrorMessage(error) } });
     }
     // Flush and destroy log buffer before exit
     destroyLogBuffer();
@@ -1051,7 +1058,7 @@ function installSignalHandlers() {
     }
     process.on("unhandledRejection", async (reason) => {
         const error = ensureError(reason);
-        log.error("Unhandled promise rejection", error);
+        log.error("index", "unhandledRejection", "Unhandled promise rejection", { error: { name: error.name, message: error.message } });
         // Capture error for tracking and learning
         try {
             const { errorTracker } = await import("./services/monitoring/error-tracker.js");
@@ -1067,18 +1074,18 @@ function installSignalHandlers() {
         }
         catch (captureError) {
             // Fallback if ErrorTracker fails - already logged above
-            log.error("Failed to capture unhandledRejection", ensureError(captureError));
+            log.error("index", "unhandledRejection", "Failed to capture unhandledRejection", { error: { name: ensureError(captureError).name, message: ensureError(captureError).message } });
         }
     });
     process.on("uncaughtException", async (error) => {
-        log.error("Uncaught exception", error);
+        log.error("index", "uncaughtException", "Uncaught exception", { error: { name: error.name, message: error.message } });
         // ══════════════════════════════════════════════════════════════════════════
         // LIFECYCLE WEBHOOK: Crash Notification
         // ══════════════════════════════════════════════════════════════════════════
         // Send Discord webhook IMMEDIATELY on crash (fire-and-forget, non-blocking)
         notifyCrash(error).catch((webhookError) => {
-            log.warn("Lifecycle webhook failed (non-critical)", {
-                error: getErrorMessage(webhookError),
+            log.warn("index", "uncaughtException", "Lifecycle webhook failed (non-critical)", {
+                error: { name: 'WebhookError', message: getErrorMessage(webhookError) },
             });
         });
         // ══════════════════════════════════════════════════════════════════════════
@@ -1102,7 +1109,7 @@ function installSignalHandlers() {
         }
         catch (captureError) {
             // Fallback if ErrorTracker fails - already logged above
-            log.error("Failed to capture uncaughtException", ensureError(captureError));
+            log.error("index", "uncaughtException", "Failed to capture uncaughtException", { error: { name: ensureError(captureError).name, message: ensureError(captureError).message } });
         }
         // Proceed with graceful shutdown
         void gracefulShutdown("uncaughtException");
@@ -1113,15 +1120,15 @@ export async function boot() {
     const BOOT_START = process.hrtime.bigint();
     installSignalHandlers();
     startMonitor();
-    log.info("Infinity Gauntlet: toolchain online", { env: config.nodeEnv });
+    log.info("index", "boot", "Infinity Gauntlet: toolchain online", { metadata: { env: config.nodeEnv } });
     // ============================================================================
     // Restart Metrics Initialization (Track restart history)
     // ============================================================================
     // Initialize restart metrics FIRST to track this boot event.
     // Persists to /Store/restart-metrics.json for long-term observability.
     initializeMetrics();
-    log.info("Restart metrics initialized", {
-        note: "Tracking restart history, crash counts, uptime metrics",
+    log.info("index", "boot", "Restart metrics initialized", {
+        metadata: { note: "Tracking restart history, crash counts, uptime metrics" },
     });
     // ============================================================================
     // Health Check Server (Start EARLY for external monitoring)
@@ -1131,8 +1138,8 @@ export async function boot() {
     // immediately to detect if application is down.
     // Returns 503 during initialization, 200 when engineReady = true.
     startHealthServer();
-    log.info("Health check server started (early boot)", {
-        note: "External monitors can now detect downtime via /health endpoint",
+    log.info("index", "boot", "Health check server started (early boot)", {
+        metadata: { note: "External monitors can now detect downtime via /health endpoint" },
     });
     // ============================================================================
     // Prometheus Metrics Initialization (P5: Resource Monitoring Export)
@@ -1142,13 +1149,13 @@ export async function boot() {
     // MUST be initialized BEFORE resource-monitor starts emitting events
     try {
         initializePrometheusMetrics({ prefix: 'ig_' });
-        log.info("Prometheus metrics initialized", {
-            note: "EventBus subscriptions active for metrics.snapshot, disk alerts, heap pruning",
+        log.info("index", "boot", "Prometheus metrics initialized", {
+            metadata: { note: "EventBus subscriptions active for metrics.snapshot, disk alerts, heap pruning" },
         });
     }
     catch (err) {
-        log.warn("Prometheus metrics initialization failed (non-fatal)", {
-            error: getErrorMessage(err)
+        log.warn("index", "boot", "Prometheus metrics initialization failed (non-fatal)", {
+            error: { name: 'PrometheusInitError', message: getErrorMessage(err) },
         });
     }
     // ============================================================================
@@ -1159,14 +1166,14 @@ export async function boot() {
     // Security Bot uses direct ingestion via observabilityHub.ingest()
     try {
         await startObservabilitySuite();
-        log.info("Observability Suite initialized", {
-            note: "Loki backend connected, Event Bus subscribed, Security Bot direct ingestion ready",
+        log.info("index", "boot", "Observability Suite initialized", {
+            metadata: { note: "Loki backend connected, Event Bus subscribed, Security Bot direct ingestion ready" },
         });
     }
     catch (err) {
-        log.warn("Observability Suite initialization failed (non-fatal)", {
-            error: getErrorMessage(err),
-            note: "Bot will continue without Loki log aggregation",
+        log.warn("index", "boot", "Observability Suite initialization failed (non-fatal)", {
+            error: { name: 'ObservabilityInitError', message: getErrorMessage(err) },
+            metadata: { note: "Bot will continue without Loki log aggregation" },
         });
     }
     // ============================================================================
@@ -1175,9 +1182,9 @@ export async function boot() {
     setPhase("Initializing Services");
     const REGISTRY_START = process.hrtime.bigint();
     try {
-        log.info("Registering services with Service Registry");
+        log.info("index", "boot", "Registering services with Service Registry");
         registry.registerAll(getAllServiceConfigs());
-        log.info("Initializing services via Service Registry");
+        log.info("index", "boot", "Initializing services via Service Registry");
         await registry.initializeAll();
         // Get service instances from registry (Phase 1-4: 9 services)
         resourceManager = registry.get('resource-manager');
@@ -1190,36 +1197,42 @@ export async function boot() {
         engineWriteDbService = registry.get('engine-write-db');
         _cacheFacadeService = registry.get('cache-facade');
         const registryDurationMs = recordTiming("service_registry", REGISTRY_START);
-        log.info("Service Registry initialized", {
-            services: 9,
-            duration: `${registryDurationMs.toFixed(2)}ms`,
+        log.info("index", "boot", "Service Registry initialized", {
+            metadata: {
+                services: 9,
+                duration: `${registryDurationMs.toFixed(2)}ms`,
+            },
         });
         // Display service health
         const allHealth = registry.getAllHealth();
         const healthyCount = Object.values(allHealth).filter(h => h.status === 'healthy').length;
         const initializingCount = Object.values(allHealth).filter(h => h.status === 'initializing').length;
         const degradedCount = Object.values(allHealth).filter(h => h.status === 'degraded').length;
-        log.info("Service health check", {
-            healthy: healthyCount,
-            initializing: initializingCount,
-            degraded: degradedCount,
-            total: Object.keys(allHealth).length,
-            services: Object.entries(allHealth).map(([name, health]) => ({
-                name,
-                status: health.status,
-            })),
+        log.info("index", "boot", "Service health check", {
+            metadata: {
+                healthy: healthyCount,
+                initializing: initializingCount,
+                degraded: degradedCount,
+                total: Object.keys(allHealth).length,
+                services: Object.entries(allHealth).map(([name, health]) => ({
+                    name,
+                    status: health.status,
+                })),
+            },
         });
         // Start logger auto-refresh AFTER services initialize to avoid race condition
         // where logger tries to import error-tracker before it's ready.
         // Previously caused "degraded" warnings for error-tracker/engine-cache/engine-write-buffer.
         startLoggerAutoRefresh();
-        log.info("Logger auto-refresh started", {
-            interval: "15s",
-            note: "Started after Service Registry to prevent startup race condition",
+        log.info("index", "boot", "Logger auto-refresh started", {
+            metadata: {
+                interval: "15s",
+                note: "Started after Service Registry to prevent startup race condition",
+            },
         });
     }
     catch (error) {
-        log.error("Service Registry initialization failed", error);
+        log.error("index", "boot", "Service Registry initialization failed", { error: { name: 'RegistryInitError', message: getErrorMessage(error) } });
         throw error;
     }
     recordMemory("pre_database");
@@ -1243,7 +1256,7 @@ export async function boot() {
         renderPrismaHeartbeat(startupEvent);
         // Fire the event to update lastProdHeartbeatEvent so stats show immediately
         fireProdHeartbeatEvent(startupEvent);
-        log.info("Database connectivity OK");
+        log.info("index", "boot", "Database connectivity OK");
         detachPrismaHeartbeatListener = onPrismaHeartbeat(renderPrismaHeartbeat);
         stopPrismaHeartbeatTask = startPrismaHeartbeat();
         if (ENABLE_DB_AUTO_SYNC && !stopAutoSyncSupervisor) {
@@ -1253,7 +1266,7 @@ export async function boot() {
                 stopAutoSyncSupervisor = startAutoSyncSupervisor();
             })
                 .catch((error) => {
-                log.error("Failed to load auto-sync supervisor", error);
+                log.error("index", "boot", "Failed to load auto-sync supervisor", { error: { name: 'AutoSyncLoadError', message: getErrorMessage(error) } });
             });
         }
     }
@@ -1265,9 +1278,9 @@ export async function boot() {
             metrics: [metric("error", message)],
         });
         setPhase("Database recovery");
-        log.warn("Database connectivity failed; attempting recovery", {
-            error: getErrorMessage(error),
-            stack: ensureError(error).stack,
+        log.warn("index", "boot", "Database connectivity failed; attempting recovery", {
+            error: { name: 'DatabaseConnectivityError', message: getErrorMessage(error) },
+            metadata: { stack: ensureError(error).stack },
         });
         // Attempt automatic database recovery
         try {
@@ -1290,7 +1303,7 @@ export async function boot() {
             renderPrismaHeartbeat(recoveryEvent);
             // Fire the event to update lastProdHeartbeatEvent so stats show immediately
             fireProdHeartbeatEvent(recoveryEvent);
-            log.info("Database connectivity restored after recovery");
+            log.info("index", "boot", "Database connectivity restored after recovery");
             detachPrismaHeartbeatListener = onPrismaHeartbeat(renderPrismaHeartbeat);
             stopPrismaHeartbeatTask = startPrismaHeartbeat();
             if (ENABLE_DB_AUTO_SYNC && !stopAutoSyncSupervisor) {
@@ -1300,7 +1313,7 @@ export async function boot() {
                     stopAutoSyncSupervisor = startAutoSyncSupervisor();
                 })
                     .catch((error) => {
-                    log.error("Failed to load auto-sync supervisor", error);
+                    log.error("index", "boot", "Failed to load auto-sync supervisor", { error: { name: 'AutoSyncLoadError', message: getErrorMessage(error) } });
                 });
             }
         }
@@ -1311,14 +1324,17 @@ export async function boot() {
                 metrics: [metric("error", message), metric("recovery failed", getErrorMessage(recoveryError))],
             });
             setPhase("Startup failed");
-            log.error("Database connectivity failed after recovery attempt", error, {
-                recoveryError,
-                remediation: [
-                    "Ensure PROD_DATABASE_URL is set correctly (points to Render-managed PostgreSQL).",
-                    "For workers, confirm service type is 'Background Worker' and it references the same DB.",
-                    "Check that PostgreSQL is installed and running on the target server.",
-                    "Review logs at Store/db/bootstrap.log for bootstrap script errors.",
-                ],
+            log.error("index", "boot", "Database connectivity failed after recovery attempt", {
+                error: { name: 'DatabaseRecoveryError', message: getErrorMessage(error) },
+                metadata: {
+                    recoveryError: getErrorMessage(recoveryError),
+                    remediation: [
+                        "Ensure PROD_DATABASE_URL is set correctly (points to Render-managed PostgreSQL).",
+                        "For workers, confirm service type is 'Background Worker' and it references the same DB.",
+                        "Check that PostgreSQL is installed and running on the target server.",
+                        "Review logs at Store/db/bootstrap.log for bootstrap script errors.",
+                    ],
+                },
             });
             throw error;
         }
@@ -1346,10 +1362,10 @@ export async function boot() {
         // Engine DB initialization (independent from bots)
         (async () => {
             try {
-                log.info("Initializing Engine DB runtime");
+                log.info("index", "boot", "Initializing Engine DB runtime");
                 // Step 1: Validate config (ensure storage directories exist)
                 validateEngineDbConfig();
-                log.info("Engine DB config validated");
+                log.info("index", "boot", "Engine DB config validated");
                 // Steps 2-5: Parallelize Read-DB and Write-DB initialization (independent SQLite databases)
                 // Read-DB path: init → L1 cache load (NON-BLOCKING - lazy prefetch in background)
                 // Write-DB path: init → WAL replay
@@ -1361,7 +1377,7 @@ export async function boot() {
                 // Battle engine will gracefully fallback to Prisma if cache miss occurs
                 // Target: 2-3s boot time (down from 10-15s)
                 global.engineReady = true;
-                log.info("Engine marked ready (lazy cache prefetch starting in background)");
+                log.info("index", "boot", "Engine marked ready (lazy cache prefetch starting in background)");
                 await Promise.all([
                     // Read-DB initialization + L1 Cache load (NOW NON-BLOCKING)
                     (async () => {
@@ -1371,21 +1387,25 @@ export async function boot() {
                         }
                         await engineReadDbService.initialize();
                         const readStats = engineReadDbService.getStats();
-                        log.info("Engine Read-DB initialized", {
-                            pokemon: readStats.pokemonCount,
-                            moves: readStats.moveCount,
-                            typeEffectiveness: readStats.typeEffectivenessCount,
-                            sizeBytes: readStats.sizeBytes
+                        log.info("index", "boot", "Engine Read-DB initialized", {
+                            metadata: {
+                                pokemon: readStats.pokemonCount,
+                                moves: readStats.moveCount,
+                                typeEffectiveness: readStats.typeEffectivenessCount,
+                                sizeBytes: readStats.sizeBytes,
+                            },
                         });
                         // Step 3: L1 Cache already initialized by Service Registry - just get stats
                         // Cache loads from Read-DB in background (non-blocking)
                         if (engineCache) {
                             const cacheStats = engineCache.getStats();
-                            log.info("Engine L1 Cache prefetch complete", {
-                                pokemon: cacheStats.pokemonCount,
-                                moves: cacheStats.moveCount,
-                                typeEffectiveness: cacheStats.typeEffectivenessCount,
-                                memorySizeMb: cacheStats.memorySizeMb.toFixed(2)
+                            log.info("index", "boot", "Engine L1 Cache prefetch complete", {
+                                metadata: {
+                                    pokemon: cacheStats.pokemonCount,
+                                    moves: cacheStats.moveCount,
+                                    typeEffectiveness: cacheStats.typeEffectivenessCount,
+                                    memorySizeMb: cacheStats.memorySizeMb.toFixed(2),
+                                },
                             });
                         }
                         return readStats;
@@ -1397,15 +1417,17 @@ export async function boot() {
                             throw new Error('Engine Write-DB service not initialized from registry');
                         }
                         await engineWriteDbService.initialize();
-                        log.info("Engine Write-DB initialized");
+                        log.info("index", "boot", "Engine Write-DB initialized");
                         // Step 5: Replay WAL (recover from crashes)
                         await engineWriteDbService.replayWAL();
                         const writeStats = engineWriteDbService.getStats();
-                        log.info("Engine Write-DB WAL replayed", {
-                            battleLogs: writeStats.battleLogCount,
-                            moveUsage: writeStats.moveUsageCount,
-                            anomalies: writeStats.anomalyCount,
-                            walEntries: writeStats.walEntryCount
+                        log.info("index", "boot", "Engine Write-DB WAL replayed", {
+                            metadata: {
+                                battleLogs: writeStats.battleLogCount,
+                                moveUsage: writeStats.moveUsageCount,
+                                anomalies: writeStats.anomalyCount,
+                                walEntries: writeStats.walEntryCount,
+                            },
                         });
                         return writeStats;
                     })(),
@@ -1413,32 +1435,34 @@ export async function boot() {
                 // Step 6: Start background workers
                 await startEngineWorkers();
                 engineWorkersRunning = true;
-                log.info("Engine DB workers started");
+                log.info("index", "boot", "Engine DB workers started");
                 // Start error learning worker (hourly analysis)
                 await errorLearningWorker.start();
-                log.info("Error learning worker started");
+                log.info("index", "boot", "Error learning worker started");
                 // Start heap snapshot pruner (Phase 1, Project 1)
                 // @see docs/projects/metrics-expansion-bible.md § Project 1
                 startHeapPruner();
-                log.info("Heap snapshot pruner started", {
-                    config: getHeapPrunerStatus().config,
+                log.info("index", "boot", "Heap snapshot pruner started", {
+                    metadata: { config: getHeapPrunerStatus().config },
                 });
                 // Initialize AI Logging System (hard logs to /Store/ai-logs/)
                 await aiLogger.initialize();
                 await aiLogAnalyzer.initialize();
-                log.info("AI Logging System initialized");
+                log.info("index", "boot", "AI Logging System initialized");
                 // Resource Manager already initialized by Service Registry
                 // Start unified resource monitoring (health checks + memory guardian)
                 if (resourceMonitor) {
                     resourceMonitor.resourceMonitor.start();
-                    log.info("Resource monitor started with integrated memory guardian", {
-                        healthCheckIntervalHours: 12,
-                        memoryGuardianIntervalSec: 30,
-                        limits: {
-                            warning: '1536MB', // 75% of 2 GB
-                            critical: '1741MB', // 85% of 2 GB
-                            emergency: '1843MB', // 90% of 2 GB
-                            renderLimit: '2048MB', // 2 GB Standard plan
+                    log.info("index", "boot", "Resource monitor started with integrated memory guardian", {
+                        metadata: {
+                            healthCheckIntervalHours: 12,
+                            memoryGuardianIntervalSec: 30,
+                            limits: {
+                                warning: '1536MB', // 75% of 2 GB
+                                critical: '1741MB', // 85% of 2 GB
+                                emergency: '1843MB', // 90% of 2 GB
+                                renderLimit: '2048MB', // 2 GB Standard plan
+                            },
                         },
                     });
                 }
@@ -1446,7 +1470,7 @@ export async function boot() {
                 // This allows health checks to pass during 2-3s boot window
                 // Update monitor
                 updateEngineSection();
-                log.info("Engine DB runtime online (cache prefetch may still be running in background)");
+                log.info("index", "boot", "Engine DB runtime online (cache prefetch may still be running in background)");
                 return { success: true };
             }
             catch (error) {
@@ -1456,9 +1480,9 @@ export async function boot() {
                     status: "error",
                     metrics: [metric("error", message)],
                 });
-                log.error("Engine DB initialization failed", error);
+                log.error("index", "boot", "Engine DB initialization failed", { error: { name: 'EngineInitError', message: getErrorMessage(error) } });
                 // Engine DB is optional - continue without it
-                log.warn("Continuing without Engine DB (battles will use Prisma queries)");
+                log.warn("index", "boot", "Continuing without Engine DB (battles will use Prisma queries)");
                 return { success: false, error };
             }
         })(),
@@ -1489,13 +1513,13 @@ export async function boot() {
         // @see docs/projects/metrics-expansion-bible.md § Project 2
         // Must be after Discord client is ready to route alerts to channels/DMs
         alertDispatcher.initialize(client);
-        log.info("Alert dispatcher initialized", {
-            status: alertDispatcher.getStatus(),
+        log.info("index", "boot", "Alert dispatcher initialized", {
+            metadata: { status: alertDispatcher.getStatus() },
         });
         // Integrate AI logger with existing systems (after client is ready)
         await aiLogIntegrations.integrateAll({
             errorTracker,
-            logger: log,
+            logger: null, // Logger integration disabled - incompatible interfaces between getLogger() and ai-log-integrations
             resourceMonitor: { performHealthCheck: async () => ({ status: 'healthy', metrics: {}, warnings: [], errors: [] }) },
             resourceManager,
             databaseMonitor: { getDatabaseStats: () => getDatabaseStats() },
@@ -1506,7 +1530,7 @@ export async function boot() {
                 type: process.env.RENDER_SERVICE_TYPE || 'worker',
             },
         });
-        log.info("AI Logging integrations complete");
+        log.info("index", "boot", "AI Logging integrations complete");
         // Log startup completion to AI system
         aiLogger.info(aiLogger.CONFIG.categories.SYSTEM, 'Infinity Gauntlet startup complete', {
             data: {
@@ -1524,34 +1548,36 @@ export async function boot() {
         const totalBootMs = recordTiming("boot_function", BOOT_START);
         recordMemory("steady_state");
         // Log comprehensive startup metrics
-        log.info("🚀 Startup complete - Performance baseline established", {
-            totalStartupMs,
-            totalBootMs,
-            phases: {
-                module_imports: STARTUP_TIMINGS.module_imports,
-                service_registry: STARTUP_TIMINGS.service_registry,
-                database_connect: STARTUP_TIMINGS.database_connect,
-                engine_and_bots_init: STARTUP_TIMINGS.engine_and_bots_init,
+        log.info("index", "boot", "🚀 Startup complete - Performance baseline established", {
+            metadata: {
+                totalStartupMs,
+                totalBootMs,
+                phases: {
+                    module_imports: STARTUP_TIMINGS.module_imports,
+                    service_registry: STARTUP_TIMINGS.service_registry,
+                    database_connect: STARTUP_TIMINGS.database_connect,
+                    engine_and_bots_init: STARTUP_TIMINGS.engine_and_bots_init,
+                },
+                memory: {
+                    initial_rss_mb: bytesToMB(STARTUP_MEMORY.initial.rss),
+                    post_database_rss_mb: bytesToMB(STARTUP_MEMORY.post_database.rss),
+                    post_engine_rss_mb: bytesToMB(STARTUP_MEMORY.post_engine_and_bots.rss),
+                    steady_state_rss_mb: bytesToMB(STARTUP_MEMORY.steady_state.rss),
+                    heap_used_mb: bytesToMB(STARTUP_MEMORY.steady_state.heapUsed),
+                    heap_total_mb: bytesToMB(STARTUP_MEMORY.steady_state.heapTotal),
+                },
             },
-            memory: {
-                initial_rss_mb: bytesToMB(STARTUP_MEMORY.initial.rss),
-                post_database_rss_mb: bytesToMB(STARTUP_MEMORY.post_database.rss),
-                post_engine_rss_mb: bytesToMB(STARTUP_MEMORY.post_engine_and_bots.rss),
-                steady_state_rss_mb: bytesToMB(STARTUP_MEMORY.steady_state.rss),
-                heap_used_mb: bytesToMB(STARTUP_MEMORY.steady_state.heapUsed),
-                heap_total_mb: bytesToMB(STARTUP_MEMORY.steady_state.heapTotal),
-            }
         });
         // Log memory progression breakdown
         const memProgression = calculateMemoryProgression(STARTUP_MEMORY);
-        log.info("📊 Memory Progression Breakdown", memProgression);
+        log.info("index", "boot", "📊 Memory Progression Breakdown", { metadata: memProgression });
         // ══════════════════════════════════════════════════════════════════════════
         // LIFECYCLE WEBHOOK: Boot Notification
         // ══════════════════════════════════════════════════════════════════════════
         // Send Discord webhook with boot status (fire-and-forget, non-blocking)
         notifyBoot().catch((error) => {
-            log.warn("Lifecycle webhook failed (non-critical)", {
-                error: getErrorMessage(error),
+            log.warn("index", "boot", "Lifecycle webhook failed (non-critical)", {
+                error: { name: 'WebhookError', message: getErrorMessage(error) },
             });
         });
         // MEMORY PROFILING: Capture detailed heap snapshot after startup
@@ -1562,26 +1588,28 @@ export async function boot() {
             const heapStats = v8.getHeapStatistics();
             const mem = process.memoryUsage();
             // Log comprehensive memory breakdown
-            log.info("🔬 Post-Startup Memory Analysis", {
-                process: {
-                    rss_mb: bytesToMB(mem.rss),
-                    heap_total_mb: bytesToMB(mem.heapTotal),
-                    heap_used_mb: bytesToMB(mem.heapUsed),
-                    external_mb: bytesToMB(mem.external),
-                    array_buffers_mb: bytesToMB(mem.arrayBuffers),
+            log.info("index", "boot", "🔬 Post-Startup Memory Analysis", {
+                metadata: {
+                    process: {
+                        rss_mb: bytesToMB(mem.rss),
+                        heap_total_mb: bytesToMB(mem.heapTotal),
+                        heap_used_mb: bytesToMB(mem.heapUsed),
+                        external_mb: bytesToMB(mem.external),
+                        array_buffers_mb: bytesToMB(mem.arrayBuffers),
+                    },
+                    v8_heap: {
+                        total_heap_mb: bytesToMB(heapStats.total_heap_size),
+                        used_heap_mb: bytesToMB(heapStats.used_heap_size),
+                        heap_limit_mb: bytesToMB(heapStats.heap_size_limit),
+                        malloced_mb: bytesToMB(heapStats.malloced_memory),
+                        external_mb: bytesToMB(heapStats.external_memory),
+                    },
+                    analysis: {
+                        accounted_for_mb: bytesToMB(mem.heapTotal + mem.external),
+                        mystery_allocation_mb: bytesToMB(mem.rss - mem.heapTotal - mem.external),
+                        heap_utilization_percent: ((mem.heapUsed / mem.heapTotal) * 100).toFixed(1),
+                    },
                 },
-                v8_heap: {
-                    total_heap_mb: bytesToMB(heapStats.total_heap_size),
-                    used_heap_mb: bytesToMB(heapStats.used_heap_size),
-                    heap_limit_mb: bytesToMB(heapStats.heap_size_limit),
-                    malloced_mb: bytesToMB(heapStats.malloced_memory),
-                    external_mb: bytesToMB(heapStats.external_memory),
-                },
-                analysis: {
-                    accounted_for_mb: bytesToMB(mem.heapTotal + mem.external),
-                    mystery_allocation_mb: bytesToMB(mem.rss - mem.heapTotal - mem.external),
-                    heap_utilization_percent: ((mem.heapUsed / mem.heapTotal) * 100).toFixed(1),
-                }
             });
             // Capture heap snapshot to disk (production only, to avoid local pollution)
             if (process.env.RENDER) {
@@ -1593,26 +1621,28 @@ export async function boot() {
                     fs.mkdirSync(storeDir, { recursive: true });
                     const snapshotPath = v8.writeHeapSnapshot(filepath);
                     const snapshotSize = fs.statSync(snapshotPath).size;
-                    log.info("📸 Startup heap snapshot captured", {
-                        filename,
-                        size_mb: bytesToMB(snapshotSize),
-                        location: storeDir,
+                    log.info("index", "boot", "📸 Startup heap snapshot captured", {
+                        metadata: {
+                            filename,
+                            size_mb: bytesToMB(snapshotSize),
+                            location: storeDir,
+                        },
                     });
                 }
                 catch (fsErr) {
-                    log.warn("Failed to write startup heap snapshot", { error: getErrorMessage(fsErr) });
+                    log.warn("index", "boot", "Failed to write startup heap snapshot", { error: { name: 'HeapSnapshotError', message: getErrorMessage(fsErr) } });
                 }
             }
         }
         catch (memErr) {
-            log.warn("Memory profiling failed", { error: getErrorMessage(memErr) });
+            log.warn("index", "boot", "Memory profiling failed", { error: { name: 'MemoryProfilingError', message: getErrorMessage(memErr) } });
         }
         // Schedule automatic restart every 12 hours (production only)
         if (process.env.RENDER) {
             scheduleAutoRestart();
         }
         else {
-            log.info("⏰ Auto-restart disabled in local development");
+            log.info("index", "boot", "⏰ Auto-restart disabled in local development");
         }
     }
     catch (error) {
@@ -1636,21 +1666,21 @@ export async function boot() {
             });
         }
         setPhase("Startup failed");
-        log.error("Bot startup failed", error);
+        log.error("index", "boot", "Bot startup failed", { error: { name: 'BotStartupError', message: getErrorMessage(error) } });
         throw error;
     }
 }
 // Auto-invoke boot() when run directly as main module
 if (import.meta.url === `file://${process.argv[1]}`) {
     boot().catch((err) => {
-        log.error("Fatal during boot", err);
+        log.error("index", "main", "Fatal during boot", { error: { name: ensureError(err).name, message: ensureError(err).message } });
         process.exit(1);
     });
 }
 else {
     // Fallback: invoke boot() anyway (Render environment detection)
     boot().catch((err) => {
-        log.error("Fatal during boot", err);
+        log.error("index", "main", "Fatal during boot", { error: { name: ensureError(err).name, message: ensureError(err).message } });
         process.exit(1);
     });
 }

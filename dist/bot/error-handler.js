@@ -6,8 +6,9 @@
  * @module bot/error-handler
  */
 import { errorTracker } from '../services/monitoring/index.js';
-import { log } from "../shared/logging/index.js";
+import { getLogger } from "../shared/logging/index.js";
 import { safeReply } from './shared/response-helpers.js';
+const logger = getLogger();
 /// ---- Bot Error Handler ----
 export class BotErrorHandler {
     /**
@@ -234,12 +235,12 @@ export class BotErrorHandler {
             const errorMessage = '⚠️ An error occurred while executing this command. This has been logged and will be investigated.';
             const result = await safeReply(interaction, errorMessage, { ephemeral: true });
             if (!result.success) {
-                log('error', '[BotErrorHandler] Failed to notify user of error: ' + String(result.error));
+                logger.error('BotErrorHandler', 'notifyUserOfError', 'Failed to notify user of error: ' + String(result.error));
             }
         }
         catch (notifyError) {
             // Failed to notify user - log but don't throw
-            log('error', '[BotErrorHandler] Failed to notify user of error: ' + String(notifyError));
+            logger.error('BotErrorHandler', 'notifyUserOfError', 'Failed to notify user of error: ' + String(notifyError));
         }
     }
 }

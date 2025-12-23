@@ -7,10 +7,11 @@
  * @module data/dexpack
  */
 import { recordDexFallback, recordDexLookup, recordDexLookupMiss, recordDexLoad } from "../dex/metrics.js";
-import { log } from "../shared/logging/index.js";
+import { getLogger } from "../shared/logging/index.js";
 import { DEX_V2_ENABLED } from "../config/env.js";
 import { resetDexV2Runtime, loadDexV2Runtime, getDexV2Pack, getDexV2FastTables } from "../dex/v2/loader.js";
 import { ensureError, getErrorMessage } from "../shared/utils/error-utils.js";
+const logger = getLogger();
 /** Runtime source identifiers */
 export const RUNTIME_SOURCE = {
     MODULE: "module",
@@ -88,7 +89,7 @@ function buildHashTableFromEntries(entries) {
             probes++;
         }
         if (probes >= capacity) {
-            log.warn("[dexpack] Hash table overflow during build");
+            logger.warn('dexpack', 'buildHashTable', 'Hash table overflow during build');
             return null;
         }
         keys[idx] = hash;
@@ -267,7 +268,9 @@ export function loadDexpack() {
                 error: ensureError(error),
             });
             if (!v2RuntimeFailed) {
-                log.warn(`[dexpack] failed to load dexpack.v2 runtime, falling back to v1: ${getErrorMessage(error)}`);
+                logger.warn('dexpack', 'loadDexpack', 'Failed to load dexpack.v2 runtime, falling back to v1', {
+                    error: { name: 'DexpackLoadError', message: getErrorMessage(error) }
+                });
             }
             v2RuntimeFailed = true;
             return loadDexpackFromModule();

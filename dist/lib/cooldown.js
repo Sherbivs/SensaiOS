@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { log } from '../shared/logging/index.js';
+import { getLogger } from '../shared/logging/index.js';
+const logger = getLogger();
 // ============================================================================
 // Module State
 // ============================================================================
@@ -52,7 +53,7 @@ export function cleanup() {
         }
     }
     if (removed > 0) {
-        log('info', `cooldown: Cleanup removed ${removed} expired entries (${store.size} remaining)`);
+        logger.info('Cooldown', 'cleanup', `Cleanup removed ${removed} expired entries (${store.size} remaining)`);
     }
 }
 /**
@@ -80,10 +81,10 @@ export async function persist() {
             count: Object.keys(validEntries).length,
         };
         fs.writeFileSync(STORAGE_FILE, JSON.stringify(snapshot, null, 2), 'utf8');
-        log('info', `cooldown: Persisted ${snapshot.count} entries to disk`);
+        logger.info('Cooldown', 'persist', `Persisted ${snapshot.count} entries to disk`);
     }
     catch (err) {
-        log('warn', `cooldown: Persist failed: ${err.message}`);
+        logger.warn('Cooldown', 'persist', `Persist failed: ${err.message}`);
     }
 }
 /**
@@ -93,7 +94,7 @@ export async function persist() {
 export function load() {
     try {
         if (!fs.existsSync(STORAGE_FILE)) {
-            log('info', 'cooldown: No persisted state found (first startup)');
+            logger.info('Cooldown', 'load', 'No persisted state found (first startup)');
             return;
         }
         const content = fs.readFileSync(STORAGE_FILE, 'utf8');
@@ -111,10 +112,10 @@ export function load() {
                 skipped++;
             }
         }
-        log('info', `cooldown: Loaded ${loaded} entries from disk (${skipped} expired, skipped)`);
+        logger.info('Cooldown', 'load', `Loaded ${loaded} entries from disk (${skipped} expired, skipped)`);
     }
     catch (err) {
-        log('warn', `cooldown: Load failed: ${err.message}`);
+        logger.warn('Cooldown', 'load', `Load failed: ${err.message}`);
     }
 }
 /**
@@ -122,12 +123,12 @@ export function load() {
  */
 export function startMaintenance() {
     if (cleanupTimer || persistTimer) {
-        log('warn', 'cooldown: Maintenance already running');
+        logger.warn('Cooldown', 'startMaintenance', 'Maintenance already running');
         return;
     }
     cleanupTimer = setInterval(cleanup, CLEANUP_INTERVAL_MS);
     persistTimer = setInterval(() => void persist(), PERSIST_INTERVAL_MS);
-    log('info', 'cooldown: Started maintenance (cleanup: 10m, persist: 5m)');
+    logger.info('Cooldown', 'startMaintenance', 'Started maintenance (cleanup: 10m, persist: 5m)');
 }
 /**
  * Stop periodic timers and save final state.
@@ -143,7 +144,7 @@ export async function stopMaintenance() {
     }
     // Final persist on shutdown
     await persist();
-    log('info', 'cooldown: Stopped maintenance, final state saved');
+    logger.info('Cooldown', 'stopMaintenance', 'Stopped maintenance, final state saved');
 }
 /**
  * Get current statistics for monitoring.

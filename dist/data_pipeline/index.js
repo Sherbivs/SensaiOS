@@ -1,8 +1,9 @@
-import { log } from '../shared/log.js';
+import { getLogger } from '../shared/logging/index.js';
 import { createHash } from "node:crypto";
 import { readFile, mkdir, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+const logger = getLogger();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 function toStable(value) {
@@ -152,9 +153,9 @@ export async function buildData(opts = {}) {
 if (import.meta.url === `file://${process.argv[1]}`) {
     const dryRun = process.argv.includes("--dry-run");
     buildData({ dryRun }).then((res) => {
-        log.info(JSON.stringify({ ok: true, counts: res.counts }, null, 2));
+        logger.info('data-pipeline', 'build', 'Pipeline completed', { metadata: { ok: true, counts: res.counts } });
     }).catch((err) => {
-        log.error("Pipeline failed:", err);
+        logger.error('data-pipeline', 'build', 'Pipeline failed', { error: { name: err?.name || 'Error', message: err?.message || String(err) } });
         process.exit(1);
     });
 }

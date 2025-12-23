@@ -24,8 +24,9 @@
  * @module securityMetrics
  */
 import { existsSync, readFileSync } from 'fs';
-import { log } from '../../shared/logging/index.js';
+import { getLogger } from '../../shared/logging/index.js';
 import { ensureError } from '../../shared/utils/error-utils.js';
+const logger = getLogger();
 // ─────────────────────────────────────────────────────────────────────────────
 // Constants
 // ─────────────────────────────────────────────────────────────────────────────
@@ -234,7 +235,7 @@ export function calculateSecurityScore(botState) {
     }
     catch (err) {
         const error = ensureError(err);
-        log('error', '[SecurityMetrics] Failed to calculate security score', { error: error.message });
+        logger.error('security-state', 'error', '[SecurityMetrics] Failed to calculate security score', { metadata: { errorMsg: error.message } });
         return {
             overall: 0,
             grade: 'F',
@@ -305,7 +306,7 @@ export function analyzeThreatTrends(botState) {
     }
     catch (err) {
         const error = ensureError(err);
-        log('error', '[SecurityMetrics] Failed to analyze threat trends', { error: error.message });
+        logger.error('security-state', 'error', '[SecurityMetrics] Failed to analyze threat trends', { metadata: { errorMsg: error.message } });
         return {
             windows: {},
             trend: 'unknown',
@@ -442,7 +443,7 @@ export function generateRecommendations(botState, securityScore, threatTrends) {
     }
     catch (err) {
         const error = ensureError(err);
-        log('error', '[SecurityMetrics] Failed to generate recommendations', { error: error.message });
+        logger.error('security-state', 'error', '[SecurityMetrics] Failed to generate recommendations', { metadata: { errorMsg: error.message } });
         return [{
                 priority: 'critical',
                 category: 'system',
@@ -479,7 +480,7 @@ export function getSecurityMetrics(botState) {
     }
     catch (err) {
         const error = ensureError(err);
-        log('error', '[SecurityMetrics] Failed to get security metrics', { error: error.message });
+        logger.error('security-state', 'error', '[SecurityMetrics] Failed to get security metrics', { metadata: { errorMsg: error.message } });
         return {
             score: {
                 overall: 0,

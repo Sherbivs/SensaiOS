@@ -12,8 +12,9 @@
  */
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { log } from '../shared/logging/index.js';
+import { getLogger } from '../shared/logging/index.js';
 import { deepClone, normalizeString } from '../shared/utils/index.js';
+const logger = getLogger();
 // ─────────────────────────────────────────────────────────────────────────────
 // Lazy Dependencies
 // ─────────────────────────────────────────────────────────────────────────────
@@ -324,7 +325,7 @@ async function loadCacheFromDisk() {
         if (err?.code === 'ENOENT') {
             return null;
         }
-        log('warn', 'Failed to read Pokémon cache from disk', { error, cacheFile: CACHE_FILE_PATH });
+        logger.warn('pokemon-service', 'load-cache', 'Failed to read Pokémon cache from disk', { metadata: { error, cacheFile: CACHE_FILE_PATH } });
         return null;
     }
 }
@@ -343,7 +344,7 @@ async function writeCacheToDisk(list, fetchedAt) {
         await fs.writeFile(CACHE_FILE_PATH, JSON.stringify(payload, null, 2), 'utf8');
     }
     catch (error) {
-        log('warn', 'Failed to write Pokémon cache to disk', { error, cacheFile: CACHE_FILE_PATH });
+        logger.warn('pokemon-service', 'write-cache', 'Failed to write Pokémon cache to disk', { metadata: { error, cacheFile: CACHE_FILE_PATH } });
     }
 }
 async function getJson(url) {
@@ -356,9 +357,8 @@ async function getJson(url) {
 }
 async function fetchPokemonRoster() {
     const startedAt = Date.now();
-    log('info', 'Fetching Pokémon roster index from PokéAPI', {
-        url: POKE_API_URL,
-        startedAt: new Date(startedAt).toISOString(),
+    logger.info('pokemon-service', 'fetch-roster', 'Fetching Pokémon roster index from PokéAPI', {
+        metadata: { url: POKE_API_URL, startedAt: new Date(startedAt).toISOString() },
     });
     const listings = [];
     let nextUrl = `${POKE_API_URL}?limit=${PAGE_SIZE}&offset=0`;
@@ -367,35 +367,29 @@ async function fetchPokemonRoster() {
         const results = Array.isArray(page?.results) ? page.results : [];
         listings.push(...results);
         nextUrl = page?.next || null;
-        log('detail', 'Fetched Pokémon index page', {
-            accumulated: listings.length,
-            pageSize: results.length,
-            total: page?.count ?? null,
+        logger.debug('pokemon-service', 'fetch-roster', 'Fetched Pokémon index page', {
+            metadata: { accumulated: listings.length, pageSize: results.length, total: page?.count ?? null },
         });
     }
     if (listings.length === 0) {
         throw new Error('PokéAPI returned an empty roster.');
     }
-    log('info', 'Fetching detailed Pokémon data', {
-        total: listings.length,
-        concurrency: CONCURRENCY_LIMIT,
+    logger.info('pokemon-service', 'fetch-details', 'Fetching detailed Pokémon data', {
+        metadata: { total: listings.length, concurrency: CONCURRENCY_LIMIT },
     });
     const fetchStarted = Date.now();
     const details = await runWithConcurrency(listings, CONCURRENCY_LIMIT, async (entry, index) => {
         const detail = await getJson(entry.url);
         const normalised = buildPokemonRecord(detail);
         if ((index + 1) % 50 === 0 || index + 1 === listings.length) {
-            log('detail', 'Fetched Pokémon details progress', {
-                fetched: index + 1,
-                total: listings.length,
+            logger.debug('pokemon-service', 'fetch-details', 'Fetched Pokémon details progress', {
+                metadata: { fetched: index + 1, total: listings.length },
             });
         }
         return normalised;
     });
-    log('info', 'Completed Pokémon roster fetch', {
-        total: details.length,
-        indexDurationMs: fetchStarted - startedAt,
-        detailDurationMs: Date.now() - fetchStarted,
+    logger.info('pokemon-service', 'fetch-complete', 'Completed Pokémon roster fetch', {
+        metadata: { total: details.length, indexDurationMs: fetchStarted - startedAt, detailDurationMs: Date.now() - fetchStarted },
     });
     return details;
 }
@@ -422,12 +416,11 @@ function scheduleWeeklyRefresh() {
     const cronApi = ensureCron();
     cronTask = cronApi.schedule(CRON_SCHEDULE, () => {
         refreshPokemonCache({ reason: 'scheduled' }).catch((error) => {
-            log('error', 'Scheduled Pokémon cache refresh failed', { error });
+            logger.error('pokemon-service', 'scheduled-refresh', 'Scheduled Pokémon cache refresh failed', { metadata: { error } });
         });
     }, { timezone: DEFAULT_TIMEZONE });
-    log('info', 'Scheduled weekly Pokémon cache refresh', {
-        cron: CRON_SCHEDULE,
-        timezone: DEFAULT_TIMEZONE,
+    logger.info('pokemon-service', 'schedule', 'Scheduled weekly Pokémon cache refresh', {
+        metadata: { cron: CRON_SCHEDULE, timezone: DEFAULT_TIMEZONE },
     });
 }
 function assertCacheReady() {
@@ -449,23 +442,18 @@ async function refreshPokemonCache(options = {}) {
     refreshPromise = (async () => {
         const startedAt = new Date();
         lastFetchAttemptAt = startedAt;
-        log('info', 'Refreshing Pokémon cache', {
-            reason,
-            startedAt: startedAt.toISOString(),
+        logger.info('pokemon-service', 'refresh-start', 'Refreshing Pokémon cache', {
+            metadata: { reason, startedAt: startedAt.toISOString() },
         });
         const roster = await fetchPokemonRoster();
         setPokemonCache(roster, startedAt);
         await writeCacheToDisk(roster, startedAt);
-        log('info', 'pokemon.cache.count', {
-            total: pokemonList.length,
-            reason,
-            fetchedAt: startedAt.toISOString(),
+        logger.info('pokemon-service', 'cache-count', 'pokemon.cache.count', {
+            metadata: { total: pokemonList.length, reason, fetchedAt: startedAt.toISOString() },
         });
-        log('info', 'Pokémon cache refresh complete', {
-            reason,
-            total: pokemonList.length,
+        logger.info('pokemon-service', 'refresh-complete', 'Pokémon cache refresh complete', {
             durationMs: Date.now() - startedAt.getTime(),
-            cacheFile: CACHE_FILE_PATH,
+            metadata: { reason, total: pokemonList.length, cacheFile: CACHE_FILE_PATH },
         });
         return {
             total: pokemonList.length,
@@ -492,10 +480,8 @@ async function initializePokemonCache() {
         const disk = await loadCacheFromDisk();
         if (disk && Array.isArray(disk.list) && disk.list.length > 0) {
             setPokemonCache(disk.list, disk.fetchedAt);
-            log('info', 'Loaded Pokémon cache from disk', {
-                cacheFile: CACHE_FILE_PATH,
-                total: pokemonList.length,
-                lastFetchedAt: lastFetchedAt ? lastFetchedAt.toISOString() : null,
+            logger.info('pokemon-service', 'load-disk', 'Loaded Pokémon cache from disk', {
+                metadata: { cacheFile: CACHE_FILE_PATH, total: pokemonList.length, lastFetchedAt: lastFetchedAt ? lastFetchedAt.toISOString() : null },
             });
         }
         try {
@@ -503,10 +489,10 @@ async function initializePokemonCache() {
         }
         catch (error) {
             if (!pokemonList.length) {
-                log('error', 'Failed to initialize Pokémon cache and no cached data available', { error });
+                logger.error('pokemon-service', 'init-failed', 'Failed to initialize Pokémon cache and no cached data available', { metadata: { error } });
                 throw error;
             }
-            log('warn', 'Pokémon cache refresh failed during startup; continuing with cached data', { error });
+            logger.warn('pokemon-service', 'init-fallback', 'Pokémon cache refresh failed during startup; continuing with cached data', { metadata: { error } });
         }
         scheduleWeeklyRefresh();
         return {

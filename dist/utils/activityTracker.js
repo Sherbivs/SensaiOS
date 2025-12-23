@@ -8,8 +8,9 @@
  *   - Tracks lifetime event counts per type
  *   - Notifies subscribers of changes
  */
-import { log } from '../shared/logging/index.js';
+import { getLogger } from '../shared/logging/index.js';
 import { toDate, cloneDate, getErrorMessage } from '../shared/utils/index.js';
+const logger = getLogger();
 // ─────────────────────────────────────────────────────────────────────────────
 // State
 // ─────────────────────────────────────────────────────────────────────────────
@@ -30,9 +31,9 @@ function notify() {
             handler(snapshot);
         }
         catch (err) {
-            log('error', '[activity-tracker notify]', { error: getErrorMessage(err) });
+            logger.error('ActivityTracker', 'notify', 'Handler error', { metadata: { error: getErrorMessage(err) } });
             if (err instanceof Error && err.stack) {
-                log('error', '[activity-tracker stack]', { stack: err.stack });
+                logger.error('ActivityTracker', 'notify', 'Handler error stack', { metadata: { stack: err.stack } });
             }
         }
     }
@@ -120,9 +121,9 @@ export function subscribe(handler) {
         handler(getStats());
     }
     catch (err) {
-        log('error', '[activity-tracker subscribe]', { error: getErrorMessage(err) });
+        logger.error('ActivityTracker', 'subscribe', 'Initial handler error', { metadata: { error: getErrorMessage(err) } });
         if (err instanceof Error && err.stack) {
-            log('error', '[activity-tracker stack]', { stack: err.stack });
+            logger.error('ActivityTracker', 'subscribe', 'Initial handler error stack', { metadata: { stack: err.stack } });
         }
     }
     return () => {

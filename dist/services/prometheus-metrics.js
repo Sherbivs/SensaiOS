@@ -14,8 +14,9 @@
 import { register, Counter, Gauge, Histogram, collectDefaultMetrics } from 'prom-client';
 import { calculateWindowStats, TIME_WINDOWS, } from './statistics-window.js';
 import { EventBus } from '../shared/event-bus.js';
-import { log } from '../shared/log.js';
+import { getLogger } from '../shared/logging/index.js';
 import { getErrorMessage } from '../shared/utils/error-utils.js';
+const logger = getLogger();
 // ─────────────────────────────────────────────────────────────────────────────
 // State
 // ─────────────────────────────────────────────────────────────────────────────
@@ -775,11 +776,11 @@ function subscribeToResourceEvents() {
         autoRemediationSubId = eventBus.subscribe('system.auto-remediation', (event) => {
             handleAutoRemediation(event.payload);
         });
-        log.debug('[prometheus-metrics] EventBus subscriptions active for P5 resource metrics');
+        logger.debug('metrics', 'update', '[prometheus-metrics] EventBus subscriptions active for P5 resource metrics');
     }
     catch (error) {
-        log.warn('[prometheus-metrics] Failed to subscribe to EventBus events', {
-            error: getErrorMessage(error),
+        logger.warn('metrics', 'warning', '[prometheus-metrics] Failed to subscribe to EventBus events', {
+            metadata: { errorMsg: getErrorMessage(error) },
         });
     }
 }
@@ -805,11 +806,11 @@ function unsubscribeFromResourceEvents() {
             eventBus.unsubscribe(autoRemediationSubId);
             autoRemediationSubId = null;
         }
-        log.debug('[prometheus-metrics] EventBus subscriptions cleaned up');
+        logger.debug('metrics', 'update', '[prometheus-metrics] EventBus subscriptions cleaned up');
     }
     catch (error) {
-        log.warn('[prometheus-metrics] Failed to unsubscribe from EventBus events', {
-            error: getErrorMessage(error),
+        logger.warn('metrics', 'warning', '[prometheus-metrics] Failed to unsubscribe from EventBus events', {
+            metadata: { errorMsg: getErrorMessage(error) },
         });
     }
 }
@@ -838,8 +839,8 @@ function handleMetricsSnapshot(payload) {
         metrics.uptimeSeconds?.set(payload.node.uptime);
     }
     catch (error) {
-        log.warn('[prometheus-metrics] Failed to update gauges from metrics.snapshot', {
-            error: getErrorMessage(error),
+        logger.warn('metrics', 'warning', '[prometheus-metrics] Failed to update gauges from metrics.snapshot', {
+            metadata: { errorMsg: getErrorMessage(error) },
         });
     }
 }
@@ -854,8 +855,8 @@ function handleDiskAlert(payload) {
         metrics.diskAlerts?.inc({ level });
     }
     catch (error) {
-        log.warn('[prometheus-metrics] Failed to increment disk alert counter', {
-            error: getErrorMessage(error),
+        logger.warn('metrics', 'warning', '[prometheus-metrics] Failed to increment disk alert counter', {
+            metadata: { errorMsg: getErrorMessage(error) },
         });
     }
 }
@@ -872,8 +873,8 @@ function handleHeapSnapshotPruned(payload) {
         }
     }
     catch (error) {
-        log.warn('[prometheus-metrics] Failed to increment heap snapshots counter', {
-            error: getErrorMessage(error),
+        logger.warn('metrics', 'warning', '[prometheus-metrics] Failed to increment heap snapshots counter', {
+            metadata: { errorMsg: getErrorMessage(error) },
         });
     }
 }
@@ -890,8 +891,8 @@ function handleAutoRemediation(payload) {
         });
     }
     catch (error) {
-        log.warn('[prometheus-metrics] Failed to increment auto-remediation counter', {
-            error: getErrorMessage(error),
+        logger.warn('metrics', 'warning', '[prometheus-metrics] Failed to increment auto-remediation counter', {
+            metadata: { errorMsg: getErrorMessage(error) },
         });
     }
 }

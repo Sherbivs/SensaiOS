@@ -28,8 +28,9 @@ import path from 'node:path';
 import { performance } from 'node:perf_hooks';
 import { fileURLToPath } from 'node:url';
 import { EngineDbConfig } from '../../config/engine-db-config.js';
-import { log } from "../../shared/logging/index.js";
+import { getLogger } from "../../shared/logging/index.js";
 import { getTableCount } from './sql-utils.js';
+const logger = getLogger();
 // Get __dirname equivalent in ES modules
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -55,8 +56,8 @@ export async function initialize() {
         return; // Already initialized
     }
     try {
-        log('info', 'engine-read-db: Initializing Read-DB...', {
-            path: EngineDbConfig.readDbPath
+        logger.info('engine-read-db', 'initialize', 'Initializing Read-DB...', {
+            metadata: { path: EngineDbConfig.readDbPath }
         });
         // Initialize sql.js - locate WASM file from project root
         // In production: /opt/render/project/src/node_modules/sql.js/dist/
@@ -73,10 +74,10 @@ export async function initialize() {
         try {
             const buffer = await fsPromises.readFile(EngineDbConfig.readDbPath);
             dbData = new Uint8Array(buffer);
-            log('info', 'engine-read-db: Loaded existing Read-DB from disk');
+            logger.info('engine-read-db', 'initialize', 'Loaded existing Read-DB from disk');
         }
         catch {
-            log('info', 'engine-read-db: No existing Read-DB found, creating new');
+            logger.info('engine-read-db', 'initialize', 'No existing Read-DB found, creating new');
         }
         db = new SQL.Database(dbData);
         // Configure SQLite for performance (read-optimized)
@@ -88,14 +89,19 @@ export async function initialize() {
         await createSchema();
         isInitialized = true;
         const stats = getStats();
-        log('info', 'engine-read-db: Initialization complete', {
-            pokemonCount: stats.pokemonCount,
-            moveCount: stats.moveCount,
-            typeEffectivenessCount: stats.typeEffectivenessCount
+        logger.info('engine-read-db', 'initialize', 'Initialization complete', {
+            metadata: {
+                pokemonCount: stats.pokemonCount,
+                moveCount: stats.moveCount,
+                typeEffectivenessCount: stats.typeEffectivenessCount
+            }
         });
     }
     catch (error) {
-        log('error', 'engine-read-db: Initialization failed', error);
+        const err = error instanceof Error ? error : new Error(String(error));
+        logger.error('engine-read-db', 'initialize', 'Initialization failed', {
+            error: { name: err.name, message: err.message, stack: err.stack }
+        });
         throw error;
     }
 }
@@ -162,7 +168,7 @@ async function createSchema() {
     db.run('CREATE INDEX IF NOT EXISTS idx_pokemon_name ON pokemon(name)');
     db.run('CREATE INDEX IF NOT EXISTS idx_moves_name ON moves(name)');
     db.run('CREATE INDEX IF NOT EXISTS idx_type_effectiveness ON type_effectiveness(attack_type_id, defense_type_id)');
-    log('info', 'engine-read-db: Schema created/verified');
+    logger.info('engine-read-db', 'create-schema', 'Schema created/verified');
 }
 // ============================================================================
 // Read Operations (Used by L1 Cache)
@@ -203,7 +209,10 @@ export function getAllPokemon() {
         return records;
     }
     catch (error) {
-        log('error', 'engine-read-db: getAllPokemon failed', error);
+        const err = error instanceof Error ? error : new Error(String(error));
+        logger.error('engine-read-db', 'get-all-pokemon', 'getAllPokemon failed', {
+            error: { name: err.name, message: err.message, stack: err.stack }
+        });
         throw error;
     }
 }
@@ -239,7 +248,10 @@ export function getAllMoves() {
         return records;
     }
     catch (error) {
-        log('error', 'engine-read-db: getAllMoves failed', error);
+        const err = error instanceof Error ? error : new Error(String(error));
+        logger.error('engine-read-db', 'get-all-moves', 'getAllMoves failed', {
+            error: { name: err.name, message: err.message, stack: err.stack }
+        });
         throw error;
     }
 }
@@ -284,7 +296,11 @@ export function getPokemonById(id) {
         return record;
     }
     catch (error) {
-        log('error', 'engine-read-db: getPokemonById failed', { pokemonId: id, error });
+        const err = error instanceof Error ? error : new Error(String(error));
+        logger.error('engine-read-db', 'get-pokemon-by-id', 'getPokemonById failed', {
+            metadata: { pokemonId: id },
+            error: { name: err.name, message: err.message, stack: err.stack }
+        });
         return null; // Graceful degradation
     }
 }
@@ -325,7 +341,11 @@ export function getMoveById(id) {
         return record;
     }
     catch (error) {
-        log('error', 'engine-read-db: getMoveById failed', { moveId: id, error });
+        const err = error instanceof Error ? error : new Error(String(error));
+        logger.error('engine-read-db', 'get-move-by-id', 'getMoveById failed', {
+            metadata: { moveId: id },
+            error: { name: err.name, message: err.message, stack: err.stack }
+        });
         return null; // Graceful degradation
     }
 }
@@ -355,7 +375,10 @@ export function getAllTypeEffectiveness() {
         return records;
     }
     catch (error) {
-        log('error', 'engine-read-db: getAllTypeEffectiveness failed', error);
+        const err = error instanceof Error ? error : new Error(String(error));
+        logger.error('engine-read-db', 'get-all-type-effectiveness', 'getAllTypeEffectiveness failed', {
+            error: { name: err.name, message: err.message, stack: err.stack }
+        });
         throw error;
     }
 }
@@ -392,7 +415,10 @@ export function getVersion() {
         };
     }
     catch (error) {
-        log('error', 'engine-read-db: getVersion failed', error);
+        const err = error instanceof Error ? error : new Error(String(error));
+        logger.error('engine-read-db', 'get-version', 'getVersion failed', {
+            error: { name: err.name, message: err.message, stack: err.stack }
+        });
         throw error;
     }
 }
@@ -436,7 +462,10 @@ export function getStats() {
         };
     }
     catch (error) {
-        log('error', 'engine-read-db: getStats failed', error);
+        const err = error instanceof Error ? error : new Error(String(error));
+        logger.error('engine-read-db', 'get-stats', 'getStats failed', {
+            error: { name: err.name, message: err.message, stack: err.stack }
+        });
         return {
             pokemonCount: 0,
             moveCount: 0,
@@ -461,7 +490,7 @@ export async function close() {
     }
     SQL = null;
     isInitialized = false;
-    log('info', 'engine-read-db: Connection closed');
+    logger.info('engine-read-db', 'close', 'Connection closed');
 }
 /**
  * Check if Read-DB is ready for queries.
@@ -477,7 +506,9 @@ export async function rebuild(options = {}) {
     const backupExisting = options.backupExisting ?? true;
     const reason = options.reason ?? 'scheduled-maintenance';
     const readDbPath = EngineDbConfig.readDbPath;
-    log('info', 'engine-read-db: Rebuild requested', { reason, backupExisting, path: readDbPath });
+    logger.info('engine-read-db', 'rebuild', 'Rebuild requested', {
+        metadata: { reason, backupExisting, path: readDbPath }
+    });
     // Close current connection before touching the file
     await close();
     if (backupExisting) {
@@ -485,24 +516,32 @@ export async function rebuild(options = {}) {
             const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
             const backupPath = `${readDbPath}.${timestamp}.bak`;
             await fsPromises.copyFile(readDbPath, backupPath);
-            log('info', 'engine-read-db: Backup created before rebuild', { backupPath });
+            logger.info('engine-read-db', 'rebuild', 'Backup created before rebuild', {
+                metadata: { backupPath }
+            });
         }
         catch (error) {
             if (error.code !== 'ENOENT') {
-                log('warn', 'engine-read-db: Failed to create backup before rebuild', { error });
+                const err = error instanceof Error ? error : new Error(String(error));
+                logger.warn('engine-read-db', 'rebuild', 'Failed to create backup before rebuild', {
+                    error: { name: err.name, message: err.message, stack: err.stack }
+                });
             }
             else {
-                log('info', 'engine-read-db: No existing Read-DB file to back up');
+                logger.info('engine-read-db', 'rebuild', 'No existing Read-DB file to back up');
             }
         }
     }
     try {
         await fsPromises.rm(readDbPath, { force: true });
-        log('info', 'engine-read-db: Existing Read-DB removed');
+        logger.info('engine-read-db', 'rebuild', 'Existing Read-DB removed');
     }
     catch (error) {
-        log('warn', 'engine-read-db: Failed to remove existing Read-DB (continuing)', { error });
+        const err = error instanceof Error ? error : new Error(String(error));
+        logger.warn('engine-read-db', 'rebuild', 'Failed to remove existing Read-DB (continuing)', {
+            error: { name: err.name, message: err.message, stack: err.stack }
+        });
     }
     await initialize();
-    log('info', 'engine-read-db: Rebuild complete', { reason });
+    logger.info('engine-read-db', 'rebuild', 'Rebuild complete', { metadata: { reason } });
 }

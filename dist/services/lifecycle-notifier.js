@@ -18,8 +18,9 @@
  *
  * @module lifecycle-notifier
  */
-import { log } from "../shared/logging/index.js";
+import { getLogger } from "../shared/logging/index.js";
 import { getErrorMessage } from '../shared/utils/error-utils.js';
+const logger = getLogger();
 import { bytesToMB } from '../shared/utils/format-utils.js';
 import { ServiceRegistry } from '../shared/service-registry.js';
 import { SERVICE_NAME } from '../config/env.js';
@@ -220,13 +221,13 @@ async function sendWebhook(payload) {
         if (!response.ok) {
             throw new Error(`Webhook returned ${response.status}: ${response.statusText}`);
         }
-        log.info('Lifecycle webhook sent successfully', {
-            event: payload.embeds?.[0]?.title ?? 'unknown',
+        logger.info('lifecycle', 'webhook-sent', 'Lifecycle webhook sent successfully', {
+            metadata: { event: payload.embeds?.[0]?.title ?? 'unknown' },
         });
     }
     catch (error) {
-        log.error('Failed to send lifecycle webhook', {
-            error: getErrorMessage(error),
+        logger.error('lifecycle', 'webhook-failed', 'Failed to send lifecycle webhook', {
+            metadata: { errorMsg: getErrorMessage(error) },
         });
     }
 }
@@ -286,16 +287,18 @@ export async function notifyBoot() {
                 timeSinceLastShutdown !== null &&
                 timeSinceLastShutdown < 30000; // <30s = seamless
             restartContext = { reason, seamless };
-            log.info('[LifecycleNotifier] Restart context', {
-                reason,
-                seamless,
-                timeSinceShutdown: timeSinceLastShutdown ? `${(timeSinceLastShutdown / 1000).toFixed(1)}s` : 'unknown',
+            logger.info('lifecycle', 'restart-context', 'Restart context', {
+                metadata: {
+                    reason,
+                    seamless,
+                    timeSinceShutdown: timeSinceLastShutdown ? `${(timeSinceLastShutdown / 1000).toFixed(1)}s` : 'unknown',
+                },
             });
         }
     }
     catch (error) {
         // Restart metrics not available (first boot or error)
-        log.warn('[LifecycleNotifier] Restart context unavailable', error);
+        logger.warn('lifecycle', 'restart-context', 'Restart context unavailable', { metadata: { error } });
     }
     const notification = {
         event: 'boot',

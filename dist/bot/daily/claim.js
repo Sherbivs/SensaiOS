@@ -1,6 +1,7 @@
 import { TimestampStyles, time } from "discord.js";
-import { log } from "../../shared/logging/index.js";
+import { getLogger } from "../../shared/logging/index.js";
 import { prisma as prismaClient, recordDailyQuestCompletion } from "../../models/index.js";
+const logger = getLogger();
 import { replySuccess, replyInfo, replyError } from "../shared/response-helpers.js";
 import { claimDailyQuestReward } from "../../services/cache/recipes.js";
 import { errorTracker } from '../../services/monitoring/index.js';
@@ -30,7 +31,7 @@ export async function handleDailyClaim(interaction, options = {}) {
         await replyInfo(interaction, `Daily quest already claimed. Try again ${nextStamp}.`);
     }
     catch (err) {
-        log('error', "[daily] Failed to process daily claim", { error: err });
+        logger.error('DailyClaim', 'handleDailyClaim', 'Failed to process daily claim', { metadata: { error: err } });
         // Track error with context
         await errorTracker.captureError(ensureError(err), {
             category: 'DISCORD',

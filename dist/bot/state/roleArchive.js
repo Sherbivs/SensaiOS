@@ -23,8 +23,9 @@
  */
 import crypto from 'crypto';
 import fs from 'fs/promises';
-import { log } from '../../shared/logging/index.js';
+import { getLogger } from '../../shared/logging/index.js';
 import { ensureError } from '../../shared/utils/error-utils.js';
+const logger = getLogger();
 import { emitAlert } from '../eventbus-integration.js';
 import { generateSecurityBaselines, loadSecurityBaselines, saveSecurityBaselines, shouldRefreshBaselines } from './securityBaselines.js';
 import { detectSecurityThreats, calculateCurrentActivity } from './threatDetector.js';
@@ -118,7 +119,7 @@ function verifySignature(data, signature) {
     }
     catch (err) {
         const error = ensureError(err);
-        log('warn', '[RoleArchive] Signature verification failed', { error: error.message });
+        logger.warn('security-state', 'verify', '[RoleArchive] Signature verification failed', { metadata: { errorMsg: error.message } });
         return false;
     }
 }
@@ -136,7 +137,7 @@ async function persistArchive() {
         catch (backupErr) {
             const error = backupErr;
             if (error.code !== 'ENOENT') {
-                log('warn', '[RoleArchive] Failed to create backup', { error: error.message });
+                logger.warn('security-state', 'warning', '[RoleArchive] Failed to create backup', { metadata: { errorMsg: error.message } });
             }
         }
         const data = {
@@ -159,15 +160,17 @@ async function persistArchive() {
         };
         await fs.writeFile(ARCHIVE_FILE, JSON.stringify(signedData, null, 2), 'utf8');
         lastPersistTime = Date.now();
-        log('detail', '[RoleArchive] ✅ Persisted to disk with signature', {
-            changeCount: roleArchiveCache.changes.length,
-            signatureLength: signature.length,
-            file: ARCHIVE_FILE
+        logger.debug('security-state', 'save', '[RoleArchive] ✅ Persisted to disk with signature', {
+            metadata: {
+                changeCount: roleArchiveCache.changes.length,
+                signatureLength: signature.length,
+                file: ARCHIVE_FILE
+            }
         });
     }
     catch (err) {
         const error = ensureError(err);
-        log('error', '[RoleArchive] Failed to persist', { error: error.message });
+        logger.error('security-state', 'save', '[RoleArchive] Failed to persist', { metadata: { errorMsg: error.message } });
         throw err;
     }
 }
@@ -184,7 +187,7 @@ function debouncedPersist() {
     if (timeSinceLastPersist >= PERSIST_DEBOUNCE_MS) {
         // Enough time has passed, persist immediately
         persistArchive().catch(err => {
-            log('warn', '[RoleArchive] Debounced persist failed', { error: String(err) });
+            logger.warn('security-state', 'warning', '[RoleArchive] Debounced persist failed', { metadata: { errorMsg: String(err) } });
         });
         return;
     }
@@ -196,10 +199,10 @@ function debouncedPersist() {
             persistPending = false;
             persistTimer = null;
             persistArchive().catch(err => {
-                log('warn', '[RoleArchive] Delayed persist failed', { error: String(err) });
+                logger.warn('security-state', 'warning', '[RoleArchive] Delayed persist failed', { metadata: { errorMsg: String(err) } });
             });
         }, delay);
-        log('debug', '[RoleArchive] Persist scheduled in', { delayMs: delay });
+        logger.debug('security-state', 'save', '[RoleArchive] Persist scheduled in', { metadata: { delayMs: delay } });
     }
 }
 // ─────────────────────────────────────────────────────────────────────────────
@@ -219,12 +222,14 @@ export async function initializeRoleArchive() {
                 const dataString = JSON.stringify(dataToVerify);
                 const isValid = verifySignature(dataString, signature);
                 if (!isValid) {
-                    log('error', '[RoleArchive] 🚨 SECURITY ALERT: Archive signature verification FAILED! File may be tampered.', {
-                        file: ARCHIVE_FILE,
-                        signatureProvided: signature.substring(0, 16) + '...'
+                    logger.error('security-state', 'security', '[RoleArchive] 🚨 SECURITY ALERT: Archive signature verification FAILED! File may be tampered.', {
+                        metadata: {
+                            file: ARCHIVE_FILE,
+                            signatureProvided: signature.substring(0, 16) + '...'
+                        }
                     });
                     try {
-                        log('warn', '[RoleArchive] Attempting to restore from backup...');
+                        logger.warn('security-state', 'warning', '[RoleArchive] Attempting to restore from backup...');
                         const backupContent = await fs.readFile(BACKUP_FILE, 'utf8');
                         const backup = JSON.parse(backupContent);
                         if (backup.signature) {
@@ -232,7 +237,7 @@ export async function initializeRoleArchive() {
                             const backupDataString = JSON.stringify(backupData);
                             if (verifySignature(backupDataString, backupSig)) {
                                 await fs.writeFile(ARCHIVE_FILE, backupContent);
-                                log('info', '[RoleArchive] ✅ Successfully restored from backup');
+                                logger.info('security-state', 'load', '[RoleArchive] ✅ Successfully restored from backup');
                                 if (Array.isArray(backup.changes)) {
                                     roleArchiveCache.changes = backup.changes;
                                 }
@@ -245,16 +250,16 @@ export async function initializeRoleArchive() {
                                 }
                             }
                             else {
-                                log('error', '[RoleArchive] 🚨 Backup signature also invalid! Starting fresh.');
+                                logger.error('security-state', 'security', '[RoleArchive] 🚨 Backup signature also invalid! Starting fresh.');
                             }
                         }
                         else {
-                            log('warn', '[RoleArchive] Backup has no signature (legacy format). Cannot verify integrity.');
+                            logger.warn('security-state', 'warning', '[RoleArchive] Backup has no signature (legacy format). Cannot verify integrity.');
                         }
                     }
                     catch (backupErr) {
                         const error = ensureError(backupErr);
-                        log('error', '[RoleArchive] Failed to restore from backup', { error: error.message });
+                        logger.error('security-state', 'load', '[RoleArchive] Failed to restore from backup', { metadata: { errorMsg: error.message } });
                     }
                     try {
                         emitAlert('critical', 'Role archive tampering detected', {
@@ -265,8 +270,8 @@ export async function initializeRoleArchive() {
                     }
                     catch (alertError) {
                         const error = ensureError(alertError);
-                        log('warn', '[EventBus] Failed to emit archive tampering alert', {
-                            error: error.message,
+                        logger.warn('security-state', 'warning', '[EventBus] Failed to emit archive tampering alert', {
+                            metadata: { errorMsg: error.message }
                         });
                     }
                 }
@@ -281,15 +286,17 @@ export async function initializeRoleArchive() {
                             rolesModified: new Map(archived.statistics.rolesModified || [])
                         };
                     }
-                    log('info', '[RoleArchive] ✅ Loaded from disk with valid signature', {
-                        changeCount: roleArchiveCache.changes.length,
-                        totalChanges: roleArchiveCache.statistics.totalChanges,
-                        file: ARCHIVE_FILE
+                    logger.info('security-state', 'load', '[RoleArchive] ✅ Loaded from disk with valid signature', {
+                        metadata: {
+                            changeCount: roleArchiveCache.changes.length,
+                            totalChanges: roleArchiveCache.statistics.totalChanges,
+                            file: ARCHIVE_FILE
+                        }
                     });
                 }
             }
             else {
-                log('warn', '[RoleArchive] Archive has no signature (legacy format). Migrating to signed format on next persist.');
+                logger.warn('security-state', 'warning', '[RoleArchive] Archive has no signature (legacy format). Migrating to signed format on next persist.');
                 if (Array.isArray(archived.changes)) {
                     roleArchiveCache.changes = archived.changes;
                 }
@@ -305,7 +312,7 @@ export async function initializeRoleArchive() {
         catch (err) {
             const error = err;
             if (error.code !== 'ENOENT') {
-                log('warn', '[RoleArchive] Failed to load existing archive', { error: error.message });
+                logger.warn('security-state', 'warning', '[RoleArchive] Failed to load existing archive', { metadata: { errorMsg: error.message } });
             }
         }
         roleArchiveCache.initialized = true;
@@ -313,44 +320,47 @@ export async function initializeRoleArchive() {
             let baselines = await loadSecurityBaselines();
             if (!baselines || shouldRefreshBaselines(baselines)) {
                 if (roleArchiveCache.changes.length > 0) {
-                    log('info', '[RoleArchive] Generating security baselines from archive history', {
-                        changeCount: roleArchiveCache.changes.length
+                    logger.info('security-state', 'init', '[RoleArchive] Generating security baselines from archive history', {
+                        metadata: { changeCount: roleArchiveCache.changes.length }
                     });
                     baselines = generateSecurityBaselines({ changes: roleArchiveCache.changes });
                     const saved = await saveSecurityBaselines(baselines);
                     if (saved) {
-                        log('info', '[RoleArchive] ✅ Security baselines generated and saved', {
-                            confidence: baselines.confidenceLevel.toFixed(2),
-                            dataPoints: baselines.dataPointCount,
-                            peakHours: baselines.peakActivityHours.join(', ')
+                        logger.info('security-state', 'init', '[RoleArchive] ✅ Security baselines generated and saved', {
+                            metadata: {
+                                confidence: baselines.confidenceLevel.toFixed(2),
+                                dataPoints: baselines.dataPointCount,
+                                peakHours: baselines.peakActivityHours.join(', ')
+                            }
                         });
                     }
                 }
                 else {
-                    log('warn', '[RoleArchive] Cannot generate baselines yet - no archive data available');
+                    logger.warn('security-state', 'warning', '[RoleArchive] Cannot generate baselines yet - no archive data available');
                 }
             }
             else {
-                log('info', '[RoleArchive] ✅ Loaded existing security baselines', {
-                    confidence: baselines.confidenceLevel.toFixed(2),
-                    age: Math.round((Date.now() - new Date(baselines.computedAt).getTime()) / (1000 * 60 * 60)) + 'h',
-                    peakHours: baselines.peakActivityHours.join(', ')
+                logger.info('security-state', 'load', '[RoleArchive] ✅ Loaded existing security baselines', {
+                    metadata: {
+                        confidence: baselines.confidenceLevel.toFixed(2),
+                        age: Math.round((Date.now() - new Date(baselines.computedAt).getTime()) / (1000 * 60 * 60)) + 'h',
+                        peakHours: baselines.peakActivityHours.join(', ')
+                    }
                 });
             }
             roleArchiveCache.securityBaselines = baselines;
         }
         catch (baselineErr) {
             const error = ensureError(baselineErr);
-            log('error', '[RoleArchive] Failed to initialize security baselines', {
-                error: error.message,
-                stack: error.stack
+            logger.error('security-state', 'init', '[RoleArchive] Failed to initialize security baselines', {
+                metadata: { errorMsg: error.message, stack: error.stack }
             });
         }
         return true;
     }
     catch (err) {
         const error = ensureError(err);
-        log('error', '[RoleArchive] Initialization failed', { error: error.message, stack: error.stack });
+        logger.error('security-state', 'init', '[RoleArchive] Initialization failed', { metadata: { errorMsg: error.message, stack: error.stack } });
         return false;
     }
 }
@@ -397,12 +407,14 @@ export async function recordRoleChange(event) {
     roleArchiveCache.statistics.lastUpdate = timestamp;
     // Use debounced persist to batch rapid changes (P1: reduce disk thrashing)
     debouncedPersist();
-    log('detail', '[RoleArchive] Recorded role change', {
-        type: event.type,
-        member: event.memberTag,
-        role: event.roleName,
-        origin: event.origin,
-        archiveSize: roleArchiveCache.changes.length
+    logger.debug('security-state', 'save', '[RoleArchive] Recorded role change', {
+        metadata: {
+            type: event.type,
+            member: event.memberTag,
+            role: event.roleName,
+            origin: event.origin,
+            archiveSize: roleArchiveCache.changes.length
+        }
     });
     if (roleArchiveCache.securityBaselines) {
         setImmediate(async () => {
@@ -415,28 +427,31 @@ export async function recordRoleChange(event) {
                 const currentActivity = calculateCurrentActivity(recentChanges, roleArchiveCache);
                 const assessment = detectSecurityThreats(currentActivity, roleArchiveCache.securityBaselines);
                 if (assessment.hasThreats) {
-                    log('warn', `[RoleArchive] 🚨 ${assessment.threatCount} security threat(s) detected`, {
-                        maxSeverity: assessment.maxSeverity,
-                        baselineConfidence: assessment.baselineConfidence.toFixed(2)
+                    logger.warn('security-state', 'security', `[RoleArchive] 🚨 ${assessment.threatCount} security threat(s) detected`, {
+                        metadata: {
+                            maxSeverity: assessment.maxSeverity,
+                            baselineConfidence: assessment.baselineConfidence.toFixed(2)
+                        }
                     });
                     for (const threat of assessment.threats) {
                         const severityEmoji = threat.severity === 'CRITICAL' ? '🔴' :
                             threat.severity === 'HIGH' ? '🟠' : '🟡';
-                        log('warn', `[RoleArchive] ${severityEmoji} ${threat.type}: ${threat.description}`, {
-                            severity: threat.severity,
-                            confidence: threat.confidence.toFixed(2),
-                            evidence: threat.evidence,
-                            mitreAttack: threat.mitreAttack,
-                            recommendedAction: threat.recommendedAction
+                        logger.warn('security-state', 'security', `[RoleArchive] ${severityEmoji} ${threat.type}: ${threat.description}`, {
+                            metadata: {
+                                severity: threat.severity,
+                                confidence: threat.confidence.toFixed(2),
+                                evidence: threat.evidence,
+                                mitreAttack: threat.mitreAttack,
+                                recommendedAction: threat.recommendedAction
+                            }
                         });
                     }
                 }
             }
             catch (threatErr) {
                 const error = ensureError(threatErr);
-                log('error', '[RoleArchive] Failed to detect threats', {
-                    error: error.message,
-                    stack: error.stack
+                logger.error('security-state', 'error', '[RoleArchive] Failed to detect threats', {
+                    metadata: { errorMsg: error.message, stack: error.stack }
                 });
             }
         });
@@ -507,19 +522,23 @@ export function isAnomalousChange(event) {
         const eventTimestamp = event.timestamp ? new Date(event.timestamp).getTime() : Date.now();
         const timeSpan = eventTimestamp - new Date(recentMemberChanges[0].timestamp).getTime();
         if (timeSpan < 5 * 60 * 1000) {
-            log('warn', '[RoleArchive] Anomaly detected: Rapid role changes', {
-                member: event.memberTag,
-                changeCount: recentMemberChanges.length,
-                timeSpanMinutes: Math.round(timeSpan / 60000)
+            logger.warn('security-state', 'security', '[RoleArchive] Anomaly detected: Rapid role changes', {
+                metadata: {
+                    member: event.memberTag,
+                    changeCount: recentMemberChanges.length,
+                    timeSpanMinutes: Math.round(timeSpan / 60000)
+                }
             });
             return true;
         }
     }
     if (event.type === 'removal' && event.metadata?.isUnauthorized) {
-        log('warn', '[RoleArchive] Anomaly detected: Unauthorized role removal', {
-            member: event.memberTag,
-            role: event.roleName,
-            origin: event.origin
+        logger.warn('security-state', 'security', '[RoleArchive] Anomaly detected: Unauthorized role removal', {
+            metadata: {
+                member: event.memberTag,
+                role: event.roleName,
+                origin: event.origin
+            }
         });
         return true;
     }
@@ -547,25 +566,27 @@ export function exportArchive() {
 export async function refreshSecurityBaselines() {
     try {
         if (!roleArchiveCache.initialized) {
-            log('warn', '[RoleArchive] Cannot refresh baselines - archive not initialized');
+            logger.warn('security-state', 'warning', '[RoleArchive] Cannot refresh baselines - archive not initialized');
             return false;
         }
         if (roleArchiveCache.changes.length === 0) {
-            log('warn', '[RoleArchive] Cannot refresh baselines - no archive data available');
+            logger.warn('security-state', 'warning', '[RoleArchive] Cannot refresh baselines - no archive data available');
             return false;
         }
-        log('info', '[RoleArchive] Refreshing security baselines', {
-            changeCount: roleArchiveCache.changes.length
+        logger.info('security-state', 'init', '[RoleArchive] Refreshing security baselines', {
+            metadata: { changeCount: roleArchiveCache.changes.length }
         });
         const baselines = generateSecurityBaselines({ changes: roleArchiveCache.changes });
         const saved = await saveSecurityBaselines(baselines);
         if (saved) {
             roleArchiveCache.securityBaselines = baselines;
-            log('info', '[RoleArchive] ✅ Security baselines refreshed successfully', {
-                confidence: baselines.confidenceLevel.toFixed(2),
-                dataPoints: baselines.dataPointCount,
-                peakHours: baselines.peakActivityHours.join(', '),
-                computationTimeMs: baselines.computationTimeMs
+            logger.info('security-state', 'init', '[RoleArchive] ✅ Security baselines refreshed successfully', {
+                durationMs: baselines.computationTimeMs,
+                metadata: {
+                    confidence: baselines.confidenceLevel.toFixed(2),
+                    dataPoints: baselines.dataPointCount,
+                    peakHours: baselines.peakActivityHours.join(', ')
+                }
             });
             return true;
         }
@@ -573,9 +594,8 @@ export async function refreshSecurityBaselines() {
     }
     catch (err) {
         const error = ensureError(err);
-        log('error', '[RoleArchive] Failed to refresh security baselines', {
-            error: error.message,
-            stack: error.stack
+        logger.error('security-state', 'error', '[RoleArchive] Failed to refresh security baselines', {
+            metadata: { errorMsg: error.message, stack: error.stack }
         });
         return false;
     }
@@ -602,8 +622,8 @@ export async function shutdownRoleArchive() {
         }
         // Final sync persist (not debounced)
         await persistArchive();
-        log('info', '[RoleArchive] Shutdown complete', {
-            finalChangeCount: roleArchiveCache.changes.length
+        logger.info('security-state', 'save', '[RoleArchive] Shutdown complete', {
+            metadata: { finalChangeCount: roleArchiveCache.changes.length }
         });
     }
 }

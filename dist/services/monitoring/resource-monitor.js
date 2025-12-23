@@ -31,9 +31,10 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { resourceManager } from './resource-manager.js';
 import { getErrorMessage } from '../../shared/utils/error-utils.js';
-import { log as logger } from '../../shared/logging/index.js';
+import { getLogger } from '../../shared/logging/index.js';
 import { EventBus } from '../../shared/event-bus.js';
 import { RESOURCE_MONITOR_INTERVAL_MS, DISK_WARNING_THRESHOLD, DISK_CRITICAL_THRESHOLD, DISK_EMERGENCY_THRESHOLD } from '../../config/env.js';
+const logger = getLogger();
 // ============================================================================
 // Configuration
 // ============================================================================
@@ -203,7 +204,7 @@ class ResourceMonitor {
     // ============================================================================
     start() {
         if (this.isRunning) {
-            logger.warn('[ResourceMonitor] Already running, skipping start');
+            logger.warn('resource-monitor', 'start', '[ResourceMonitor] Already running, skipping start');
             return;
         }
         this.isRunning = true;
@@ -235,14 +236,12 @@ class ResourceMonitor {
             resourceManager.registerInterval('resource-monitor', 'memory-guardian-poll', () => this.checkMemoryAndAct(), MONITOR_CONFIG.memoryGuardianIntervalMs, { critical: true });
         }
         catch (error) {
-            logger.warn('[ResourceMonitor] Failed to register with ResourceManager (non-critical)', {
-                category: 'SYSTEM',
-                data: { error: getErrorMessage(error) },
+            logger.warn('resource-monitor', 'register', '[ResourceMonitor] Failed to register with ResourceManager (non-critical)', {
+                metadata: { errorMsg: getErrorMessage(error) },
             });
         }
-        logger.info('[ResourceMonitor] Started with integrated memory guardian', {
-            category: 'SYSTEM',
-            data: {
+        logger.info('resource-monitor', 'start', '[ResourceMonitor] Started with integrated memory guardian', {
+            metadata: {
                 healthCheckIntervalHours: MONITOR_CONFIG.intervalMs / (60 * 60 * 1000),
                 memoryGuardianIntervalSeconds: MONITOR_CONFIG.memoryGuardianIntervalMs / 1000,
                 metricsEmitIntervalSeconds: this.METRICS_EMIT_INTERVAL_MS / 1000,
@@ -274,9 +273,8 @@ class ResourceMonitor {
             this.metricsEmitTimer = undefined;
         }
         this.isRunning = false;
-        logger.info('[ResourceMonitor] Stopped', {
-            category: 'SYSTEM',
-            data: {
+        logger.info('resource-monitor', 'stop', '[ResourceMonitor] Stopped', {
+            metadata: {
                 totalChecksRun: this.snapshots.length,
                 lastCheckAt: this.lastSnapshot?.timestamp.toISOString(),
                 memoryGuardianStats: {
@@ -300,16 +298,14 @@ class ResourceMonitor {
      */
     registerCache(cache) {
         if (this.registeredCaches.has(cache.name)) {
-            logger.warn('[ResourceMonitor] Cache already registered', {
-                category: 'SYSTEM',
-                data: { cacheName: cache.name },
+            logger.warn('resource-monitor', 'register-cache', '[ResourceMonitor] Cache already registered', {
+                metadata: { cacheName: cache.name },
             });
             return;
         }
         this.registeredCaches.set(cache.name, cache);
-        logger.info('[ResourceMonitor] Cache registered for memory management', {
-            category: 'SYSTEM',
-            data: {
+        logger.info('resource-monitor', 'register-cache', '[ResourceMonitor] Cache registered for memory management', {
+            metadata: {
                 cacheName: cache.name,
                 initialMemoryMB: (cache.getMemoryUsage() / 1024 / 1024).toFixed(2),
                 totalCaches: this.registeredCaches.size,
@@ -321,9 +317,8 @@ class ResourceMonitor {
      */
     unregisterCache(cacheName) {
         this.registeredCaches.delete(cacheName);
-        logger.info('[ResourceMonitor] Cache unregistered', {
-            category: 'SYSTEM',
-            data: {
+        logger.info('resource-monitor', 'unregister-cache', '[ResourceMonitor] Cache unregistered', {
+            metadata: {
                 cacheName,
                 remainingCaches: this.registeredCaches.size,
             },
@@ -370,9 +365,8 @@ class ResourceMonitor {
         this.currentPressureLevel = snapshot.pressureLevel;
         // Log if pressure level changed
         if (prevPressure !== snapshot.pressureLevel) {
-            logger.info('[ResourceMonitor] Memory pressure level changed', {
-                category: 'SYSTEM',
-                data: {
+            logger.info('resource-monitor', 'pressure-change', '[ResourceMonitor] Memory pressure level changed', {
+                metadata: {
                     from: prevPressure,
                     to: snapshot.pressureLevel,
                     rss: `${snapshot.rss.toFixed(0)}MB`,
@@ -465,9 +459,8 @@ class ResourceMonitor {
         this.currentDiskPressureLevel = snapshot.pressureLevel;
         // Log if pressure level changed
         if (prevPressure !== snapshot.pressureLevel) {
-            logger.info('[ResourceMonitor] Disk pressure level changed', {
-                category: 'SYSTEM',
-                data: {
+            logger.info('resource-monitor', 'disk-pressure-change', '[ResourceMonitor] Disk pressure level changed', {
+                metadata: {
                     from: prevPressure,
                     to: snapshot.pressureLevel,
                     usedMB: `${snapshot.usedMB.toFixed(0)}MB`,
@@ -524,9 +517,8 @@ class ResourceMonitor {
      * Handle EMERGENCY disk pressure (≥95%) - Auto-remediation
      */
     async handleEmergencyDiskPressure(snapshot) {
-        logger.error('[ResourceMonitor] EMERGENCY DISK PRESSURE - Auto-remediation triggered', {
-            category: 'SYSTEM',
-            data: {
+        logger.error('resource-monitor', 'emergency-disk', '[ResourceMonitor] EMERGENCY DISK PRESSURE - Auto-remediation triggered', {
+            metadata: {
                 usedMB: `${snapshot.usedMB.toFixed(0)}MB`,
                 totalMB: `${snapshot.totalMB.toFixed(0)}MB`,
                 percentUsed: `${snapshot.percentUsed.toFixed(1)}%`,
@@ -540,9 +532,8 @@ class ResourceMonitor {
         try {
             const { forcePrune } = await import('../../workers/heap-pruner.js');
             const result = await forcePrune();
-            logger.info('[ResourceMonitor] Emergency disk remediation completed', {
-                category: 'SYSTEM',
-                data: {
+            logger.info('resource-monitor', 'disk-remediation', '[ResourceMonitor] Emergency disk remediation completed', {
+                metadata: {
                     success: result.success,
                     deletedCount: result.deletedCount,
                     freedMB: (result.deletedBytes / 1024 / 1024).toFixed(2),
@@ -565,9 +556,8 @@ class ResourceMonitor {
             }, { emitter: 'resource-monitor' });
         }
         catch (error) {
-            logger.error('[ResourceMonitor] Emergency disk remediation failed', {
-                category: 'SYSTEM',
-                data: { error: getErrorMessage(error) },
+            logger.error('resource-monitor', 'disk-remediation', '[ResourceMonitor] Emergency disk remediation failed', {
+                metadata: { errorMsg: getErrorMessage(error) },
             });
         }
     }
@@ -575,9 +565,8 @@ class ResourceMonitor {
      * Handle CRITICAL disk pressure (≥85%) - Immediate attention needed
      */
     async handleCriticalDiskPressure(snapshot) {
-        logger.warn('[ResourceMonitor] CRITICAL DISK PRESSURE - Immediate attention required', {
-            category: 'SYSTEM',
-            data: {
+        logger.warn('resource-monitor', 'critical-disk', '[ResourceMonitor] CRITICAL DISK PRESSURE - Immediate attention required', {
+            metadata: {
                 usedMB: `${snapshot.usedMB.toFixed(0)}MB`,
                 totalMB: `${snapshot.totalMB.toFixed(0)}MB`,
                 percentUsed: `${snapshot.percentUsed.toFixed(1)}%`,
@@ -591,9 +580,8 @@ class ResourceMonitor {
      * Handle WARNING disk pressure (≥75%) - Monitor closely
      */
     async handleWarningDiskPressure(snapshot) {
-        logger.info('[ResourceMonitor] WARNING: Disk pressure elevated', {
-            category: 'SYSTEM',
-            data: {
+        logger.info('resource-monitor', 'warning-disk', '[ResourceMonitor] WARNING: Disk pressure elevated', {
+            metadata: {
                 usedMB: `${snapshot.usedMB.toFixed(0)}MB`,
                 totalMB: `${snapshot.totalMB.toFixed(0)}MB`,
                 percentUsed: `${snapshot.percentUsed.toFixed(1)}%`,
@@ -662,9 +650,8 @@ class ResourceMonitor {
             if (this.metricsEmitFailures % 5 !== 0) {
                 return;
             }
-            logger.debug('[ResourceMonitor] Attempting metrics emit recovery from degraded mode', {
-                category: 'SYSTEM',
-                data: { failures: this.metricsEmitFailures },
+            logger.debug('resource-monitor', 'metrics-recovery', '[ResourceMonitor] Attempting metrics emit recovery from degraded mode', {
+                metadata: { failures: this.metricsEmitFailures },
             });
         }
         try {
@@ -707,9 +694,8 @@ class ResourceMonitor {
             // Success: Reset failure counter and exit degraded mode
             this.lastMetricsEmitAt = Date.now();
             if (this.degradedMode) {
-                logger.info('[ResourceMonitor] Recovered from degraded mode - metrics emission resumed', {
-                    category: 'SYSTEM',
-                    data: { previousFailures: this.metricsEmitFailures },
+                logger.info('resource-monitor', 'metrics-recovered', '[ResourceMonitor] Recovered from degraded mode - metrics emission resumed', {
+                    metadata: { previousFailures: this.metricsEmitFailures },
                 });
                 this.degradedMode = false;
             }
@@ -720,12 +706,11 @@ class ResourceMonitor {
             // Enter degraded mode after MAX_EMIT_FAILURES consecutive failures
             if (this.metricsEmitFailures >= this.MAX_EMIT_FAILURES && !this.degradedMode) {
                 this.degradedMode = true;
-                logger.warn('[ResourceMonitor] Entering degraded mode - metrics emission paused', {
-                    category: 'SYSTEM',
-                    data: {
+                logger.warn('resource-monitor', 'degraded-mode', '[ResourceMonitor] Entering degraded mode - metrics emission paused', {
+                    metadata: {
                         failures: this.metricsEmitFailures,
                         threshold: this.MAX_EMIT_FAILURES,
-                        error: getErrorMessage(error),
+                        errorMsg: getErrorMessage(error),
                     },
                 });
                 // Emit degraded mode alert
@@ -743,12 +728,11 @@ class ResourceMonitor {
                 }, { emitter: 'resource-monitor' });
             }
             else if (!this.degradedMode) {
-                logger.debug('[ResourceMonitor] Metrics emit failed', {
-                    category: 'SYSTEM',
-                    data: {
+                logger.debug('resource-monitor', 'metrics-emit-failed', '[ResourceMonitor] Metrics emit failed', {
+                    metadata: {
                         failures: this.metricsEmitFailures,
                         threshold: this.MAX_EMIT_FAILURES,
-                        error: getErrorMessage(error),
+                        errorMsg: getErrorMessage(error),
                     },
                 });
             }
@@ -774,9 +758,8 @@ class ResourceMonitor {
      */
     setMetricsEmitEnabled(enabled) {
         this.metricsEmitEnabled = enabled;
-        logger.info(`[ResourceMonitor] Metrics emission ${enabled ? 'enabled' : 'disabled'}`, {
-            category: 'SYSTEM',
-            data: { enabled },
+        logger.info('resource-monitor', 'set-metrics-emit', `[ResourceMonitor] Metrics emission ${enabled ? 'enabled' : 'disabled'}`, {
+            metadata: { enabled },
         });
     }
     /**
@@ -786,9 +769,8 @@ class ResourceMonitor {
         if (!this.degradedMode) {
             return;
         }
-        logger.info('[ResourceMonitor] Manually recovered from degraded mode', {
-            category: 'SYSTEM',
-            data: { previousFailures: this.metricsEmitFailures },
+        logger.info('resource-monitor', 'force-recover', '[ResourceMonitor] Manually recovered from degraded mode', {
+            metadata: { previousFailures: this.metricsEmitFailures },
         });
         this.degradedMode = false;
         this.metricsEmitFailures = 0;
@@ -797,9 +779,8 @@ class ResourceMonitor {
     // Memory Pressure Handlers (existing)
     // ============================================================================
     async handleEmergencyPressure(snapshot) {
-        logger.error('[ResourceMonitor] EMERGENCY MEMORY PRESSURE - Immediate action required', {
-            category: 'SYSTEM',
-            data: {
+        logger.error('resource-monitor', 'emergency-memory', '[ResourceMonitor] EMERGENCY MEMORY PRESSURE - Immediate action required', {
+            metadata: {
                 rss: `${snapshot.rss.toFixed(0)}MB`,
                 limit: `${MEMORY_THRESHOLDS.planLimitMB}MB`,
                 percentUsed: `${snapshot.percentUsed.toFixed(1)}%`,
@@ -817,9 +798,8 @@ class ResourceMonitor {
                 const freed = before - after;
                 this.totalPrunesTriggered++;
                 this.totalBytesFreed += freed;
-                logger.warn(`[ResourceMonitor] Emergency pruned cache: ${cacheName}`, {
-                    category: 'SYSTEM',
-                    data: {
+                logger.warn('resource-monitor', 'emergency-prune', `[ResourceMonitor] Emergency pruned cache: ${cacheName}`, {
+                    metadata: {
                         cleared,
                         freedMB: (freed / 1024 / 1024).toFixed(2),
                         beforeMB: (before / 1024 / 1024).toFixed(2),
@@ -828,9 +808,8 @@ class ResourceMonitor {
                 });
             }
             catch (error) {
-                logger.error(`[ResourceMonitor] Emergency prune failed for cache: ${cacheName}`, {
-                    category: 'SYSTEM',
-                    data: { error: getErrorMessage(error) },
+                logger.error('resource-monitor', 'emergency-prune', `[ResourceMonitor] Emergency prune failed for cache: ${cacheName}`, {
+                    metadata: { errorMsg: getErrorMessage(error) },
                 });
             }
         }
@@ -841,9 +820,8 @@ class ResourceMonitor {
      * Handle CRITICAL pressure (435-459 MB) - Aggressive action
      */
     async handleCriticalPressure(snapshot) {
-        logger.warn('[ResourceMonitor] CRITICAL MEMORY PRESSURE - Aggressive pruning', {
-            category: 'SYSTEM',
-            data: {
+        logger.warn('resource-monitor', 'critical-memory', '[ResourceMonitor] CRITICAL MEMORY PRESSURE - Aggressive pruning', {
+            metadata: {
                 rss: `${snapshot.rss.toFixed(0)}MB`,
                 percentUsed: `${snapshot.percentUsed.toFixed(1)}%`,
             },
@@ -853,9 +831,8 @@ class ResourceMonitor {
         // Respect prune cooldown (don't spam pruning)
         const timeSinceLastPrune = Date.now() - this.lastPruneAt;
         if (timeSinceLastPrune < MONITOR_CONFIG.pruneCooldownMs) {
-            logger.debug('[ResourceMonitor] Prune on cooldown', {
-                category: 'SYSTEM',
-                data: {
+            logger.debug('resource-monitor', 'prune-cooldown', '[ResourceMonitor] Prune on cooldown', {
+                metadata: {
                     cooldownRemainingSec: ((MONITOR_CONFIG.pruneCooldownMs - timeSinceLastPrune) / 1000).toFixed(0),
                 },
             });
@@ -870,18 +847,16 @@ class ResourceMonitor {
                 const freed = before - after;
                 this.totalPrunesTriggered++;
                 this.totalBytesFreed += freed;
-                logger.info(`[ResourceMonitor] Pruned cache: ${cacheName}`, {
-                    category: 'SYSTEM',
-                    data: {
+                logger.info('resource-monitor', 'prune-cache', `[ResourceMonitor] Pruned cache: ${cacheName}`, {
+                    metadata: {
                         itemsRemoved: result.itemsRemoved,
                         freedMB: (freed / 1024 / 1024).toFixed(2),
                     },
                 });
             }
             catch (error) {
-                logger.error(`[ResourceMonitor] Prune failed for cache: ${cacheName}`, {
-                    category: 'SYSTEM',
-                    data: { error: getErrorMessage(error) },
+                logger.error('resource-monitor', 'prune-cache', `[ResourceMonitor] Prune failed for cache: ${cacheName}`, {
+                    metadata: { errorMsg: getErrorMessage(error) },
                 });
             }
         }
@@ -893,9 +868,8 @@ class ResourceMonitor {
      * Handle WARNING pressure (384-434 MB) - Gentle action
      */
     async handleWarningPressure(snapshot) {
-        logger.info('[ResourceMonitor] WARNING MEMORY PRESSURE - Monitoring closely', {
-            category: 'SYSTEM',
-            data: {
+        logger.info('resource-monitor', 'warning-memory', '[ResourceMonitor] WARNING MEMORY PRESSURE - Monitoring closely', {
+            metadata: {
                 rss: `${snapshot.rss.toFixed(0)}MB`,
                 percentUsed: `${snapshot.percentUsed.toFixed(1)}%`,
             },
@@ -913,9 +887,8 @@ class ResourceMonitor {
         // Only log periodically to avoid spam (every 10 minutes)
         const timeSinceLastLog = Date.now() - (this.lastNormalLogAt || 0);
         if (timeSinceLastLog >= 10 * 60 * 1000) {
-            logger.debug('[ResourceMonitor] Memory pressure NORMAL', {
-                category: 'SYSTEM',
-                data: {
+            logger.debug('resource-monitor', 'normal-memory', '[ResourceMonitor] Memory pressure NORMAL', {
+                metadata: {
                     rss: `${snapshot.rss.toFixed(0)}MB`,
                     percentUsed: `${snapshot.percentUsed.toFixed(1)}%`,
                 },
@@ -936,18 +909,15 @@ class ResourceMonitor {
             global.gc();
             this.lastGcAt = Date.now();
             this.totalGcTriggered++;
-            logger.debug('[ResourceMonitor] Forced garbage collection', {
-                category: 'SYSTEM',
-                data: {
+            logger.debug('resource-monitor', 'force-gc', '[ResourceMonitor] Forced garbage collection', {
+                metadata: {
                     pressure: this.currentPressureLevel,
                     totalGcTriggered: this.totalGcTriggered,
                 },
             });
         }
         else {
-            logger.warn('[ResourceMonitor] global.gc() not available - start with --expose-gc', {
-                category: 'SYSTEM',
-            });
+            logger.warn('resource-monitor', 'force-gc', '[ResourceMonitor] global.gc() not available - start with --expose-gc');
         }
     }
     /**
@@ -959,9 +929,8 @@ class ResourceMonitor {
         const lastSent = this.lastAlertSentAt.get(level) || 0;
         const timeSinceLastAlert = Date.now() - lastSent;
         if (timeSinceLastAlert < this.ALERT_COOLDOWN_MS) {
-            logger.debug(`[ResourceMonitor] Skipping ${level} alert (cooldown active)`, {
-                category: 'SYSTEM',
-                data: {
+            logger.debug('resource-monitor', 'alert-cooldown', `[ResourceMonitor] Skipping ${level} alert (cooldown active)`, {
+                metadata: {
                     cooldownRemainingSec: ((this.ALERT_COOLDOWN_MS - timeSinceLastAlert) / 1000).toFixed(0),
                 },
             });
@@ -1008,9 +977,8 @@ class ResourceMonitor {
             }, {
                 emitter: 'resource-monitor',
             });
-            logger.info(`[ResourceMonitor] ${level} memory alert sent to Event Bus`, {
-                category: 'SYSTEM',
-                data: {
+            logger.info('resource-monitor', 'send-alert', `[ResourceMonitor] ${level} memory alert sent to Event Bus`, {
+                metadata: {
                     severity,
                     rss: `${snapshot.rss.toFixed(0)}MB`,
                     percentUsed: `${snapshot.percentUsed.toFixed(1)}%`,
@@ -1018,11 +986,10 @@ class ResourceMonitor {
             });
         }
         catch (error) {
-            logger.error('[ResourceMonitor] Failed to send memory alert', {
-                category: 'SYSTEM',
-                data: {
+            logger.error('resource-monitor', 'send-alert', '[ResourceMonitor] Failed to send memory alert', {
+                metadata: {
                     level,
-                    error: getErrorMessage(error),
+                    errorMsg: getErrorMessage(error),
                 },
             });
         }
@@ -1057,9 +1024,8 @@ class ResourceMonitor {
             this.logHealthCheckResults(trigger, snapshot, executionMs);
         }
         catch (error) {
-            logger.error('[ResourceMonitor] Health check failed', {
-                category: 'ERROR',
-                data: { trigger, error: getErrorMessage(error) },
+            logger.error('resource-monitor', 'health-check', '[ResourceMonitor] Health check failed', {
+                metadata: { trigger, errorMsg: getErrorMessage(error) },
             });
         }
     }
@@ -1224,28 +1190,24 @@ class ResourceMonitor {
         };
         // Log with appropriate level
         if (hasCritical) {
-            logger.error('🔴 [ResourceMonitor] CRITICAL: Resource health check failed', {
-                category: 'ALERT',
-                data: { ...logData, reason: 'Resource health critical' },
+            logger.error('resource-monitor', 'health-check', '🔴 [ResourceMonitor] CRITICAL: Resource health check failed', {
+                metadata: { ...logData, reason: 'Resource health critical' },
             });
         }
         else if (hasWarning) {
-            logger.warn('🟡 [ResourceMonitor] WARNING: Resource health issues detected', {
-                category: 'ALERT',
-                data: logData,
+            logger.warn('resource-monitor', 'health-check', '🟡 [ResourceMonitor] WARNING: Resource health issues detected', {
+                metadata: logData,
             });
         }
         else {
-            logger.info('✅ [ResourceMonitor] Resource health check passed', {
-                category: 'SYSTEM',
-                data: logData,
+            logger.info('resource-monitor', 'health-check', '✅ [ResourceMonitor] Resource health check passed', {
+                metadata: logData,
             });
         }
         // Log detailed leak suspect information if any exist
         if (stats.leakSuspects.length > 0) {
-            logger.warn('[ResourceMonitor] Leak suspect details', {
-                category: 'ALERT',
-                data: {
+            logger.warn('resource-monitor', 'leak-suspects', '[ResourceMonitor] Leak suspect details', {
+                metadata: {
                     count: stats.leakSuspects.length,
                     suspects: stats.leakSuspects.slice(0, 10).map(s => ({
                         type: s.type,
@@ -1260,9 +1222,8 @@ class ResourceMonitor {
         // Log oldest resource for context
         if (stats.oldest) {
             const ageHours = (Date.now() - stats.oldest.createdAt.getTime()) / (60 * 60 * 1000);
-            logger.debug('[ResourceMonitor] Oldest resource', {
-                category: 'SYSTEM',
-                data: {
+            logger.debug('resource-monitor', 'oldest-resource', '[ResourceMonitor] Oldest resource', {
+                metadata: {
                     type: stats.oldest.type,
                     owner: stats.oldest.owner,
                     name: stats.oldest.name,
@@ -1281,9 +1242,8 @@ class ResourceMonitor {
         this.snapshots = this.snapshots.filter(s => s.timestamp.getTime() >= cutoffTime);
         const removedCount = beforeCount - this.snapshots.length;
         if (removedCount > 0) {
-            logger.debug('[ResourceMonitor] Cleaned up old snapshots', {
-                category: 'SYSTEM',
-                data: {
+            logger.debug('resource-monitor', 'cleanup-snapshots', '[ResourceMonitor] Cleaned up old snapshots', {
+                metadata: {
                     removed: removedCount,
                     remaining: this.snapshots.length,
                     retentionDays: MONITOR_CONFIG.historyRetentionMs / (24 * 60 * 60 * 1000),
@@ -1404,9 +1364,8 @@ class ResourceMonitor {
     }
     updateThresholds(newThresholds) {
         Object.assign(MONITOR_CONFIG.thresholds, newThresholds);
-        logger.info('[ResourceMonitor] Thresholds updated', {
-            category: 'SYSTEM',
-            data: {
+        logger.info('resource-monitor', 'update-thresholds', '[ResourceMonitor] Thresholds updated', {
+            metadata: {
                 newThresholds: MONITOR_CONFIG.thresholds,
             },
         });

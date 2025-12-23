@@ -13,7 +13,8 @@ import { ensureUser } from "../../shared/models/user-queries-pg.js";
 import { getPartyWithSlots, createParty, createPartySlot, createPokemon } from "../../shared/models/party-queries-pg.js";
 import { getProdDb } from "../../shared/pg-connection.js";
 import { HomesteadChannelManager } from "../../services/homestead-manager.js";
-import { log } from "../../shared/logging/index.js";
+import { getLogger } from "../../shared/logging/index.js";
+const logger = getLogger();
 // Kanto starters (species IDs per National Dex)
 export const STARTER_OPTIONS = [
     { speciesId: 1, name: "Bulbasaur" },
@@ -46,10 +47,10 @@ export async function openStartersHomestead(client, guildId, user) {
         await homesteadChannel.send({ embeds: [embed], components });
     }
     catch (error) {
-        log('error', "[homestead-starters] Failed to open starters in homestead channel", {
-            error,
+        logger.error('HomesteadStarters', 'openStartersHomestead', 'Failed to open starters in homestead channel', {
             userId: user.id,
             guildId,
+            metadata: { error },
         });
         throw error;
     }

@@ -1,5 +1,6 @@
-import { log } from '../shared/log.js';
+import { getLogger } from '../shared/logging/index.js';
 import { getErrorMessage } from '../shared/utils/error-utils.js';
+const logger = getLogger();
 // ============================================================================
 // Constants
 // ============================================================================
@@ -24,44 +25,52 @@ function serializeCounts(counts) {
  * Record a successful dex load event
  */
 export function recordDexLoad({ runtime = DEFAULT_RUNTIME, source, counts, manifestHash, path, } = {}) {
-    log.info('dex.metrics.load', {
-        runtime,
-        source,
-        counts: serializeCounts(counts),
-        manifestHash,
-        path,
+    logger.info('dex-metrics', 'load', 'Dex loaded', {
+        metadata: {
+            runtime,
+            source,
+            counts: serializeCounts(counts),
+            manifestHash,
+            path,
+        }
     });
 }
 /**
  * Record a dex fallback event (when primary load fails)
  */
 export function recordDexFallback({ runtime = DEFAULT_RUNTIME, reason, error, counts, } = {}) {
-    log.warn('dex.metrics.fallback', {
-        runtime,
-        reason,
-        error: error ? getErrorMessage(error) : 'unknown',
-        counts: serializeCounts(counts),
+    logger.warn('dex-metrics', 'fallback', 'Dex fallback triggered', {
+        error: error ? { name: 'DexFallbackError', message: getErrorMessage(error) } : undefined,
+        metadata: {
+            runtime,
+            reason,
+            counts: serializeCounts(counts),
+        }
     });
 }
 /**
  * Record a dex lookup event
  */
 export function recordDexLookup({ runtime = DEFAULT_RUNTIME, query, resolution, found, durationMs, } = {}) {
-    log.debug('dex.metrics.lookup', {
-        runtime,
-        query,
-        resolution,
-        found: Boolean(found),
+    logger.debug('dex-metrics', 'lookup', 'Dex lookup performed', {
         durationMs: typeof durationMs === 'number' && Number.isFinite(durationMs) ? Math.max(0, durationMs) : undefined,
+        metadata: {
+            runtime,
+            query,
+            resolution,
+            found: Boolean(found),
+        }
     });
 }
 /**
  * Record a dex lookup miss event
  */
 export function recordDexLookupMiss({ runtime = DEFAULT_RUNTIME, query, attemptedResolutions, } = {}) {
-    log.debug('dex.metrics.lookup_miss', {
-        runtime,
-        query,
-        attemptedResolutions,
+    logger.debug('dex-metrics', 'lookupMiss', 'Dex lookup miss', {
+        metadata: {
+            runtime,
+            query,
+            attemptedResolutions,
+        }
     });
 }

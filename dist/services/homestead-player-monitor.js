@@ -23,8 +23,9 @@
  * @module homestead-player-monitor
  */
 import { prisma } from '../shared/prisma.js';
-import { log } from "../shared/logging/index.js";
+import { getLogger } from "../shared/logging/index.js";
 import { HomesteadChannelManager } from './homestead-manager.js';
+const logger = getLogger();
 import { getErrorMessage } from '../shared/utils/error-utils.js';
 import { HOMESTEAD_CHECK_INTERVAL_MS, HOMESTEAD_MIN_RECHECK_MS } from '../config/env.js';
 import { homesteadRepository } from './homestead-repository.js';
@@ -95,15 +96,14 @@ export class HomesteadPlayerMonitor {
      */
     start() {
         if (this.running) {
-            log.warn('[HomesteadMonitor] Already running', { guildId: this.guildId });
+            logger.warn('homestead-monitor', 'start', 'Already running', { guildId: this.guildId });
             return;
         }
         this.running = true;
         this.stats.startedAt = new Date();
-        log.info('[HomesteadMonitor] Starting background monitor', {
+        logger.info('homestead-monitor', 'start', 'Starting background monitor', {
             guildId: this.guildId,
-            checkIntervalMs: CHECK_INTERVAL_MS,
-            minRecheckMs: MIN_RECHECK_INTERVAL_MS,
+            metadata: { checkIntervalMs: CHECK_INTERVAL_MS, minRecheckMs: MIN_RECHECK_INTERVAL_MS },
         });
         // Start the check loop
         this.scheduleNextCheck();
@@ -120,9 +120,9 @@ export class HomesteadPlayerMonitor {
             clearTimeout(this.timer);
             this.timer = null;
         }
-        log.info('[HomesteadMonitor] Stopped', {
+        logger.info('homestead-monitor', 'stop', 'Stopped', {
             guildId: this.guildId,
-            stats: this.getStats(),
+            metadata: { stats: this.getStats() },
         });
     }
     /**
@@ -169,10 +169,9 @@ export class HomesteadPlayerMonitor {
         this.playerQueue = players.map(p => p.userId);
         this.queueIndex = 0;
         this.lastQueueRefresh = new Date();
-        log.info('[HomesteadMonitor] Queue refreshed', {
+        logger.info('homestead-monitor', 'queue-refresh', 'Queue refreshed', {
             guildId: this.guildId,
-            playersInQueue: this.playerQueue.length,
-            oldestCheck: players[0]?.lastHealthCheck?.toISOString() || 'never',
+            metadata: { playersInQueue: this.playerQueue.length, oldestCheck: players[0]?.lastHealthCheck?.toISOString() || 'never' },
         });
     }
     /**
@@ -205,9 +204,8 @@ export class HomesteadPlayerMonitor {
         // Check if we're in error pause
         if (this.stats.pausedUntil && this.stats.pausedUntil > new Date()) {
             const remainingMs = this.stats.pausedUntil.getTime() - Date.now();
-            log.warn('[HomesteadMonitor] Paused due to errors', {
-                remainingMs,
-                consecutiveErrors: this.stats.consecutiveErrors,
+            logger.warn('homestead-monitor', 'paused', 'Paused due to errors', {
+                metadata: { remainingMs, consecutiveErrors: this.stats.consecutiveErrors },
             });
             this.timer = setTimeout(() => this.runCheckCycle(), remainingMs);
             return;
@@ -227,7 +225,7 @@ export class HomesteadPlayerMonitor {
             if (!userId) {
                 // No players need checking right now
                 // Wait a bit longer before checking again
-                log.info('[HomesteadMonitor] All players healthy, waiting for next cycle', {
+                logger.info('homestead-monitor', 'all-healthy', 'All players healthy, waiting for next cycle', {
                     guildId: this.guildId,
                 });
                 this.timer = setTimeout(() => this.runCheckCycle(), CHECK_INTERVAL_MS * 10);
@@ -252,18 +250,17 @@ export class HomesteadPlayerMonitor {
                 // Check if we need to pause
                 if (this.stats.consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
                     this.stats.pausedUntil = new Date(Date.now() + ERROR_PAUSE_MS);
-                    log.warn('[HomesteadMonitor] Too many errors, pausing', {
+                    logger.warn('homestead-monitor', 'too-many-errors', 'Too many errors, pausing', {
                         guildId: this.guildId,
-                        consecutiveErrors: this.stats.consecutiveErrors,
-                        pauseMs: ERROR_PAUSE_MS,
+                        metadata: { consecutiveErrors: this.stats.consecutiveErrors, pauseMs: ERROR_PAUSE_MS },
                     });
                 }
             }
         }
         catch (error) {
-            log.error('[HomesteadMonitor] Check cycle error', {
+            logger.error('homestead-monitor', 'check-cycle', 'Check cycle error', {
                 guildId: this.guildId,
-                error: getErrorMessage(error),
+                metadata: { errorMsg: getErrorMessage(error) },
             });
             this.stats.consecutiveErrors++;
         }
@@ -315,10 +312,10 @@ export class HomesteadPlayerMonitor {
                 };
             }
             // Channel is missing! Trigger proactive recovery
-            log.info('[HomesteadMonitor] Missing channel detected, triggering recovery', {
+            logger.info('homestead-monitor', 'missing-channel', 'Missing channel detected, triggering recovery', {
                 userId,
-                discordId: homestead.user.discordId,
                 channelId: homestead.channelId,
+                metadata: { discordId: homestead.user.discordId },
             });
             // Fetch the Discord user for recreation
             try {
@@ -335,10 +332,9 @@ export class HomesteadPlayerMonitor {
                 };
             }
             catch (recreateError) {
-                log.error('[HomesteadMonitor] Failed to recreate channel', {
+                logger.error('homestead-monitor', 'recreate-failed', 'Failed to recreate channel', {
                     userId,
-                    discordId: homestead.user.discordId,
-                    error: getErrorMessage(recreateError),
+                    metadata: { discordId: homestead.user.discordId, errorMsg: getErrorMessage(recreateError) },
                 });
                 return {
                     userId,
@@ -381,8 +377,8 @@ export function getHomesteadMonitor(client, guildId) {
 export async function startAllHomesteadMonitors(client) {
     // Get all guilds with active homesteads using repository
     const guildIds = await homesteadRepository.findActiveGuildIds();
-    log.info('[HomesteadMonitor] Starting monitors for all guilds', {
-        guildCount: guildIds.length,
+    logger.info('homestead-monitor', 'start-all', 'Starting monitors for all guilds', {
+        metadata: { guildCount: guildIds.length },
     });
     for (const guildId of guildIds) {
         const monitor = getHomesteadMonitor(client, guildId);
@@ -393,8 +389,8 @@ export async function startAllHomesteadMonitors(client) {
  * Stop all monitors (call on bot shutdown)
  */
 export function stopAllHomesteadMonitors() {
-    log.info('[HomesteadMonitor] Stopping all monitors', {
-        monitorCount: monitors.size,
+    logger.info('homestead-monitor', 'stop-all', 'Stopping all monitors', {
+        metadata: { monitorCount: monitors.size },
     });
     for (const monitor of monitors.values()) {
         monitor.stop();

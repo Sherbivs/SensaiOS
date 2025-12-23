@@ -7,8 +7,9 @@
  * @since Phase 6.2 (2025-12-16) - Converted from JS
  */
 import { SlashCommandBuilder } from 'discord.js';
-import { log } from '../shared/logging/index.js';
+import { getLogger } from '../shared/logging/index.js';
 import * as dexApi from '../lib/dex-api.js';
+const logger = getLogger();
 import { makeRNG } from '../engine/rng.js';
 import engine from '../engine/index.js';
 import { engineWriteBuffer } from '../services/cache/engine-write-buffer.js';
@@ -158,10 +159,10 @@ const command = {
             catch (error) {
                 const err = error;
                 if (err.message && err.message.includes('Backpressure active')) {
-                    log.warn('Engine Write Buffer backpressure active - skipping battle log');
+                    logger.warn('BattleTurn', 'execute', 'Engine Write Buffer backpressure active - skipping battle log');
                 }
                 else {
-                    log.error('Engine Write Buffer logging failed:', err);
+                    logger.error('BattleTurn', 'execute', 'Engine Write Buffer logging failed', { metadata: { error: err } });
                 }
             }
         }
@@ -200,7 +201,7 @@ const command = {
             }
         }
         catch (err) {
-            log.error('Battle log send failed:', err);
+            logger.error('BattleTurn', 'execute', 'Battle log send failed', { metadata: { error: err } });
             const text = `Battle Log\n${state.a.name} ${state.a.hp}/${state.a.maxHp} vs ${state.b.name} ${state.b.hp}/${state.b.maxHp}\n${description}`;
             if (interaction.replied || interaction.deferred) {
                 await interaction.followUp({ content: text });

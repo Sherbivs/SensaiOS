@@ -1,8 +1,9 @@
 import { prisma as prismaClient, recordDailyQuestCompletion, loadTrainerProfileSummary, } from "../../models/index.js";
-import { log } from "../../shared/log.js";
+import { getLogger } from "../../shared/logging/index.js";
 import { normalizeError } from "../../shared/utils/error-utils.js";
 import { getOrHydrate, evict } from "./facade.js";
 import { CACHE_CONSTANTS, GAME_CONSTANTS } from "../../shared/constants.js";
+const logger = getLogger();
 const BATTLE_NAMESPACE = "battle-state";
 const ENCOUNTER_NAMESPACE = "encounter-state";
 const QUEST_NAMESPACE = "quest-reward";
@@ -65,13 +66,13 @@ export async function loadBattleState(battleId, opts = {}) {
     const descriptor = { namespace: BATTLE_NAMESPACE, key: battleId };
     const hydrate = async ({ lastValue }) => {
         if (lastValue) {
-            log.debug("cache.stale", meta(BATTLE_NAMESPACE, battleId, { reason: "battle-state" }));
+            logger.debug('cache-recipes', 'loadBattleState', 'Cache stale', { metadata: meta(BATTLE_NAMESPACE, battleId, { reason: "battle-state" }) });
         }
         const record = (await prisma.battle.findUnique({
             where: { id: battleId },
             include: { p1: true, p2: true },
         }));
-        log.debug("cache.recover", meta(BATTLE_NAMESPACE, battleId, { source: "prisma", hit: Boolean(record) }));
+        logger.debug('cache-recipes', 'loadBattleState', 'Cache recover', { metadata: meta(BATTLE_NAMESPACE, battleId, { source: "prisma", hit: Boolean(record) }) });
         return record;
     };
     try {
@@ -79,7 +80,7 @@ export async function loadBattleState(battleId, opts = {}) {
         return reviveBattle(value);
     }
     catch (err) {
-        log.warn("cache.recover", meta(BATTLE_NAMESPACE, battleId, { recovery: "direct", err: normalizeError(err) }));
+        logger.warn('cache-recipes', 'loadBattleState', 'Cache recover fallback', { error: { name: 'CacheError', message: String(normalizeError(err)) }, metadata: meta(BATTLE_NAMESPACE, battleId, { recovery: "direct" }) });
         const fallback = (await prisma.battle.findUnique({
             where: { id: battleId },
             include: { p1: true, p2: true },
@@ -96,10 +97,10 @@ export async function loadEncounter(encounterId, opts = {}) {
     const descriptor = { namespace: ENCOUNTER_NAMESPACE, key: encounterId };
     const hydrate = async ({ lastValue }) => {
         if (lastValue) {
-            log.debug("cache.stale", meta(ENCOUNTER_NAMESPACE, encounterId, { reason: "encounter-state" }));
+            logger.debug('cache-recipes', 'loadEncounter', 'Cache stale', { metadata: meta(ENCOUNTER_NAMESPACE, encounterId, { reason: "encounter-state" }) });
         }
         const record = (await prisma.encounter.findUnique({ where: { id: encounterId } }));
-        log.debug("cache.recover", meta(ENCOUNTER_NAMESPACE, encounterId, { source: "prisma", hit: Boolean(record) }));
+        logger.debug('cache-recipes', 'loadEncounter', 'Cache recover', { metadata: meta(ENCOUNTER_NAMESPACE, encounterId, { source: "prisma", hit: Boolean(record) }) });
         return record;
     };
     try {
@@ -107,7 +108,7 @@ export async function loadEncounter(encounterId, opts = {}) {
         return reviveEncounter(value);
     }
     catch (err) {
-        log.warn("cache.recover", meta(ENCOUNTER_NAMESPACE, encounterId, { recovery: "direct", err: normalizeError(err) }));
+        logger.warn('cache-recipes', 'loadEncounter', 'Cache recover fallback', { error: { name: 'CacheError', message: String(normalizeError(err)) }, metadata: meta(ENCOUNTER_NAMESPACE, encounterId, { recovery: "direct" }) });
         const fallback = (await prisma.encounter.findUnique({ where: { id: encounterId } }));
         return reviveEncounter(fallback);
     }
@@ -121,17 +122,17 @@ export async function loadTrainerProfile(discordId, opts = {}) {
     const descriptor = { namespace: PROFILE_NAMESPACE, key: discordId };
     const hydrate = async ({ lastValue }) => {
         if (lastValue) {
-            log.debug("cache.stale", meta(PROFILE_NAMESPACE, discordId, { reason: "trainer-profile" }));
+            logger.debug('cache-recipes', 'loadTrainerProfile', 'Cache stale', { metadata: meta(PROFILE_NAMESPACE, discordId, { reason: "trainer-profile" }) });
         }
         const summary = await loadTrainerProfileSummary(discordId, prisma);
-        log.debug("cache.recover", meta(PROFILE_NAMESPACE, discordId, { source: "prisma", hit: Boolean(summary) }));
+        logger.debug('cache-recipes', 'loadTrainerProfile', 'Cache recover', { metadata: meta(PROFILE_NAMESPACE, discordId, { source: "prisma", hit: Boolean(summary) }) });
         return summary;
     };
     try {
         return await getOrHydrate({ ...descriptor, ttlMs }, hydrate);
     }
     catch (err) {
-        log.warn("cache.recover", meta(PROFILE_NAMESPACE, discordId, { recovery: "direct", err: normalizeError(err) }));
+        logger.warn('cache-recipes', 'loadTrainerProfile', 'Cache recover fallback', { error: { name: 'CacheError', message: String(normalizeError(err)) }, metadata: meta(PROFILE_NAMESPACE, discordId, { recovery: "direct" }) });
         return loadTrainerProfileSummary(discordId, prisma);
     }
 }
@@ -197,10 +198,10 @@ export async function claimDailyQuestReward(context) {
     };
     const hydrate = async ({ lastValue }) => {
         if (lastValue) {
-            log.debug("cache.stale", meta(QUEST_NAMESPACE, context.discordId, { reason: "quest-reward" }));
+            logger.debug('cache-recipes', 'claimDailyQuest', 'Cache stale', { metadata: meta(QUEST_NAMESPACE, context.discordId, { reason: "quest-reward" }) });
         }
         const outcome = await performClaim();
-        log.debug("cache.recover", meta(QUEST_NAMESPACE, context.discordId, { outcome: outcome.kind }));
+        logger.debug('cache-recipes', 'claimDailyQuest', 'Cache recover', { metadata: meta(QUEST_NAMESPACE, context.discordId, { outcome: outcome.kind }) });
         return outcome;
     };
     try {
@@ -208,7 +209,7 @@ export async function claimDailyQuestReward(context) {
         return reviveQuest(result);
     }
     catch (err) {
-        log.warn("cache.recover", meta(QUEST_NAMESPACE, context.discordId, { recovery: "direct", err: normalizeError(err) }));
+        logger.warn('cache-recipes', 'claimDailyQuest', 'Cache recover fallback', { error: { name: 'CacheError', message: String(normalizeError(err)) }, metadata: meta(QUEST_NAMESPACE, context.discordId, { recovery: "direct" }) });
         const fallback = await performClaim();
         return reviveQuest(fallback);
     }

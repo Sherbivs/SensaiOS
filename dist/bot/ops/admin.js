@@ -6,8 +6,9 @@ import { replyError } from "../shared/response-helpers.js";
 import { collectCacheMetrics, runCacheMaintenanceNow, startCacheMaintenanceScheduler, } from "../../services/cache/facade.js";
 import { cache } from "../../shared/cache/memory.js";
 import { config } from "../../shared/config.js";
-import { log } from "../../shared/log.js";
+import { getLogger } from "../../shared/logging/index.js";
 import { getLogBuffer } from "../../shared/logBuffer.js";
+const logger = getLogger();
 import { EventBus } from "../../shared/event-bus.js";
 import { getProdDb } from "../../shared/pg-connection.js";
 import { measureLogBufferMemory, measureEventBusMemory, measureDiscordCacheMemory, getConfidenceEmoji } from "../../utils/memory-measurement.js";
@@ -24,6 +25,8 @@ import * as engineWriteDb from '../../services/database/engine-write-db.js';
 import { getEngineWorkersStatus } from "../../workers/engine-workers.js";
 // Error Detection modules (Phase 9-12)
 import { errorTracker, resourceMonitor } from '../../services/monitoring/index.js';
+// Error Brain modules — Local intelligence system
+import * as ErrorBrain from '../../services/error-brain/index.js';
 // Prometheus metrics (Phase 3, P5)
 import { getPrometheusStatus } from '../../services/prometheus-metrics.js';
 // Alert Dispatcher (Phase 1, P2)
@@ -44,7 +47,7 @@ async function getStateModules() {
         return stateModules;
     }
     catch (err) {
-        log.debug("State persistence modules not available", { err });
+        logger.debug('OpsAdmin', 'getStateModules', 'State persistence modules not available', { metadata: { err } });
         return null;
     }
 }
@@ -104,7 +107,7 @@ async function resetCooldownsForDiscordId(discordId, deps) {
         return count;
     }
     catch (err) {
-        log.warn("Cooldown reset failed", { err });
+        logger.warn('OpsAdmin', 'resetCooldowns', 'Cooldown reset failed', { metadata: { err } });
         return null;
     }
 }
@@ -676,6 +679,93 @@ function formatWorkerStatus(worker) {
     const errorIcon = worker.errorCount > 0 ? " ⚠️" : "";
     return `${statusIcon} ${worker.successCount} runs, ${worker.errorCount} errors${errorIcon}, last: ${formatTimestamp(worker.lastRunTime)}`;
 }
+// ============================================================================
+// ERROR BRAIN STATS — Local Error Intelligence System
+// ============================================================================
+/**
+ * Format Error Brain operational stats for /ops brain command.
+ */
+function formatErrorBrainStats() {
+    const lines = [];
+    lines.push("**🧠 ERROR BRAIN — Local Intelligence System**");
+    lines.push("");
+    // DB separation verification (safety check)
+    try {
+        const conflicts = ErrorBrain.diagnoseDbSeparation();
+        if (conflicts.length === 0) {
+            lines.push("**DB Separation:** ✅ Verified (distinct from engine/security DBs)");
+        }
+        else {
+            lines.push("**DB Separation:** ⚠️ CONFLICTS DETECTED");
+            conflicts.forEach((c) => lines.push(`  └─ ${c}`));
+        }
+        lines.push("");
+    }
+    catch (err) {
+        lines.push(`**DB Separation:** ❌ Check failed: ${getErrorMessage(err)}`);
+        lines.push("");
+    }
+    try {
+        const stats = ErrorBrain.getStats();
+        // Cache stats
+        lines.push("**L1 Cache**");
+        lines.push(`• Time Patterns: ${stats.cache.timePatternCount}`);
+        lines.push(`• Correlations: ${stats.cache.correlationCount}`);
+        lines.push(`• Cascades: ${stats.cache.cascadeCount}`);
+        lines.push(`• Recovery Weights: ${stats.cache.recoveryWeightCount}`);
+        lines.push(`• Impact Weights: ${stats.cache.impactWeightCount}`);
+        lines.push(`• Baselines: ${stats.cache.baselineCount}`);
+        lines.push(`• Memory: ~${(stats.cache.estimatedSizeBytes / 1024 / 1024).toFixed(2)} MB`);
+        lines.push(`• Initialized: ${stats.cache.isInitialized ? 'yes' : 'no'}`);
+        lines.push("");
+        // DB stats
+        lines.push("**SQLite DB**");
+        lines.push(`• Time Patterns: ${stats.db.timePatternCount}`);
+        lines.push(`• Correlations: ${stats.db.correlationCount}`);
+        lines.push(`• Cascades: ${stats.db.cascadeCount}`);
+        lines.push(`• Recovery Weights: ${stats.db.recoveryWeightCount}`);
+        lines.push(`• Impact Weights: ${stats.db.impactWeightCount}`);
+        lines.push(`• Baselines: ${stats.db.baselineCount}`);
+        lines.push(`• Size: ${formatBytes(stats.db.sizeBytes)}`);
+        lines.push(`• Last Sync: ${stats.db.lastSync ? formatTimestamp(new Date(stats.db.lastSync)) : 'never'}`);
+        lines.push(`• Initialized: ${stats.db.isInitialized ? 'yes' : 'no'}`);
+        lines.push("");
+        // Worker stats (if running)
+        if (ErrorBrain.isWorkersRunning()) {
+            const wStats = ErrorBrain.getWorkerStats();
+            lines.push("**Workers**");
+            lines.push(`• Running: ${wStats.isActive ? 'yes' : 'no'}`);
+            lines.push(`• Uptime: ${formatDurationCompact(wStats.uptimeMs)}`);
+            lines.push(`• Worker Count: ${wStats.workers.length}`);
+            for (const w of wStats.workers) {
+                const runIcon = w.isRunning ? '🔄' : '⏸️';
+                lines.push(`  └─ ${runIcon} ${w.name}: ${w.executionCount} runs, ${w.errorCount} errors`);
+            }
+        }
+        else {
+            lines.push("**Workers:** ⏸️ Not running");
+        }
+        lines.push("");
+        // Pattern detector stats
+        const pdStats = ErrorBrain.getPatternDetectorStats();
+        lines.push("**Pattern Detector**");
+        lines.push(`• Recent Errors Buffer: ${pdStats.recentErrorsCount}`);
+        lines.push(`• Correlation Pairs: ${pdStats.correlationPairsTracked}`);
+        lines.push(`• Fingerprints Observed: ${pdStats.fingerprintsObserved}`);
+        lines.push(`• Active Cascades: ${pdStats.activeCascadesTracked}`);
+        lines.push("");
+        // Impact predictor stats
+        const ipStats = ErrorBrain.getImpactPredictorStats();
+        lines.push("**Impact Predictor**");
+        lines.push(`• Services Tracked: ${ipStats.servicesTracked}`);
+        lines.push(`• Fingerprints w/ History: ${ipStats.fingerprintsWithHistory}`);
+        lines.push(`• System Health Score: ${(ipStats.systemHealthScore).toFixed(0)}%`);
+    }
+    catch (err) {
+        lines.push(`❌ Error collecting stats: ${getErrorMessage(err)}`);
+    }
+    return lines.join("\n");
+}
 /**
  * Format historical metrics report for /ops metrics-history command.
  *
@@ -836,6 +926,69 @@ export async function handleOpsCommand(interaction, deps = {}) {
         return;
     }
     // ═══════════════════════════════════════════════════════════════════════════
+    // Error Brain: /ops brain [subcommand] — Local error intelligence system
+    // Subcommands:
+    //   (none)        — Show full stats dashboard
+    //   diagnose-db   — Verify DB separation (no path collisions)
+    // ═══════════════════════════════════════════════════════════════════════════
+    if (sub === "brain") {
+        await interaction.deferReply({ ephemeral: true });
+        const brainSubcommand = interaction.options?.getString?.("subcommand");
+        // Subcommand: diagnose-db — verify Error Brain DB is isolated
+        if (brainSubcommand === "diagnose-db") {
+            try {
+                const conflicts = ErrorBrain.diagnoseDbSeparation();
+                if (conflicts.length === 0) {
+                    await interaction.editReply({
+                        content: `🧠 **Error Brain DB Isolation: VERIFIED**\n\n` +
+                            `✅ No path collisions detected.\n` +
+                            `Error Brain DB is properly isolated from:\n` +
+                            `• Engine Read-DB\n` +
+                            `• Engine Write-DB\n` +
+                            `• Security/Alert storage`,
+                    });
+                }
+                else {
+                    await interaction.editReply({
+                        content: `🧠 **Error Brain DB Isolation: CONFLICT DETECTED**\n\n` +
+                            `⚠️ ${conflicts.length} collision(s) found:\n` +
+                            conflicts.map((c) => `• ${c}`).join("\n") +
+                            `\n\n**Action Required:** Update ErrorBrainConfig.brainDbPath in error-brain-config.ts`,
+                    });
+                }
+            }
+            catch (err) {
+                await errorTracker.captureError(ensureError(err), {
+                    category: 'ENGINE',
+                    userId: interaction.user.id,
+                    guildId: interaction.guildId || undefined,
+                    commandName: '/ops brain diagnose-db',
+                    operation: 'diagnoseDbSeparation',
+                });
+                const message = getErrorMessage(err);
+                await interaction.editReply({ content: `DB diagnosis failed: ${message}` });
+            }
+            return;
+        }
+        // Default: Show full stats dashboard
+        try {
+            const report = formatErrorBrainStats();
+            await interaction.editReply({ content: report });
+        }
+        catch (err) {
+            await errorTracker.captureError(ensureError(err), {
+                category: 'ENGINE',
+                userId: interaction.user.id,
+                guildId: interaction.guildId || undefined,
+                commandName: '/ops brain',
+                operation: 'formatErrorBrainStats',
+            });
+            const message = getErrorMessage(err);
+            await interaction.editReply({ content: `Error Brain stats unavailable: ${message}` });
+        }
+        return;
+    }
+    // ═══════════════════════════════════════════════════════════════════════════
     // P6: /ops metrics-history — Historical metrics query
     // @see docs/projects/metrics-expansion-bible.md § Project 6
     // ═══════════════════════════════════════════════════════════════════════════
@@ -983,7 +1136,7 @@ export async function handleOpsCommand(interaction, deps = {}) {
                 commandName: '/ops stats',
                 operation: dataSource === "pool" ? 'collectOpsStatsFromDb' : 'collectOpsStatsFromPrisma',
             });
-            log.warn("Stats query failed", { err, dataSource });
+            logger.warn('OpsAdmin', 'stats', 'Stats query failed', { metadata: { err, dataSource } });
             await interaction.editReply({ content: "Failed to load stats (check logs)." });
             return;
         }
@@ -993,7 +1146,7 @@ export async function handleOpsCommand(interaction, deps = {}) {
                     await prismaClient.$disconnect();
                 }
                 catch (disconnectErr) {
-                    log.warn("Failed to disconnect ops Prisma client", { err: disconnectErr });
+                    logger.warn('OpsAdmin', 'stats', 'Failed to disconnect ops Prisma client', { metadata: { err: disconnectErr } });
                 }
             }
         }
@@ -1118,7 +1271,7 @@ export async function handleOpsCommand(interaction, deps = {}) {
                 commandName: '/ops state',
                 operation: 'getSecurityBotState',
             });
-            log.warn("State command failed", { err });
+            logger.warn('OpsAdmin', 'state', 'State command failed', { metadata: { err } });
             const message = getErrorMessage(err);
             await interaction.editReply({ content: `State unavailable: ${message}` });
         }
@@ -1291,7 +1444,7 @@ export async function handleOpsCommand(interaction, deps = {}) {
             }
         }
         catch (err) {
-            log.warn("Error dashboard command failed", { err });
+            logger.warn('OpsAdmin', 'errors', 'Error dashboard command failed', { metadata: { err } });
             const message = getErrorMessage(err);
             await interaction.editReply({ content: `Error dashboard unavailable: ${message}` });
         }
@@ -1491,7 +1644,7 @@ export async function handleOpsCommand(interaction, deps = {}) {
             }
         }
         catch (err) {
-            log.warn("Memory profiling command failed", { err });
+            logger.warn('OpsAdmin', 'memory', 'Memory profiling command failed', { metadata: { err } });
             const message = getErrorMessage(err);
             await interaction.editReply({ content: `Memory profiling unavailable: ${message}` });
         }
@@ -1587,7 +1740,7 @@ export async function handleOpsCommand(interaction, deps = {}) {
             }
         }
         catch (err) {
-            log.warn("Snapshot command failed", { err });
+            logger.warn('OpsAdmin', 'snapshot', 'Snapshot command failed', { metadata: { err } });
             const message = getErrorMessage(err);
             await interaction.editReply({ content: `Heap snapshot unavailable: ${message}` });
         }
@@ -1615,7 +1768,7 @@ export async function handleOpsCommand(interaction, deps = {}) {
             }
         }
         catch (err) {
-            log.warn("Restart metrics command failed", { err });
+            logger.warn('OpsAdmin', 'restarts', 'Restart metrics command failed', { metadata: { err } });
             const message = getErrorMessage(err);
             await interaction.editReply({ content: `Restart metrics unavailable: ${message}` });
         }

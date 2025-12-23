@@ -26,8 +26,9 @@
  */
 import http from 'node:http';
 import { HEALTH_CHECK_PATH, HEALTH_CHECK_TIMEOUT_MS } from '../config/engine-db-config.js';
-import { log } from "../shared/logging/index.js";
+import { getLogger } from "../shared/logging/index.js";
 import { ServiceRegistry } from '../shared/service-registry.js';
+const logger = getLogger();
 import { HEALTH_CHECK_PORT, HEALTH_CHECK_HOST } from '../config/env.js';
 import { bytesToMB } from '../shared/utils/format-utils.js';
 import { handleMetricsRequest, isMetricsInitialized } from './prometheus-metrics.js';
@@ -112,7 +113,7 @@ function handleRequest(req, res) {
         if (isMetricsInitialized()) {
             // Delegate to prometheus-metrics handler (async)
             handleMetricsRequest(res).catch((error) => {
-                log.error('Prometheus metrics request failed', { error: String(error) });
+                logger.error('health-server', 'metrics', 'Prometheus metrics request failed', { metadata: { errorMsg: String(error) } });
                 res.writeHead(500, { 'Content-Type': 'text/plain' });
                 res.end('Internal Server Error');
             });
@@ -155,17 +156,21 @@ function handleRequest(req, res) {
     res.end(JSON.stringify(health, null, 2));
     // Log health checks: 503 = warn (actual failure), 206 = info (warmup), 200 = silent (normal)
     if (statusCode === 503) {
-        log.warn('Health check returned 503 (shutting down)', {
-            status: health.status,
-            engineReady: health.engine_ready,
-            services: health.services,
+        logger.warn('health-server', 'health-check', 'Health check returned 503 (shutting down)', {
+            metadata: {
+                status: health.status,
+                engineReady: health.engine_ready,
+                services: health.services,
+            },
         });
     }
     else if (statusCode === 206) {
         // 206 during warmup is expected (seamless restart), log once per boot
-        log.info('Health check returned 206 (warmup phase - seamless restart)', {
-            status: health.status,
-            engineReady: health.engine_ready,
+        logger.info('health-server', 'health-check', 'Health check returned 206 (warmup phase - seamless restart)', {
+            metadata: {
+                status: health.status,
+                engineReady: health.engine_ready,
+            },
         });
     }
 }
@@ -177,7 +182,7 @@ function handleRequest(req, res) {
  */
 export function startHealthServer() {
     if (server) {
-        log.warn('Health server already running', { port: PORT, host: HOST });
+        logger.warn('health-server', 'start', 'Health server already running', { metadata: { port: PORT, host: HOST } });
         return;
     }
     server = http.createServer(handleRequest);
@@ -186,19 +191,21 @@ export function startHealthServer() {
     server.keepAliveTimeout = HEALTH_CHECK_TIMEOUT_MS;
     server.headersTimeout = HEALTH_CHECK_TIMEOUT_MS + 1000;
     server.listen(PORT, HOST, () => {
-        log.info('Health check server started', {
-            port: PORT,
-            host: HOST,
-            path: HEALTH_CHECK_PATH,
-            timeout: `${HEALTH_CHECK_TIMEOUT_MS}ms`,
+        logger.info('health-server', 'start', 'Health check server started', {
+            metadata: {
+                port: PORT,
+                host: HOST,
+                path: HEALTH_CHECK_PATH,
+                timeout: `${HEALTH_CHECK_TIMEOUT_MS}ms`,
+            },
         });
     });
     server.on('error', (error) => {
         if (error.code === 'EADDRINUSE') {
-            log.error('Health server port already in use', { port: PORT, host: HOST });
+            logger.error('health-server', 'error', 'Health server port already in use', { metadata: { port: PORT, host: HOST } });
         }
         else {
-            log.error('Health server error', { error: error.message });
+            logger.error('health-server', 'error', 'Health server error', { error: { name: error.name, message: error.message } });
         }
     });
     // Ensure server doesn't prevent process exit
@@ -214,11 +221,11 @@ export async function stopHealthServer() {
     return new Promise((resolve, reject) => {
         server.close((error) => {
             if (error) {
-                log.error('Health server shutdown error', { error: error.message });
+                logger.error('health-server', 'shutdown', 'Health server shutdown error', { error: { name: error.name, message: error.message } });
                 reject(error);
             }
             else {
-                log.info('Health server stopped');
+                logger.info('health-server', 'shutdown', 'Health server stopped');
                 server = null;
                 resolve();
             }
@@ -226,7 +233,7 @@ export async function stopHealthServer() {
         // Force close after 5 seconds
         setTimeout(() => {
             if (server) {
-                log.warn('Health server force closing after timeout');
+                logger.warn('health-server', 'shutdown', 'Health server force closing after timeout');
                 server = null;
                 resolve();
             }

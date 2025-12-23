@@ -6,6 +6,7 @@
  * uncaught exceptions, ensuring proper logging and graceful shutdown.
  */
 import util from 'node:util';
+import { lokiTransport } from '../shared/logging/loki-transport.js';
 // ─────────────────────────────────────────────────────────────────────────────
 // State
 // ─────────────────────────────────────────────────────────────────────────────
@@ -65,6 +66,19 @@ export function installFatalErrorHandlers(options = {}) {
         : (_level, message, context) => {
             // eslint-disable-next-line no-console
             console.error(message, context);
+            // Also forward to Loki for observability
+            try {
+                lokiTransport.push({
+                    level: 'error',
+                    message,
+                    timestamp: new Date().toISOString(),
+                    service: 'FatalErrorGuard',
+                    data: context
+                });
+            }
+            catch {
+                // Loki not available - graceful degradation
+            }
         };
     const reportFn = typeof report === 'function' ? report : null;
     function handleFatal(eventName, errorLike, extra = {}) {

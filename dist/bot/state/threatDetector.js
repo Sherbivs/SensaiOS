@@ -21,7 +21,8 @@
  * - T1098: Account Manipulation
  * - T1078.001: Default Accounts
  */
-import { log } from '../../shared/logging/index.js';
+import { getLogger } from '../../shared/logging/index.js';
+const logger = getLogger();
 // ─────────────────────────────────────────────────────────────────────────────
 // Threat Detection
 // ─────────────────────────────────────────────────────────────────────────────
@@ -33,8 +34,8 @@ export function detectSecurityThreats(currentActivity, baselines) {
     const currentHour = currentActivity.currentHour ?? new Date().getHours();
     // Skip detection if baseline confidence too low
     if (baselines.confidenceLevel < 0.5) {
-        log('detail', '[ThreatDetector] Low baseline confidence, skipping detection', {
-            confidence: baselines.confidenceLevel
+        logger.debug('security-state', 'detect', '[ThreatDetector] Low baseline confidence, skipping detection', {
+            metadata: { confidence: baselines.confidenceLevel }
         });
         return {
             hasThreats: false,
@@ -150,10 +151,12 @@ export function detectSecurityThreats(currentActivity, baselines) {
             t.severity === 'MEDIUM' ? 1 : 0), 0 // Default if no threats
     );
     if (threats.length > 0) {
-        log('warn', '[ThreatDetector] ⚠️ Security threats detected', {
-            threatCount: threats.length,
-            maxSeverity: ['NONE', 'MEDIUM', 'HIGH', 'CRITICAL'][maxSeverity],
-            types: threats.map(t => t.type)
+        logger.warn('security-state', 'security', '[ThreatDetector] ⚠️ Security threats detected', {
+            metadata: {
+                threatCount: threats.length,
+                maxSeverity: ['NONE', 'MEDIUM', 'HIGH', 'CRITICAL'][maxSeverity],
+                types: threats.map(t => t.type)
+            }
         });
     }
     return {

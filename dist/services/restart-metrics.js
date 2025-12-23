@@ -1,6 +1,7 @@
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from "fs";
 import { dirname } from "path";
-import { log } from "../shared/logging/index.js";
+import { getLogger } from "../shared/logging/index.js";
+const logger = getLogger();
 // -----------------------------------------------------------------------------
 // Configuration
 // -----------------------------------------------------------------------------
@@ -29,7 +30,7 @@ export function initializeMetrics() {
             metricsState.totalRestarts += 1;
             metricsState.lastBoot = new Date().toISOString();
             currentBootTime = Date.now();
-            log.info(`[RestartMetrics] Loaded state: ${metricsState.totalRestarts} restarts, ${metricsState.totalCrashes} crashes`);
+            logger.info('restart-metrics', 'load', `Loaded state: ${metricsState.totalRestarts} restarts, ${metricsState.totalCrashes} crashes`);
         }
         else {
             // First boot - create default state
@@ -41,11 +42,11 @@ export function initializeMetrics() {
                 mkdirSync(dir, { recursive: true });
             }
             saveMetrics();
-            log.info("[RestartMetrics] Initialized new state");
+            logger.info('restart-metrics', 'init', 'Initialized new state');
         }
     }
     catch (error) {
-        log.error("[RestartMetrics] Failed to load state, using defaults:", error);
+        logger.error('restart-metrics', 'load', 'Failed to load state, using defaults', { error: { name: 'LoadError', message: String(error) } });
         metricsState = createDefaultMetrics();
         currentBootTime = Date.now();
     }
@@ -77,7 +78,7 @@ function createDefaultMetrics() {
  */
 export function saveMetrics() {
     if (!metricsState) {
-        log.warn("[RestartMetrics] Cannot save - not initialized");
+        logger.warn('restart-metrics', 'save', 'Cannot save - not initialized');
         return;
     }
     try {
@@ -89,7 +90,7 @@ export function saveMetrics() {
         writeFileSync(STORAGE_PATH, JSON.stringify(metricsState, null, 2), "utf-8");
     }
     catch (error) {
-        log.error("[RestartMetrics] Failed to save state:", error);
+        logger.error('restart-metrics', 'save', 'Failed to save state', { error: { name: 'SaveError', message: String(error) } });
     }
 }
 // -----------------------------------------------------------------------------
@@ -101,7 +102,7 @@ export function saveMetrics() {
  */
 export function recordShutdown(trigger) {
     if (!metricsState) {
-        log.warn("[RestartMetrics] Cannot record shutdown - not initialized");
+        logger.warn('restart-metrics', 'record-shutdown', 'Cannot record shutdown - not initialized');
         return;
     }
     const uptimeMs = Date.now() - currentBootTime;
@@ -130,7 +131,7 @@ export function recordShutdown(trigger) {
         metricsState.recentRestarts = metricsState.recentRestarts.slice(-RECENT_EVENTS_LIMIT);
     }
     saveMetrics();
-    log.info(`[RestartMetrics] Recorded shutdown: trigger=${trigger}, uptime=${formatUptime(uptimeMs)}`);
+    logger.info('restart-metrics', 'record-shutdown', `Recorded shutdown: trigger=${trigger}, uptime=${formatUptime(uptimeMs)}`);
 }
 /**
  * Record a crash event.
@@ -139,7 +140,7 @@ export function recordShutdown(trigger) {
  */
 export function recordCrash(error, stack) {
     if (!metricsState) {
-        log.warn("[RestartMetrics] Cannot record crash - not initialized");
+        logger.warn('restart-metrics', 'record-crash', 'Cannot record crash - not initialized');
         return;
     }
     const uptimeMs = Date.now() - currentBootTime;
@@ -181,7 +182,7 @@ export function recordCrash(error, stack) {
         metricsState.recentRestarts = metricsState.recentRestarts.slice(-RECENT_EVENTS_LIMIT);
     }
     saveMetrics();
-    log.info(`[RestartMetrics] Recorded crash: error="${errorMessage}", uptime=${formatUptime(uptimeMs)}`);
+    logger.info('restart-metrics', 'record-crash', `Recorded crash: error="${errorMessage}", uptime=${formatUptime(uptimeMs)}`);
 }
 // -----------------------------------------------------------------------------
 // Getters
