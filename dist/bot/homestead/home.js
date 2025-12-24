@@ -2,7 +2,7 @@ import { getLogger } from "../../shared/logging/index.js";
 import { ActionRowBuilder, EmbedBuilder, } from "discord.js";
 const logger = getLogger();
 import { EMBED_COLORS } from "../shared/embed-colors.js";
-import { navButton, primaryButton, paginationRow } from "../shared/button-utils.js";
+import { navButton, primaryButton, secondaryButton, paginationRow } from "../shared/button-utils.js";
 import { safeReply, safeReplyWithPayload } from "../shared/response-helpers.js";
 import { getSpriteUrl } from "../../lib/assets.js";
 import { DMHomeRepo, evaluateDailyQuestStreak, } from "../../models/index.js";
@@ -46,8 +46,19 @@ function buildNavRow(active) {
     row.addComponents(navButton("HOME_PARTY", "📋 Party", active === "party"), navButton("HOME_BOX", "📦 Box", active === "box"), navButton("HOME_PROFILE", "👤 Profile", active === "profile"));
     return row;
 }
+/**
+ * Build primary action row per Game Design Bible § 6
+ * Layout: [🚶 Explore] [📋 Party] [💊 Heal]
+ */
 function buildActionRow() {
     return new ActionRowBuilder().addComponents(primaryButton("HOME_EXPLORE", "🚶 Explore"), primaryButton("HOME_HEAL", "💊 Heal"));
+}
+/**
+ * Build secondary action row per Game Design Bible § 6
+ * Layout: [🎒 Bag] [📖 Pokédex]
+ */
+function buildSecondaryRow() {
+    return new ActionRowBuilder().addComponents(secondaryButton("HOME_BAG", "🎒 Bag"), secondaryButton("HOME_POKEDEX", "📖 Pokédex"));
 }
 // Legacy alias for backwards compatibility
 function buildHealRow() {
@@ -88,7 +99,7 @@ function buildPartyView(snapshot) {
             value: formatPartyEntry(slot),
         });
     });
-    const components = [buildNavRow("party"), buildHealRow()];
+    const components = [buildNavRow("party"), buildActionRow(), buildSecondaryRow()];
     return { embed, components };
 }
 function formatBoxEntry(mon, absoluteIndex) {
@@ -133,7 +144,8 @@ function buildBoxView(snapshot, page = 1) {
     if (totalPages > 1) {
         components.push(buildBoxPaginationRow(currentPage, totalPages));
     }
-    components.push(buildHealRow());
+    components.push(buildActionRow());
+    components.push(buildSecondaryRow());
     return { embed, components, meta: { page: currentPage, totalPages } };
 }
 function asDiscordTimestamp(date) {
@@ -194,7 +206,7 @@ function buildProfileView(snapshot, now = new Date()) {
         value: nextDaily === "Ready now" ? "Ready to claim now." : `Available ${nextDaily}`,
     });
     embed.setFooter({ text: `Pokémon owned: ${total}` });
-    const components = [buildNavRow("profile"), buildHealRow()];
+    const components = [buildNavRow("profile"), buildActionRow(), buildSecondaryRow()];
     return { embed, components };
 }
 async function fetchSnapshot(discordId) {

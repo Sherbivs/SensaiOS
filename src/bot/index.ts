@@ -12,7 +12,7 @@ import { handleBattleChallengeButton, handleBattleChallengeCommand } from "./bat
 
 // Homestead modules (private guild channel-based gameplay)
 // See docs/architecture-bible/18-private-channel-architecture.md
-import { handleHeal } from "./homestead/heal.js";
+import { openHealScreen, handleHealConfirm, handleHealCancel, handleHeal } from "./homestead/heal.js";
 import { BOX_PAGE_PREFIX, openBoxView, openPartyView, openProfileView } from "./homestead/home.js";
 import { openStartersHomestead, handleStarterPick } from "./homestead/starters.js";
 import { openExploreScreen, handleExploreButton } from "./homestead/explore.js";
@@ -195,7 +195,19 @@ export async function bootDiscord(opts: BotStartOptions = {}): Promise<Client> {
 					}
 					switch (id) {
 						case "HOME_HEAL":
-							await handleHeal(interaction);
+							// Open heal screen per Game Design Bible § 6
+							if (interaction.guildId) {
+								await openHealScreen(interaction.client, interaction.guildId, interaction.user);
+								await interaction.reply({ content: "💊 Opening Pokémon Center...", ephemeral: true });
+							} else {
+								await interaction.reply({ content: "This action must be used in a server.", ephemeral: true });
+							}
+							break;
+						case "HEAL_CONFIRM":
+							await handleHealConfirm(interaction);
+							break;
+						case "HEAL_CANCEL":
+							await handleHealCancel(interaction);
 							break;
 						case "HOME_EXPLORE":
 							// Open explore screen per Game Design Bible § 6
