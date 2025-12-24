@@ -12,6 +12,7 @@ import { handleBattleChallengeButton, handleBattleChallengeCommand } from "./bat
 import { handleHeal } from "./homestead/heal.js";
 import { BOX_PAGE_PREFIX, openBoxView, openPartyView, openProfileView } from "./homestead/home.js";
 import { openStartersHomestead, handleStarterPick } from "./homestead/starters.js";
+import { openExploreScreen, handleExploreButton } from "./homestead/explore.js";
 import { handleOpsCommand } from "./ops/admin.js";
 import { handleEncounterButton } from "./wilds/controls.js";
 import { handleWalk } from "./wilds/walk.js";
@@ -155,6 +156,21 @@ export async function bootDiscord(opts = {}) {
                 switch (id) {
                     case "HOME_HEAL":
                         await handleHeal(interaction);
+                        break;
+                    case "HOME_EXPLORE":
+                        // Open explore screen per Game Design Bible § 6
+                        if (interaction.guildId) {
+                            await openExploreScreen(interaction.client, interaction.guildId, interaction.user);
+                            await interaction.reply({ content: "🌲 Opening exploration options...", ephemeral: true });
+                        }
+                        else {
+                            await interaction.reply({ content: "This action must be used in a server.", ephemeral: true });
+                        }
+                        break;
+                    case "EXPLORE_WALK":
+                    case "EXPLORE_FISH":
+                    case "EXPLORE_BACK":
+                        await handleExploreButton(interaction);
                         break;
                     case "HOME_PARTY":
                         await openPartyView(interaction);

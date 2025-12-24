@@ -77,17 +77,23 @@ function formatStatus(mon: TrainerHomePokemon | null): string | null {
 function buildNavRow(active: ViewKey): ActionRowBuilder<ButtonBuilder> {
   const row = new ActionRowBuilder<ButtonBuilder>();
   row.addComponents(
-    navButton("HOME_PARTY", "Party", active === "party"),
-    navButton("HOME_BOX", "Box", active === "box"),
-    navButton("HOME_PROFILE", "Profile", active === "profile")
+    navButton("HOME_PARTY", "📋 Party", active === "party"),
+    navButton("HOME_BOX", "📦 Box", active === "box"),
+    navButton("HOME_PROFILE", "👤 Profile", active === "profile")
   );
   return row;
 }
 
-function buildHealRow(): ActionRowBuilder<ButtonBuilder> {
+function buildActionRow(): ActionRowBuilder<ButtonBuilder> {
   return new ActionRowBuilder<ButtonBuilder>().addComponents(
-    primaryButton("HOME_HEAL", "Heal")
+    primaryButton("HOME_EXPLORE", "🚶 Explore"),
+    primaryButton("HOME_HEAL", "💊 Heal")
   );
+}
+
+// Legacy alias for backwards compatibility
+function buildHealRow(): ActionRowBuilder<ButtonBuilder> {
+  return buildActionRow();
 }
 
 function formatPartyEntry(slot: TrainerPartySlot): string {

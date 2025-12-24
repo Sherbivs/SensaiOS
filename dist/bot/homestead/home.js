@@ -43,11 +43,15 @@ function formatStatus(mon) {
 }
 function buildNavRow(active) {
     const row = new ActionRowBuilder();
-    row.addComponents(navButton("HOME_PARTY", "Party", active === "party"), navButton("HOME_BOX", "Box", active === "box"), navButton("HOME_PROFILE", "Profile", active === "profile"));
+    row.addComponents(navButton("HOME_PARTY", "📋 Party", active === "party"), navButton("HOME_BOX", "📦 Box", active === "box"), navButton("HOME_PROFILE", "👤 Profile", active === "profile"));
     return row;
 }
+function buildActionRow() {
+    return new ActionRowBuilder().addComponents(primaryButton("HOME_EXPLORE", "🚶 Explore"), primaryButton("HOME_HEAL", "💊 Heal"));
+}
+// Legacy alias for backwards compatibility
 function buildHealRow() {
-    return new ActionRowBuilder().addComponents(primaryButton("HOME_HEAL", "Heal"));
+    return buildActionRow();
 }
 function formatPartyEntry(slot) {
     const mon = slot.pokemon;
