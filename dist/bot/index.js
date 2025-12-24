@@ -13,7 +13,7 @@ import { handleHeal } from "./homestead/heal.js";
 import { BOX_PAGE_PREFIX, openBoxView, openPartyView, openProfileView } from "./homestead/home.js";
 import { openStartersHomestead, handleStarterPick } from "./homestead/starters.js";
 import { openExploreScreen, handleExploreButton } from "./homestead/explore.js";
-import { handleOpsCommand } from "./ops/admin.js";
+import { handleOpsCommand, isAdmin } from "./ops/admin.js";
 import { handleEncounterButton } from "./wilds/controls.js";
 import { handleWalk } from "./wilds/walk.js";
 import { replyError, replyInfo, replySuccess, safeReply } from "./shared/response-helpers.js";
@@ -88,6 +88,27 @@ export async function bootDiscord(opts = {}) {
     client.on("interactionCreate", async (interaction) => {
         try {
             if (interaction.isChatInputCommand()) {
+                // DEV-ONLY GATE: Only /start is available to regular players
+                // All other slash commands require dev/admin privileges
+                // Per Game Design Bible: Button-first gameplay, minimal slash commands
+                const isDevCommand = interaction.commandName !== "start";
+                if (isDevCommand && !isAdmin(interaction)) {
+                    await replyError(interaction, "🚫 This command is for developers only.\n\n🎮 **Players:** Use `/start` to begin your adventure!");
+                    return;
+                }
+                // /start - The ONLY player-facing slash command
+                // Opens homestead channel where all gameplay happens via buttons
+                if (interaction.commandName === "start") {
+                    if (interaction.guildId) {
+                        // Open homestead and trigger starter selection if needed
+                        await openStartersHomestead(client, interaction.guildId, interaction.user);
+                        await replySuccess(interaction, "🏠 Welcome! Check your homestead channel to begin your Pokémon adventure.");
+                    }
+                    else {
+                        await replyError(interaction, "This command must be used in a server.");
+                    }
+                    return;
+                }
                 // Lazy-load commands on first interaction
                 const loadedCommands = await ensureCommandsLoaded();
                 const cmd = loadedCommands.get(interaction.commandName);
