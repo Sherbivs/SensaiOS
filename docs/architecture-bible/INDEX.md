@@ -5,7 +5,7 @@
 
 ## Purpose
 
-Single source of truth for Infinity Gauntlet architectural design, component relationships, safety guarantees, and technical decisions. Originally consolidated from 37 source documents, now organized into 22 focused sections for maintainability.
+Single source of truth for Infinity Gauntlet architectural design, component relationships, safety guarantees, and technical decisions. Originally consolidated from 37 source documents, now organized into 23 focused sections for maintainability.
 
 ---
 
@@ -35,6 +35,7 @@ Single source of truth for Infinity Gauntlet architectural design, component rel
 | **20. Resource Limits** | [20-resource-limits.md](20-resource-limits.md) | RAM vs disk distinction, memory budgets, scaling thresholds |
 | **21. Security Database** | [21-security-database.md](21-security-database.md) | Security event logging, permission tracking, audit trails |
 | **22. Starter Selection Flow** | [22-starter-selection-flow.md](22-starter-selection-flow.md) | New player onboarding, starter Pokemon selection, homestead initialization |
+| **23. Game Design Bible** | [23-game-design-bible.md](23-game-design-bible.md) | Button-first UI, living game model, engagement systems, psychology hooks |
 
 ### Supplementary Documents
 | File | Purpose |

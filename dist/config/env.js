@@ -166,7 +166,8 @@ export const DISK_WARNING_THRESHOLD = parseFloat(process.env.DISK_WARNING_THRESH
 export const DISK_CRITICAL_THRESHOLD = parseFloat(process.env.DISK_CRITICAL_THRESHOLD ?? '0.85');
 /** Disk usage threshold for EMERGENCY alerts + auto-remediation (default: 95%) */
 export const DISK_EMERGENCY_THRESHOLD = parseFloat(process.env.DISK_EMERGENCY_THRESHOLD ?? '0.95');
-export const ENABLE_DB_AUTO_SYNC = toBool(process.env.ENABLE_DB_AUTO_SYNC, true);
+// NOTE: Auto-sync disabled by default - the script was deprecated/deleted in unified architecture
+export const ENABLE_DB_AUTO_SYNC = toBool(process.env.ENABLE_DB_AUTO_SYNC, false);
 export const ENABLE_CONTINUOUS_SWEEP = toBool(process.env.ENABLE_CONTINUOUS_SWEEP, true);
 export const ENABLE_POKEMON_BOT = toBool(process.env.ENABLE_POKEMON_BOT, false);
 export const POKEMON_BOT_AUTO_DISABLED = !process.env.ENABLE_POKEMON_BOT && !ENABLE_POKEMON_BOT;

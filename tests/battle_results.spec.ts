@@ -8,7 +8,7 @@ import type { BattleResultRecord } from "../src/models/index.js";
 vi.mock("../src/services/homestead-manager.js", () => ({
 	HomesteadChannelManager: class MockHomesteadChannelManager {
 		constructor(public client: any, public guildId: string) {}
-		async getOrCreateChannel(user: any) {
+		async getOrCreateChannel(_user: any) {
 			return {
 				channel: { send: vi.fn() },
 				created: false,

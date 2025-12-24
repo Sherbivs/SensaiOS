@@ -49,6 +49,10 @@ The following files were removed as part of dead code cleanup:
 
 - ~~**security-db-subscriber.ts** (352 lines)~~ — EventBus subscriber for database persistence. Sprint 5.0 designed this to wire `security.**` events to `SecurityEventService`, but `initializeSecurityDbSubscriber()` was never called from `main.ts`. The underlying service exists but this integration layer was orphaned.
 
+## ⚠️ ARCHIVED (2025-12-24 — Dead Code Cleanup Meeting #6)
+
+- ~~**main.js.d.ts** (14 lines)~~ — Legacy JavaScript declaration file superseded by TypeScript source (`main.ts`). Zero imports found.
+
 **Reason:** Dead integration layer — designed but never wired up.
 
 **Restoration (if needed):**
