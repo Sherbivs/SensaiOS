@@ -11,7 +11,7 @@ import { handleBattleChallengeButton, handleBattleChallengeCommand } from "./bat
 // See docs/architecture-bible/18-private-channel-architecture.md
 import { handleHeal } from "./homestead/heal.js";
 import { BOX_PAGE_PREFIX, openBoxView, openPartyView, openProfileView } from "./homestead/home.js";
-import { openStartersHomestead as openStartersDM, handleStarterPick, STARTER_OPTIONS } from "./homestead/starters.js";
+import { openStartersHomestead, handleStarterPick } from "./homestead/starters.js";
 import { handleOpsCommand } from "./ops/admin.js";
 import { handleEncounterButton } from "./wilds/controls.js";
 import { handleWalk } from "./wilds/walk.js";
@@ -97,7 +97,8 @@ export async function bootDiscord(opts = {}) {
                 // Small wiring for known commands to homestead flows
                 if (interaction.commandName === "starter") {
                     if (interaction.guildId) {
-                        await openStartersDM(client, interaction.guildId, interaction.user);
+                        // Trigger open starter selection flow (800+ Pokémon choices)
+                        await openStartersHomestead(client, interaction.guildId, interaction.user);
                         await replySuccess(interaction, "I sent your Starters to your homestead channel.");
                     }
                     else {
@@ -166,7 +167,8 @@ export async function bootDiscord(opts = {}) {
                         break;
                     case "HOME_STARTERS":
                         if (interaction.guildId) {
-                            await openStartersDM(client, interaction.guildId, interaction.user);
+                            // Trigger open starter selection flow (800+ Pokémon choices)
+                            await openStartersHomestead(client, interaction.guildId, interaction.user);
                             await interaction.reply({ content: "I sent your Starters to your homestead channel.", ephemeral: true });
                         }
                         else {
@@ -180,12 +182,17 @@ export async function bootDiscord(opts = {}) {
                             await openBoxView(interaction, { page, respond: "update" });
                             break;
                         }
-                        // Starter pick buttons: STARTER_PICK_<speciesId>
+                        // Legacy starter pick buttons: STARTER_PICK_<speciesId>
+                        // Note: New open starter selection uses message collector, not buttons
+                        // This handler is kept for backwards compatibility with any existing button messages
                         if (id.startsWith("STARTER_PICK_")) {
                             const sid = Number(id.substring("STARTER_PICK_".length));
-                            const valid = STARTER_OPTIONS.some((s) => s.speciesId === sid);
-                            if (!valid)
+                            // Validate using starter-validation rules
+                            const { isForbiddenStarter } = await import("../core/starter-validation.js");
+                            if (isNaN(sid) || isForbiddenStarter(sid)) {
+                                await interaction.reply({ content: "That Pokémon can't be used as a starter.", ephemeral: true });
                                 return;
+                            }
                             await handleStarterPick(interaction, sid);
                         }
                         // Encounter controls: ENCOUNTER_THROW_<id>, ENCOUNTER_RUN_<id>, ENCOUNTER_SWAP_<id>

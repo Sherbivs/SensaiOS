@@ -2,7 +2,14 @@
  * Homestead Starters Module
  * 
  * Handles starter Pokémon selection in homestead channels.
- * Migrated from src/bot/dm/starters.ts (DM-based implementation).
+ * Uses the OPEN STARTER SELECTION system where players can choose
+ * almost any Pokémon (800+ options, excluding forbidden categories).
+ * 
+ * INFINITY GAUNTLET PHILOSOPHY:
+ * - ✅ ALLOWED: Almost any Pokémon (Pikachu, Eevee, Riolu, Dratini, etc.)
+ * - ❌ FORBIDDEN: Regional starters, Legendaries, Mythicals, Pseudo-legendary finals
+ * 
+ * See docs/architecture-bible/23-game-design-bible.md § 5 for full specification.
  * 
  * @module homestead/starters
  */
@@ -13,38 +20,32 @@ import {
   Client,
 } from "discord.js";
 
-import { starterSelectEmbed } from "../shared/embed-builders.js";
-import { starterChoiceButtons } from "../shared/button-utils.js";
 import { replyInfo } from "../shared/response-helpers.js";
 import { ensureUser } from "../../shared/models/user-queries-pg.js";
 import { getPartyWithSlots, createParty, createPartySlot, createPokemon } from "../../shared/models/party-queries-pg.js";
 import { getProdDb } from "../../shared/pg-connection.js";
-import { HomesteadChannelManager } from "../../services/homestead-manager.js";
 import { getLogger } from "../../shared/logging/index.js";
+
+// Import the open starter selection system
+import { 
+  startOpenStarterFlow, 
+  type OpenStarterResult 
+} from "./open-starter-selection.js";
 
 const logger = getLogger();
 
-// Kanto starters (species IDs per National Dex)
-export const STARTER_OPTIONS = [
-  { speciesId: 1, name: "Bulbasaur" },
-  { speciesId: 4, name: "Charmander" },
-  { speciesId: 7, name: "Squirtle" },
-];
-
-export function buildStartersEmbed() {
-  return starterSelectEmbed(STARTER_OPTIONS);
-}
-
-export function buildStartersButtons() {
-  const starters = STARTER_OPTIONS.map((s) => ({
-    id: s.speciesId,
-    label: s.name,
-  }));
-  return [starterChoiceButtons(starters)];
-}
-
 /**
  * Open starters selection in user's homestead channel
+ * 
+ * Uses the OPEN STARTER SELECTION flow where players can choose
+ * any valid Pokémon by typing its name. Validation rules:
+ * - ❌ Regional starters (Bulbasaur, Charmander, etc.) forbidden
+ * - ❌ Legendary Pokémon forbidden
+ * - ❌ Mythical Pokémon forbidden
+ * - ❌ Pseudo-legendary final forms (Dragonite, Tyranitar) forbidden
+ * - ✅ Earlier forms (Dratini, Larvitar) allowed
+ * - ✅ Regular Pokémon (Pikachu, Eevee, etc.) allowed
+ * 
  * @param client Discord client instance
  * @param guildId Guild ID where homestead exists
  * @param user User to show starters to
@@ -53,15 +54,31 @@ export async function openStartersHomestead(
   client: Client,
   guildId: string,
   user: DiscordUser
-) {
+): Promise<OpenStarterResult> {
   try {
-    const manager = new HomesteadChannelManager(client, guildId);
-    const result = await manager.getOrCreateChannel(user);
-    const homesteadChannel = result.channel;
-
-    const embed = buildStartersEmbed();
-    const components = buildStartersButtons();
-    await homesteadChannel.send({ embeds: [embed], components });
+    logger.info('HomesteadStarters', 'openStartersHomestead', 'Starting open starter selection', { 
+      userId: user.id,
+      guildId,
+    });
+    
+    // Use the open starter selection flow (type any Pokémon name)
+    const result = await startOpenStarterFlow(client, guildId, user);
+    
+    if ('alreadyHasStarter' in result) {
+      logger.info('HomesteadStarters', 'openStartersHomestead', 'User already has starter', { userId: user.id });
+    } else if ('success' in result && result.success) {
+      logger.info('HomesteadStarters', 'openStartersHomestead', 'Starter selection successful', { 
+        userId: user.id,
+        metadata: { speciesId: result.speciesId, speciesName: result.speciesName },
+      });
+    } else if ('cancelled' in result) {
+      logger.info('HomesteadStarters', 'openStartersHomestead', 'Starter selection cancelled', { 
+        userId: user.id,
+        metadata: { reason: result.reason },
+      });
+    }
+    
+    return result;
   } catch (error) {
     logger.error('HomesteadStarters', 'openStartersHomestead', 'Failed to open starters in homestead channel', { 
       userId: user.id,
