@@ -13,7 +13,7 @@ import {
 const logger = getLogger();
 
 import { EMBED_COLORS } from "../shared/embed-colors.js";
-import { navButton, primaryButton, paginationRow } from "../shared/button-utils.js";
+import { navButton, primaryButton, secondaryButton, paginationRow } from "../shared/button-utils.js";
 import { safeReply, safeReplyWithPayload } from "../shared/response-helpers.js";
 import { getSpriteUrl } from "../../lib/assets.js";
 import {
@@ -84,10 +84,25 @@ function buildNavRow(active: ViewKey): ActionRowBuilder<ButtonBuilder> {
   return row;
 }
 
+/**
+ * Build primary action row per Game Design Bible § 6
+ * Layout: [🚶 Explore] [📋 Party] [💊 Heal]
+ */
 function buildActionRow(): ActionRowBuilder<ButtonBuilder> {
   return new ActionRowBuilder<ButtonBuilder>().addComponents(
     primaryButton("HOME_EXPLORE", "🚶 Explore"),
     primaryButton("HOME_HEAL", "💊 Heal")
+  );
+}
+
+/**
+ * Build secondary action row per Game Design Bible § 6
+ * Layout: [🎒 Bag] [📖 Pokédex]
+ */
+function buildSecondaryRow(): ActionRowBuilder<ButtonBuilder> {
+  return new ActionRowBuilder<ButtonBuilder>().addComponents(
+    secondaryButton("HOME_BAG", "🎒 Bag"),
+    secondaryButton("HOME_POKEDEX", "📖 Pokédex")
   );
 }
 
@@ -135,7 +150,7 @@ function buildPartyView(snapshot: TrainerHomeSnapshot): ViewRender {
     });
   });
 
-  const components = [buildNavRow("party"), buildHealRow()];
+  const components = [buildNavRow("party"), buildActionRow(), buildSecondaryRow()];
   return { embed, components };
 }
 
@@ -184,7 +199,8 @@ function buildBoxView(snapshot: TrainerHomeSnapshot, page = 1): ViewRender {
   if (totalPages > 1) {
     components.push(buildBoxPaginationRow(currentPage, totalPages));
   }
-  components.push(buildHealRow());
+  components.push(buildActionRow());
+  components.push(buildSecondaryRow());
   return { embed, components, meta: { page: currentPage, totalPages } };
 }
 
@@ -254,7 +270,7 @@ function buildProfileView(snapshot: TrainerHomeSnapshot, now = new Date()): View
 
   embed.setFooter({ text: `Pokémon owned: ${total}` });
 
-  const components = [buildNavRow("profile"), buildHealRow()];
+  const components = [buildNavRow("profile"), buildActionRow(), buildSecondaryRow()];
   return { embed, components };
 }
 

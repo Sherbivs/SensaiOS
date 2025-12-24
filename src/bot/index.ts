@@ -16,6 +16,8 @@ import { handleHeal } from "./homestead/heal.js";
 import { BOX_PAGE_PREFIX, openBoxView, openPartyView, openProfileView } from "./homestead/home.js";
 import { openStartersHomestead, handleStarterPick } from "./homestead/starters.js";
 import { openExploreScreen, handleExploreButton } from "./homestead/explore.js";
+import { openBagScreen, handleBagButton, BAG_CATEGORY_PREFIX, BAG_PAGE_PREFIX } from "./homestead/bag.js";
+import { openPokedexScreen, handlePokedexButton, DEX_REGION_PREFIX, DEX_PAGE_PREFIX } from "./homestead/pokedex.js";
 
 import { handleOpsCommand, isAdmin } from "./ops/admin.js";
 import { handleEncounterButton } from "./wilds/controls.js";
@@ -218,6 +220,29 @@ export async function bootDiscord(opts: BotStartOptions = {}): Promise<Client> {
                                                 case "HOME_PROFILE":
                                                         await openProfileView(interaction);
                                                         break;
+						case "HOME_BAG":
+							// Open bag screen per Game Design Bible § 6
+							if (interaction.guildId) {
+								await openBagScreen(interaction.client, interaction.guildId, interaction.user);
+								await interaction.reply({ content: "🎒 Opening your bag...", ephemeral: true });
+							} else {
+								await interaction.reply({ content: "This action must be used in a server.", ephemeral: true });
+							}
+							break;
+						case "HOME_POKEDEX":
+							// Open Pokédex screen per Game Design Bible § 6
+							if (interaction.guildId) {
+								await openPokedexScreen(interaction.client, interaction.guildId, interaction.user);
+								await interaction.reply({ content: "📖 Opening your Pokédex...", ephemeral: true });
+							} else {
+								await interaction.reply({ content: "This action must be used in a server.", ephemeral: true });
+							}
+							break;
+						case "BAG_BACK":
+						case "DEX_BACK":
+							// Return to home screen - update with party view
+							await openPartyView(interaction);
+							break;
                                                 case "HOME_STARTERS":
 							if (interaction.guildId) {
 								// Trigger open starter selection flow (800+ Pokémon choices)
@@ -235,6 +260,16 @@ export async function bootDiscord(opts: BotStartOptions = {}): Promise<Client> {
                                                                 );
                                                                 const page = Number.isFinite(rawPage) && rawPage > 0 ? rawPage : 1;
                                                                 await openBoxView(interaction, { page, respond: "update" });
+                                                                break;
+                                                        }
+                                                        // Bag button handlers: BAG_CAT_<category>, BAG_PAGE_<category>_<page>
+                                                        if (id.startsWith(BAG_CATEGORY_PREFIX) || id.startsWith(BAG_PAGE_PREFIX)) {
+                                                                await handleBagButton(interaction);
+                                                                break;
+                                                        }
+                                                        // Pokédex button handlers: DEX_REGION_<region>, DEX_PAGE_<region>_<page>
+                                                        if (id.startsWith(DEX_REGION_PREFIX) || id.startsWith(DEX_PAGE_PREFIX)) {
+                                                                await handlePokedexButton(interaction);
                                                                 break;
                                                         }
                                                         // Legacy starter pick buttons: STARTER_PICK_<speciesId>
