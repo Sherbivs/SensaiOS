@@ -17,6 +17,7 @@ import { openBagScreen, handleBagButton, BAG_CATEGORY_PREFIX, BAG_PAGE_PREFIX } 
 import { openPokedexScreen, handlePokedexButton, DEX_REGION_PREFIX, DEX_PAGE_PREFIX } from "./homestead/pokedex.js";
 import { openPartyScreen, handlePartyButton, PARTY_SLOT_PREFIX, PARTY_SET_LEAD_PREFIX } from "./homestead/party.js";
 import { openStorageScreen, handleStorageButton, STORAGE_MON_PREFIX, STORAGE_PAGE_PREFIX, STORAGE_TO_PARTY_PREFIX } from "./homestead/storage.js";
+import { openSettingsScreen, handleSettingsButton, SETTINGS_TOGGLE_PREFIX } from "./homestead/settings.js";
 import { handleOpsCommand, isAdmin } from "./ops/admin.js";
 import { handleEncounterButton } from "./wilds/controls.js";
 import { handleWalk } from "./wilds/walk.js";
@@ -257,6 +258,17 @@ export async function bootDiscord(opts = {}) {
                             await interaction.reply({ content: "This action must be used in a server.", ephemeral: true });
                         }
                         break;
+                    case "HOME_SETTINGS":
+                    case "SETTINGS_BACK":
+                        // Open/return to settings screen per Game Design Bible § 6
+                        if (interaction.guildId) {
+                            await openSettingsScreen(interaction.client, interaction.guildId, interaction.user);
+                            await interaction.reply({ content: "⚙️ Opening settings...", ephemeral: true });
+                        }
+                        else {
+                            await interaction.reply({ content: "This action must be used in a server.", ephemeral: true });
+                        }
+                        break;
                     case "BAG_BACK":
                     case "DEX_BACK":
                         // Return to home screen - update with party view
@@ -298,8 +310,11 @@ export async function bootDiscord(opts = {}) {
                         if (id.startsWith(STORAGE_MON_PREFIX) || id.startsWith(STORAGE_PAGE_PREFIX) || id.startsWith(STORAGE_TO_PARTY_PREFIX) || id === "STORAGE_BACK") {
                             await handleStorageButton(interaction);
                             break;
-                        }
-                        // Legacy starter pick buttons: STARTER_PICK_<speciesId>
+                        } // Settings button handlers: SETTINGS_TOGGLE_<setting>
+                        if (id.startsWith(SETTINGS_TOGGLE_PREFIX)) {
+                            await handleSettingsButton(interaction);
+                            break;
+                        } // Legacy starter pick buttons: STARTER_PICK_<speciesId>
                         // Note: New open starter selection uses message collector, not buttons
                         // This handler is kept for backwards compatibility with any existing button messages
                         if (id.startsWith("STARTER_PICK_")) {
