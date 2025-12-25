@@ -16,6 +16,7 @@ import { openExploreScreen, handleExploreButton } from "./homestead/explore.js";
 import { openBagScreen, handleBagButton, BAG_CATEGORY_PREFIX, BAG_PAGE_PREFIX } from "./homestead/bag.js";
 import { openPokedexScreen, handlePokedexButton, DEX_REGION_PREFIX, DEX_PAGE_PREFIX } from "./homestead/pokedex.js";
 import { openPartyScreen, handlePartyButton, PARTY_SLOT_PREFIX, PARTY_SET_LEAD_PREFIX } from "./homestead/party.js";
+import { openStorageScreen, handleStorageButton, STORAGE_MON_PREFIX, STORAGE_PAGE_PREFIX, STORAGE_TO_PARTY_PREFIX } from "./homestead/storage.js";
 import { handleOpsCommand, isAdmin } from "./ops/admin.js";
 import { handleEncounterButton } from "./wilds/controls.js";
 import { handleWalk } from "./wilds/walk.js";
@@ -245,6 +246,17 @@ export async function bootDiscord(opts = {}) {
                             await interaction.reply({ content: "This action must be used in a server.", ephemeral: true });
                         }
                         break;
+                    case "HOME_STORAGE":
+                    case "STORAGE_HOME":
+                        // Open/return to storage screen per Game Design Bible § 6
+                        if (interaction.guildId) {
+                            await openStorageScreen(interaction.client, interaction.guildId, interaction.user);
+                            await interaction.reply({ content: "📦 Opening your storage...", ephemeral: true });
+                        }
+                        else {
+                            await interaction.reply({ content: "This action must be used in a server.", ephemeral: true });
+                        }
+                        break;
                     case "BAG_BACK":
                     case "DEX_BACK":
                         // Return to home screen - update with party view
@@ -280,6 +292,11 @@ export async function bootDiscord(opts = {}) {
                         // Party button handlers: PARTY_SLOT_<slot>, PARTY_SET_LEAD_<slot>, PARTY_BACK, PARTY_DETAIL_BACK
                         if (id.startsWith(PARTY_SLOT_PREFIX) || id.startsWith(PARTY_SET_LEAD_PREFIX) || id === "PARTY_BACK" || id === "PARTY_DETAIL_BACK") {
                             await handlePartyButton(interaction);
+                            break;
+                        }
+                        // Storage button handlers: STORAGE_MON_<id>, STORAGE_PAGE_<n>, STORAGE_TO_PARTY_<id>, STORAGE_BACK
+                        if (id.startsWith(STORAGE_MON_PREFIX) || id.startsWith(STORAGE_PAGE_PREFIX) || id.startsWith(STORAGE_TO_PARTY_PREFIX) || id === "STORAGE_BACK") {
+                            await handleStorageButton(interaction);
                             break;
                         }
                         // Legacy starter pick buttons: STARTER_PICK_<speciesId>
