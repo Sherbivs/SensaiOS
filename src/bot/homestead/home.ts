@@ -91,24 +91,21 @@ function buildNavRow(active: ViewKey): ActionRowBuilder<ButtonBuilder> {
 function buildActionRow(): ActionRowBuilder<ButtonBuilder> {
   return new ActionRowBuilder<ButtonBuilder>().addComponents(
     primaryButton("HOME_EXPLORE", "🚶 Explore"),
-    primaryButton("HOME_HEAL", "💊 Heal")
+    primaryButton("HOME_HEAL", "💊 Heal"),
+    primaryButton("HOME_DAILY", "🎁 Daily")
   );
 }
 
 /**
  * Build secondary action row per Game Design Bible § 6
- * Layout: [🎒 Bag] [📖 Pokédex]
+ * Layout: [🎒 Bag] [📖 Pokédex] [⚙️ Settings]
  */
 function buildSecondaryRow(): ActionRowBuilder<ButtonBuilder> {
   return new ActionRowBuilder<ButtonBuilder>().addComponents(
     secondaryButton("HOME_BAG", "🎒 Bag"),
-    secondaryButton("HOME_POKEDEX", "📖 Pokédex")
+    secondaryButton("HOME_POKEDEX", "📖 Pokédex"),
+    secondaryButton("HOME_SETTINGS", "⚙️ Settings")
   );
-}
-
-// Legacy alias for backwards compatibility
-function buildHealRow(): ActionRowBuilder<ButtonBuilder> {
-  return buildActionRow();
 }
 
 function formatPartyEntry(slot: TrainerPartySlot): string {
