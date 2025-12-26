@@ -18,6 +18,7 @@ import { openPokedexScreen, handlePokedexButton, DEX_REGION_PREFIX, DEX_PAGE_PRE
 import { openPartyScreen, handlePartyButton, PARTY_SLOT_PREFIX, PARTY_SET_LEAD_PREFIX } from "./homestead/party.js";
 import { openStorageScreen, handleStorageButton, STORAGE_MON_PREFIX, STORAGE_PAGE_PREFIX, STORAGE_TO_PARTY_PREFIX } from "./homestead/storage.js";
 import { openSettingsScreen, handleSettingsButton, SETTINGS_TOGGLE_PREFIX } from "./homestead/settings.js";
+import { openDailyScreen, handleDailyButton } from "./homestead/daily.js";
 import { handleOpsCommand, isAdmin } from "./ops/admin.js";
 import { handleEncounterButton } from "./wilds/controls.js";
 import { handleWalk } from "./wilds/walk.js";
@@ -269,6 +270,17 @@ export async function bootDiscord(opts = {}) {
                             await interaction.reply({ content: "This action must be used in a server.", ephemeral: true });
                         }
                         break;
+                    case "HOME_DAILY":
+                    case "DAILY_BACK":
+                        // Open/return to daily rewards screen
+                        if (interaction.guildId) {
+                            await openDailyScreen(interaction.client, interaction.guildId, interaction.user);
+                            await interaction.reply({ content: "🎁 Opening daily rewards...", ephemeral: true });
+                        }
+                        else {
+                            await interaction.reply({ content: "This action must be used in a server.", ephemeral: true });
+                        }
+                        break;
                     case "BAG_BACK":
                     case "DEX_BACK":
                         // Return to home screen - update with party view
@@ -313,6 +325,11 @@ export async function bootDiscord(opts = {}) {
                         } // Settings button handlers: SETTINGS_TOGGLE_<setting>
                         if (id.startsWith(SETTINGS_TOGGLE_PREFIX)) {
                             await handleSettingsButton(interaction);
+                            break;
+                        }
+                        // Daily button handlers: DAILY_CLAIM
+                        if (id === "DAILY_CLAIM") {
+                            await handleDailyButton(interaction);
                             break;
                         } // Legacy starter pick buttons: STARTER_PICK_<speciesId>
                         // Note: New open starter selection uses message collector, not buttons

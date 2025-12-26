@@ -51,18 +51,14 @@ function buildNavRow(active) {
  * Layout: [🚶 Explore] [📋 Party] [💊 Heal]
  */
 function buildActionRow() {
-    return new ActionRowBuilder().addComponents(primaryButton("HOME_EXPLORE", "🚶 Explore"), primaryButton("HOME_HEAL", "💊 Heal"));
+    return new ActionRowBuilder().addComponents(primaryButton("HOME_EXPLORE", "🚶 Explore"), primaryButton("HOME_HEAL", "💊 Heal"), primaryButton("HOME_DAILY", "🎁 Daily"));
 }
 /**
  * Build secondary action row per Game Design Bible § 6
- * Layout: [🎒 Bag] [📖 Pokédex]
+ * Layout: [🎒 Bag] [📖 Pokédex] [⚙️ Settings]
  */
 function buildSecondaryRow() {
-    return new ActionRowBuilder().addComponents(secondaryButton("HOME_BAG", "🎒 Bag"), secondaryButton("HOME_POKEDEX", "📖 Pokédex"));
-}
-// Legacy alias for backwards compatibility
-function buildHealRow() {
-    return buildActionRow();
+    return new ActionRowBuilder().addComponents(secondaryButton("HOME_BAG", "🎒 Bag"), secondaryButton("HOME_POKEDEX", "📖 Pokédex"), secondaryButton("HOME_SETTINGS", "⚙️ Settings"));
 }
 function formatPartyEntry(slot) {
     const mon = slot.pokemon;

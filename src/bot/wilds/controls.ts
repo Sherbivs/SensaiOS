@@ -20,6 +20,7 @@ import { getProdDb } from "../../shared/pg-connection.js";
 import type { PartySlotWithPokemon } from "../../types/db-models.js";
 import type { PoolClient } from "pg";
 import { HomesteadChannelManager } from "../../services/homestead-manager.js";
+import { awardCatchExp, formatLevelUpMessage } from "../../services/leveling.js";
 
 function isJsonObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -129,8 +130,25 @@ export async function handleEncounterButton(interaction: ButtonInteraction) {
   if (action === "THROW") {
     const res = await attemptCatch({ discordId: interaction.user.id, encounterId });
     if (res.ok && res.caught) {
+      // Award XP to lead Pokemon for the catch
+      let expMessage = "";
+      const party = await getPartyWithSlots(user.id);
+      const leadSlot = party?.slots?.find((s) => s.slot === 1);
+      if (leadSlot?.pokemon?.id) {
+        const expResult = await awardCatchExp(
+          leadSlot.pokemon.id,
+          enc.speciesId,
+          enc.level
+        );
+        if (expResult) {
+          expMessage = "\n" + formatLevelUpMessage(expResult);
+          // Evolution info is already in the expResult.levelUp.evolution
+          // formatLevelUpMessage handles showing evolution messages
+        }
+      }
+      
       const messages = composeCatchSuccessMessages(interaction.user.id, res.pokemonId);
-      await replyInfo(interaction, messages.dm);
+      await replyInfo(interaction, messages.dm + expMessage);
       await notifyThread(messages.thread);
     } else if (res.ok) {
       await replyInfo(interaction, `Oh no! It broke free. Try again.`);

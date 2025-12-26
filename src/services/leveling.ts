@@ -538,6 +538,27 @@ async function awardTrainerBattleExp(
   return results;
 }
 
+/**
+ * Award XP after catching a Pokémon (Pokemon GO style)
+ * Your lead Pokemon gains a small amount of XP for helping with the catch
+ * Uses a catch-specific multiplier (lower than battles to encourage battling)
+ */
+const CATCH_EXP_MULTIPLIER = 0.5; // 50% of wild battle XP
+
+async function awardCatchExp(
+  leadPokemonId: string,
+  caughtSpeciesId: number,
+  caughtLevel: number
+): Promise<ExpGainResult | null> {
+  const expYield = calculateExpYield(
+    caughtSpeciesId,
+    caughtLevel,
+    CATCH_EXP_MULTIPLIER
+  );
+  
+  return awardExp(leadPokemonId, expYield);
+}
+
 // ============================================================================
 // DISPLAY HELPERS
 // ============================================================================
@@ -612,6 +633,7 @@ export {
   evolvePokemon,
   awardWildBattleExp,
   awardTrainerBattleExp,
+  awardCatchExp,
   buildExpBar,
   formatLevelUpMessage,
 };
