@@ -1,9 +1,9 @@
-import { ChatInputCommandInteraction, TimestampStyles, time } from "discord.js";
+// LOGGER FIRST — Must be early import to capture initialization errors
 import { getLogger } from "../../shared/logging/index.js";
-
-import { prisma as prismaClient, recordDailyQuestCompletion } from "../../models/index.js";
-
 const logger = getLogger();
+
+import { ChatInputCommandInteraction, TimestampStyles, time } from "discord.js";
+import { prisma as prismaClient, recordDailyQuestCompletion } from "../../models/index.js";
 import { replySuccess, replyInfo, replyError } from "../shared/response-helpers.js";
 import { claimDailyQuestReward } from "../../services/cache/recipes.js";
 import { errorTracker } from '../../services/monitoring/index.js';

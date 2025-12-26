@@ -11,6 +11,10 @@
  * @module error-brain/error-brain-worker
  */
 
+// LOGGER FIRST — Must be early import to capture initialization errors
+import { getLogger } from "../../shared/logging/index.js";
+const logger = getLogger();
+
 import { ErrorBrainConfig } from "../../config/error-brain-config.js";
 import {
   initialize as initializeDb,
@@ -49,9 +53,6 @@ import {
   pruneStaleHistory,
   getImpactPredictorStats,
 } from "./impact-predictor.js";
-import { getLogger } from "../../shared/logging/index.js";
-
-const logger = getLogger();
 
 // ==================== TYPES ====================
 

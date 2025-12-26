@@ -1,8 +1,9 @@
+// LOGGER FIRST — Must be early import to capture initialization errors
+import { getLogger } from '../shared/logging/index.js';
+const logger = getLogger();
+
 import fs from 'node:fs';
 import path from 'node:path';
-import { getLogger } from '../shared/logging/index.js';
-
-const logger = getLogger();
 
 // ============================================================================
 // Type Definitions

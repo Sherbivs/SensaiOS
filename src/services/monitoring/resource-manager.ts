@@ -12,13 +12,14 @@
  * Integration with error detection system for leak monitoring and alerting.
  */
 
+// LOGGER FIRST — Must be early import to capture initialization errors
+import { getLogger } from "../../shared/logging/index.js";
+const logger = getLogger();
+
 import { EventEmitter } from 'node:events';
 import { errorTracker } from './error-tracker.js';
-import { getLogger } from "../../shared/logging/index.js";
 import { getErrorMessage } from '../../shared/utils/error-utils.js';
 import { generateResourceId } from './monitoring-utils.js';
-
-const logger = getLogger();
 
 // Note: resource-monitor.ts imports this file, so we can't import it here (circular dependency)
 // Instead, resource-monitor will call resourceManager.getStats() directly

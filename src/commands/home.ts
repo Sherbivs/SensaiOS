@@ -1,3 +1,7 @@
+// LOGGER FIRST — Must be early import to capture initialization errors
+import { getLogger } from '../shared/logging/index.js';
+const logger = getLogger();
+
 import {
   SlashCommandBuilder,
   ChatInputCommandInteraction,
@@ -7,10 +11,7 @@ import {
 } from 'discord.js';
 import { createRequire } from 'node:module';
 import { getSpriteUrl } from '../lib/assets.js';
-import { getLogger } from '../shared/logging/index.js';
 import { GAME_CONSTANTS } from '../shared/constants.js';
-
-const logger = getLogger();
 import { toDate, diffInUtcDays } from '../shared/utils/index.js';
 import { HomesteadChannelManager } from '../services/homestead-manager.js';
 import { homeMenuButtons } from '../bot/shared/button-utils.js';

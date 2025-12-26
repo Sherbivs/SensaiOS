@@ -9,6 +9,10 @@
  * @since 2025-12-21
  */
 
+// LOGGER FIRST — Must be early import to capture initialization errors
+import { getLogger } from '../shared/logging/index.js';
+const logger = getLogger();
+
 import {
   recordBattle,
   recordBattleDuration,
@@ -25,9 +29,6 @@ import {
 } from './prometheus-metrics.js';
 import { lokiTransport } from '../shared/logging/loki-transport.js';
 import { EventBus } from '../shared/event-bus.js';
-import { getLogger } from '../shared/logging/index.js';
-
-const logger = getLogger();
 
 // ============================================================================
 // Types

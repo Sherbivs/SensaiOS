@@ -25,6 +25,10 @@
  * @module services/engine-write-db
  */
 
+// LOGGER FIRST — Must be early import to capture initialization errors
+import { getLogger } from "../../shared/logging/index.js";
+const logger = getLogger();
+
 import initSqlJs, { type Database } from 'sql.js';
 import fsPromises from 'node:fs/promises';
 import path from 'node:path';
@@ -32,7 +36,6 @@ import crypto from 'node:crypto';
 import { performance } from 'node:perf_hooks';
 import { fileURLToPath } from 'node:url';
 import { EngineDbConfig } from '../../config/engine-db-config.js';
-import { getLogger } from "../../shared/logging/index.js";
 import { getTableCount, getCount } from './sql-utils.js';
 import type { 
   BattleLogEntry, 
@@ -41,8 +44,6 @@ import type {
 } from '../cache/engine-write-buffer.js';
 import { EventBus, type BusEvent } from '../../shared/event-bus.js';
 import type { MetricsSnapshotEvent } from '../monitoring/resource-monitor.js';
-
-const logger = getLogger();
 
 // Get __dirname equivalent in ES modules
 const __filename = fileURLToPath(import.meta.url);

@@ -369,7 +369,7 @@ async function handleDailyClaim(interaction: ButtonInteraction): Promise<void> {
         components: buildDailyButtons(false),
       });
     }
-  } catch (_error) {
+  } catch {
     await interaction.reply({
       content: "❌ Failed to claim daily reward. Please try again.",
       ephemeral: true,

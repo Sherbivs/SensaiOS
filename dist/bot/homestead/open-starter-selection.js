@@ -14,6 +14,9 @@
  *
  * @module homestead/open-starter-selection
  */
+// LOGGER FIRST — Must be early import to capture initialization errors
+import { getLogger } from "../../shared/logging/index.js";
+const logger = getLogger();
 import { starterWelcomeEmbed, starterErrorEmbed, starterConfirmationEmbed, starterRulesEmbed } from "../shared/embed-builders.js";
 import { homeMenuButtonsEnhanced } from "../shared/button-utils.js";
 import { validateStarterSelection, getRejectionMessage, getForbiddenCounts, } from "../../core/starter-validation.js";
@@ -22,10 +25,8 @@ import { ensureUser } from "../../shared/models/user-queries-pg.js";
 import { getPartyWithSlots, createParty, createPartySlot, createPokemon } from "../../shared/models/party-queries-pg.js";
 import { getProdDb } from "../../shared/pg-connection.js";
 import { HomesteadChannelManager } from "../../services/homestead-manager.js";
-import { getLogger } from "../../shared/logging/index.js";
 import { getSpriteUrl } from "../../lib/assets.js";
 import { giveStarterKit, formatItemRewardsInline } from "../../services/inventory.js";
-const logger = getLogger();
 // ============================================================================
 // MESSAGE TEMPLATES
 // ============================================================================

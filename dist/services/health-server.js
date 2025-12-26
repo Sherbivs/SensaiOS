@@ -24,11 +24,12 @@
  *
  * @module health-server
  */
+// LOGGER FIRST — Must be early import to capture initialization errors
+import { getLogger } from "../shared/logging/index.js";
+const logger = getLogger();
 import http from 'node:http';
 import { HEALTH_CHECK_PATH, HEALTH_CHECK_TIMEOUT_MS } from '../config/engine-db-config.js';
-import { getLogger } from "../shared/logging/index.js";
 import { ServiceRegistry } from '../shared/service-registry.js';
-const logger = getLogger();
 import { HEALTH_CHECK_PORT, HEALTH_CHECK_HOST } from '../config/env.js';
 import { bytesToMB } from '../shared/utils/format-utils.js';
 import { handleMetricsRequest, isMetricsInitialized } from './prometheus-metrics.js';

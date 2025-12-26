@@ -9,11 +9,12 @@
  * This ensures the game engine can self-heal on startup if the database
  * is missing, misconfigured, or needs schema updates.
  */
+// LOGGER FIRST — Must be early import to capture initialization errors
+import { getLogger } from "../shared/logging/index.js";
+const logger = getLogger();
 import { spawn } from "node:child_process";
 import { config } from "../shared/config.js";
-import { getLogger } from "../shared/logging/index.js";
 import { getErrorMessage } from "../shared/utils/error-utils.js";
-const logger = getLogger();
 /**
  * Run Prisma migrations to ensure database schema is up-to-date
  */

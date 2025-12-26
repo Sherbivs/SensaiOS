@@ -1,3 +1,7 @@
+// LOGGER FIRST — Must be early import to capture initialization errors
+import { getLogger } from '../../shared/logging/index.js';
+const logger = getLogger();
+
 import path from 'node:path';
 import { ErrorBrainConfig } from '../../config/error-brain-config.js';
 import {
@@ -6,9 +10,6 @@ import {
   ENGINE_WAL_PATH,
 } from '../../config/engine-db-config.js';
 import { ALERT_PERSIST_DIR } from '../../config/env.js';
-import { getLogger } from '../../shared/logging/index.js';
-
-const logger = getLogger();
 
 /**
  * Normalize path for comparison (resolve + toLowerCase on Windows)

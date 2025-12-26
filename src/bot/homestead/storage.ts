@@ -708,7 +708,7 @@ export async function handleStorageButton(interaction: ButtonInteraction): Promi
     // These are handled by the main index.ts router
     // - STORAGE_HOME → handled as HOME navigation
     
-  } catch (error) {
+  } catch {
     // Log error via structured logging if available, otherwise silent fail
     
     if (!interaction.replied && !interaction.deferred) {

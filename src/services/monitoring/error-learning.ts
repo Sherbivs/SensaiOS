@@ -35,11 +35,12 @@
  * @module services/error-learning
  */
 
-import { prisma } from '../../shared/prisma.js';
+// LOGGER FIRST — Must be early import to capture initialization errors
 import { getLogger } from '../../shared/logging/index.js';
-import { daysAgo } from '../../shared/utils/date-utils.js';
-
 const logger = getLogger();
+
+import { prisma } from '../../shared/prisma.js';
+import { daysAgo } from '../../shared/utils/date-utils.js';
 
 // ============================================================================
 // Type Definitions

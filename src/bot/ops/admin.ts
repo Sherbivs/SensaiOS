@@ -1,3 +1,7 @@
+// LOGGER FIRST — Must be early import to capture initialization errors
+import { getLogger } from "../../shared/logging/index.js";
+const logger = getLogger();
+
 import type { ChatInputCommandInteraction, GuildMember } from "discord.js";
 import type { Pool } from "pg";
 import type { PrismaClient, Prisma } from '../../generated/prisma/client.js';
@@ -19,10 +23,7 @@ import type {
 } from "../../services/cache/facade.js";
 import { cache } from "../../shared/cache/memory.js";
 import { config } from "../../shared/config.js";
-import { getLogger } from "../../shared/logging/index.js";
 import { getLogBuffer } from "../../shared/logBuffer.js";
-
-const logger = getLogger();
 import { EventBus } from "../../shared/event-bus.js";
 import { getProdDb } from "../../shared/pg-connection.js";
 import { 

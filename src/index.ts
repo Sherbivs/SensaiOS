@@ -1,4 +1,11 @@
 // ============================================================================
+// KERNEL BOOTSTRAP — MUST BE FIRST
+// ============================================================================
+// Boot Kernel initializes logging and error detection BEFORE anything else.
+// This is similar to how an OS kernel initializes its logging subsystem.
+import { kernel, signalModulesLoaded, signalRuntimeReady, signalShutdown, shutdownKernel } from './kernel/boot-kernel.js';
+
+// ============================================================================
 // STARTUP PERFORMANCE INSTRUMENTATION (Phase 1: Baseline Measurement)
 // ============================================================================
 const STARTUP_START = process.hrtime.bigint();
@@ -12,6 +19,7 @@ function recordTiming(label: string, startTime: bigint) {
 
 // Capture module import time
 const MODULE_IMPORT_START = process.hrtime.bigint();
+kernel.boot('index', 'Beginning module imports');
 
 import { Prisma } from './generated/prisma/client.js';
 import { Events, DiscordAPIError, type Client } from "discord.js";
@@ -74,6 +82,10 @@ import type * as EngineWriteDbModule from "./services/database/engine-write-db.j
 
 // Record module import completion
 recordTiming("module_imports", MODULE_IMPORT_START);
+kernel.boot('index', 'Module imports complete', { durationMs: STARTUP_TIMINGS["module_imports"] });
+
+// Signal to kernel that modules are loaded
+signalModulesLoaded();
 
 // Memory profiling
 const STARTUP_MEMORY: { [key: string]: NodeJS.MemoryUsage } = {};
@@ -1199,6 +1211,21 @@ async function gracefulShutdown(signal: ShutdownTrigger): Promise<void> {
     log.error("index", "gracefulShutdown", "Error stopping health server", { error: { name: 'HealthServerStopError', message: getErrorMessage(error) } });
   }
 
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // KERNEL SHUTDOWN (LAST - After all other systems)
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // The kernel is the first to start and the last to stop, like an OS kernel.
+  // This exports all captured logs and errors before final exit.
+  try {
+    signalShutdown(signal);
+    await shutdownKernel();
+    kernel.info('index', 'Kernel shutdown complete, final log buffer flush next');
+  } catch (error) {
+    // Use console directly since kernel may be in error state
+    // eslint-disable-next-line no-console
+    console.error('[KERNEL] Shutdown error:', error);
+  }
+
   // Flush and destroy log buffer before exit
   destroyLogBuffer();
 
@@ -1566,6 +1593,7 @@ export async function boot(): Promise<void> {
         // Target: 2-3s boot time (down from 10-15s)
         
         global.engineReady = true;
+        signalRuntimeReady(); // Signal kernel that runtime is fully operational
         log.info("index", "boot", "Engine marked ready (lazy cache prefetch starting in background)");
         
         await Promise.all([

@@ -23,12 +23,13 @@
  * @module services/engine-write-buffer
  */
 
-import { EngineDbConfig } from '../../config/engine-db-config.js';
+// LOGGER FIRST — Must be early import to capture initialization errors
 import { getLogger } from "../../shared/logging/index.js";
+const logger = getLogger();
+
+import { EngineDbConfig } from '../../config/engine-db-config.js';
 import { errorTracker } from '../monitoring/error-tracker.js';
 import { ensureError } from '../../shared/utils/error-utils.js';
-
-const logger = getLogger();
 
 // ============================================================================
 // Type Definitions

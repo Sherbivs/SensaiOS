@@ -11,6 +11,12 @@
  */
 /* eslint-disable no-console */
 
+// KERNEL FIRST — Must be first import to monitor other system initialization
+import {
+  createObservabilityHook,
+  type ObservabilityHook,
+} from '../../../kernel/kernel-hooks.js';
+
 import type {
   IObservabilityBackend,
   ObservabilityEvent,
@@ -23,6 +29,26 @@ import { LokiCircuitBreaker } from './loki-circuit-breaker.js';
 import { LokiHttpTransport } from './loki-http-transport.js';
 import { LokiFlushWorker } from './loki-flush-worker.js';
 import { LokiHealthWorker } from './loki-health-worker.js';
+
+// ==================== KERNEL INTEGRATION ====================
+
+/** Lazy-initialized kernel hook for Loki backend */
+let kernelHook: ObservabilityHook | null = null;
+
+/**
+ * Get or create kernel hook for Loki backend observability.
+ * Uses lazy initialization to avoid startup dependencies.
+ */
+function getLokiKernelHook(): ObservabilityHook | null {
+  if (!kernelHook) {
+    try {
+      kernelHook = createObservabilityHook('loki-backend');
+    } catch {
+      // Kernel not available, silently skip
+    }
+  }
+  return kernelHook;
+}
 
 // ============================================================================
 // Loki Backend Class
@@ -50,6 +76,9 @@ export class LokiBackend implements IObservabilityBackend {
 
   /** Health worker (probes endpoint for recovery) */
   private healthWorker: LokiHealthWorker | null = null;
+  
+  /** Event counter for kernel sampling */
+  private receiveCount = 0;
 
   // --------------------------------------------------------------------------
   // IObservabilityBackend: receive
@@ -78,6 +107,23 @@ export class LokiBackend implements IObservabilityBackend {
 
     // Fire-and-forget enqueue (never blocks)
     this.queue.push(lokiEntry);
+    this.receiveCount++;
+    
+    // Report queue state to kernel (sample: every 200th event)
+    if (this.receiveCount % 200 === 0) {
+      try {
+        const stats = this.queue.getStats();
+        const backpressure = stats.backpressureLevel === 'CRITICAL' || stats.backpressureLevel === 'FULL' ? 'critical' 
+          : stats.backpressureLevel === 'WARNING' ? 'warn' 
+          : 'normal';
+        getLokiKernelHook()?.queue(stats.depth, stats.capacity, backpressure, {
+          droppedTotal: stats.droppedTotal,
+          sampledTotal: stats.sampledTotal,
+        });
+      } catch {
+        // Kernel failure should never affect Loki operation
+      }
+    }
   }
 
   // --------------------------------------------------------------------------
@@ -131,6 +177,17 @@ export class LokiBackend implements IObservabilityBackend {
     this.healthWorker.start();
 
     console.info(`[LokiBackend] Started (endpoint: ${LOKI_CONFIG.endpoint})`);
+    
+    // Report lifecycle to kernel
+    try {
+      getLokiKernelHook()?.lifecycle('start', { 
+        endpoint: LOKI_CONFIG.endpoint,
+        batchSize: LOKI_CONFIG.batchSize,
+        queueMaxSize: LOKI_CONFIG.queueMaxSize,
+      });
+    } catch {
+      // Kernel failure should never affect Loki operation
+    }
   }
 
   // --------------------------------------------------------------------------
@@ -151,6 +208,17 @@ export class LokiBackend implements IObservabilityBackend {
     }
 
     console.info('[LokiBackend] Stopped');
+    
+    // Report lifecycle to kernel
+    try {
+      const queueStats = this.queue?.getStats();
+      getLokiKernelHook()?.lifecycle('stop', { 
+        queueDepth: queueStats?.depth ?? 0,
+        droppedTotal: queueStats?.droppedTotal ?? 0,
+      });
+    } catch {
+      // Kernel failure should never affect Loki operation
+    }
   }
 
   // --------------------------------------------------------------------------

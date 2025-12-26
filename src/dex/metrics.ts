@@ -1,7 +1,8 @@
+// LOGGER FIRST — Must be early import to capture initialization errors
 import { getLogger } from '../shared/logging/index.js';
-import { getErrorMessage } from '../shared/utils/error-utils.js';
-
 const logger = getLogger();
+
+import { getErrorMessage } from '../shared/utils/error-utils.js';
 
 // ============================================================================
 // Type Definitions

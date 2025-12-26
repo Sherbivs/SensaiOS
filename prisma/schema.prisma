@@ -384,6 +384,10 @@ model PokemonInstance {
   trainerId  String?
   packHash   String?
   partySlots PartySlot[]
+  
+  // Trading fields (OT = Original Trainer)
+  originalTrainerId String?   // Discord ID of who first caught/received this Pokémon
+  tradedAt          DateTime? // When this Pokémon was last traded (null = never traded)
 
   tenant  Tenant?  @relation(fields: [tenantId], references: [id], onDelete: SetNull)
   trainer Trainer? @relation(fields: [trainerId], references: [id], onDelete: SetNull)
@@ -985,4 +989,149 @@ model WorkerMetrics {
   @@id([id, timestamp])
   @@index([workerId, timestamp(sort: Desc)], map: "idx_worker_metrics_worker_time")
   @@map("worker_metrics")
+}
+
+// ============================================================================
+// TRADING SYSTEM
+// ============================================================================
+
+/// Records completed trades for history, audit, and analytics
+model TradeLog {
+  id         String   @id @default(cuid())
+  sessionId  String   // Client-side session ID for correlation
+  
+  // Participants (Discord IDs)
+  senderId   String   @map("sender_id")
+  receiverId String   @map("receiver_id")
+  
+  // Traded Pokémon
+  senderPokemonId   String @map("sender_pokemon_id")
+  receiverPokemonId String @map("receiver_pokemon_id")
+  
+  // Pokémon details at time of trade (for audit)
+  senderPokemonSpeciesId   Int @db.SmallInt @map("sender_pokemon_species_id")
+  receiverPokemonSpeciesId Int @db.SmallInt @map("receiver_pokemon_species_id")
+  senderPokemonLevel       Int @map("sender_pokemon_level")
+  receiverPokemonLevel     Int @map("receiver_pokemon_level")
+  senderPokemonShiny       Boolean @map("sender_pokemon_shiny")
+  receiverPokemonShiny     Boolean @map("receiver_pokemon_shiny")
+  
+  // Timestamps
+  completedAt DateTime @default(now()) @map("completed_at")
+  
+  @@index([senderId, completedAt(sort: Desc)], map: "idx_trade_log_sender")
+  @@index([receiverId, completedAt(sort: Desc)], map: "idx_trade_log_receiver")
+  @@index([completedAt(sort: Desc)], map: "idx_trade_log_time")
+  @@map("trade_logs")
+}
+
+// ============================================================================
+// LEADERBOARDS & ACHIEVEMENTS SYSTEM
+// ============================================================================
+
+/// Player statistics tracking for leaderboards
+model PlayerStats {
+  id                String   @id @default(cuid())
+  discordId         String   @unique @map("discord_id")
+  
+  // Lifetime stats
+  totalCatches      Int      @default(0) @map("total_catches")
+  totalBattleWins   Int      @default(0) @map("total_battle_wins")
+  totalBattleLosses Int      @default(0) @map("total_battle_losses")
+  totalTrades       Int      @default(0) @map("total_trades")
+  totalFishCaught   Int      @default(0) @map("total_fish_caught")
+  totalWalks        Int      @default(0) @map("total_walks")
+  totalShinies      Int      @default(0) @map("total_shinies")
+  totalEvolutions   Int      @default(0) @map("total_evolutions")
+  pokedexPercent    Float    @default(0) @map("pokedex_percent")
+  
+  // Unique tracking (for social achievements)
+  uniqueTradePartners Int    @default(0) @map("unique_trade_partners")
+  uniqueTypesCaught   Int    @default(0) @map("unique_types_caught")
+  
+  // Current streaks
+  currentWinStreak  Int      @default(0) @map("current_win_streak")
+  bestWinStreak     Int      @default(0) @map("best_win_streak")
+  dailyStreak       Int      @default(0) @map("daily_streak")
+  bestDailyStreak   Int      @default(0) @map("best_daily_streak")
+  lastDailyClaimAt  DateTime? @map("last_daily_claim_at")
+  
+  // Weekly stats (reset each week)
+  weeklyCatches     Int      @default(0) @map("weekly_catches")
+  weeklyFish        Int      @default(0) @map("weekly_fish")
+  weeklyBattles     Int      @default(0) @map("weekly_battles")
+  weekStartedAt     DateTime @default(now()) @map("week_started_at")
+  
+  // Season stats
+  seasonWins        Int      @default(0) @map("season_wins")
+  seasonNumber      Int      @default(1) @map("season_number")
+  
+  // Timestamps
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+  
+  // Indexes for leaderboard queries
+  @@index([totalCatches(sort: Desc)], map: "idx_stats_total_catches")
+  @@index([weeklyCatches(sort: Desc)], map: "idx_stats_weekly_catches")
+  @@index([totalShinies(sort: Desc)], map: "idx_stats_shinies")
+  @@index([totalBattleWins(sort: Desc)], map: "idx_stats_battle_wins")
+  @@index([seasonWins(sort: Desc)], map: "idx_stats_season_wins")
+  @@index([totalFishCaught(sort: Desc)], map: "idx_stats_fish")
+  @@index([totalTrades(sort: Desc)], map: "idx_stats_trades")
+  @@index([pokedexPercent(sort: Desc)], map: "idx_stats_pokedex")
+  @@map("player_stats")
+}
+
+/// Achievement definitions
+model AchievementDef {
+  id          String   @id @default(cuid())
+  code        String   @unique  // "FIRST_CATCH", "CENTURY_CLUB", etc.
+  name        String
+  description String
+  category    String   // collection, battle, social, exploration, mastery, special
+  rarity      String   // bronze, silver, gold, diamond, legendary
+  requirement Int      // Target number to unlock
+  rewardMoney Int      @default(0) @map("reward_money")
+  rewardBadge String?  @map("reward_badge")  // Badge code if applicable
+  
+  // Display ordering
+  sortOrder   Int      @default(0) @map("sort_order")
+  
+  // Relations
+  unlocks     AchievementUnlock[]
+  
+  @@index([category], map: "idx_achievement_category")
+  @@index([rarity], map: "idx_achievement_rarity")
+  @@map("achievement_defs")
+}
+
+/// Player achievement unlocks
+model AchievementUnlock {
+  id            String   @id @default(cuid())
+  discordId     String   @map("discord_id")
+  achievementId String   @map("achievement_id")
+  unlockedAt    DateTime @default(now()) @map("unlocked_at")
+  rewardClaimed Boolean  @default(false) @map("reward_claimed")
+  
+  achievement   AchievementDef @relation(fields: [achievementId], references: [id])
+  
+  @@unique([discordId, achievementId])
+  @@index([discordId], map: "idx_unlock_discord")
+  @@index([unlockedAt(sort: Desc)], map: "idx_unlock_time")
+  @@map("achievement_unlocks")
+}
+
+/// Weekly leaderboard snapshots for history and rewards
+model LeaderboardSnapshot {
+  id          String   @id @default(cuid())
+  boardType   String   @map("board_type")  // weekly_catches, weekly_fish, etc.
+  weekOf      DateTime @map("week_of")
+  rankings    Json     // Array of {rank, discordId, value, username}
+  
+  createdAt   DateTime @default(now()) @map("created_at")
+  
+  @@unique([boardType, weekOf])
+  @@index([boardType], map: "idx_snapshot_type")
+  @@index([weekOf(sort: Desc)], map: "idx_snapshot_week")
+  @@map("leaderboard_snapshots")
 }

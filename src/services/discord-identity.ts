@@ -13,11 +13,12 @@
  * @see discord_guilds — Guild metadata synced by security bot
  */
 
+// LOGGER FIRST — Must be early import to capture initialization errors
+import { getLogger } from "../shared/logging/index.js";
+const logger = getLogger();
+
 import { prisma } from "../shared/prisma.js";
 import { getErrorMessage } from "../shared/utils/error-utils.js";
-import { getLogger } from "../shared/logging/index.js";
-
-const logger = getLogger();
 
 // ============================================================================
 // Types & Interfaces

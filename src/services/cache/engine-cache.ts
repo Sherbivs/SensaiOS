@@ -22,14 +22,15 @@
  * @module services/engine-cache
  */
 
-import { EngineDbConfig } from '../../config/engine-db-config.js';
+// LOGGER FIRST — Must be early import to capture initialization errors
 import { getLogger } from "../../shared/logging/index.js";
+const logger = getLogger();
+
+import { EngineDbConfig } from '../../config/engine-db-config.js';
 import { errorTracker } from '../monitoring/error-tracker.js';
 import type { IPrunableCache } from '../monitoring/resource-monitor.js';
 import * as readDb from '../database/engine-read-db.js';
 import { ensureError } from '../../shared/utils/error-utils.js';
-
-const logger = getLogger();
 
 // ============================================================================
 // Type Definitions

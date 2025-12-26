@@ -21,6 +21,12 @@
  */
 /* eslint-disable no-console */
 
+// KERNEL FIRST — Must be first import to monitor other system initialization
+import {
+  createObservabilityHook,
+  type ObservabilityHook,
+} from '../../kernel/kernel-hooks.js';
+
 import { EventBus, type BusEvent, type SubscriptionId } from '../../shared/event-bus.js';
 import { OBSERVABILITY_CONFIG } from './observability-config.js';
 import { lokiTransport } from '../../shared/logging/loki-transport.js';
@@ -30,6 +36,26 @@ import type {
   IObservabilityBackend,
   HubStatus,
 } from './observability-types.js';
+
+// ==================== KERNEL INTEGRATION ====================
+
+/** Lazy-initialized kernel hook for observability hub */
+let kernelHook: ObservabilityHook | null = null;
+
+/**
+ * Get or create kernel hook for observability hub observability.
+ * Uses lazy initialization to avoid startup dependencies.
+ */
+function getHubKernelHook(): ObservabilityHook | null {
+  if (!kernelHook) {
+    try {
+      kernelHook = createObservabilityHook('observability-hub');
+    } catch {
+      // Kernel not available, silently skip
+    }
+  }
+  return kernelHook;
+}
 
 /**
  * Forward a log entry directly to Loki (bypasses logger to avoid circular dep)
@@ -88,6 +114,13 @@ export class ObservabilityHub {
     }
     this.backends.set(backend.name, backend);
     console.info(`[ObservabilityHub] Backend registered: ${backend.name}`);
+    
+    // Report to kernel
+    try {
+      getHubKernelHook()?.backend('register', backend.name, { enabled: backend.enabled });
+    } catch {
+      // Kernel failure should never affect hub operation
+    }
   }
 
   /**
@@ -99,6 +132,13 @@ export class ObservabilityHub {
     const removed = this.backends.delete(name);
     if (removed) {
       console.info(`[ObservabilityHub] Backend unregistered: ${name}`);
+      
+      // Report to kernel
+      try {
+        getHubKernelHook()?.backend('unregister', name);
+      } catch {
+        // Kernel failure should never affect hub operation
+      }
     }
     return removed;
   }
@@ -158,6 +198,16 @@ export class ObservabilityHub {
 
     this.running = true;
     console.info('[ObservabilityHub] Started successfully');
+    
+    // Report lifecycle to kernel
+    try {
+      getHubKernelHook()?.lifecycle('start', { 
+        backendCount: this.backends.size,
+        backends: Array.from(this.backends.keys()),
+      });
+    } catch {
+      // Kernel failure should never affect hub operation
+    }
   }
 
   /**
@@ -196,6 +246,16 @@ export class ObservabilityHub {
 
     this.running = false;
     console.info('[ObservabilityHub] Stopped');
+    
+    // Report lifecycle to kernel
+    try {
+      getHubKernelHook()?.lifecycle('stop', { 
+        eventBusTotal: this.eventBusCount,
+        directIngestTotal: this.directIngestCount,
+      });
+    } catch {
+      // Kernel failure should never affect hub operation
+    }
   }
 
   // --------------------------------------------------------------------------
@@ -215,6 +275,15 @@ export class ObservabilityHub {
     try {
       const obsEvent = this.convertBusEvent(event);
       this.fanOut(obsEvent);
+      
+      // Report to kernel (sample: every 100th event to reduce noise)
+      if (this.eventBusCount % 100 === 0) {
+        try {
+          getHubKernelHook()?.event('eventbus', event.topic, { count: this.eventBusCount });
+        } catch {
+          // Kernel failure should never affect hub operation
+        }
+      }
     } catch (error) {
       // Silently drop — never propagate to Event Bus
       console.error('[ObservabilityHub] Error handling event:', error);
@@ -244,6 +313,15 @@ export class ObservabilityHub {
         payload,
       };
       this.fanOut(event);
+      
+      // Report to kernel (sample: every 50th direct event)
+      if (this.directIngestCount % 50 === 0) {
+        try {
+          getHubKernelHook()?.event('direct', topic, { count: this.directIngestCount, source });
+        } catch {
+          // Kernel failure should never affect hub operation
+        }
+      }
     } catch (error) {
       // Silently drop — never propagate errors
       console.error('[ObservabilityHub] Error ingesting event:', error);

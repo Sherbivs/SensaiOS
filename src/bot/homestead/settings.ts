@@ -401,7 +401,7 @@ export async function handleSettingsButton(interaction: ButtonInteraction): Prom
 
     // Back button is handled by main index.ts router (SETTINGS_BACK → HOME)
     
-  } catch (error) {
+  } catch {
     if (!interaction.replied && !interaction.deferred) {
       await interaction.reply({
         content: "❌ An error occurred. Please try again.",

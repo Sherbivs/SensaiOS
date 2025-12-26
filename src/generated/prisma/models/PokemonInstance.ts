@@ -63,6 +63,8 @@ export type PokemonInstanceMinAggregateOutputType = {
   tenantId: string | null
   trainerId: string | null
   packHash: string | null
+  originalTrainerId: string | null
+  tradedAt: Date | null
 }
 
 export type PokemonInstanceMaxAggregateOutputType = {
@@ -84,6 +86,8 @@ export type PokemonInstanceMaxAggregateOutputType = {
   tenantId: string | null
   trainerId: string | null
   packHash: string | null
+  originalTrainerId: string | null
+  tradedAt: Date | null
 }
 
 export type PokemonInstanceCountAggregateOutputType = {
@@ -108,6 +112,8 @@ export type PokemonInstanceCountAggregateOutputType = {
   tenantId: number
   trainerId: number
   packHash: number
+  originalTrainerId: number
+  tradedAt: number
   _all: number
 }
 
@@ -149,6 +155,8 @@ export type PokemonInstanceMinAggregateInputType = {
   tenantId?: true
   trainerId?: true
   packHash?: true
+  originalTrainerId?: true
+  tradedAt?: true
 }
 
 export type PokemonInstanceMaxAggregateInputType = {
@@ -170,6 +178,8 @@ export type PokemonInstanceMaxAggregateInputType = {
   tenantId?: true
   trainerId?: true
   packHash?: true
+  originalTrainerId?: true
+  tradedAt?: true
 }
 
 export type PokemonInstanceCountAggregateInputType = {
@@ -194,6 +204,8 @@ export type PokemonInstanceCountAggregateInputType = {
   tenantId?: true
   trainerId?: true
   packHash?: true
+  originalTrainerId?: true
+  tradedAt?: true
   _all?: true
 }
 
@@ -305,6 +317,8 @@ export type PokemonInstanceGroupByOutputType = {
   tenantId: string | null
   trainerId: string | null
   packHash: string | null
+  originalTrainerId: string | null
+  tradedAt: Date | null
   _count: PokemonInstanceCountAggregateOutputType | null
   _avg: PokemonInstanceAvgAggregateOutputType | null
   _sum: PokemonInstanceSumAggregateOutputType | null
@@ -352,6 +366,8 @@ export type PokemonInstanceWhereInput = {
   tenantId?: Prisma.StringNullableFilter<"PokemonInstance"> | string | null
   trainerId?: Prisma.StringNullableFilter<"PokemonInstance"> | string | null
   packHash?: Prisma.StringNullableFilter<"PokemonInstance"> | string | null
+  originalTrainerId?: Prisma.StringNullableFilter<"PokemonInstance"> | string | null
+  tradedAt?: Prisma.DateTimeNullableFilter<"PokemonInstance"> | Date | string | null
   owner?: Prisma.XOR<Prisma.UserScalarRelationFilter, Prisma.UserWhereInput>
   species?: Prisma.XOR<Prisma.SpeciesScalarRelationFilter, Prisma.SpeciesWhereInput>
   partySlots?: Prisma.PartySlotListRelationFilter
@@ -382,6 +398,8 @@ export type PokemonInstanceOrderByWithRelationInput = {
   tenantId?: Prisma.SortOrderInput | Prisma.SortOrder
   trainerId?: Prisma.SortOrderInput | Prisma.SortOrder
   packHash?: Prisma.SortOrderInput | Prisma.SortOrder
+  originalTrainerId?: Prisma.SortOrderInput | Prisma.SortOrder
+  tradedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   owner?: Prisma.UserOrderByWithRelationInput
   species?: Prisma.SpeciesOrderByWithRelationInput
   partySlots?: Prisma.PartySlotOrderByRelationAggregateInput
@@ -416,6 +434,8 @@ export type PokemonInstanceWhereUniqueInput = Prisma.AtLeast<{
   tenantId?: Prisma.StringNullableFilter<"PokemonInstance"> | string | null
   trainerId?: Prisma.StringNullableFilter<"PokemonInstance"> | string | null
   packHash?: Prisma.StringNullableFilter<"PokemonInstance"> | string | null
+  originalTrainerId?: Prisma.StringNullableFilter<"PokemonInstance"> | string | null
+  tradedAt?: Prisma.DateTimeNullableFilter<"PokemonInstance"> | Date | string | null
   owner?: Prisma.XOR<Prisma.UserScalarRelationFilter, Prisma.UserWhereInput>
   species?: Prisma.XOR<Prisma.SpeciesScalarRelationFilter, Prisma.SpeciesWhereInput>
   partySlots?: Prisma.PartySlotListRelationFilter
@@ -446,6 +466,8 @@ export type PokemonInstanceOrderByWithAggregationInput = {
   tenantId?: Prisma.SortOrderInput | Prisma.SortOrder
   trainerId?: Prisma.SortOrderInput | Prisma.SortOrder
   packHash?: Prisma.SortOrderInput | Prisma.SortOrder
+  originalTrainerId?: Prisma.SortOrderInput | Prisma.SortOrder
+  tradedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   _count?: Prisma.PokemonInstanceCountOrderByAggregateInput
   _avg?: Prisma.PokemonInstanceAvgOrderByAggregateInput
   _max?: Prisma.PokemonInstanceMaxOrderByAggregateInput
@@ -478,6 +500,8 @@ export type PokemonInstanceScalarWhereWithAggregatesInput = {
   tenantId?: Prisma.StringNullableWithAggregatesFilter<"PokemonInstance"> | string | null
   trainerId?: Prisma.StringNullableWithAggregatesFilter<"PokemonInstance"> | string | null
   packHash?: Prisma.StringNullableWithAggregatesFilter<"PokemonInstance"> | string | null
+  originalTrainerId?: Prisma.StringNullableWithAggregatesFilter<"PokemonInstance"> | string | null
+  tradedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"PokemonInstance"> | Date | string | null
 }
 
 export type PokemonInstanceCreateInput = {
@@ -497,6 +521,8 @@ export type PokemonInstanceCreateInput = {
   boxSlot?: number | null
   createdAt?: Date | string
   updatedAt?: Date | string
+  originalTrainerId?: string | null
+  tradedAt?: Date | string | null
   owner: Prisma.UserCreateNestedOneWithoutPokemonInput
   species: Prisma.SpeciesCreateNestedOneWithoutMonsInput
   partySlots?: Prisma.PartySlotCreateNestedManyWithoutPokemonInput
@@ -527,6 +553,8 @@ export type PokemonInstanceUncheckedCreateInput = {
   tenantId?: string | null
   trainerId?: string | null
   packHash?: string | null
+  originalTrainerId?: string | null
+  tradedAt?: Date | string | null
   partySlots?: Prisma.PartySlotUncheckedCreateNestedManyWithoutPokemonInput
 }
 
@@ -547,6 +575,8 @@ export type PokemonInstanceUpdateInput = {
   boxSlot?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  originalTrainerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  tradedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   owner?: Prisma.UserUpdateOneRequiredWithoutPokemonNestedInput
   species?: Prisma.SpeciesUpdateOneRequiredWithoutMonsNestedInput
   partySlots?: Prisma.PartySlotUpdateManyWithoutPokemonNestedInput
@@ -577,6 +607,8 @@ export type PokemonInstanceUncheckedUpdateInput = {
   tenantId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   trainerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   packHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  originalTrainerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  tradedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   partySlots?: Prisma.PartySlotUncheckedUpdateManyWithoutPokemonNestedInput
 }
 
@@ -602,6 +634,8 @@ export type PokemonInstanceCreateManyInput = {
   tenantId?: string | null
   trainerId?: string | null
   packHash?: string | null
+  originalTrainerId?: string | null
+  tradedAt?: Date | string | null
 }
 
 export type PokemonInstanceUpdateManyMutationInput = {
@@ -621,6 +655,8 @@ export type PokemonInstanceUpdateManyMutationInput = {
   boxSlot?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  originalTrainerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  tradedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
 }
 
 export type PokemonInstanceUncheckedUpdateManyInput = {
@@ -645,6 +681,8 @@ export type PokemonInstanceUncheckedUpdateManyInput = {
   tenantId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   trainerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   packHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  originalTrainerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  tradedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
 }
 
 export type PokemonInstanceListRelationFilter = {
@@ -685,6 +723,8 @@ export type PokemonInstanceCountOrderByAggregateInput = {
   tenantId?: Prisma.SortOrder
   trainerId?: Prisma.SortOrder
   packHash?: Prisma.SortOrder
+  originalTrainerId?: Prisma.SortOrder
+  tradedAt?: Prisma.SortOrder
 }
 
 export type PokemonInstanceAvgOrderByAggregateInput = {
@@ -715,6 +755,8 @@ export type PokemonInstanceMaxOrderByAggregateInput = {
   tenantId?: Prisma.SortOrder
   trainerId?: Prisma.SortOrder
   packHash?: Prisma.SortOrder
+  originalTrainerId?: Prisma.SortOrder
+  tradedAt?: Prisma.SortOrder
 }
 
 export type PokemonInstanceMinOrderByAggregateInput = {
@@ -736,6 +778,8 @@ export type PokemonInstanceMinOrderByAggregateInput = {
   tenantId?: Prisma.SortOrder
   trainerId?: Prisma.SortOrder
   packHash?: Prisma.SortOrder
+  originalTrainerId?: Prisma.SortOrder
+  tradedAt?: Prisma.SortOrder
 }
 
 export type PokemonInstanceSumOrderByAggregateInput = {
@@ -993,6 +1037,8 @@ export type PokemonInstanceCreateWithoutTenantInput = {
   boxSlot?: number | null
   createdAt?: Date | string
   updatedAt?: Date | string
+  originalTrainerId?: string | null
+  tradedAt?: Date | string | null
   owner: Prisma.UserCreateNestedOneWithoutPokemonInput
   species: Prisma.SpeciesCreateNestedOneWithoutMonsInput
   partySlots?: Prisma.PartySlotCreateNestedManyWithoutPokemonInput
@@ -1021,6 +1067,8 @@ export type PokemonInstanceUncheckedCreateWithoutTenantInput = {
   updatedAt?: Date | string
   trainerId?: string | null
   packHash?: string | null
+  originalTrainerId?: string | null
+  tradedAt?: Date | string | null
   partySlots?: Prisma.PartySlotUncheckedCreateNestedManyWithoutPokemonInput
 }
 
@@ -1075,6 +1123,8 @@ export type PokemonInstanceScalarWhereInput = {
   tenantId?: Prisma.StringNullableFilter<"PokemonInstance"> | string | null
   trainerId?: Prisma.StringNullableFilter<"PokemonInstance"> | string | null
   packHash?: Prisma.StringNullableFilter<"PokemonInstance"> | string | null
+  originalTrainerId?: Prisma.StringNullableFilter<"PokemonInstance"> | string | null
+  tradedAt?: Prisma.DateTimeNullableFilter<"PokemonInstance"> | Date | string | null
 }
 
 export type PokemonInstanceCreateWithoutTrainerInput = {
@@ -1094,6 +1144,8 @@ export type PokemonInstanceCreateWithoutTrainerInput = {
   boxSlot?: number | null
   createdAt?: Date | string
   updatedAt?: Date | string
+  originalTrainerId?: string | null
+  tradedAt?: Date | string | null
   owner: Prisma.UserCreateNestedOneWithoutPokemonInput
   species: Prisma.SpeciesCreateNestedOneWithoutMonsInput
   partySlots?: Prisma.PartySlotCreateNestedManyWithoutPokemonInput
@@ -1122,6 +1174,8 @@ export type PokemonInstanceUncheckedCreateWithoutTrainerInput = {
   updatedAt?: Date | string
   tenantId?: string | null
   packHash?: string | null
+  originalTrainerId?: string | null
+  tradedAt?: Date | string | null
   partySlots?: Prisma.PartySlotUncheckedCreateNestedManyWithoutPokemonInput
 }
 
@@ -1168,6 +1222,8 @@ export type PokemonInstanceCreateWithoutDexPackInput = {
   boxSlot?: number | null
   createdAt?: Date | string
   updatedAt?: Date | string
+  originalTrainerId?: string | null
+  tradedAt?: Date | string | null
   owner: Prisma.UserCreateNestedOneWithoutPokemonInput
   species: Prisma.SpeciesCreateNestedOneWithoutMonsInput
   partySlots?: Prisma.PartySlotCreateNestedManyWithoutPokemonInput
@@ -1196,6 +1252,8 @@ export type PokemonInstanceUncheckedCreateWithoutDexPackInput = {
   updatedAt?: Date | string
   tenantId?: string | null
   trainerId?: string | null
+  originalTrainerId?: string | null
+  tradedAt?: Date | string | null
   partySlots?: Prisma.PartySlotUncheckedCreateNestedManyWithoutPokemonInput
 }
 
@@ -1242,6 +1300,8 @@ export type PokemonInstanceCreateWithoutSpeciesInput = {
   boxSlot?: number | null
   createdAt?: Date | string
   updatedAt?: Date | string
+  originalTrainerId?: string | null
+  tradedAt?: Date | string | null
   owner: Prisma.UserCreateNestedOneWithoutPokemonInput
   partySlots?: Prisma.PartySlotCreateNestedManyWithoutPokemonInput
   tenant?: Prisma.TenantCreateNestedOneWithoutPokemonInstanceInput
@@ -1270,6 +1330,8 @@ export type PokemonInstanceUncheckedCreateWithoutSpeciesInput = {
   tenantId?: string | null
   trainerId?: string | null
   packHash?: string | null
+  originalTrainerId?: string | null
+  tradedAt?: Date | string | null
   partySlots?: Prisma.PartySlotUncheckedCreateNestedManyWithoutPokemonInput
 }
 
@@ -1316,6 +1378,8 @@ export type PokemonInstanceCreateWithoutOwnerInput = {
   boxSlot?: number | null
   createdAt?: Date | string
   updatedAt?: Date | string
+  originalTrainerId?: string | null
+  tradedAt?: Date | string | null
   species: Prisma.SpeciesCreateNestedOneWithoutMonsInput
   partySlots?: Prisma.PartySlotCreateNestedManyWithoutPokemonInput
   tenant?: Prisma.TenantCreateNestedOneWithoutPokemonInstanceInput
@@ -1344,6 +1408,8 @@ export type PokemonInstanceUncheckedCreateWithoutOwnerInput = {
   tenantId?: string | null
   trainerId?: string | null
   packHash?: string | null
+  originalTrainerId?: string | null
+  tradedAt?: Date | string | null
   partySlots?: Prisma.PartySlotUncheckedCreateNestedManyWithoutPokemonInput
 }
 
@@ -1390,6 +1456,8 @@ export type PokemonInstanceCreateWithoutPartySlotsInput = {
   boxSlot?: number | null
   createdAt?: Date | string
   updatedAt?: Date | string
+  originalTrainerId?: string | null
+  tradedAt?: Date | string | null
   owner: Prisma.UserCreateNestedOneWithoutPokemonInput
   species: Prisma.SpeciesCreateNestedOneWithoutMonsInput
   tenant?: Prisma.TenantCreateNestedOneWithoutPokemonInstanceInput
@@ -1419,6 +1487,8 @@ export type PokemonInstanceUncheckedCreateWithoutPartySlotsInput = {
   tenantId?: string | null
   trainerId?: string | null
   packHash?: string | null
+  originalTrainerId?: string | null
+  tradedAt?: Date | string | null
 }
 
 export type PokemonInstanceCreateOrConnectWithoutPartySlotsInput = {
@@ -1454,6 +1524,8 @@ export type PokemonInstanceUpdateWithoutPartySlotsInput = {
   boxSlot?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  originalTrainerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  tradedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   owner?: Prisma.UserUpdateOneRequiredWithoutPokemonNestedInput
   species?: Prisma.SpeciesUpdateOneRequiredWithoutMonsNestedInput
   tenant?: Prisma.TenantUpdateOneWithoutPokemonInstanceNestedInput
@@ -1483,6 +1555,8 @@ export type PokemonInstanceUncheckedUpdateWithoutPartySlotsInput = {
   tenantId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   trainerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   packHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  originalTrainerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  tradedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
 }
 
 export type PokemonInstanceCreateManyTenantInput = {
@@ -1506,6 +1580,8 @@ export type PokemonInstanceCreateManyTenantInput = {
   updatedAt?: Date | string
   trainerId?: string | null
   packHash?: string | null
+  originalTrainerId?: string | null
+  tradedAt?: Date | string | null
 }
 
 export type PokemonInstanceUpdateWithoutTenantInput = {
@@ -1525,6 +1601,8 @@ export type PokemonInstanceUpdateWithoutTenantInput = {
   boxSlot?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  originalTrainerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  tradedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   owner?: Prisma.UserUpdateOneRequiredWithoutPokemonNestedInput
   species?: Prisma.SpeciesUpdateOneRequiredWithoutMonsNestedInput
   partySlots?: Prisma.PartySlotUpdateManyWithoutPokemonNestedInput
@@ -1553,6 +1631,8 @@ export type PokemonInstanceUncheckedUpdateWithoutTenantInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   trainerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   packHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  originalTrainerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  tradedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   partySlots?: Prisma.PartySlotUncheckedUpdateManyWithoutPokemonNestedInput
 }
 
@@ -1577,6 +1657,8 @@ export type PokemonInstanceUncheckedUpdateManyWithoutTenantInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   trainerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   packHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  originalTrainerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  tradedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
 }
 
 export type PokemonInstanceCreateManyTrainerInput = {
@@ -1600,6 +1682,8 @@ export type PokemonInstanceCreateManyTrainerInput = {
   updatedAt?: Date | string
   tenantId?: string | null
   packHash?: string | null
+  originalTrainerId?: string | null
+  tradedAt?: Date | string | null
 }
 
 export type PokemonInstanceUpdateWithoutTrainerInput = {
@@ -1619,6 +1703,8 @@ export type PokemonInstanceUpdateWithoutTrainerInput = {
   boxSlot?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  originalTrainerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  tradedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   owner?: Prisma.UserUpdateOneRequiredWithoutPokemonNestedInput
   species?: Prisma.SpeciesUpdateOneRequiredWithoutMonsNestedInput
   partySlots?: Prisma.PartySlotUpdateManyWithoutPokemonNestedInput
@@ -1647,6 +1733,8 @@ export type PokemonInstanceUncheckedUpdateWithoutTrainerInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   tenantId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   packHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  originalTrainerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  tradedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   partySlots?: Prisma.PartySlotUncheckedUpdateManyWithoutPokemonNestedInput
 }
 
@@ -1671,6 +1759,8 @@ export type PokemonInstanceUncheckedUpdateManyWithoutTrainerInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   tenantId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   packHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  originalTrainerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  tradedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
 }
 
 export type PokemonInstanceCreateManyDexPackInput = {
@@ -1694,6 +1784,8 @@ export type PokemonInstanceCreateManyDexPackInput = {
   updatedAt?: Date | string
   tenantId?: string | null
   trainerId?: string | null
+  originalTrainerId?: string | null
+  tradedAt?: Date | string | null
 }
 
 export type PokemonInstanceUpdateWithoutDexPackInput = {
@@ -1713,6 +1805,8 @@ export type PokemonInstanceUpdateWithoutDexPackInput = {
   boxSlot?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  originalTrainerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  tradedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   owner?: Prisma.UserUpdateOneRequiredWithoutPokemonNestedInput
   species?: Prisma.SpeciesUpdateOneRequiredWithoutMonsNestedInput
   partySlots?: Prisma.PartySlotUpdateManyWithoutPokemonNestedInput
@@ -1741,6 +1835,8 @@ export type PokemonInstanceUncheckedUpdateWithoutDexPackInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   tenantId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   trainerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  originalTrainerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  tradedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   partySlots?: Prisma.PartySlotUncheckedUpdateManyWithoutPokemonNestedInput
 }
 
@@ -1765,6 +1861,8 @@ export type PokemonInstanceUncheckedUpdateManyWithoutDexPackInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   tenantId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   trainerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  originalTrainerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  tradedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
 }
 
 export type PokemonInstanceCreateManySpeciesInput = {
@@ -1788,6 +1886,8 @@ export type PokemonInstanceCreateManySpeciesInput = {
   tenantId?: string | null
   trainerId?: string | null
   packHash?: string | null
+  originalTrainerId?: string | null
+  tradedAt?: Date | string | null
 }
 
 export type PokemonInstanceUpdateWithoutSpeciesInput = {
@@ -1807,6 +1907,8 @@ export type PokemonInstanceUpdateWithoutSpeciesInput = {
   boxSlot?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  originalTrainerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  tradedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   owner?: Prisma.UserUpdateOneRequiredWithoutPokemonNestedInput
   partySlots?: Prisma.PartySlotUpdateManyWithoutPokemonNestedInput
   tenant?: Prisma.TenantUpdateOneWithoutPokemonInstanceNestedInput
@@ -1835,6 +1937,8 @@ export type PokemonInstanceUncheckedUpdateWithoutSpeciesInput = {
   tenantId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   trainerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   packHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  originalTrainerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  tradedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   partySlots?: Prisma.PartySlotUncheckedUpdateManyWithoutPokemonNestedInput
 }
 
@@ -1859,6 +1963,8 @@ export type PokemonInstanceUncheckedUpdateManyWithoutSpeciesInput = {
   tenantId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   trainerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   packHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  originalTrainerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  tradedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
 }
 
 export type PokemonInstanceCreateManyOwnerInput = {
@@ -1882,6 +1988,8 @@ export type PokemonInstanceCreateManyOwnerInput = {
   tenantId?: string | null
   trainerId?: string | null
   packHash?: string | null
+  originalTrainerId?: string | null
+  tradedAt?: Date | string | null
 }
 
 export type PokemonInstanceUpdateWithoutOwnerInput = {
@@ -1901,6 +2009,8 @@ export type PokemonInstanceUpdateWithoutOwnerInput = {
   boxSlot?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  originalTrainerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  tradedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   species?: Prisma.SpeciesUpdateOneRequiredWithoutMonsNestedInput
   partySlots?: Prisma.PartySlotUpdateManyWithoutPokemonNestedInput
   tenant?: Prisma.TenantUpdateOneWithoutPokemonInstanceNestedInput
@@ -1929,6 +2039,8 @@ export type PokemonInstanceUncheckedUpdateWithoutOwnerInput = {
   tenantId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   trainerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   packHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  originalTrainerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  tradedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   partySlots?: Prisma.PartySlotUncheckedUpdateManyWithoutPokemonNestedInput
 }
 
@@ -1953,6 +2065,8 @@ export type PokemonInstanceUncheckedUpdateManyWithoutOwnerInput = {
   tenantId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   trainerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   packHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  originalTrainerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  tradedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
 }
 
 
@@ -2008,6 +2122,8 @@ export type PokemonInstanceSelect<ExtArgs extends runtime.Types.Extensions.Inter
   tenantId?: boolean
   trainerId?: boolean
   packHash?: boolean
+  originalTrainerId?: boolean
+  tradedAt?: boolean
   owner?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   species?: boolean | Prisma.SpeciesDefaultArgs<ExtArgs>
   partySlots?: boolean | Prisma.PokemonInstance$partySlotsArgs<ExtArgs>
@@ -2039,6 +2155,8 @@ export type PokemonInstanceSelectCreateManyAndReturn<ExtArgs extends runtime.Typ
   tenantId?: boolean
   trainerId?: boolean
   packHash?: boolean
+  originalTrainerId?: boolean
+  tradedAt?: boolean
   owner?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   species?: boolean | Prisma.SpeciesDefaultArgs<ExtArgs>
   tenant?: boolean | Prisma.PokemonInstance$tenantArgs<ExtArgs>
@@ -2068,6 +2186,8 @@ export type PokemonInstanceSelectUpdateManyAndReturn<ExtArgs extends runtime.Typ
   tenantId?: boolean
   trainerId?: boolean
   packHash?: boolean
+  originalTrainerId?: boolean
+  tradedAt?: boolean
   owner?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   species?: boolean | Prisma.SpeciesDefaultArgs<ExtArgs>
   tenant?: boolean | Prisma.PokemonInstance$tenantArgs<ExtArgs>
@@ -2097,9 +2217,11 @@ export type PokemonInstanceSelectScalar = {
   tenantId?: boolean
   trainerId?: boolean
   packHash?: boolean
+  originalTrainerId?: boolean
+  tradedAt?: boolean
 }
 
-export type PokemonInstanceOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "ownerId" | "speciesId" | "form" | "level" | "exp" | "nature" | "ivsJson" | "evsJson" | "movesJson" | "status" | "hp" | "maxHp" | "isShiny" | "nickname" | "boxSlot" | "createdAt" | "updatedAt" | "tenantId" | "trainerId" | "packHash", ExtArgs["result"]["pokemonInstance"]>
+export type PokemonInstanceOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "ownerId" | "speciesId" | "form" | "level" | "exp" | "nature" | "ivsJson" | "evsJson" | "movesJson" | "status" | "hp" | "maxHp" | "isShiny" | "nickname" | "boxSlot" | "createdAt" | "updatedAt" | "tenantId" | "trainerId" | "packHash" | "originalTrainerId" | "tradedAt", ExtArgs["result"]["pokemonInstance"]>
 export type PokemonInstanceInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   owner?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   species?: boolean | Prisma.SpeciesDefaultArgs<ExtArgs>
@@ -2156,6 +2278,8 @@ export type $PokemonInstancePayload<ExtArgs extends runtime.Types.Extensions.Int
     tenantId: string | null
     trainerId: string | null
     packHash: string | null
+    originalTrainerId: string | null
+    tradedAt: Date | null
   }, ExtArgs["result"]["pokemonInstance"]>
   composites: {}
 }
@@ -2606,6 +2730,8 @@ export interface PokemonInstanceFieldRefs {
   readonly tenantId: Prisma.FieldRef<"PokemonInstance", 'String'>
   readonly trainerId: Prisma.FieldRef<"PokemonInstance", 'String'>
   readonly packHash: Prisma.FieldRef<"PokemonInstance", 'String'>
+  readonly originalTrainerId: Prisma.FieldRef<"PokemonInstance", 'String'>
+  readonly tradedAt: Prisma.FieldRef<"PokemonInstance", 'DateTime'>
 }
     
 

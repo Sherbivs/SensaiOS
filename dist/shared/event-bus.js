@@ -8,6 +8,7 @@
  * - Event replay buffer (last 100 events)
  * - Backpressure control (per-subscriber queue limits)
  * - Statistics tracking (events emitted, handler invocations, latency)
+ * - KERNEL INTEGRATION: All events report UP to observation layer (2025-12-26)
  *
  * Replaces 4 fragmented event systems:
  * 1. EventTracker (user event batching)
@@ -18,9 +19,35 @@
  * @module shared/event-bus
  */
 /* eslint-disable no-console */
+// KERNEL FIRST — Must be first import to monitor other system initialization
+import { createEventBusHook } from '../kernel/kernel-hooks.js';
 import { randomUUID } from 'crypto';
 import { getErrorMessage } from './utils/error-utils.js';
 import { lokiTransport } from './logging/loki-transport.js';
+// ═══════════════════════════════════════════════════════════════════════════
+// Kernel Integration — Reports UP to observation layer
+// ═══════════════════════════════════════════════════════════════════════════
+/**
+ * Kernel hook for reporting events to the observation layer
+ * Initialized lazily to avoid circular dependency issues during boot
+ */
+let kernelHook = null;
+/**
+ * Get or create the kernel hook (lazy initialization)
+ * Safe to call during boot - returns null if kernel not ready
+ */
+function getKernelHook() {
+    if (kernelHook)
+        return kernelHook;
+    try {
+        kernelHook = createEventBusHook('event-bus');
+        return kernelHook;
+    }
+    catch {
+        // Kernel not ready yet (during early boot), will retry on next event
+        return null;
+    }
+}
 // NOTE: Event Bus uses console.log for internal logging to avoid circular dependency
 // with logger.js during early initialization. The intelligent-logger subscribes to
 // Event Bus during its constructor, which would trigger log() calls before LOG_LABEL
@@ -355,6 +382,21 @@ export class EventBus {
             emitter: options.emitter,
             parentCorrelationId: options.parentCorrelationId,
         };
+        // ═══════════════════════════════════════════════════════════════════════
+        // KERNEL INTEGRATION — Report UP to observation layer (non-blocking)
+        // ═══════════════════════════════════════════════════════════════════════
+        // Kernel observes all events for unified metrics, patterns, anomalies
+        // This doesn't interfere with normal event processing
+        const hook = getKernelHook();
+        if (hook) {
+            const payloadSize = typeof payload === 'object'
+                ? JSON.stringify(payload).length
+                : String(payload).length;
+            hook.event(topic, correlationId, options.emitter, payloadSize, {
+                parentCorrelationId: options.parentCorrelationId,
+                priority: options.priority,
+            });
+        }
         // Add to replay buffer
         this.replayBuffer.add(event);
         // Update stats

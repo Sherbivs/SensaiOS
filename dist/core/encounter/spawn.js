@@ -189,3 +189,38 @@ export async function spawnEncounterForUser(opts) {
         expiresAt: expires,
     };
 }
+/**
+ * Creates an Encounter row for a fishing catch.
+ * Accepts pre-rolled species/level/shiny from the fishing service.
+ */
+export async function spawnFishingEncounter(opts) {
+    const prisma = opts.prisma ?? prismaClient;
+    const user = await prisma.user.findUnique({ where: { discordId: opts.discordId } });
+    if (!user)
+        throw new Error("User not found for fishing spawn");
+    const expires = new Date(Date.now() + 60 * 60 * 1000);
+    const enc = await prisma.encounter.create({
+        data: {
+            ownerId: user.id,
+            speciesId: opts.speciesId,
+            level: opts.level,
+            state: "Spawned",
+            dataJson: {
+                rarity: "fishing", // Mark as fishing encounter
+                isShiny: opts.isShiny,
+                source: "fishing",
+            },
+            expiresAt: expires,
+        },
+    });
+    return {
+        id: enc.id,
+        speciesId: enc.speciesId,
+        level: enc.level,
+        rarity: "common", // Fishing doesn't use standard rarity
+        isShiny: opts.isShiny,
+        ownerId: enc.ownerId,
+        state: enc.state,
+        expiresAt: expires,
+    };
+}

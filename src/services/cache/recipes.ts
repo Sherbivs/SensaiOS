@@ -1,3 +1,7 @@
+// LOGGER FIRST — Must be early import to capture initialization errors
+import { getLogger } from "../../shared/logging/index.js";
+const logger = getLogger();
+
 import type { PrismaClient, Encounter } from '../../generated/prisma/client.js';
 
 import {
@@ -8,13 +12,10 @@ import {
   type DailyQuestStreakStatus,
   type TrainerProfileSummary,
 } from "../../models/index.js";
-import { getLogger } from "../../shared/logging/index.js";
 import { normalizeError } from "../../shared/utils/error-utils.js";
 
 import { getOrHydrate, evict, type CacheHydrateContext } from "./facade.js";
 import { CACHE_CONSTANTS, GAME_CONSTANTS } from "../../shared/constants.js";
-
-const logger = getLogger();
 
 const BATTLE_NAMESPACE = "battle-state";
 const ENCOUNTER_NAMESPACE = "encounter-state";

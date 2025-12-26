@@ -14,6 +14,7 @@
  * - Error isolation (worker failure doesn't crash others)
  * - Performance monitoring (track last run time, error counts)
  * - Feature flag support (enable/disable individual workers)
+ * - Kernel integration (reports task execution UP to kernel observer layer)
  * 
  * Referenced By: src/index.ts (startup/shutdown), docs/engine-db-replication.md
  *                (Worker Architecture section)
@@ -21,15 +22,43 @@
  * @module workers/engine-workers
  */
 
+// KERNEL FIRST — Must be first import to monitor other system initialization
+import type { WorkerHook } from '../kernel/kernel-hooks.js';
+import { createWorkerHook } from '../kernel/kernel-hooks.js';
+
+// LOGGER SECOND — Must be early import to capture initialization errors
+import { getLogger } from "../shared/logging/index.js";
+const logger = getLogger();
+
 import { performance } from 'node:perf_hooks';
 import { EngineDbConfig } from '../config/engine-db-config.js';
 import { engineCache } from '../services/cache/engine-cache.js';
 import { engineWriteBuffer } from '../services/cache/engine-write-buffer.js';
 import { workerErrorHandler } from './worker-error-handler.js';
-import { getLogger } from "../shared/logging/index.js";
 import { getErrorMessage, delay, ensureError } from '../shared/utils/index.js';
 
-const logger = getLogger();
+// ============================================================================
+// KERNEL INTEGRATION (Lazy Hook Pattern)
+// ============================================================================
+// Engine workers report task execution events UP to kernel for unified observation
+
+// Lazy initialization to avoid boot-time circular dependencies
+let kernelHook: WorkerHook | null = null;
+
+/**
+ * Get or create the kernel hook (lazy singleton pattern).
+ * Returns null if kernel hook creation fails (workers continue without kernel reporting).
+ */
+function getKernelHook(): WorkerHook | null {
+  if (!kernelHook) {
+    try {
+      kernelHook = createWorkerHook('engine-workers');
+    } catch {
+      // Kernel hook creation failed - workers continue without kernel reporting
+    }
+  }
+  return kernelHook;
+}
 
 // ============================================================================
 // Type Definitions
@@ -134,6 +163,11 @@ class CacheRefreshWorker {
       this.status.successCount++;
       this.status.lastError = null;
 
+      // Report execution SUCCESS to kernel
+      getKernelHook()?.execution('cache-refresh', durationMs, true, {
+        successCount: this.status.successCount,
+      });
+
       logger.info('EngineWorkers', 'CacheRefreshWorker.execute', 'CacheRefreshWorker execution complete', {
         durationMs,
         metadata: { successCount: this.status.successCount },
@@ -145,6 +179,12 @@ class CacheRefreshWorker {
       this.status.lastRunDurationMs = durationMs;
       this.status.errorCount++;
       this.status.lastError = getErrorMessage(error);
+
+      // Report execution FAILURE to kernel
+      getKernelHook()?.execution('cache-refresh', durationMs, false, {
+        error: this.status.lastError,
+        errorCount: this.status.errorCount,
+      });
 
       logger.error('EngineWorkers', 'CacheRefreshWorker.execute', 'CacheRefreshWorker execution failed', {
         metadata: {
@@ -308,6 +348,12 @@ class WriteBufferFlusher {
       // Only log if flush actually wrote data (check buffer stats)
       const updatedStats = engineWriteBuffer.getStats();
       if (updatedStats.flushCount > 0) {
+        // Report execution SUCCESS to kernel
+        getKernelHook()?.execution('buffer-flush', durationMs, true, {
+          flushCount: updatedStats.flushCount,
+          successCount: this.status.successCount,
+        });
+
         logger.info('EngineWorkers', 'WriteBufferFlusher.execute', 'WriteBufferFlusher execution complete', {
           durationMs,
           metadata: {
@@ -328,6 +374,12 @@ class WriteBufferFlusher {
       this.status.lastRunDurationMs = durationMs;
       this.status.errorCount++;
       this.status.lastError = getErrorMessage(error);
+
+      // Report execution FAILURE to kernel
+      getKernelHook()?.execution('buffer-flush', durationMs, false, {
+        error: this.status.lastError,
+        errorCount: this.status.errorCount,
+      });
 
       logger.error('EngineWorkers', 'WriteBufferFlusher.execute', 'WriteBufferFlusher execution failed', {
         metadata: {
@@ -640,6 +692,11 @@ class WriteDbValidatorWorker {
       this.status.successCount++;
       this.status.lastError = null;
 
+      // Report execution SUCCESS to kernel
+      getKernelHook()?.execution('write-db-validator', durationMs, true, {
+        successCount: this.status.successCount,
+      });
+
       logger.info('EngineWorkers', 'WriteDbValidatorWorker.execute', 'WriteDbValidatorWorker execution complete', {
         durationMs,
         metadata: { successCount: this.status.successCount },
@@ -651,6 +708,12 @@ class WriteDbValidatorWorker {
       this.status.lastRunDurationMs = durationMs;
       this.status.errorCount++;
       this.status.lastError = getErrorMessage(error);
+
+      // Report execution FAILURE to kernel
+      getKernelHook()?.execution('write-db-validator', durationMs, false, {
+        error: this.status.lastError,
+        errorCount: this.status.errorCount,
+      });
 
       logger.error('EngineWorkers', 'WriteDbValidatorWorker.execute', 'WriteDbValidatorWorker execution failed', {
         metadata: {
@@ -788,6 +851,11 @@ class EngineMaintenanceWorker {
       this.status.successCount++;
       this.status.lastError = null;
 
+      // Report execution SUCCESS to kernel
+      getKernelHook()?.execution('engine-maintenance', durationMs, true, {
+        successCount: this.status.successCount,
+      });
+
       logger.info('EngineWorkers', 'EngineMaintenanceWorker.execute', 'EngineMaintenanceWorker maintenance cycle complete', {
         durationMs,
         metadata: {
@@ -802,6 +870,12 @@ class EngineMaintenanceWorker {
       this.status.lastRunDurationMs = durationMs;
       this.status.errorCount++;
       this.status.lastError = getErrorMessage(error);
+
+      // Report execution FAILURE to kernel
+      getKernelHook()?.execution('engine-maintenance', durationMs, false, {
+        error: this.status.lastError,
+        errorCount: this.status.errorCount,
+      });
 
       logger.error('EngineWorkers', 'EngineMaintenanceWorker.execute', 'EngineMaintenanceWorker maintenance cycle failed', {
         metadata: {
@@ -871,8 +945,12 @@ const engineMaintenanceWorker = new EngineMaintenanceWorker();
  */
 export async function startEngineWorkers(): Promise<void> {
   logger.info('EngineWorkers', 'startEngineWorkers', 'Starting all Engine workers...');
+  const startTime = performance.now();
 
   try {
+    // Report EXECUTING to kernel
+    getKernelHook()?.status('EXECUTING', { operation: 'startEngineWorkers' });
+
     // Worker 1: Cache Refresh (if L1 cache enabled)
     if (EngineDbConfig.featureL1CacheEnabled && EngineDbConfig.featureWorkersEnabled) {
       await cacheRefreshWorker.start();
@@ -904,9 +982,25 @@ export async function startEngineWorkers(): Promise<void> {
       logger.info('EngineWorkers', 'startEngineWorkers', 'EngineMaintenanceWorker disabled (feature flag off)');
     }
 
+    const durationMs = performance.now() - startTime;
+    
+    // Report SUCCESS to kernel
+    getKernelHook()?.execution('startEngineWorkers', durationMs, true, {
+      workersStarted: 5,
+    });
+    getKernelHook()?.status('STARTED', { workersStarted: 5 });
+
     logger.info('EngineWorkers', 'startEngineWorkers', 'All Engine workers started successfully');
 
   } catch (error) {
+    const durationMs = performance.now() - startTime;
+    
+    // Report FAILURE to kernel
+    getKernelHook()?.execution('startEngineWorkers', durationMs, false, {
+      error: getErrorMessage(error),
+    });
+    getKernelHook()?.status('ERROR', { error: getErrorMessage(error) });
+
     logger.error('EngineWorkers', 'startEngineWorkers', 'Failed to start Engine workers', {
       error: { name: 'Error', message: getErrorMessage(error) },
     });
@@ -922,12 +1016,21 @@ export async function startEngineWorkers(): Promise<void> {
  */
 export function stopEngineWorkers(): void {
   logger.info('EngineWorkers', 'stopEngineWorkers', 'Stopping all Engine workers...');
+  const startTime = performance.now();
 
   cacheRefreshWorker.stop();
   writeBufferFlusher.stop();
   readDbSyncWorker.stop();
   writeDbValidatorWorker.stop();
   engineMaintenanceWorker.stop();
+
+  const durationMs = performance.now() - startTime;
+  
+  // Report STOPPED to kernel
+  getKernelHook()?.execution('stopEngineWorkers', durationMs, true, {
+    workersStopped: 5,
+  });
+  getKernelHook()?.status('STOPPED', { workersStopped: 5 });
 
   logger.info('EngineWorkers', 'stopEngineWorkers', 'All Engine workers stopped');
 }

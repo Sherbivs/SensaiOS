@@ -18,17 +18,18 @@
  * while the in-memory layer serves hot paths and enforces RAM limits separately.
  */
 
+// LOGGER FIRST — Must be early import to capture initialization errors
+import { getLogger } from "../../shared/logging/index.js";
+const logger = getLogger();
+
 import fs from "node:fs";
 import fsPromises from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
-import { getLogger } from "../../shared/logging/index.js";
 import { ensureError } from "../../shared/utils/error-utils.js";
 import * as legacyCacheModule from "../cache.js";
 import { errorTracker } from "../monitoring/error-tracker.js";
-
-const logger = getLogger();
 
 const legacyCache = (legacyCacheModule as any).default || legacyCacheModule;
 const { MAX_CACHE_PERCENT, MAX_CACHE_FILE_AGE_MS } = (legacyCache as {

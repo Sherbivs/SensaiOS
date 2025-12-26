@@ -20,6 +20,10 @@
  * @module homestead/heal
  */
 
+// LOGGER FIRST — Must be early import to capture initialization errors
+import { getLogger } from "../../shared/logging/index.js";
+const logger = getLogger();
+
 import {
   ActionRowBuilder,
   ButtonBuilder,
@@ -31,14 +35,11 @@ import {
 } from "discord.js";
 
 import { EMBED_COLORS } from "../shared/embed-colors.js";
-import { primaryButton, dangerButton } from "../shared/button-utils.js";
+import { primaryButton as _primaryButton, navButton as _navButton, dangerButton } from "../shared/button-utils.js";
 import { safeReply, replyInfo } from "../shared/response-helpers.js";
-import { getLogger } from "../../shared/logging/index.js";
 import { HomesteadChannelManager } from "../../services/homestead-manager.js";
 import { ensureUser } from "../../shared/models/user-queries-pg.js";
 import { getPartyWithSlots, healPokemon } from "../../shared/models/party-queries-pg.js";
-
-const logger = getLogger();
 
 // ============================================================================
 // TYPES

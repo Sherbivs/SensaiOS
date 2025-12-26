@@ -21,6 +21,11 @@
  * @module homestead/shop
  */
 
+// === CRITICAL: Logger & Error Handling MUST be first imports ===
+import { getLogger } from "../../shared/logging/index.js";
+const logger = getLogger();
+
+// === External Libraries ===
 import {
   ActionRowBuilder,
   ButtonBuilder,
@@ -30,16 +35,14 @@ import {
   User as DiscordUser,
 } from "discord.js";
 
+// === Internal Imports ===
 import { EMBED_COLORS } from "../shared/embed-colors.js";
-import { dangerButton, navButton, primaryButton, secondaryButton } from "../shared/button-utils.js";
+import { dangerButton, navButton as _navButton, primaryButton as _primaryButton, secondaryButton } from "../shared/button-utils.js";
 import { safeReplyWithPayload } from "../shared/response-helpers.js";
-import { getLogger } from "../../shared/logging/index.js";
 import { HomesteadChannelManager } from "../../services/homestead-manager.js";
 import { ensureUser } from "../../shared/models/user-queries-pg.js";
 import { addItems, ITEM_IDS } from "../../services/inventory.js";
 import { prisma } from "../../shared/prisma.js";
-
-const logger = getLogger();
 
 // ============================================================================
 // CONSTANTS
@@ -54,6 +57,7 @@ export const SHOP_CATEGORIES = [
   { id: "potions", label: "Potions", emoji: "💊" },
   { id: "status", label: "Status Heal", emoji: "💉" },
   { id: "berries", label: "Berries", emoji: "🍇" },
+  { id: "rods", label: "Fishing Rods", emoji: "🎣" },
 ] as const;
 
 export type ShopCategory = typeof SHOP_CATEGORIES[number]["id"];
@@ -92,6 +96,11 @@ export const SHOP_INVENTORY: Record<ShopCategory, ShopItem[]> = {
     { itemId: ITEM_IDS.SITRUS_BERRY, name: "Sitrus Berry", price: 300, description: "Restores 25% HP", emoji: "🍇" },
     { itemId: ITEM_IDS.LUM_BERRY, name: "Lum Berry", price: 500, description: "Cures status", emoji: "🍇" },
     { itemId: ITEM_IDS.RAZZ_BERRY, name: "Razz Berry", price: 150, description: "Catch bonus", emoji: "🍇" },
+  ],
+  rods: [
+    { itemId: ITEM_IDS.OLD_ROD, name: "Old Rod", price: 500, description: "Basic fishing rod (common Pokémon)", emoji: "🎣" },
+    { itemId: ITEM_IDS.GOOD_ROD, name: "Good Rod", price: 2500, description: "Better rod (uncommon Pokémon)", emoji: "🎣" },
+    { itemId: ITEM_IDS.SUPER_ROD, name: "Super Rod", price: 7500, description: "Best rod (rare Pokémon)", emoji: "🎣" },
   ],
 };
 
@@ -371,7 +380,7 @@ export async function openShopScreen(
  */
 export async function handleShopOpen(
   interaction: ButtonInteraction,
-  homesteadManager: HomesteadChannelManager
+  _homesteadManager: HomesteadChannelManager
 ): Promise<void> {
   const snapshot = await loadShopSnapshot(interaction.user.id);
   

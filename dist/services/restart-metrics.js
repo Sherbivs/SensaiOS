@@ -1,7 +1,8 @@
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from "fs";
-import { dirname } from "path";
+// LOGGER FIRST — Must be early import to capture initialization errors
 import { getLogger } from "../shared/logging/index.js";
 const logger = getLogger();
+import { existsSync, readFileSync, writeFileSync, mkdirSync } from "fs";
+import { dirname } from "path";
 // -----------------------------------------------------------------------------
 // Configuration
 // -----------------------------------------------------------------------------

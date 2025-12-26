@@ -27,6 +27,9 @@
  * @author Security Specialist + AI Coding Specialist
  * @created 2025-12-06
  */
+// LOGGER FIRST — Must be early import to capture initialization errors
+import { getLogger, errorContext } from '../shared/logging/index.js';
+const logger = getLogger();
 import { Client, GatewayIntentBits } from 'discord.js';
 import { prisma } from '../shared/prisma.js';
 import { HomesteadVerificationService } from '../services/homestead-verification.js';
@@ -34,8 +37,6 @@ import { promises as fs } from 'fs';
 import { join } from 'path';
 import { getErrorMessage } from '../shared/utils/error-utils.js';
 import { daysAgo } from '../shared/utils/date-utils.js';
-import { getLogger, errorContext } from '../shared/logging/index.js';
-const logger = getLogger();
 // ============================================================================
 // CONFIGURATION
 // ============================================================================

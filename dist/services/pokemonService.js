@@ -10,11 +10,12 @@
  *   - Concurrent batch fetching from PokéAPI
  *   - Frozen immutable Pokemon entries
  */
+// LOGGER FIRST — Must be early import to capture initialization errors
+import { getLogger } from '../shared/logging/index.js';
+const logger = getLogger();
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { getLogger } from '../shared/logging/index.js';
 import { deepClone, normalizeString } from '../shared/utils/index.js';
-const logger = getLogger();
 // ─────────────────────────────────────────────────────────────────────────────
 // Lazy Dependencies
 // ─────────────────────────────────────────────────────────────────────────────

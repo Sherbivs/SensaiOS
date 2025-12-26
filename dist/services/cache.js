@@ -9,13 +9,14 @@
  *   - Automatic pruning based on disk budget
  *   - Age-based cleanup for stale entries
  */
+// LOGGER FIRST — Must be early import to capture initialization errors
+import { getLogger } from '../shared/logging/index.js';
+const logger = getLogger();
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
-import { getLogger } from '../shared/logging/index.js';
 import { getErrorMessage } from '../shared/utils/index.js';
 import { CACHE_CONSTANTS } from '../shared/constants.js';
-const logger = getLogger();
 // ─────────────────────────────────────────────────────────────────────────────
 // Constants
 // ─────────────────────────────────────────────────────────────────────────────

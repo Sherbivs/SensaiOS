@@ -30,14 +30,15 @@
  * @module workers/heap-pruner
  */
 
+// LOGGER FIRST — Must be early import to capture initialization errors
+import { getLogger } from '../shared/logging/index.js';
+const logger = getLogger();
+
 import { readdirSync, statSync, unlinkSync, existsSync } from 'node:fs';
 import { join as pathJoin } from 'node:path';
 import { performance } from 'node:perf_hooks';
 import { EventBus } from '../shared/event-bus.js';
-import { getLogger } from '../shared/logging/index.js';
 import { getErrorMessage } from '../shared/utils/error-utils.js';
-
-const logger = getLogger();
 
 // ============================================================================
 // Configuration

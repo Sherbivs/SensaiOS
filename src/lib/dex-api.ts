@@ -1,4 +1,7 @@
+// LOGGER FIRST — Must be early import to capture initialization errors
 import { getLogger } from '../shared/logging/index.js';
+const logger = getLogger();
+
 import {
   getDexpack,
   getSpecies as lookupSpecies,
@@ -7,8 +10,6 @@ import {
   getSpeciesBaseStats,
   getSpeciesMatchups,
 } from '../data/dexpack.js';
-
-const logger = getLogger();
 
 // ============================================================================
 // Type Definitions

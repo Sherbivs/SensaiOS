@@ -7,12 +7,13 @@
  * @since Phase 6.2 (2025-12-16) - Converted from JS
  */
 
+// LOGGER FIRST — Must be early import to capture initialization errors
+import { getLogger } from '../shared/logging/index.js';
+const logger = getLogger();
+
 import { SlashCommandBuilder, type ChatInputCommandInteraction, type TextChannel } from 'discord.js';
 import type { Command } from './types.js';
-import { getLogger } from '../shared/logging/index.js';
 import { buildTrainerProfileEmbed } from '../bot/profile/embed.js';
-
-const logger = getLogger();
 import { loadTrainerProfile, invalidateTrainerProfile } from '../services/cache/recipes.js';
 import { updateTrainerProfile } from '../models/index.js';
 import { HomesteadChannelManager } from '../services/homestead-manager.js';

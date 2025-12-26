@@ -13,6 +13,12 @@
  * @module error-brain/pattern-detector
  */
 
+// KERNEL FIRST — Must be first import to monitor other system initialization
+import {
+  createIntelligenceHook,
+  type IntelligenceHook,
+} from "../../kernel/kernel-hooks.js";
+
 import { ErrorBrainConfig } from "../../config/error-brain-config.js";
 import {
   detectTimeAnomaly as cacheDetectTimeAnomaly,
@@ -24,6 +30,26 @@ import {
   type AnomalyResult,
   type CascadePrediction,
 } from "./error-brain-cache.js";
+
+// ==================== KERNEL INTEGRATION ====================
+
+/** Lazy-initialized kernel hook for pattern detector */
+let kernelHook: IntelligenceHook | null = null;
+
+/**
+ * Get or create kernel hook for pattern detector observability.
+ * Uses lazy initialization to avoid startup dependencies.
+ */
+function getPatternDetectorHook(): IntelligenceHook | null {
+  if (!kernelHook) {
+    try {
+      kernelHook = createIntelligenceHook("pattern-detector");
+    } catch {
+      // Kernel not available, silently skip
+    }
+  }
+  return kernelHook;
+}
 
 // ==================== TYPES ====================
 
@@ -193,13 +219,28 @@ export function detectGlobalAnomaly(currentErrorRate: number): AnomalyResult {
       ? (currentErrorRate - baseline.avgValue) / baseline.stdDev
       : 0;
 
+  const isAnomalous = Math.abs(zScore) > ANOMALY_ZSCORE_THRESHOLD;
+  const confidence = baseline.sampleCount > 100 ? 0.95 : baseline.sampleCount / 100;
+
+  // Report anomaly to kernel if detected
+  if (isAnomalous) {
+    const severity = Math.abs(zScore) > 4 ? "critical" : Math.abs(zScore) > 3 ? "high" : "medium";
+    getPatternDetectorHook()?.anomaly(
+      "global_error_rate",
+      currentErrorRate,
+      ANOMALY_ZSCORE_THRESHOLD,
+      severity,
+      { zScore, expectedCount: baseline.avgValue, confidence }
+    );
+  }
+
   return {
-    isAnomalous: Math.abs(zScore) > ANOMALY_ZSCORE_THRESHOLD,
+    isAnomalous,
     zScore,
     expectedCount: baseline.avgValue,
     actualCount: currentErrorRate,
     threshold: ANOMALY_ZSCORE_THRESHOLD,
-    confidence: baseline.sampleCount > 100 ? 0.95 : baseline.sampleCount / 100,
+    confidence,
   };
 }
 
@@ -225,13 +266,28 @@ export function detectMetricAnomaly(
       ? (currentValue - baseline.avgValue) / baseline.stdDev
       : 0;
 
+  const isAnomalous = Math.abs(zScore) > ANOMALY_ZSCORE_THRESHOLD;
+  const confidence = baseline.sampleCount > 100 ? 0.95 : baseline.sampleCount / 100;
+
+  // Report anomaly to kernel if detected
+  if (isAnomalous) {
+    const severity = Math.abs(zScore) > 4 ? "critical" : Math.abs(zScore) > 3 ? "high" : "medium";
+    getPatternDetectorHook()?.anomaly(
+      metricName,
+      currentValue,
+      ANOMALY_ZSCORE_THRESHOLD,
+      severity,
+      { zScore, expectedCount: baseline.avgValue, confidence }
+    );
+  }
+
   return {
-    isAnomalous: Math.abs(zScore) > ANOMALY_ZSCORE_THRESHOLD,
+    isAnomalous,
     zScore,
     expectedCount: baseline.avgValue,
     actualCount: currentValue,
     threshold: ANOMALY_ZSCORE_THRESHOLD,
-    confidence: baseline.sampleCount > 100 ? 0.95 : baseline.sampleCount / 100,
+    confidence,
   };
 }
 
@@ -298,6 +354,18 @@ export function detectBurst(event: ErrorEvent): BurstResult {
     } else {
       recommendation = "LOG";
     }
+
+    // Report burst as anomaly to kernel
+    const severity = recommendation === "CRITICAL" ? "critical" : 
+                     recommendation === "ALERT" ? "high" : 
+                     recommendation === "WARN" ? "medium" : "low";
+    getPatternDetectorHook()?.anomaly(
+      `burst:${fingerprint}`,
+      eventsPerSecond,
+      baselineEventsPerSecond * BURST_THRESHOLD_MULTIPLIER,
+      severity,
+      { burstMultiplier, recommendation, windowMs: BURST_WINDOW_MS }
+    );
   }
 
   return {
@@ -483,7 +551,22 @@ export function getSignificantCorrelations(
  */
 export function predictCascade(fingerprint: string): CascadePrediction | null {
   // Delegate to cache for fast lookup
-  return cachePredictCascade(fingerprint);
+  const prediction = cachePredictCascade(fingerprint);
+  
+  // Report prediction to kernel if found
+  if (prediction) {
+    getPatternDetectorHook()?.prediction(
+      "cascade",
+      prediction.probability,
+      { 
+        rootFingerprint: fingerprint, 
+        predictedChildren: prediction.predictedChildren.length,
+        expectedTimeMs: prediction.expectedTimeMs
+      }
+    );
+  }
+  
+  return prediction;
 }
 
 /**
@@ -512,7 +595,18 @@ export function recordErrorForCascade(event: ErrorEvent): void {
       // Add as child if within time window
       const elapsed = timestamp - cascade.startTime;
       if (elapsed <= CASCADE_TIME_WINDOW_MS && fingerprint !== cascade.rootFingerprint) {
+        const wasNew = !cascade.childFingerprints.has(fingerprint);
         cascade.childFingerprints.add(fingerprint);
+        
+        // Report cascade growth to kernel when new child is added
+        if (wasNew) {
+          getPatternDetectorHook()?.cascade(
+            cascade.rootFingerprint,
+            cascade.childFingerprints.size,
+            1, // depth = 1 for direct children
+            { correlationId, elapsedMs: elapsed, newChild: fingerprint }
+          );
+        }
       }
       cascade.lastUpdate = timestamp;
     }

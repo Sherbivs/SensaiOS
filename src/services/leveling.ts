@@ -11,11 +11,12 @@
  * @module services/leveling
  */
 
-import { prisma } from "../shared/prisma.js";
+// LOGGER FIRST — Must be early import to capture initialization errors
 import { getLogger } from "../shared/logging/index.js";
-import { getPokemon } from "../lib/dex-api.js";
-
 const logger = getLogger();
+
+import { prisma } from "../shared/prisma.js";
+import { getPokemon } from "../lib/dex-api.js";
 
 // ============================================================================
 // CONSTANTS

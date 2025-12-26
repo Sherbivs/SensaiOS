@@ -13,14 +13,15 @@
  *
  * @module homestead/starters
  */
+// LOGGER FIRST — Must be early import to capture initialization errors
+import { getLogger } from "../../shared/logging/index.js";
+const logger = getLogger();
 import { replyInfo } from "../shared/response-helpers.js";
 import { ensureUser } from "../../shared/models/user-queries-pg.js";
 import { getPartyWithSlots, createParty, createPartySlot, createPokemon } from "../../shared/models/party-queries-pg.js";
 import { getProdDb } from "../../shared/pg-connection.js";
-import { getLogger } from "../../shared/logging/index.js";
 // Import the open starter selection system
 import { startOpenStarterFlow } from "./open-starter-selection.js";
-const logger = getLogger();
 /**
  * Open starters selection in user's homestead channel
  *

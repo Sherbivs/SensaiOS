@@ -1,7 +1,29 @@
 # Tasklist
-Last Updated (UTC): 2025-12-14T00:00:00Z
-Revision: 2.110
+Last Updated (UTC): 2025-12-26T05:40:00Z
+Revision: 2.113
 <!-- # TASKLIST UPDATE -->
+
+**Recent Activity (2025-12-26T05:40Z):**
+- ✅ **SPRINT 1 COMPLETE** — Kernel-First Logging Initiative foundation complete
+  - KERNEL.LOGGING.PREBOOT_QUEUE: Pre-boot queue with MAX_PREBOOT_ENTRIES=1000, console fallback, automatic replay
+  - KERNEL.LOGGING.TEST_UTILS: Created tests/kernel-test-utils.ts (~350 lines, 32 tests passing)
+  - KERNEL.LOGGING.BOT_ENTRY: Migrated src/bot/index.ts to Kernel-first logging
+  - TypeScript compiles cleanly, all kernel tests pass
+  - Ready for Sprint 2: Output plugin architecture
+
+**Recent Activity (2025-12-26T03:30Z):**
+- 🧠 **EXPERT PANEL REVIEW COMPLETE** — 6 experts reviewed Kernel-First Logging Initiative
+  - Added 8 new tasks from expert recommendations
+  - Critical additions: PII scrubbing, correlation IDs, log sampling, GDPR deletion
+  - Updated project doc with Expert Panel Findings section
+  - 3 READY tasks now queued (PREBOOT_QUEUE, BOT_ENTRY, PREBOOT_LIMIT)
+- 🚀 **KERNEL-FIRST LOGGING INITIATIVE LAUNCHED** — Major infrastructure project initiated
+  - Created project document: `docs/projects/KERNEL-FIRST-LOGGING-INITIATIVE.md`
+  - Completed initial audit: 221 console.log calls, 27 legacy logger imports, 624 catch blocks
+  - Created audit report: `docs/audits/logging-audit-2025-12-26.md`
+  - Kernel persistence layer complete (kernel-persistence.ts, Store/kernel-* directories)
+  - Goal: Kernel logging/error systems first in every process, outputs to console + DB + external tools
+- 📋 **Queue Status:** 3 READY tasks + 14 PROPOSED tasks
 
 **Recent Activity (2025-12-14T00:00Z):**
 - 🗑️ **ADMINISTRATIVE CLEANUP** — Archived stale tasks per admin directive (30+ days old)
@@ -14,7 +36,6 @@ Revision: 2.110
   - Fixed DiscordGuild/DiscordMember to match database columns
   - Updated bot imports to use homestead modules
   - TypeScript build passing (0 errors)
-- 📋 **Queue Status:** EMPTY — Ready for fresh priorities
 
 **Homestead Migration COMPLETE (2025-06-15):**
 - ✅ **ARCHITECTURE.HOMESTEAD_CHANNELS — All 6 Phases Complete**
@@ -91,6 +112,288 @@ Each task has:
 - `depends_on`: array of task ids
 - `acceptance_criteria`: bullet list
 - `notes`: optional context
+
+---
+
+## Kernel-First Logging Initiative (ACTIVE)
+
+**Sprint Structure:** 4 sprints, ~2 weeks total  
+**Current Sprint:** Sprint 2 — Output Plugin Architecture (READY)
+
+| Sprint | Focus | Effort | Status |
+|--------|-------|--------|--------|
+| Sprint 1 | Foundation (pre-boot queue, test utils, bot entry) | ~6h | ✅ DONE |
+| Sprint 2 | Output plugins (architecture, PII scrubbing, correlation) | ~10h | PLANNED |
+| Sprint 3 | External outputs (Loki, Discord, PostgreSQL, battles) | ~10h | PLANNED |
+| Sprint 4 | Migration & hardening (codebase migration, GDPR, docs) | ~16h | PLANNED |
+
+---
+
+### ✅ Sprint 1: Kernel Foundation (COMPLETE)
+**Goal:** Pre-boot queue + test utilities + bot entry migration
+**Completed:** 2025-12-26
+
+- id: KERNEL.LOGGING.PREBOOT_QUEUE
+  title: Add pre-boot log queue to Kernel
+  status: DONE
+  depends_on: [KERNEL.LOGGING.AUDIT]
+  priority: P0-CRITICAL
+  effort: 2h
+  acceptance_criteria:
+    - ✅ Create preBootQueue array in kernel-logger.ts
+    - ✅ Queue logs before boot() is called with console echo
+    - ✅ replayPreBootLogs() called automatically after boot (via markBooted())
+    - ✅ getPreBootStats() for diagnostics
+    - ✅ MAX_PREBOOT_ENTRIES=1000 with oldest-drop
+    - ✅ No logs lost during initialization
+  notes: Foundation task — enables true Kernel-first principle.
+
+- id: KERNEL.LOGGING.TEST_UTILS
+  title: Create kernel test utilities for mocking
+  status: DONE
+  depends_on: [KERNEL.LOGGING.PREBOOT_QUEUE]
+  priority: P1-HIGH
+  effort: 1.5h
+  acceptance_criteria:
+    - ✅ Create tests/kernel-test-utils.ts (~350 lines)
+    - ✅ Implement mockKernel() function with vi.fn() mocks
+    - ✅ Add assertLogged(), assertNotLogged(), assertLogCount() matchers
+    - ✅ Add assertErrorCaptured(), assertNoErrors() matchers
+    - ✅ Example tests demonstrating usage (32 tests passing)
+  notes: Required for testing kernel-aware code. Sprint 1 gate.
+
+- id: KERNEL.LOGGING.BOT_ENTRY
+  title: Migrate src/bot/index.ts to Kernel-first
+  status: DONE
+  depends_on: [KERNEL.LOGGING.PREBOOT_QUEUE]
+  priority: P1-HIGH
+  effort: 1.5h
+  acceptance_criteria:
+    - ✅ Kernel import as FIRST import (before all others)
+    - ✅ Legacy logger kept for compatibility (renamed to legacyLogger)
+    - ✅ All startup logs flow through Kernel (kernel.info/warn/error)
+    - ✅ TypeScript compiles cleanly
+  notes: Critical entry point. Completes Sprint 1.
+
+---
+
+### 🏃 Sprint 2: Output Plugin Architecture (Days 3-5)
+**Goal:** Multi-destination output system with security
+
+- id: KERNEL.LOGGING.OUTPUT_PLUGINS
+  title: Add output plugin system to Kernel
+  status: PROPOSED
+  depends_on: [KERNEL.LOGGING.PREBOOT_QUEUE]
+  priority: P0-CRITICAL
+  effort: 3h
+  acceptance_criteria:
+    - Create src/kernel/outputs/ directory structure
+    - Define LogOutput interface (id, name, write, flush, minLevel)
+    - OutputRegistry with add/remove/list
+    - Migrate console to ConsoleOutput plugin
+    - Migrate file to FileOutput plugin
+  notes: Foundation for all external integrations.
+
+- id: KERNEL.LOGGING.PII_SCRUBBING
+  title: Add PII scrubbing pipeline to log outputs
+  status: PROPOSED
+  depends_on: [KERNEL.LOGGING.OUTPUT_PLUGINS]
+  priority: P0-CRITICAL
+  effort: 2h
+  acceptance_criteria:
+    - ScrubConfig interface (patterns, fields, replacement)
+    - kernel-scrubber.ts with scrubEntry()
+    - Default patterns: tokens, webhooks, emails, passwords
+    - Scrubbing in OutputRegistry BEFORE write()
+    - 100% test coverage on scrubbing logic
+  notes: CRITICAL for security. Must complete before external outputs.
+
+- id: KERNEL.LOGGING.CORRELATION_IDS
+  title: Add correlation ID and request tracing support
+  status: PROPOSED
+  depends_on: [KERNEL.LOGGING.OUTPUT_PLUGINS]
+  priority: P1-HIGH
+  effort: 2h
+  acceptance_criteria:
+    - LogContext interface (correlationId, userId, guildId, commandName, workerId)
+    - Kernel.context.create() for new context
+    - AsyncLocalStorage for automatic propagation
+    - workerId from RENDER_INSTANCE_ID
+  notes: Essential for production debugging.
+
+- id: KERNEL.LOGGING.SAMPLING
+  title: Add log sampling for high-frequency events
+  status: PROPOSED
+  depends_on: [KERNEL.LOGGING.OUTPUT_PLUGINS]
+  priority: P2-MEDIUM
+  effort: 1.5h
+  acceptance_criteria:
+    - sampleRate field (0.0-1.0, default 1.0)
+    - ERROR/CRITICAL always logged (no sampling)
+    - Per-level default rates configurable
+    - Track sampledCount vs actualCount
+  notes: Battle engine can generate 1000+ logs/second.
+
+---
+
+### 🏃 Sprint 3: External Outputs (Days 6-8)
+**Goal:** Loki, Discord, PostgreSQL integration
+
+- id: KERNEL.LOGGING.LOKI_OUTPUT
+  title: Integrate Loki output for Grafana observability
+  status: PROPOSED
+  depends_on: [KERNEL.LOGGING.PII_SCRUBBING]
+  priority: P1-HIGH
+  effort: 3h
+  acceptance_criteria:
+    - src/kernel/outputs/loki-output.ts
+    - Push to Loki API (/loki/api/v1/push)
+    - Labels: service, level, environment, workerId
+    - Batch sending (5s or 100 entries)
+    - Graceful degradation if unreachable
+  notes: Enables Grafana dashboards.
+
+- id: KERNEL.LOGGING.DISCORD_ALERTS
+  title: Add Discord webhook output for critical alerts
+  status: PROPOSED
+  depends_on: [KERNEL.LOGGING.PII_SCRUBBING]
+  priority: P1-HIGH
+  effort: 2h
+  acceptance_criteria:
+    - src/kernel/outputs/discord-output.ts
+    - ERROR and CRITICAL to admin webhook
+    - Rich embed format with context
+    - Rate limiting (max 5/minute)
+  notes: Real-time alerting for production.
+
+- id: KERNEL.LOGGING.DATABASE_OUTPUT
+  title: Connect Prisma hook for long-term log storage
+  status: PROPOSED
+  depends_on: [KERNEL.LOGGING.PII_SCRUBBING]
+  priority: P1-HIGH
+  effort: 3h
+  acceptance_criteria:
+    - src/kernel/outputs/database-output.ts
+    - Use createPrismaHook() from kernel-persistence.ts
+    - KernelLog model in Prisma schema
+    - Batch inserts every 30 seconds
+  notes: Enables historical log analysis.
+
+- id: KERNEL.LOGGING.BATTLE_STRUCTURED
+  title: Add structured battle logging for PBSL
+  status: PROPOSED
+  depends_on: [KERNEL.LOGGING.OUTPUT_PLUGINS]
+  priority: P2-MEDIUM
+  effort: 2h
+  acceptance_criteria:
+    - Kernel.battle.log() API
+    - BattleLogEntry type (battleId, turn, phase, action, state, seed)
+    - Store/kernel-battles/{battleId}.jsonl
+    - loadBattleLog(battleId) replay API
+  notes: Enables battle replay and anti-cheat.
+
+---
+
+### 🏃 Sprint 4: Migration & Hardening (Days 9-14)
+**Goal:** Full codebase migration + compliance
+
+- id: KERNEL.LOGGING.MIGRATION
+  title: Migrate all legacy logging to Kernel
+  status: PROPOSED
+  depends_on: [KERNEL.LOGGING.BOT_ENTRY, KERNEL.LOGGING.OUTPUT_PLUGINS]
+  priority: P1-HIGH
+  effort: 8h (incremental)
+  acceptance_criteria:
+    - Replace all 221 console.log calls with Kernel.log.*
+    - Replace all 27 legacy logger imports
+    - Add Kernel.error.capture() to catch blocks
+    - ESLint rule to prevent new console.log
+    - Zero console.log in src/ (except CLI)
+  notes: Major migration, done incrementally by module.
+
+- id: KERNEL.LOGGING.GDPR_DELETION
+  title: Add GDPR-compliant log deletion API
+  status: PROPOSED
+  depends_on: [KERNEL.LOGGING.DATABASE_OUTPUT]
+  priority: P2-MEDIUM
+  effort: 2h
+  acceptance_criteria:
+    - deleteLogsByUserId() function
+    - Delete from PostgreSQL and local files
+    - Generate deletion certificate
+    - Integration with user deletion workflow
+  notes: Required for GDPR compliance.
+
+- id: KERNEL.LOGGING.RUNTIME_TOGGLE
+  title: Add runtime log level toggle via /ops
+  status: PROPOSED
+  depends_on: [KERNEL.LOGGING.MIGRATION]
+  priority: P2-MEDIUM
+  effort: 1.5h
+  acceptance_criteria:
+    - /ops kernel loglevel <level> command
+    - DEBUG, INFO, WARN, ERROR levels
+    - Temporary toggle (auto-revert 30 min)
+    - Admin-only access
+  notes: Debug production without restart.
+
+- id: KERNEL.LOGGING.DOCUMENTATION
+  title: Document Kernel-First Logging architecture
+  status: PROPOSED
+  depends_on: [KERNEL.LOGGING.MIGRATION]
+  priority: P2-MEDIUM
+  effort: 3h
+  acceptance_criteria:
+    - Architecture Bible section 23
+    - Output plugin API docs
+    - Migration guide for new code
+    - Troubleshooting guide
+  notes: Final task. Ensures future code follows principle.
+
+---
+
+### 📋 Completed Tasks
+
+- id: KERNEL.LOGGING.AUDIT
+  title: Complete codebase logging audit
+  status: DONE
+  depends_on: []
+  acceptance_criteria:
+    - Count all console.log/warn/error usage in src/
+    - Identify legacy logger imports
+    - Document entry point initialization order
+    - Create audit report with migration priorities
+  notes: |
+    Outcome (2025-12-26): Audit completed.
+    - 221 console.log/warn/error/debug calls
+    - 27 legacy logger imports
+    - 624 try/catch blocks
+    - Entry points: src/index.ts uses Kernel (✅), src/bot/index.ts uses legacy logger (❌)
+    - Report: docs/audits/logging-audit-2025-12-26.md
+  depends_on: [KERNEL.LOGGING.PREBOOT_QUEUE]
+  acceptance_criteria:
+    - Create tests/kernel-test-utils.ts
+    - Implement mockKernel() function
+    - Add assertLogged() matcher
+    - Add assertErrorCaptured() matcher
+    - Document usage in testing guide
+  notes: |
+    Required for testing kernel-aware code. Enables verification 
+    of logging behavior in unit tests.
+
+- id: KERNEL.LOGGING.GDPR_DELETION
+  title: Add GDPR-compliant log deletion API
+  status: PROPOSED
+  depends_on: [KERNEL.LOGGING.DATABASE_OUTPUT]
+  acceptance_criteria:
+    - Add deleteLogsByUserId() function
+    - Delete from PostgreSQL and local files
+    - Generate deletion certificate/audit log
+    - Add to user data export/deletion workflow
+    - Test with sample user data
+  notes: |
+    Required for GDPR compliance. Users can request deletion of 
+    their data including logs containing their userId.
 
 ---
 

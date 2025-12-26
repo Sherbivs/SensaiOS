@@ -6,10 +6,34 @@
  * - Metrics collection
  * - Lifecycle management
  * - Error handling
+ * - Kernel integration (reports lifecycle/query events UP to kernel observer layer)
  *
  * @module workers/database/base-worker
  */
+import { createDatabaseHook } from '../../kernel/kernel-hooks.js';
 import { CircuitBreakerStrategy } from './strategies.js';
+// ============================================================================
+// KERNEL INTEGRATION (Lazy Hook Pattern)
+// ============================================================================
+// Workers report lifecycle and query events UP to kernel for unified observation
+// Lazy initialization to avoid boot-time circular dependencies
+let kernelHook = null;
+/**
+ * Get or create the kernel hook (lazy singleton pattern).
+ * Returns null if kernel hook creation fails (kernel continues observing via other paths).
+ */
+function getKernelHook(workerName) {
+    if (!kernelHook) {
+        try {
+            kernelHook = createDatabaseHook(`db-worker-${workerName}`);
+        }
+        catch {
+            // Kernel hook creation failed - worker continues without kernel reporting
+            // This is non-fatal; kernel can still observe via other integrated systems
+        }
+    }
+    return kernelHook;
+}
 // ============================================================================
 // Base Worker Implementation
 // ============================================================================
@@ -60,16 +84,29 @@ export class BaseDatabaseWorker {
             this.log(`Worker ${this.id} disabled in configuration. Skipping initialization.`, 'info');
             return;
         }
+        const startTime = Date.now();
         try {
             this.log(`Initializing worker ${this.id}...`, 'info');
             await this.doInitialize();
             this.isInitialized = true;
             this.emitEvent({ type: 'initialized', workerId: this.id, timestamp: new Date() });
             this.log(`Worker ${this.id} initialized successfully`, 'info');
+            // Report to kernel: worker connected successfully
+            const durationMs = Date.now() - startTime;
+            getKernelHook(this.id)?.connection('CONNECTED', {
+                workerId: this.id,
+                workerType: this.type,
+                durationMs,
+            });
         }
         catch (error) {
             this.log(`Failed to initialize worker ${this.id}: ${error.message}`, 'error');
             this.emitEvent({ type: 'error', workerId: this.id, error: error, timestamp: new Date() });
+            // Report to kernel: worker connection error
+            getKernelHook(this.id)?.connection('ERROR', {
+                workerId: this.id,
+                error: error.message,
+            });
             throw error;
         }
     }
@@ -115,16 +152,32 @@ export class BaseDatabaseWorker {
             this.isStarted = false;
             this.emitEvent({ type: 'stopped', workerId: this.id, reason: 'graceful', timestamp: new Date() });
             this.log(`Worker ${this.id} stopped successfully`, 'info');
+            // Report to kernel: worker disconnected gracefully
+            getKernelHook(this.id)?.connection('DISCONNECTED', {
+                workerId: this.id,
+                reason: 'graceful',
+            });
             return true;
         }
         catch (error) {
             if (error.message === 'Stop timeout') {
                 this.log(`Worker ${this.id} stop timed out after ${timeoutMs}ms`, 'error');
                 this.emitEvent({ type: 'stopped', workerId: this.id, reason: 'timeout', timestamp: new Date() });
+                // Report to kernel: worker disconnect timeout
+                getKernelHook(this.id)?.connection('DISCONNECTED', {
+                    workerId: this.id,
+                    reason: 'timeout',
+                    timeoutMs,
+                });
                 return false;
             }
             this.log(`Error stopping worker ${this.id}: ${error.message}`, 'error');
             this.emitEvent({ type: 'error', workerId: this.id, error: error, timestamp: new Date() });
+            // Report to kernel: worker disconnect error
+            getKernelHook(this.id)?.connection('ERROR', {
+                workerId: this.id,
+                error: error.message,
+            });
             throw error;
         }
     }
@@ -199,6 +252,7 @@ export class BaseDatabaseWorker {
     /**
      * Execute operation with metrics tracking and error recovery.
      * Concrete workers should use this for all operations.
+     * Reports query timing to kernel for unified observation.
      */
     async executeOperation(name, operation) {
         const startTime = Date.now();
@@ -211,6 +265,11 @@ export class BaseDatabaseWorker {
             this.metrics.successCount++;
             this.lastOperationAt = new Date();
             this.errorRecovery.recordSuccess();
+            // Report to kernel: successful query
+            getKernelHook(this.id)?.query(name, latencyMs, true, {
+                workerId: this.id,
+                workerType: this.type,
+            });
             return result;
         }
         catch (error) {
@@ -222,6 +281,12 @@ export class BaseDatabaseWorker {
             this.lastError = error.message;
             this.errorRecovery.recordFailure(error);
             this.emitEvent({ type: 'error', workerId: this.id, error: error, timestamp: new Date() });
+            // Report to kernel: failed query
+            getKernelHook(this.id)?.query(name, latencyMs, false, {
+                workerId: this.id,
+                workerType: this.type,
+                error: error.message,
+            });
             throw error;
         }
     }

@@ -21,6 +21,10 @@
  * @module homestead/bag
  */
 
+// LOGGER FIRST — Must be early import to capture initialization errors
+import { getLogger } from "../../shared/logging/index.js";
+const logger = getLogger();
+
 import {
   ActionRowBuilder,
   ButtonBuilder,
@@ -34,7 +38,6 @@ import {
 import { EMBED_COLORS } from "../shared/embed-colors.js";
 import { dangerButton, navButton, primaryButton } from "../shared/button-utils.js";
 import { safeReply } from "../shared/response-helpers.js";
-import { getLogger } from "../../shared/logging/index.js";
 import { HomesteadChannelManager } from "../../services/homestead-manager.js";
 import { ensureUser } from "../../shared/models/user-queries-pg.js";
 import { prisma } from "../../shared/prisma.js";
@@ -48,8 +51,6 @@ function getSpeciesNameById(speciesId: number): string {
   const species = getSpecies(speciesId);
   return species?.name || `#${speciesId}`;
 }
-
-const logger = getLogger();
 
 // ============================================================================
 // CONSTANTS

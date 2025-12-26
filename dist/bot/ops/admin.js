@@ -1,3 +1,6 @@
+// LOGGER FIRST — Must be early import to capture initialization errors
+import { getLogger } from "../../shared/logging/index.js";
+const logger = getLogger();
 import { toEasternString } from "../../shared/datetime.js";
 import { formatBytes, formatBytesShort, formatDurationCompact, formatTimestamp } from "../../shared/utils/format-utils.js";
 import { getErrorMessage, ensureError } from "../../shared/utils/error-utils.js";
@@ -6,9 +9,7 @@ import { replyError } from "../shared/response-helpers.js";
 import { collectCacheMetrics, runCacheMaintenanceNow, startCacheMaintenanceScheduler, } from "../../services/cache/facade.js";
 import { cache } from "../../shared/cache/memory.js";
 import { config } from "../../shared/config.js";
-import { getLogger } from "../../shared/logging/index.js";
 import { getLogBuffer } from "../../shared/logBuffer.js";
-const logger = getLogger();
 import { EventBus } from "../../shared/event-bus.js";
 import { getProdDb } from "../../shared/pg-connection.js";
 import { measureLogBufferMemory, measureEventBusMemory, measureDiscordCacheMemory, getConfidenceEmoji } from "../../utils/memory-measurement.js";

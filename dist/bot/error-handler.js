@@ -5,10 +5,11 @@
  *
  * @module bot/error-handler
  */
-import { errorTracker } from '../services/monitoring/index.js';
+// LOGGER FIRST — Must be early import to capture initialization errors
 import { getLogger } from "../shared/logging/index.js";
-import { safeReply } from './shared/response-helpers.js';
 const logger = getLogger();
+import { errorTracker } from '../services/monitoring/index.js';
+import { safeReply } from './shared/response-helpers.js';
 /// ---- Bot Error Handler ----
 export class BotErrorHandler {
     /**

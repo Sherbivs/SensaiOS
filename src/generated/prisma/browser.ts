@@ -254,3 +254,28 @@ export type SecurityEvent = Prisma.SecurityEventModel
  * 
  */
 export type WorkerMetrics = Prisma.WorkerMetricsModel
+/**
+ * Model TradeLog
+ * Records completed trades for history, audit, and analytics
+ */
+export type TradeLog = Prisma.TradeLogModel
+/**
+ * Model PlayerStats
+ * Player statistics tracking for leaderboards
+ */
+export type PlayerStats = Prisma.PlayerStatsModel
+/**
+ * Model AchievementDef
+ * Achievement definitions
+ */
+export type AchievementDef = Prisma.AchievementDefModel
+/**
+ * Model AchievementUnlock
+ * Player achievement unlocks
+ */
+export type AchievementUnlock = Prisma.AchievementUnlockModel
+/**
+ * Model LeaderboardSnapshot
+ * Weekly leaderboard snapshots for history and rewards
+ */
+export type LeaderboardSnapshot = Prisma.LeaderboardSnapshotModel

@@ -1,10 +1,21 @@
+// ============================================================================
+// KERNEL BOOTSTRAP — MUST BE FIRST
+// ============================================================================
+// Bot module uses Kernel for all logging. The Kernel handles pre-boot queuing
+// so logs during early initialization are captured and replayed after boot.
+// This is the Kernel-first logging pattern - see docs/projects/KERNEL-FIRST-LOGGING-INITIATIVE.md
+import { kernel } from "../kernel/boot-kernel.js";
+// NOTE: Legacy logger import removed (2025-12-26)
+// Bot now uses kernel exclusively. Kernel reports to shared/logger internally,
+// so all logs still reach DB/Loki. The shared/logger is kernel-integrated now.
+// === Node.js Built-ins ===
 import { once } from "node:events";
+// === External Libraries ===
 import { Client, GatewayIntentBits, Partials, Events, Options } from "discord.js";
+// === Database ===
 import { prisma } from "../models/index.js";
-import { getLogger } from "../shared/logging/index.js";
+// === Command Loader ===
 import { loadCommands } from "../command-loader.js";
-const logger = getLogger();
-;
 import { handleBattleActionButton, MOVE_PREFIX, SWITCH_PREFIX, FORFEIT_PREFIX } from "./battle/actions.js";
 import { handleBattleChallengeButton, handleBattleChallengeCommand } from "./battle/challenge.js";
 // Homestead modules (private guild channel-based gameplay)
@@ -13,6 +24,10 @@ import { openHealScreen, handleHealConfirm, handleHealCancel, handleHeal } from 
 import { BOX_PAGE_PREFIX, openBoxView, openPartyView, openProfileView } from "./homestead/home.js";
 import { openStartersHomestead, handleStarterPick } from "./homestead/starters.js";
 import { openExploreScreen, handleExploreButton } from "./homestead/explore.js";
+import { handleFishingButton, isFishingButton } from "./homestead/fish.js";
+import { handleTradeButton, handlePokemonSelect, isTradeButton, TRADE_BUTTON_IDS } from "./homestead/trade.js";
+import { handleLeaderboardButton, isLeaderboardButton } from "./homestead/leaderboards.js";
+import { handleAchievementButton, isAchievementButton } from "./homestead/achievements.js";
 import { openBagScreen, handleBagButton, BAG_CATEGORY_PREFIX, BAG_PAGE_PREFIX } from "./homestead/bag.js";
 import { openPokedexScreen, handlePokedexButton, DEX_REGION_PREFIX, DEX_PAGE_PREFIX } from "./homestead/pokedex.js";
 import { openPartyScreen, handlePartyButton, PARTY_SLOT_PREFIX, PARTY_SET_LEAD_PREFIX } from "./homestead/party.js";
@@ -37,7 +52,7 @@ export async function bootDiscord(opts = {}) {
         process.env.DISCORD_TOKEN ||
         process.env.BOT_TOKEN;
     if (!token) {
-        logger.warn('BotInit', 'bootDiscord', 'Discord bot token not provided; skipping bot startup');
+        kernel.warn('bot/index', 'Discord bot token not provided; skipping bot startup');
         // Return a stub client to keep the app running without hard failure
         // when the bot is intentionally disabled.
         return new Client({ intents: [] });
@@ -80,18 +95,13 @@ export async function bootDiscord(opts = {}) {
             const loadStart = process.hrtime.bigint();
             commands = await loadCommands();
             const loadDurationMs = Number(process.hrtime.bigint() - loadStart) / 1_000_000;
-            logger.info('BotInit', 'ensureCommandsLoaded', 'Commands loaded lazily', { durationMs: loadDurationMs, metadata: { count: commands.size } });
+            kernel.info('bot/index', `Commands loaded lazily (${loadDurationMs.toFixed(1)}ms, ${commands.size} commands)`);
         }
         return commands;
     }
     const readyPromise = once(client, Events.ClientReady);
     client.once(Events.ClientReady, () => {
-        logger.info('BotInit', 'onReady', 'Discord bot is ready', {
-            metadata: {
-                user: client.user?.tag,
-                lazyCommands: true, // Commands will load on first interaction
-            },
-        });
+        kernel.info('bot/index', `Discord bot is ready: ${client.user?.tag} (lazy commands enabled)`);
     });
     client.on("interactionCreate", async (interaction) => {
         try {
@@ -372,13 +382,38 @@ export async function bootDiscord(opts = {}) {
                         if (id.startsWith("ENCOUNTER_")) {
                             await handleEncounterButton(interaction);
                         }
+                        // Fishing controls: FISH_CAST, FISH_REEL_EARLY, FISH_REEL_BITE, FISH_TRY_AGAIN, FISH_BACK
+                        if (isFishingButton(id)) {
+                            await handleFishingButton(interaction);
+                        }
+                        // Trading controls: trade_accept, trade_decline, trade_select, trade_confirm, trade_cancel
+                        if (isTradeButton(id)) {
+                            await handleTradeButton(interaction);
+                        }
+                        // Leaderboard controls: LB_* buttons
+                        if (isLeaderboardButton(id)) {
+                            await handleLeaderboardButton(interaction);
+                        }
+                        // Achievement controls: ACH_* buttons
+                        if (isAchievementButton(id)) {
+                            await handleAchievementButton(interaction);
+                        }
                         break;
                 }
                 return;
             }
+            // Handle StringSelectMenu interactions (e.g., trade pokemon selection)
+            if (interaction.isStringSelectMenu()) {
+                const id = interaction.customId;
+                // Trade pokemon selection: trade_pokemon_select:<sessionId>
+                if (id.startsWith(TRADE_BUTTON_IDS.POKEMON_SELECT_MENU)) {
+                    await handlePokemonSelect(interaction);
+                    return;
+                }
+            }
         }
         catch (err) {
-            logger.error('BotInteraction', 'interactionCreate', 'Interaction handler error', { metadata: { errorMsg: err?.message || String(err) } });
+            kernel.error('bot/index', `Interaction handler error: ${err?.message || String(err)}`, {}, err instanceof Error ? err : undefined);
             if (interaction.isRepliable()) {
                 try {
                     await safeReply(interaction, "Something went wrong.");
@@ -406,17 +441,11 @@ export async function bootDiscord(opts = {}) {
             }, 0);
             // Only log if caches are growing beyond expected limits
             if (messageCount > 500 || memberCount > 500) {
-                logger.warn('BotCache', 'cacheMonitor', 'Discord cache above threshold', {
-                    metadata: {
-                        messages: messageCount,
-                        members: memberCount,
-                        note: "Sweepers should be reducing this - check configuration",
-                    },
-                });
+                kernel.warn('bot/index', `Discord cache above threshold: messages=${messageCount}, members=${memberCount}. Sweepers should be reducing this.`);
             }
         }
         catch (err) {
-            logger.warn('BotCache', 'cacheMonitor', 'Cache monitor failed', { metadata: { errorMsg: err?.message || String(err) } });
+            kernel.warn('bot/index', `Cache monitor failed: ${err?.message || String(err)}`);
         }
     }, 3600_000); // 1 hour
     // Cleanup on shutdown

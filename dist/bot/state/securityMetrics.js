@@ -23,10 +23,11 @@
  *
  * @module securityMetrics
  */
-import { existsSync, readFileSync } from 'fs';
+// LOGGER FIRST — Must be early import to capture initialization errors
 import { getLogger } from '../../shared/logging/index.js';
-import { ensureError } from '../../shared/utils/error-utils.js';
 const logger = getLogger();
+import { existsSync, readFileSync } from 'fs';
+import { ensureError } from '../../shared/utils/error-utils.js';
 // ─────────────────────────────────────────────────────────────────────────────
 // Constants
 // ─────────────────────────────────────────────────────────────────────────────

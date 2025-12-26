@@ -96,7 +96,12 @@ export const ModelName = {
   EventHistory: 'EventHistory',
   MemberRoleHistory: 'MemberRoleHistory',
   SecurityEvent: 'SecurityEvent',
-  WorkerMetrics: 'WorkerMetrics'
+  WorkerMetrics: 'WorkerMetrics',
+  TradeLog: 'TradeLog',
+  PlayerStats: 'PlayerStats',
+  AchievementDef: 'AchievementDef',
+  AchievementUnlock: 'AchievementUnlock',
+  LeaderboardSnapshot: 'LeaderboardSnapshot'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -385,7 +390,9 @@ export const PokemonInstanceScalarFieldEnum = {
   updatedAt: 'updatedAt',
   tenantId: 'tenantId',
   trainerId: 'trainerId',
-  packHash: 'packHash'
+  packHash: 'packHash',
+  originalTrainerId: 'originalTrainerId',
+  tradedAt: 'tradedAt'
 } as const
 
 export type PokemonInstanceScalarFieldEnum = (typeof PokemonInstanceScalarFieldEnum)[keyof typeof PokemonInstanceScalarFieldEnum]
@@ -815,6 +822,95 @@ export const WorkerMetricsScalarFieldEnum = {
 export type WorkerMetricsScalarFieldEnum = (typeof WorkerMetricsScalarFieldEnum)[keyof typeof WorkerMetricsScalarFieldEnum]
 
 
+export const TradeLogScalarFieldEnum = {
+  id: 'id',
+  sessionId: 'sessionId',
+  senderId: 'senderId',
+  receiverId: 'receiverId',
+  senderPokemonId: 'senderPokemonId',
+  receiverPokemonId: 'receiverPokemonId',
+  senderPokemonSpeciesId: 'senderPokemonSpeciesId',
+  receiverPokemonSpeciesId: 'receiverPokemonSpeciesId',
+  senderPokemonLevel: 'senderPokemonLevel',
+  receiverPokemonLevel: 'receiverPokemonLevel',
+  senderPokemonShiny: 'senderPokemonShiny',
+  receiverPokemonShiny: 'receiverPokemonShiny',
+  completedAt: 'completedAt'
+} as const
+
+export type TradeLogScalarFieldEnum = (typeof TradeLogScalarFieldEnum)[keyof typeof TradeLogScalarFieldEnum]
+
+
+export const PlayerStatsScalarFieldEnum = {
+  id: 'id',
+  discordId: 'discordId',
+  totalCatches: 'totalCatches',
+  totalBattleWins: 'totalBattleWins',
+  totalBattleLosses: 'totalBattleLosses',
+  totalTrades: 'totalTrades',
+  totalFishCaught: 'totalFishCaught',
+  totalWalks: 'totalWalks',
+  totalShinies: 'totalShinies',
+  totalEvolutions: 'totalEvolutions',
+  pokedexPercent: 'pokedexPercent',
+  uniqueTradePartners: 'uniqueTradePartners',
+  uniqueTypesCaught: 'uniqueTypesCaught',
+  currentWinStreak: 'currentWinStreak',
+  bestWinStreak: 'bestWinStreak',
+  dailyStreak: 'dailyStreak',
+  bestDailyStreak: 'bestDailyStreak',
+  lastDailyClaimAt: 'lastDailyClaimAt',
+  weeklyCatches: 'weeklyCatches',
+  weeklyFish: 'weeklyFish',
+  weeklyBattles: 'weeklyBattles',
+  weekStartedAt: 'weekStartedAt',
+  seasonWins: 'seasonWins',
+  seasonNumber: 'seasonNumber',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type PlayerStatsScalarFieldEnum = (typeof PlayerStatsScalarFieldEnum)[keyof typeof PlayerStatsScalarFieldEnum]
+
+
+export const AchievementDefScalarFieldEnum = {
+  id: 'id',
+  code: 'code',
+  name: 'name',
+  description: 'description',
+  category: 'category',
+  rarity: 'rarity',
+  requirement: 'requirement',
+  rewardMoney: 'rewardMoney',
+  rewardBadge: 'rewardBadge',
+  sortOrder: 'sortOrder'
+} as const
+
+export type AchievementDefScalarFieldEnum = (typeof AchievementDefScalarFieldEnum)[keyof typeof AchievementDefScalarFieldEnum]
+
+
+export const AchievementUnlockScalarFieldEnum = {
+  id: 'id',
+  discordId: 'discordId',
+  achievementId: 'achievementId',
+  unlockedAt: 'unlockedAt',
+  rewardClaimed: 'rewardClaimed'
+} as const
+
+export type AchievementUnlockScalarFieldEnum = (typeof AchievementUnlockScalarFieldEnum)[keyof typeof AchievementUnlockScalarFieldEnum]
+
+
+export const LeaderboardSnapshotScalarFieldEnum = {
+  id: 'id',
+  boardType: 'boardType',
+  weekOf: 'weekOf',
+  rankings: 'rankings',
+  createdAt: 'createdAt'
+} as const
+
+export type LeaderboardSnapshotScalarFieldEnum = (typeof LeaderboardSnapshotScalarFieldEnum)[keyof typeof LeaderboardSnapshotScalarFieldEnum]
+
+
 export const SortOrder = {
   asc: 'asc',
   desc: 'desc'
@@ -1014,7 +1110,8 @@ export const PokemonInstanceOrderByRelevanceFieldEnum = {
   nickname: 'nickname',
   tenantId: 'tenantId',
   trainerId: 'trainerId',
-  packHash: 'packHash'
+  packHash: 'packHash',
+  originalTrainerId: 'originalTrainerId'
 } as const
 
 export type PokemonInstanceOrderByRelevanceFieldEnum = (typeof PokemonInstanceOrderByRelevanceFieldEnum)[keyof typeof PokemonInstanceOrderByRelevanceFieldEnum]
@@ -1312,4 +1409,54 @@ export const WorkerMetricsOrderByRelevanceFieldEnum = {
 } as const
 
 export type WorkerMetricsOrderByRelevanceFieldEnum = (typeof WorkerMetricsOrderByRelevanceFieldEnum)[keyof typeof WorkerMetricsOrderByRelevanceFieldEnum]
+
+
+export const TradeLogOrderByRelevanceFieldEnum = {
+  id: 'id',
+  sessionId: 'sessionId',
+  senderId: 'senderId',
+  receiverId: 'receiverId',
+  senderPokemonId: 'senderPokemonId',
+  receiverPokemonId: 'receiverPokemonId'
+} as const
+
+export type TradeLogOrderByRelevanceFieldEnum = (typeof TradeLogOrderByRelevanceFieldEnum)[keyof typeof TradeLogOrderByRelevanceFieldEnum]
+
+
+export const PlayerStatsOrderByRelevanceFieldEnum = {
+  id: 'id',
+  discordId: 'discordId'
+} as const
+
+export type PlayerStatsOrderByRelevanceFieldEnum = (typeof PlayerStatsOrderByRelevanceFieldEnum)[keyof typeof PlayerStatsOrderByRelevanceFieldEnum]
+
+
+export const AchievementDefOrderByRelevanceFieldEnum = {
+  id: 'id',
+  code: 'code',
+  name: 'name',
+  description: 'description',
+  category: 'category',
+  rarity: 'rarity',
+  rewardBadge: 'rewardBadge'
+} as const
+
+export type AchievementDefOrderByRelevanceFieldEnum = (typeof AchievementDefOrderByRelevanceFieldEnum)[keyof typeof AchievementDefOrderByRelevanceFieldEnum]
+
+
+export const AchievementUnlockOrderByRelevanceFieldEnum = {
+  id: 'id',
+  discordId: 'discordId',
+  achievementId: 'achievementId'
+} as const
+
+export type AchievementUnlockOrderByRelevanceFieldEnum = (typeof AchievementUnlockOrderByRelevanceFieldEnum)[keyof typeof AchievementUnlockOrderByRelevanceFieldEnum]
+
+
+export const LeaderboardSnapshotOrderByRelevanceFieldEnum = {
+  id: 'id',
+  boardType: 'boardType'
+} as const
+
+export type LeaderboardSnapshotOrderByRelevanceFieldEnum = (typeof LeaderboardSnapshotOrderByRelevanceFieldEnum)[keyof typeof LeaderboardSnapshotOrderByRelevanceFieldEnum]
 

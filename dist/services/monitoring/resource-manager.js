@@ -11,11 +11,12 @@
  *
  * Integration with error detection system for leak monitoring and alerting.
  */
-import { errorTracker } from './error-tracker.js';
+// LOGGER FIRST — Must be early import to capture initialization errors
 import { getLogger } from "../../shared/logging/index.js";
+const logger = getLogger();
+import { errorTracker } from './error-tracker.js';
 import { getErrorMessage } from '../../shared/utils/error-utils.js';
 import { generateResourceId } from './monitoring-utils.js';
-const logger = getLogger();
 // ============================================================================
 // Resource Manager Class
 // ============================================================================

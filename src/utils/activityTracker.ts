@@ -9,10 +9,11 @@
  *   - Notifies subscribers of changes
  */
 
+// LOGGER FIRST — Must be early import to capture initialization errors
 import { getLogger } from '../shared/logging/index.js';
-import { toDate, cloneDate, getErrorMessage } from '../shared/utils/index.js';
-
 const logger = getLogger();
+
+import { toDate, cloneDate, getErrorMessage } from '../shared/utils/index.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types

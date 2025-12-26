@@ -13,6 +13,12 @@
  * @module error-brain/impact-predictor
  */
 
+// KERNEL FIRST — Must be first import to monitor other system initialization
+import {
+  createIntelligenceHook,
+  type IntelligenceHook,
+} from "../../kernel/kernel-hooks.js";
+
 import { ErrorBrainConfig } from "../../config/error-brain-config.js";
 import {
   predictImpact as cachePredictImpact,
@@ -25,6 +31,26 @@ import {
   predictCascade,
   type BurstResult,
 } from "./pattern-detector.js";
+
+// ==================== KERNEL INTEGRATION ====================
+
+/** Lazy-initialized kernel hook for impact predictor */
+let kernelHook: IntelligenceHook | null = null;
+
+/**
+ * Get or create kernel hook for impact predictor observability.
+ * Uses lazy initialization to avoid startup dependencies.
+ */
+function getImpactPredictorHook(): IntelligenceHook | null {
+  if (!kernelHook) {
+    try {
+      kernelHook = createIntelligenceHook("impact-predictor");
+    } catch {
+      // Kernel not available, silently skip
+    }
+  }
+  return kernelHook;
+}
 
 // ==================== TYPES ====================
 
@@ -343,6 +369,24 @@ export function assessImpact(context: ErrorContext): ImpactAssessment {
     recommendations.unshift("⚠️ HIGH PRIORITY: Requires immediate attention from on-call engineer.");
   }
 
+  const requiresImmediate = severity === "CRITICAL" || severity === "HIGH";
+
+  // Report impact assessment to kernel
+  if (severity !== "MINIMAL") {
+    getImpactPredictorHook()?.prediction(
+      "impact",
+      confidence,
+      {
+        fingerprint: context.fingerprint,
+        impactScore,
+        severity,
+        estimatedAffectedUsers,
+        factorCount: factors.length,
+        requiresImmediate,
+      }
+    );
+  }
+
   return {
     impactScore,
     severity,
@@ -350,7 +394,7 @@ export function assessImpact(context: ErrorContext): ImpactAssessment {
     confidence,
     factors,
     recommendations,
-    requiresImmediate: severity === "CRITICAL" || severity === "HIGH",
+    requiresImmediate,
     estimatedTimeToImpact:
       cascadePrediction && cascadePrediction.probability > 0.3
         ? ErrorBrainConfig.correlationWindowMs
@@ -555,6 +599,23 @@ export function forecastImpact(
     Math.max(0, predictedErrorCount - 1.96 * stdError),
     predictedErrorCount + 1.96 * stdError,
   ];
+
+  // Report forecast to kernel if significant risk
+  if (riskFactors.length > 0 || predictedAffectedUsers > 0) {
+    const confidence = 1 - (stdError / (predictedErrorCount + 1)); // Normalize confidence
+    getImpactPredictorHook()?.prediction(
+      "forecast",
+      Math.max(0, Math.min(1, confidence)),
+      {
+        fingerprint,
+        horizonMinutes,
+        predictedErrorCount,
+        predictedAffectedUsers,
+        riskFactorCount: riskFactors.length,
+        trend: trend > 0 ? "up" : trend < 0 ? "down" : "stable",
+      }
+    );
+  }
 
   return {
     predictionTime: Date.now(),

@@ -11,12 +11,13 @@
  *
  * @see docs/projects/metrics-expansion-bible.md § Project 5
  */
+// LOGGER FIRST — Must be early import to capture initialization errors
+import { getLogger } from '../shared/logging/index.js';
+const logger = getLogger();
 import { register, Counter, Gauge, Histogram, collectDefaultMetrics } from 'prom-client';
 import { calculateWindowStats, TIME_WINDOWS, } from './statistics-window.js';
 import { EventBus } from '../shared/event-bus.js';
-import { getLogger } from '../shared/logging/index.js';
 import { getErrorMessage } from '../shared/utils/error-utils.js';
-const logger = getLogger();
 // ─────────────────────────────────────────────────────────────────────────────
 // State
 // ─────────────────────────────────────────────────────────────────────────────

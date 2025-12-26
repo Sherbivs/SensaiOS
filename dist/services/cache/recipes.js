@@ -1,9 +1,10 @@
-import { prisma as prismaClient, recordDailyQuestCompletion, loadTrainerProfileSummary, } from "../../models/index.js";
+// LOGGER FIRST — Must be early import to capture initialization errors
 import { getLogger } from "../../shared/logging/index.js";
+const logger = getLogger();
+import { prisma as prismaClient, recordDailyQuestCompletion, loadTrainerProfileSummary, } from "../../models/index.js";
 import { normalizeError } from "../../shared/utils/error-utils.js";
 import { getOrHydrate, evict } from "./facade.js";
 import { CACHE_CONSTANTS, GAME_CONSTANTS } from "../../shared/constants.js";
-const logger = getLogger();
 const BATTLE_NAMESPACE = "battle-state";
 const ENCOUNTER_NAMESPACE = "encounter-state";
 const QUEST_NAMESPACE = "quest-reward";

@@ -16,11 +16,12 @@
  * @module workers/error-learning-worker
  */
 
-import { errorLearning } from '../services/monitoring/error-learning.js';
+// LOGGER FIRST — Must be early import to capture initialization errors
 import { getLogger } from "../shared/logging/index.js";
-import { getErrorMessage } from '../shared/utils/index.js';
-
 const logger = getLogger();
+
+import { errorLearning } from '../services/monitoring/error-learning.js';
+import { getErrorMessage } from '../shared/utils/index.js';
 
 // ============================================================================
 // Type Definitions

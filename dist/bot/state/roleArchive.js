@@ -21,11 +21,12 @@
  * TEAM: Security Specialist
  * FIXES: Critical Issue #2 - Archive Tampering Vulnerability
  */
+// LOGGER FIRST — Must be early import to capture initialization errors
+import { getLogger } from '../../shared/logging/index.js';
+const logger = getLogger();
 import crypto from 'crypto';
 import fs from 'fs/promises';
-import { getLogger } from '../../shared/logging/index.js';
 import { ensureError } from '../../shared/utils/error-utils.js';
-const logger = getLogger();
 import { emitAlert } from '../eventbus-integration.js';
 import { generateSecurityBaselines, loadSecurityBaselines, saveSecurityBaselines, shouldRefreshBaselines } from './securityBaselines.js';
 import { detectSecurityThreats, calculateCurrentActivity } from './threatDetector.js';

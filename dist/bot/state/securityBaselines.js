@@ -18,12 +18,13 @@
  * - Tamper detection via signature verification
  * - Confidence scoring based on data volume
  */
+// LOGGER FIRST — Must be early import to capture initialization errors
+import { getLogger } from '../../shared/logging/index.js';
+const logger = getLogger();
 import crypto from 'crypto';
 import fs from 'fs/promises';
 import path from 'path';
-import { getLogger } from '../../shared/logging/index.js';
 import { ensureError } from '../../shared/utils/error-utils.js';
-const logger = getLogger();
 import { STATE_DIR, HMAC_ALGORITHM, getHmacSecret } from './config.js';
 // ─────────────────────────────────────────────────────────────────────────────
 // Configuration (imports from config.ts for consistency)

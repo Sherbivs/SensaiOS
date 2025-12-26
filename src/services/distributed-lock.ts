@@ -15,12 +15,13 @@
  *   - Comprehensive logging and metrics
  */
 
+// LOGGER FIRST — Must be early import to capture initialization errors
+import { getLogger } from '../shared/logging/index.js';
+const logger = getLogger();
+
 import RedisModule from 'ioredis';
 import type { Redis as RedisType } from 'ioredis';
-import { getLogger } from '../shared/logging/index.js';
 import { getErrorMessage } from '../shared/utils/error-utils.js';
-
-const logger = getLogger();
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types

@@ -12,10 +12,11 @@
  * @see discord_members — Member profiles synced by security bot
  * @see discord_guilds — Guild metadata synced by security bot
  */
-import { prisma } from "../shared/prisma.js";
-import { getErrorMessage } from "../shared/utils/error-utils.js";
+// LOGGER FIRST — Must be early import to capture initialization errors
 import { getLogger } from "../shared/logging/index.js";
 const logger = getLogger();
+import { prisma } from "../shared/prisma.js";
+import { getErrorMessage } from "../shared/utils/error-utils.js";
 // ============================================================================
 // Discord Identity Service Class
 // ============================================================================

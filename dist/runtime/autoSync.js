@@ -1,8 +1,9 @@
+// LOGGER FIRST — Must be early import to capture initialization errors
+import { getLogger } from "../shared/logging/index.js";
+const logger = getLogger();
 import { spawn } from "node:child_process";
 import path from "node:path";
-import { getLogger } from "../shared/logging/index.js";
 import { getErrorMessage } from "../shared/utils/error-utils.js";
-const logger = getLogger();
 const RESTART_DELAY_MS = 30_000;
 export function startAutoSyncSupervisor() {
     const scriptPath = path.resolve(process.cwd(), "scripts", "dev_prod_auto_sync.ts");

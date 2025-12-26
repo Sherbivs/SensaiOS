@@ -5,6 +5,7 @@
  * - Coordinate lifecycle of all database workers (init, start, stop)
  * - Manage dependencies between workers (initialization order)
  * - Handle graceful shutdown with proper cleanup sequencing
+ * - Report orchestration events to kernel for unified observation
  * 
  * Architecture:
  * - 4 Workers: PROD PostgreSQL, TimescaleDB, Engine Read-DB, Engine Write-DB
@@ -14,6 +15,7 @@
  * Integration:
  * - Used by: src/index.ts (application startup)
  * - Simplicity: Focused on lifecycle only, no complex event/metrics aggregation
+ * - Kernel: Reports orchestration events for unified observation
  * 
  * Performance Targets:
  * - Initialization: <5s (sequential worker startup)
@@ -22,7 +24,14 @@
  * @module workers/worker-manager
  */
 
+// KERNEL FIRST — Must be first import to monitor other system initialization
+import type { WorkerHook } from '../kernel/kernel-hooks.js';
+import { createWorkerHook } from '../kernel/kernel-hooks.js';
+
+// LOGGER SECOND — Must be early import to capture initialization errors
 import { getLogger, errorContext } from '../shared/logging/index.js';
+const logger = getLogger();
+
 import {
   getProdPostgresWorker,
   getTimescaleDBWorker,
@@ -36,7 +45,28 @@ import type {
   EngineWriteWorker,
 } from './database/index.js';
 
-const logger = getLogger();
+// ============================================================================
+// KERNEL INTEGRATION (Lazy Hook Pattern)
+// ============================================================================
+// WorkerManager reports orchestration lifecycle events UP to kernel
+
+// Lazy initialization to avoid boot-time circular dependencies
+let kernelHook: WorkerHook | null = null;
+
+/**
+ * Get or create the kernel hook (lazy singleton pattern).
+ * Returns null if kernel hook creation fails (manager continues without kernel reporting).
+ */
+function getKernelHook(): WorkerHook | null {
+  if (!kernelHook) {
+    try {
+      kernelHook = createWorkerHook('worker-manager');
+    } catch {
+      // Kernel hook creation failed - manager continues without kernel reporting
+    }
+  }
+  return kernelHook;
+}
 
 /**
  * Worker Manager — Orchestrates all database workers.
@@ -63,6 +93,9 @@ export class WorkerManager {
     logger.info('WorkerManager', 'initializeAll', 'Starting initialization...');
     const startTime = Date.now();
     
+    // Report to kernel: orchestration starting
+    getKernelHook()?.status('EXECUTING', { phase: 'initializeAll', workerCount: 4 });
+    
     try {
       // Step 1: Initialize PROD PostgreSQL (foundation for all queries)
       logger.info('WorkerManager', 'initializeAll', '[1/4] Initializing PROD PostgreSQL Worker...');
@@ -88,8 +121,17 @@ export class WorkerManager {
       
       const duration = Date.now() - startTime;
       logger.info('WorkerManager', 'initializeAll', `✅ All workers initialized in ${duration}ms`, { metadata: { durationMs: duration } });
+      
+      // Report to kernel: orchestration complete
+      getKernelHook()?.execution('initializeAll', duration, true, { workerCount: 4 });
+      getKernelHook()?.status('STARTED', { phase: 'initialized', workerCount: 4 });
     } catch (error) {
       logger.error('WorkerManager', 'initializeAll', '❌ Initialization failed', errorContext(error as Error));
+      
+      // Report to kernel: orchestration failed
+      const duration = Date.now() - startTime;
+      getKernelHook()?.execution('initializeAll', duration, false, { error: (error as Error).message });
+      getKernelHook()?.status('ERROR', { phase: 'initializeAll', error: (error as Error).message });
       throw error;
     }
   }
@@ -108,6 +150,10 @@ export class WorkerManager {
     }
     
     logger.info('WorkerManager', 'startAll', 'Starting all workers...');
+    const startTime = Date.now();
+    
+    // Report to kernel: start phase beginning
+    getKernelHook()?.status('EXECUTING', { phase: 'startAll', workerCount: 4 });
     
     try {
       // Start all workers (parallel execution)
@@ -119,9 +165,18 @@ export class WorkerManager {
       ]);
       
       this.started = true;
+      const duration = Date.now() - startTime;
       logger.info('WorkerManager', 'startAll', '✅ All workers started');
+      
+      // Report to kernel: start phase complete
+      getKernelHook()?.execution('startAll', duration, true, { workerCount: 4 });
     } catch (error) {
       logger.error('WorkerManager', 'startAll', '❌ Start failed', errorContext(error as Error));
+      
+      // Report to kernel: start phase failed
+      const duration = Date.now() - startTime;
+      getKernelHook()?.execution('startAll', duration, false, { error: (error as Error).message });
+      getKernelHook()?.status('ERROR', { phase: 'startAll', error: (error as Error).message });
       throw error;
     }
   }
@@ -137,6 +192,10 @@ export class WorkerManager {
     }
     
     logger.info('WorkerManager', 'stopAll', 'Stopping all workers...');
+    const startTime = Date.now();
+    
+    // Report to kernel: shutdown phase beginning
+    getKernelHook()?.status('EXECUTING', { phase: 'stopAll', workerCount: 4 });
     
     try {
       // Stop workers in reverse order (sequential for proper cleanup)
@@ -161,9 +220,19 @@ export class WorkerManager {
       }
       
       this.started = false;
+      const duration = Date.now() - startTime;
       logger.info('WorkerManager', 'stopAll', '✅ All workers stopped');
+      
+      // Report to kernel: shutdown phase complete
+      getKernelHook()?.execution('stopAll', duration, true, { workerCount: 4 });
+      getKernelHook()?.status('STOPPED', { phase: 'stopped', workerCount: 4 });
     } catch (error) {
       logger.error('WorkerManager', 'stopAll', '❌ Stop failed', errorContext(error as Error));
+      
+      // Report to kernel: shutdown phase failed
+      const duration = Date.now() - startTime;
+      getKernelHook()?.execution('stopAll', duration, false, { error: (error as Error).message });
+      getKernelHook()?.status('ERROR', { phase: 'stopAll', error: (error as Error).message });
       throw error;
     }
   }

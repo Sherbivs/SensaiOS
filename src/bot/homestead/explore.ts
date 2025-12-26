@@ -21,6 +21,11 @@
  * @module homestead/explore
  */
 
+// === CRITICAL: Logger & Error Handling MUST be first imports ===
+import { getLogger } from "../../shared/logging/index.js";
+const logger = getLogger();
+
+// === External Libraries ===
 import {
   ActionRowBuilder,
   ButtonBuilder,
@@ -30,10 +35,10 @@ import {
   User as DiscordUser,
 } from "discord.js";
 
+// === Internal Imports ===
 import { EMBED_COLORS } from "../shared/embed-colors.js";
 import { primaryButton, secondaryButton, dangerButton } from "../shared/button-utils.js";
 import { safeReply } from "../shared/response-helpers.js";
-import { getLogger } from "../../shared/logging/index.js";
 import { HomesteadChannelManager } from "../../services/homestead-manager.js";
 import { getPartyWithSlots } from "../../shared/models/party-queries-pg.js";
 import { ensureUser } from "../../shared/models/user-queries-pg.js";
@@ -41,8 +46,6 @@ import { spawnEncounterForUser } from "../../core/encounter/spawn.js";
 import { openEncounterDM } from "../wilds/controls.js";
 import { findCooldownByUserAndKind, createCooldown, updateCooldownReadyAt } from "../../services/home-bundle-pg.js";
 import { canStartWalk } from "../middleware/limits.js";
-
-const logger = getLogger();
 
 // ============================================================================
 // TYPES
@@ -348,8 +351,9 @@ export async function handleExploreButton(
   }
 
   if (id === "EXPLORE_FISH") {
-    // Fish is not implemented yet - show coming soon message
-    await safeReply(interaction, "🎣 Fishing is coming soon! For now, try **Walk** to find wild Pokémon.", { ephemeral: true });
+    // Open fishing screen
+    const { openFishingScreen } = await import("./fish.js");
+    await openFishingScreen(interaction);
     return;
   }
 

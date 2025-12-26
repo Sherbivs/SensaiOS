@@ -22,8 +22,8 @@
  * - T1078.001: Default Accounts
  */
 
+// LOGGER FIRST — Must be early import to capture initialization errors
 import { getLogger } from '../../shared/logging/index.js';
-
 const logger = getLogger();
 
 // ─────────────────────────────────────────────────────────────────────────────

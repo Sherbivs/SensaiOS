@@ -84,7 +84,12 @@ export const ModelName = {
     EventHistory: 'EventHistory',
     MemberRoleHistory: 'MemberRoleHistory',
     SecurityEvent: 'SecurityEvent',
-    WorkerMetrics: 'WorkerMetrics'
+    WorkerMetrics: 'WorkerMetrics',
+    TradeLog: 'TradeLog',
+    PlayerStats: 'PlayerStats',
+    AchievementDef: 'AchievementDef',
+    AchievementUnlock: 'AchievementUnlock',
+    LeaderboardSnapshot: 'LeaderboardSnapshot'
 };
 /*
  * Enums
@@ -289,7 +294,9 @@ export const PokemonInstanceScalarFieldEnum = {
     updatedAt: 'updatedAt',
     tenantId: 'tenantId',
     trainerId: 'trainerId',
-    packHash: 'packHash'
+    packHash: 'packHash',
+    originalTrainerId: 'originalTrainerId',
+    tradedAt: 'tradedAt'
 };
 export const PartyScalarFieldEnum = {
     id: 'id',
@@ -611,6 +618,75 @@ export const WorkerMetricsScalarFieldEnum = {
     healthStatus: 'healthStatus',
     lastError: 'lastError'
 };
+export const TradeLogScalarFieldEnum = {
+    id: 'id',
+    sessionId: 'sessionId',
+    senderId: 'senderId',
+    receiverId: 'receiverId',
+    senderPokemonId: 'senderPokemonId',
+    receiverPokemonId: 'receiverPokemonId',
+    senderPokemonSpeciesId: 'senderPokemonSpeciesId',
+    receiverPokemonSpeciesId: 'receiverPokemonSpeciesId',
+    senderPokemonLevel: 'senderPokemonLevel',
+    receiverPokemonLevel: 'receiverPokemonLevel',
+    senderPokemonShiny: 'senderPokemonShiny',
+    receiverPokemonShiny: 'receiverPokemonShiny',
+    completedAt: 'completedAt'
+};
+export const PlayerStatsScalarFieldEnum = {
+    id: 'id',
+    discordId: 'discordId',
+    totalCatches: 'totalCatches',
+    totalBattleWins: 'totalBattleWins',
+    totalBattleLosses: 'totalBattleLosses',
+    totalTrades: 'totalTrades',
+    totalFishCaught: 'totalFishCaught',
+    totalWalks: 'totalWalks',
+    totalShinies: 'totalShinies',
+    totalEvolutions: 'totalEvolutions',
+    pokedexPercent: 'pokedexPercent',
+    uniqueTradePartners: 'uniqueTradePartners',
+    uniqueTypesCaught: 'uniqueTypesCaught',
+    currentWinStreak: 'currentWinStreak',
+    bestWinStreak: 'bestWinStreak',
+    dailyStreak: 'dailyStreak',
+    bestDailyStreak: 'bestDailyStreak',
+    lastDailyClaimAt: 'lastDailyClaimAt',
+    weeklyCatches: 'weeklyCatches',
+    weeklyFish: 'weeklyFish',
+    weeklyBattles: 'weeklyBattles',
+    weekStartedAt: 'weekStartedAt',
+    seasonWins: 'seasonWins',
+    seasonNumber: 'seasonNumber',
+    createdAt: 'createdAt',
+    updatedAt: 'updatedAt'
+};
+export const AchievementDefScalarFieldEnum = {
+    id: 'id',
+    code: 'code',
+    name: 'name',
+    description: 'description',
+    category: 'category',
+    rarity: 'rarity',
+    requirement: 'requirement',
+    rewardMoney: 'rewardMoney',
+    rewardBadge: 'rewardBadge',
+    sortOrder: 'sortOrder'
+};
+export const AchievementUnlockScalarFieldEnum = {
+    id: 'id',
+    discordId: 'discordId',
+    achievementId: 'achievementId',
+    unlockedAt: 'unlockedAt',
+    rewardClaimed: 'rewardClaimed'
+};
+export const LeaderboardSnapshotScalarFieldEnum = {
+    id: 'id',
+    boardType: 'boardType',
+    weekOf: 'weekOf',
+    rankings: 'rankings',
+    createdAt: 'createdAt'
+};
 export const SortOrder = {
     asc: 'asc',
     desc: 'desc'
@@ -726,7 +802,8 @@ export const PokemonInstanceOrderByRelevanceFieldEnum = {
     nickname: 'nickname',
     tenantId: 'tenantId',
     trainerId: 'trainerId',
-    packHash: 'packHash'
+    packHash: 'packHash',
+    originalTrainerId: 'originalTrainerId'
 };
 export const PartyOrderByRelevanceFieldEnum = {
     id: 'id',
@@ -917,4 +994,34 @@ export const WorkerMetricsOrderByRelevanceFieldEnum = {
     workerName: 'workerName',
     healthStatus: 'healthStatus',
     lastError: 'lastError'
+};
+export const TradeLogOrderByRelevanceFieldEnum = {
+    id: 'id',
+    sessionId: 'sessionId',
+    senderId: 'senderId',
+    receiverId: 'receiverId',
+    senderPokemonId: 'senderPokemonId',
+    receiverPokemonId: 'receiverPokemonId'
+};
+export const PlayerStatsOrderByRelevanceFieldEnum = {
+    id: 'id',
+    discordId: 'discordId'
+};
+export const AchievementDefOrderByRelevanceFieldEnum = {
+    id: 'id',
+    code: 'code',
+    name: 'name',
+    description: 'description',
+    category: 'category',
+    rarity: 'rarity',
+    rewardBadge: 'rewardBadge'
+};
+export const AchievementUnlockOrderByRelevanceFieldEnum = {
+    id: 'id',
+    discordId: 'discordId',
+    achievementId: 'achievementId'
+};
+export const LeaderboardSnapshotOrderByRelevanceFieldEnum = {
+    id: 'id',
+    boardType: 'boardType'
 };

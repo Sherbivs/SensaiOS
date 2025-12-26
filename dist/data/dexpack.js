@@ -6,12 +6,13 @@
  *
  * @module data/dexpack
  */
-import { recordDexFallback, recordDexLookup, recordDexLookupMiss, recordDexLoad } from "../dex/metrics.js";
+// LOGGER FIRST — Must be early import to capture initialization errors
 import { getLogger } from "../shared/logging/index.js";
+const logger = getLogger();
+import { recordDexFallback, recordDexLookup, recordDexLookupMiss, recordDexLoad } from "../dex/metrics.js";
 import { DEX_V2_ENABLED } from "../config/env.js";
 import { resetDexV2Runtime, loadDexV2Runtime, getDexV2Pack, getDexV2FastTables } from "../dex/v2/loader.js";
 import { ensureError, getErrorMessage } from "../shared/utils/error-utils.js";
-const logger = getLogger();
 /** Runtime source identifiers */
 export const RUNTIME_SOURCE = {
     MODULE: "module",

@@ -27,12 +27,15 @@
  * @module services/alert-dispatcher
  */
 
+// LOGGER FIRST — Must be early import to capture initialization errors
+import { getLogger } from '../shared/logging/index.js';
+const logger = getLogger();
+
 import { EventBus, type BusEvent } from '../shared/event-bus.js';
 import { Client, type TextChannel, EmbedBuilder, type ColorResolvable } from 'discord.js';
 import { existsSync, mkdirSync, writeFileSync, readdirSync, unlinkSync, statSync } from 'node:fs';
 import { join as pathJoin } from 'node:path';
 import { performance } from 'node:perf_hooks';
-import { getLogger } from '../shared/logging/index.js';
 import { getErrorMessage } from '../shared/utils/error-utils.js';
 import {
   ALERT_DISPATCHER_ENABLED,
@@ -46,7 +49,6 @@ import {
   DRIP_USER_ID,
 } from '../config/env.js';
 
-const logger = getLogger();
 
 // ============================================================================
 // Types

@@ -1,9 +1,10 @@
+// LOGGER FIRST — Must be early import to capture initialization errors
 import { getLogger } from '../shared/logging/index.js';
+const logger = getLogger();
 import { createHash } from "node:crypto";
 import { readFile, mkdir, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-const logger = getLogger();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 function toStable(value) {

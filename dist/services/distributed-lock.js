@@ -14,10 +14,11 @@
  *   - Graceful fallback to in-memory locks if Redis unavailable
  *   - Comprehensive logging and metrics
  */
-import RedisModule from 'ioredis';
+// LOGGER FIRST — Must be early import to capture initialization errors
 import { getLogger } from '../shared/logging/index.js';
-import { getErrorMessage } from '../shared/utils/error-utils.js';
 const logger = getLogger();
+import RedisModule from 'ioredis';
+import { getErrorMessage } from '../shared/utils/error-utils.js';
 // ─────────────────────────────────────────────────────────────────────────────
 // State
 // ─────────────────────────────────────────────────────────────────────────────

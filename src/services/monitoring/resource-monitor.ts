@@ -28,16 +28,17 @@
  * Integration: Called from src/index.ts boot() and gracefulShutdown()
  */
 
+// LOGGER FIRST — Must be early import to capture initialization errors
+import { getLogger } from '../../shared/logging/index.js';
+const logger = getLogger();
+
 import fs from 'node:fs';
 import path from 'node:path';
 import { resourceManager } from './resource-manager.js';
 import { getErrorMessage } from '../../shared/utils/error-utils.js';
-import { getLogger } from '../../shared/logging/index.js';
 import { EventBus } from '../../shared/event-bus.js';
 import type { ResourceStats } from './resource-manager.js';
 import { RESOURCE_MONITOR_INTERVAL_MS, DISK_WARNING_THRESHOLD, DISK_CRITICAL_THRESHOLD, DISK_EMERGENCY_THRESHOLD } from '../../config/env.js';
-
-const logger = getLogger();
 
 // ============================================================================
 // Types

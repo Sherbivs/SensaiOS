@@ -28,34 +28,53 @@ guidance_when_none: |
 auto_promote_if_empty: true
 
 # Main task queue (up to 3 concurrent tasks)
-# Available: CONSOLIDATION.ERROR_HANDLING (Sprint 4)
+# KERNEL-FIRST LOGGING INITIATIVE — Sprint 2: Output Plugin Architecture
+# Sprint 1 COMPLETE (2025-12-26): PREBOOT_QUEUE, TEST_UTILS, BOT_ENTRY all done
 main_tasks:
-  - id: CONSOLIDATION.ERROR_HANDLING
-    title: "Error Handling Consolidation (Sprint 4)"
+  - id: KERNEL.LOGGING.OUTPUT_PLUGINS
+    title: "Add output plugin system to Kernel"
     status: READY
-    effort: "8-12h"
+    effort: "3h"
+    sprint: "Sprint 2: Output Plugins"
     files_hint:
-      - src/shared/utils/error-utils.ts
-      - src/services/**/*.ts
-      - src/bot/**/*.ts
+      - src/kernel/kernel-output-plugins.ts
+      - src/kernel/boot-kernel.ts
+
+  - id: KERNEL.LOGGING.PII_SCRUBBING
+    title: "Add PII scrubbing to Kernel output"
+    status: READY
+    effort: "2h"
+    sprint: "Sprint 2: Output Plugins"
+    files_hint:
+      - src/kernel/pii-scrubber.ts
+      - src/kernel/kernel-logger.ts
+
+  - id: KERNEL.LOGGING.CORRELATION_IDS
+    title: "Add correlation ID tracking"
+    status: READY
+    effort: "2h"
+    sprint: "Sprint 2: Output Plugins"
+    files_hint:
+      - src/kernel/kernel-logger.ts
+      - src/kernel/correlation.ts
 
 # Quick/hot task slot (1 concurrent quick task allowed)
 quick_task:
-  id: CONSOLIDATION.MAIN_TS_REPLIES
-  title: "Security bot reply pattern migration"
-  status: READY
-  effort: "1h"
-  files_hint:
-    - src/bot/main.ts
+  id: NONE
+  title: "Available for hotfixes"
+  status: NONE
+  effort: "N/A"
+  files_hint: []
 
 # Legacy fields (maintained for backward compatibility)
-next_task_id: CONSOLIDATION.ERROR_HANDLING
-reason: "Meeting #4 complete - Sprint 4 ready"
+next_task_id: KERNEL.LOGGING.OUTPUT_PLUGINS
+reason: "Sprint 1 COMPLETE. Starting Sprint 2: Output Plugin Architecture"
 files_hint:
-  - src/shared/utils/error-utils.ts
+  - src/kernel/kernel-output-plugins.ts
+  - src/kernel/boot-kernel.ts
 
 queue: []
-timestamp_utc: 2025-12-20T12:00:00Z
+timestamp_utc: 2025-12-26T05:40:00Z
 router_version: 2
-last_notes_read_utc: 2025-12-20T12:00:00Z
-note: "CLEANUP MEETING #4 COMPLETE (2025-12-20): interaction.reply() consolidation 95%+ done. 11 patterns migrated in claim.ts and index.ts. Build passing. Sprint 4 (error handling) ready. Query layer consolidation DEFERRED pending test coverage."
+last_notes_read_utc: 2025-12-26T05:40:00Z
+note: "SPRINT 1 COMPLETE (2025-12-26): PREBOOT_QUEUE, TEST_UTILS, BOT_ENTRY all done. 32 kernel tests passing. Ready for Sprint 2: Output Plugin Architecture."

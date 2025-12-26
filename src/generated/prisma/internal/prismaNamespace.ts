@@ -429,7 +429,12 @@ export const ModelName = {
   EventHistory: 'EventHistory',
   MemberRoleHistory: 'MemberRoleHistory',
   SecurityEvent: 'SecurityEvent',
-  WorkerMetrics: 'WorkerMetrics'
+  WorkerMetrics: 'WorkerMetrics',
+  TradeLog: 'TradeLog',
+  PlayerStats: 'PlayerStats',
+  AchievementDef: 'AchievementDef',
+  AchievementUnlock: 'AchievementUnlock',
+  LeaderboardSnapshot: 'LeaderboardSnapshot'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -445,7 +450,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "tenant" | "trainer" | "dexPack" | "trainerSettings" | "type" | "ability" | "item" | "move" | "species" | "speciesType" | "speciesAbility" | "speciesLearnset" | "evolutionStep" | "typeChart" | "nameVariant" | "user" | "homesteadChannel" | "discordGuild" | "discordMember" | "pokemonInstance" | "party" | "partySlot" | "inventory" | "encounter" | "battle" | "cooldown" | "busMessage" | "busIdemToken" | "auditLog" | "dbVersion" | "dbSyncState" | "logEntry" | "errorLog" | "errorAlert" | "errorKnowledge" | "errorResolution" | "errorDependency" | "errorCodeContext" | "battleAnalytics" | "consoleOutput" | "dataPoolSyncStatus" | "discordRole" | "eventHistory" | "memberRoleHistory" | "securityEvent" | "workerMetrics"
+    modelProps: "tenant" | "trainer" | "dexPack" | "trainerSettings" | "type" | "ability" | "item" | "move" | "species" | "speciesType" | "speciesAbility" | "speciesLearnset" | "evolutionStep" | "typeChart" | "nameVariant" | "user" | "homesteadChannel" | "discordGuild" | "discordMember" | "pokemonInstance" | "party" | "partySlot" | "inventory" | "encounter" | "battle" | "cooldown" | "busMessage" | "busIdemToken" | "auditLog" | "dbVersion" | "dbSyncState" | "logEntry" | "errorLog" | "errorAlert" | "errorKnowledge" | "errorResolution" | "errorDependency" | "errorCodeContext" | "battleAnalytics" | "consoleOutput" | "dataPoolSyncStatus" | "discordRole" | "eventHistory" | "memberRoleHistory" | "securityEvent" | "workerMetrics" | "tradeLog" | "playerStats" | "achievementDef" | "achievementUnlock" | "leaderboardSnapshot"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -3853,6 +3858,376 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         }
       }
     }
+    TradeLog: {
+      payload: Prisma.$TradeLogPayload<ExtArgs>
+      fields: Prisma.TradeLogFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.TradeLogFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$TradeLogPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.TradeLogFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$TradeLogPayload>
+        }
+        findFirst: {
+          args: Prisma.TradeLogFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$TradeLogPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.TradeLogFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$TradeLogPayload>
+        }
+        findMany: {
+          args: Prisma.TradeLogFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$TradeLogPayload>[]
+        }
+        create: {
+          args: Prisma.TradeLogCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$TradeLogPayload>
+        }
+        createMany: {
+          args: Prisma.TradeLogCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.TradeLogCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$TradeLogPayload>[]
+        }
+        delete: {
+          args: Prisma.TradeLogDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$TradeLogPayload>
+        }
+        update: {
+          args: Prisma.TradeLogUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$TradeLogPayload>
+        }
+        deleteMany: {
+          args: Prisma.TradeLogDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.TradeLogUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.TradeLogUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$TradeLogPayload>[]
+        }
+        upsert: {
+          args: Prisma.TradeLogUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$TradeLogPayload>
+        }
+        aggregate: {
+          args: Prisma.TradeLogAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateTradeLog>
+        }
+        groupBy: {
+          args: Prisma.TradeLogGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.TradeLogGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.TradeLogCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.TradeLogCountAggregateOutputType> | number
+        }
+      }
+    }
+    PlayerStats: {
+      payload: Prisma.$PlayerStatsPayload<ExtArgs>
+      fields: Prisma.PlayerStatsFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.PlayerStatsFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PlayerStatsPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.PlayerStatsFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PlayerStatsPayload>
+        }
+        findFirst: {
+          args: Prisma.PlayerStatsFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PlayerStatsPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.PlayerStatsFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PlayerStatsPayload>
+        }
+        findMany: {
+          args: Prisma.PlayerStatsFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PlayerStatsPayload>[]
+        }
+        create: {
+          args: Prisma.PlayerStatsCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PlayerStatsPayload>
+        }
+        createMany: {
+          args: Prisma.PlayerStatsCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.PlayerStatsCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PlayerStatsPayload>[]
+        }
+        delete: {
+          args: Prisma.PlayerStatsDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PlayerStatsPayload>
+        }
+        update: {
+          args: Prisma.PlayerStatsUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PlayerStatsPayload>
+        }
+        deleteMany: {
+          args: Prisma.PlayerStatsDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.PlayerStatsUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.PlayerStatsUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PlayerStatsPayload>[]
+        }
+        upsert: {
+          args: Prisma.PlayerStatsUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PlayerStatsPayload>
+        }
+        aggregate: {
+          args: Prisma.PlayerStatsAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregatePlayerStats>
+        }
+        groupBy: {
+          args: Prisma.PlayerStatsGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.PlayerStatsGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.PlayerStatsCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.PlayerStatsCountAggregateOutputType> | number
+        }
+      }
+    }
+    AchievementDef: {
+      payload: Prisma.$AchievementDefPayload<ExtArgs>
+      fields: Prisma.AchievementDefFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.AchievementDefFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AchievementDefPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.AchievementDefFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AchievementDefPayload>
+        }
+        findFirst: {
+          args: Prisma.AchievementDefFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AchievementDefPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.AchievementDefFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AchievementDefPayload>
+        }
+        findMany: {
+          args: Prisma.AchievementDefFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AchievementDefPayload>[]
+        }
+        create: {
+          args: Prisma.AchievementDefCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AchievementDefPayload>
+        }
+        createMany: {
+          args: Prisma.AchievementDefCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.AchievementDefCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AchievementDefPayload>[]
+        }
+        delete: {
+          args: Prisma.AchievementDefDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AchievementDefPayload>
+        }
+        update: {
+          args: Prisma.AchievementDefUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AchievementDefPayload>
+        }
+        deleteMany: {
+          args: Prisma.AchievementDefDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.AchievementDefUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.AchievementDefUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AchievementDefPayload>[]
+        }
+        upsert: {
+          args: Prisma.AchievementDefUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AchievementDefPayload>
+        }
+        aggregate: {
+          args: Prisma.AchievementDefAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateAchievementDef>
+        }
+        groupBy: {
+          args: Prisma.AchievementDefGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AchievementDefGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.AchievementDefCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AchievementDefCountAggregateOutputType> | number
+        }
+      }
+    }
+    AchievementUnlock: {
+      payload: Prisma.$AchievementUnlockPayload<ExtArgs>
+      fields: Prisma.AchievementUnlockFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.AchievementUnlockFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AchievementUnlockPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.AchievementUnlockFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AchievementUnlockPayload>
+        }
+        findFirst: {
+          args: Prisma.AchievementUnlockFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AchievementUnlockPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.AchievementUnlockFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AchievementUnlockPayload>
+        }
+        findMany: {
+          args: Prisma.AchievementUnlockFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AchievementUnlockPayload>[]
+        }
+        create: {
+          args: Prisma.AchievementUnlockCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AchievementUnlockPayload>
+        }
+        createMany: {
+          args: Prisma.AchievementUnlockCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.AchievementUnlockCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AchievementUnlockPayload>[]
+        }
+        delete: {
+          args: Prisma.AchievementUnlockDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AchievementUnlockPayload>
+        }
+        update: {
+          args: Prisma.AchievementUnlockUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AchievementUnlockPayload>
+        }
+        deleteMany: {
+          args: Prisma.AchievementUnlockDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.AchievementUnlockUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.AchievementUnlockUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AchievementUnlockPayload>[]
+        }
+        upsert: {
+          args: Prisma.AchievementUnlockUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AchievementUnlockPayload>
+        }
+        aggregate: {
+          args: Prisma.AchievementUnlockAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateAchievementUnlock>
+        }
+        groupBy: {
+          args: Prisma.AchievementUnlockGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AchievementUnlockGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.AchievementUnlockCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AchievementUnlockCountAggregateOutputType> | number
+        }
+      }
+    }
+    LeaderboardSnapshot: {
+      payload: Prisma.$LeaderboardSnapshotPayload<ExtArgs>
+      fields: Prisma.LeaderboardSnapshotFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.LeaderboardSnapshotFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$LeaderboardSnapshotPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.LeaderboardSnapshotFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$LeaderboardSnapshotPayload>
+        }
+        findFirst: {
+          args: Prisma.LeaderboardSnapshotFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$LeaderboardSnapshotPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.LeaderboardSnapshotFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$LeaderboardSnapshotPayload>
+        }
+        findMany: {
+          args: Prisma.LeaderboardSnapshotFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$LeaderboardSnapshotPayload>[]
+        }
+        create: {
+          args: Prisma.LeaderboardSnapshotCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$LeaderboardSnapshotPayload>
+        }
+        createMany: {
+          args: Prisma.LeaderboardSnapshotCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.LeaderboardSnapshotCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$LeaderboardSnapshotPayload>[]
+        }
+        delete: {
+          args: Prisma.LeaderboardSnapshotDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$LeaderboardSnapshotPayload>
+        }
+        update: {
+          args: Prisma.LeaderboardSnapshotUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$LeaderboardSnapshotPayload>
+        }
+        deleteMany: {
+          args: Prisma.LeaderboardSnapshotDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.LeaderboardSnapshotUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.LeaderboardSnapshotUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$LeaderboardSnapshotPayload>[]
+        }
+        upsert: {
+          args: Prisma.LeaderboardSnapshotUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$LeaderboardSnapshotPayload>
+        }
+        aggregate: {
+          args: Prisma.LeaderboardSnapshotAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateLeaderboardSnapshot>
+        }
+        groupBy: {
+          args: Prisma.LeaderboardSnapshotGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.LeaderboardSnapshotGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.LeaderboardSnapshotCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.LeaderboardSnapshotCountAggregateOutputType> | number
+        }
+      }
+    }
   }
 } & {
   other: {
@@ -4162,7 +4537,9 @@ export const PokemonInstanceScalarFieldEnum = {
   updatedAt: 'updatedAt',
   tenantId: 'tenantId',
   trainerId: 'trainerId',
-  packHash: 'packHash'
+  packHash: 'packHash',
+  originalTrainerId: 'originalTrainerId',
+  tradedAt: 'tradedAt'
 } as const
 
 export type PokemonInstanceScalarFieldEnum = (typeof PokemonInstanceScalarFieldEnum)[keyof typeof PokemonInstanceScalarFieldEnum]
@@ -4592,6 +4969,95 @@ export const WorkerMetricsScalarFieldEnum = {
 export type WorkerMetricsScalarFieldEnum = (typeof WorkerMetricsScalarFieldEnum)[keyof typeof WorkerMetricsScalarFieldEnum]
 
 
+export const TradeLogScalarFieldEnum = {
+  id: 'id',
+  sessionId: 'sessionId',
+  senderId: 'senderId',
+  receiverId: 'receiverId',
+  senderPokemonId: 'senderPokemonId',
+  receiverPokemonId: 'receiverPokemonId',
+  senderPokemonSpeciesId: 'senderPokemonSpeciesId',
+  receiverPokemonSpeciesId: 'receiverPokemonSpeciesId',
+  senderPokemonLevel: 'senderPokemonLevel',
+  receiverPokemonLevel: 'receiverPokemonLevel',
+  senderPokemonShiny: 'senderPokemonShiny',
+  receiverPokemonShiny: 'receiverPokemonShiny',
+  completedAt: 'completedAt'
+} as const
+
+export type TradeLogScalarFieldEnum = (typeof TradeLogScalarFieldEnum)[keyof typeof TradeLogScalarFieldEnum]
+
+
+export const PlayerStatsScalarFieldEnum = {
+  id: 'id',
+  discordId: 'discordId',
+  totalCatches: 'totalCatches',
+  totalBattleWins: 'totalBattleWins',
+  totalBattleLosses: 'totalBattleLosses',
+  totalTrades: 'totalTrades',
+  totalFishCaught: 'totalFishCaught',
+  totalWalks: 'totalWalks',
+  totalShinies: 'totalShinies',
+  totalEvolutions: 'totalEvolutions',
+  pokedexPercent: 'pokedexPercent',
+  uniqueTradePartners: 'uniqueTradePartners',
+  uniqueTypesCaught: 'uniqueTypesCaught',
+  currentWinStreak: 'currentWinStreak',
+  bestWinStreak: 'bestWinStreak',
+  dailyStreak: 'dailyStreak',
+  bestDailyStreak: 'bestDailyStreak',
+  lastDailyClaimAt: 'lastDailyClaimAt',
+  weeklyCatches: 'weeklyCatches',
+  weeklyFish: 'weeklyFish',
+  weeklyBattles: 'weeklyBattles',
+  weekStartedAt: 'weekStartedAt',
+  seasonWins: 'seasonWins',
+  seasonNumber: 'seasonNumber',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type PlayerStatsScalarFieldEnum = (typeof PlayerStatsScalarFieldEnum)[keyof typeof PlayerStatsScalarFieldEnum]
+
+
+export const AchievementDefScalarFieldEnum = {
+  id: 'id',
+  code: 'code',
+  name: 'name',
+  description: 'description',
+  category: 'category',
+  rarity: 'rarity',
+  requirement: 'requirement',
+  rewardMoney: 'rewardMoney',
+  rewardBadge: 'rewardBadge',
+  sortOrder: 'sortOrder'
+} as const
+
+export type AchievementDefScalarFieldEnum = (typeof AchievementDefScalarFieldEnum)[keyof typeof AchievementDefScalarFieldEnum]
+
+
+export const AchievementUnlockScalarFieldEnum = {
+  id: 'id',
+  discordId: 'discordId',
+  achievementId: 'achievementId',
+  unlockedAt: 'unlockedAt',
+  rewardClaimed: 'rewardClaimed'
+} as const
+
+export type AchievementUnlockScalarFieldEnum = (typeof AchievementUnlockScalarFieldEnum)[keyof typeof AchievementUnlockScalarFieldEnum]
+
+
+export const LeaderboardSnapshotScalarFieldEnum = {
+  id: 'id',
+  boardType: 'boardType',
+  weekOf: 'weekOf',
+  rankings: 'rankings',
+  createdAt: 'createdAt'
+} as const
+
+export type LeaderboardSnapshotScalarFieldEnum = (typeof LeaderboardSnapshotScalarFieldEnum)[keyof typeof LeaderboardSnapshotScalarFieldEnum]
+
+
 export const SortOrder = {
   asc: 'asc',
   desc: 'desc'
@@ -4791,7 +5257,8 @@ export const PokemonInstanceOrderByRelevanceFieldEnum = {
   nickname: 'nickname',
   tenantId: 'tenantId',
   trainerId: 'trainerId',
-  packHash: 'packHash'
+  packHash: 'packHash',
+  originalTrainerId: 'originalTrainerId'
 } as const
 
 export type PokemonInstanceOrderByRelevanceFieldEnum = (typeof PokemonInstanceOrderByRelevanceFieldEnum)[keyof typeof PokemonInstanceOrderByRelevanceFieldEnum]
@@ -5089,6 +5556,56 @@ export const WorkerMetricsOrderByRelevanceFieldEnum = {
 } as const
 
 export type WorkerMetricsOrderByRelevanceFieldEnum = (typeof WorkerMetricsOrderByRelevanceFieldEnum)[keyof typeof WorkerMetricsOrderByRelevanceFieldEnum]
+
+
+export const TradeLogOrderByRelevanceFieldEnum = {
+  id: 'id',
+  sessionId: 'sessionId',
+  senderId: 'senderId',
+  receiverId: 'receiverId',
+  senderPokemonId: 'senderPokemonId',
+  receiverPokemonId: 'receiverPokemonId'
+} as const
+
+export type TradeLogOrderByRelevanceFieldEnum = (typeof TradeLogOrderByRelevanceFieldEnum)[keyof typeof TradeLogOrderByRelevanceFieldEnum]
+
+
+export const PlayerStatsOrderByRelevanceFieldEnum = {
+  id: 'id',
+  discordId: 'discordId'
+} as const
+
+export type PlayerStatsOrderByRelevanceFieldEnum = (typeof PlayerStatsOrderByRelevanceFieldEnum)[keyof typeof PlayerStatsOrderByRelevanceFieldEnum]
+
+
+export const AchievementDefOrderByRelevanceFieldEnum = {
+  id: 'id',
+  code: 'code',
+  name: 'name',
+  description: 'description',
+  category: 'category',
+  rarity: 'rarity',
+  rewardBadge: 'rewardBadge'
+} as const
+
+export type AchievementDefOrderByRelevanceFieldEnum = (typeof AchievementDefOrderByRelevanceFieldEnum)[keyof typeof AchievementDefOrderByRelevanceFieldEnum]
+
+
+export const AchievementUnlockOrderByRelevanceFieldEnum = {
+  id: 'id',
+  discordId: 'discordId',
+  achievementId: 'achievementId'
+} as const
+
+export type AchievementUnlockOrderByRelevanceFieldEnum = (typeof AchievementUnlockOrderByRelevanceFieldEnum)[keyof typeof AchievementUnlockOrderByRelevanceFieldEnum]
+
+
+export const LeaderboardSnapshotOrderByRelevanceFieldEnum = {
+  id: 'id',
+  boardType: 'boardType'
+} as const
+
+export type LeaderboardSnapshotOrderByRelevanceFieldEnum = (typeof LeaderboardSnapshotOrderByRelevanceFieldEnum)[keyof typeof LeaderboardSnapshotOrderByRelevanceFieldEnum]
 
 
 
@@ -5398,6 +5915,11 @@ export type GlobalOmitConfig = {
   memberRoleHistory?: Prisma.MemberRoleHistoryOmit
   securityEvent?: Prisma.SecurityEventOmit
   workerMetrics?: Prisma.WorkerMetricsOmit
+  tradeLog?: Prisma.TradeLogOmit
+  playerStats?: Prisma.PlayerStatsOmit
+  achievementDef?: Prisma.AchievementDefOmit
+  achievementUnlock?: Prisma.AchievementUnlockOmit
+  leaderboardSnapshot?: Prisma.LeaderboardSnapshotOmit
 }
 
 /* Types for Logging */

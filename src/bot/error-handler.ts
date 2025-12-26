@@ -6,12 +6,13 @@
  * @module bot/error-handler
  */
 
+// LOGGER FIRST — Must be early import to capture initialization errors
+import { getLogger } from "../shared/logging/index.js";
+const logger = getLogger();
+
 import { DiscordAPIError, CommandInteraction, Interaction, Message } from 'discord.js';
 import { errorTracker, type ErrorContext } from '../services/monitoring/index.js';
-import { getLogger } from "../shared/logging/index.js";
 import { safeReply } from './shared/response-helpers.js';
-
-const logger = getLogger();
 
 /// ---- Discord Error Types ----
 

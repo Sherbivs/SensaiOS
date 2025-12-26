@@ -92,8 +92,9 @@ import * as ErrorBrainCache from './error-brain-cache.js';
 import * as PatternDetector from './pattern-detector.js';
 import * as ImpactPredictor from './impact-predictor.js';
 import * as ErrorBrainWorker from './error-brain-worker.js';
-import { getLogger } from '../../shared/logging/index.js';
 
+// LOGGER — After barrel re-exports, early in facade implementation
+import { getLogger } from '../../shared/logging/index.js';
 const logger = getLogger();
 
 // ============================================================================

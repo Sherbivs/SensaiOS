@@ -10,12 +10,13 @@
  * @module homestead-manager
  */
 
+// LOGGER FIRST — Must be early import to capture initialization errors
+import { getLogger } from "../shared/logging/index.js";
+const logger = getLogger();
+
 import { Client, Guild, TextChannel, ChannelType, PermissionFlagsBits, User } from 'discord.js';
 import { prisma } from '../shared/prisma.js';
-import { getLogger } from "../shared/logging/index.js";
 import { getErrorMessage } from '../shared/utils/error-utils.js';
-
-const logger = getLogger();
 import { daysAgo } from '../shared/utils/date-utils.js';
 import { HOMESTEAD_CATEGORY_NAME, HOMESTEAD_CLEANUP_DAYS } from '../config/env.js';
 import { homesteadRepository } from './homestead-repository.js';

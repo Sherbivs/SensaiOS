@@ -8,21 +8,50 @@
  * 2. ZERO FALSE NEGATIVES: Even if database fails, error is logged to console + emergency file
  * 3. IMMEDIATE VISIBILITY: Console output before any async operations
  * 4. LIVE STREAM: Real-time event emission for logger integration
+ * 5. KERNEL INTEGRATION: All errors report UP to kernel observation layer (2025-12-26)
  *
  * @module services/error-tracker
  */
+// KERNEL FIRST — Must be first import to monitor other system initialization
+import { createErrorTrackerHook } from '../../kernel/kernel-hooks.js';
+import { getCurrentCorrelationId } from '../../kernel/correlation.js';
+// LOGGER SECOND — Must be early import to capture initialization errors
+import { getLogger } from "../../shared/logging/index.js";
+const logger = getLogger();
 import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { toEasternLogFormat } from '../../shared/datetime.js';
 import { EventBus } from '../../shared/event-bus.js';
 import { prisma } from '../../shared/prisma.js';
-import { getLogger } from "../../shared/logging/index.js";
 import { daysAgo } from '../../shared/utils/date-utils.js';
 import { parseStackTrace, enrichStackFramesWithSource, captureErrorContextSnapshot, formatErrorReportForAI, } from '../../utils/stack-trace-parser.js';
 // Error Brain — Local intelligence system for error pattern detection
 import * as ErrorBrain from '../error-brain/index.js';
-const logger = getLogger();
+// ═══════════════════════════════════════════════════════════════════════════
+// Kernel Integration — Reports UP to observation layer
+// ═══════════════════════════════════════════════════════════════════════════
+/**
+ * Kernel hook for reporting errors to the observation layer
+ * Initialized lazily to avoid circular dependency issues during boot
+ */
+let kernelHook = null;
+/**
+ * Get or create the kernel hook (lazy initialization)
+ * Safe to call during boot - returns null if kernel not ready
+ */
+function getKernelHook() {
+    if (kernelHook)
+        return kernelHook;
+    try {
+        kernelHook = createErrorTrackerHook('error-tracker');
+        return kernelHook;
+    }
+    catch {
+        // Kernel not ready yet (during early boot), will retry on next error
+        return null;
+    }
+}
 /// ---- Error Fingerprinting ----
 /**
  * Generate a unique fingerprint for an error
@@ -229,6 +258,34 @@ export class ErrorTracker {
                 } : undefined,
                 callChain: parsedStack.callChain,
             });
+            // ═══════════════════════════════════════════════════════════════
+            // KERNEL INTEGRATION — Report UP to observation layer
+            // ═══════════════════════════════════════════════════════════════
+            // Kernel observes all errors for unified metrics, patterns, anomalies
+            // This doesn't replace our DB/EventBus flow - it ADDS visibility
+            const hook = getKernelHook();
+            if (hook) {
+                hook.error({
+                    errorId: result.errorId,
+                    fingerprint,
+                    category,
+                    severity,
+                    name: error.name,
+                    message: error.message,
+                    stack: error.stack,
+                    timestamp: new Date(),
+                    context: {
+                        correlationId: getCurrentCorrelationId(),
+                        service: context.service,
+                        operation: context.operation,
+                        userId: context.userId,
+                        guildId: context.guildId,
+                        commandName: context.commandName,
+                        sourceLocation: topFrame?.relativeFilePath ? `${topFrame.relativeFilePath}:${topFrame.lineNumber}` : undefined,
+                        callChain: parsedStack.callChain.slice(0, 5),
+                    },
+                });
+            }
             logger.error('error-tracker', 'persist', `   ✅ Persisted: ${result.errorId} (fingerprint: ${fingerprint.substring(0, 8)}...)`);
             // ============================================================
             // ERROR BRAIN INTEGRATION — Local Intelligence System

@@ -3,7 +3,7 @@
  * Standardized Logger — DB-First Logging System
  *
  * ═══════════════════════════════════════════════════════════════════════════
- * ARCHITECTURE: Database-First Logging
+ * ARCHITECTURE: Database-First Logging with Kernel Integration
  * ═══════════════════════════════════════════════════════════════════════════
  *
  * ALL logs are written to the database FIRST. Console output in production
@@ -13,8 +13,9 @@
  * Data Flow:
  *   1. Application calls logger.info/warn/error/debug
  *   2. Logger writes to TimescaleDB (log_entries table)
- *   3. ConsoleRenderer polls database for new entries
- *   4. Renderer outputs to Render console (stdout/stderr)
+ *   3. Logger ALSO reports to Kernel (unified observation layer)
+ *   4. ConsoleRenderer polls database for new entries
+ *   5. Renderer outputs to Render console (stdout/stderr)
  *
  * Why DB-First?
  *   - Single source of truth (database = authoritative)
@@ -23,6 +24,12 @@
  *   - Queryable history
  *   - Consistent across all services
  *
+ * Kernel Integration (2025-12-26):
+ *   - Logger reports all entries UP to kernel observation layer
+ *   - Kernel provides unified correlation IDs across all systems
+ *   - Kernel tracks metrics, anomalies, patterns across all logging
+ *   - Logger continues full DB/Loki functionality (kernel is observer)
+ *
  * Console Modes:
  *   - PRODUCTION: Console output DISABLED here (ConsoleRenderer handles it)
  *   - DEVELOPMENT: Console output ENABLED (immediate feedback)
@@ -30,7 +37,34 @@
  *
  * @module shared/logger
  */
+// KERNEL FIRST — Must be first import to monitor other system initialization
+import { createLoggerHook } from '../kernel/kernel-hooks.js';
+import { getCurrentCorrelationId, getParentCorrelationId } from '../kernel/correlation.js';
 import { lokiTransport } from './logging/loki-transport.js';
+// ═══════════════════════════════════════════════════════════════════════════
+// Kernel Integration — Reports UP to observation layer
+// ═══════════════════════════════════════════════════════════════════════════
+/**
+ * Kernel hook for reporting logs to the observation layer
+ * Initialized lazily to avoid circular dependency issues during boot
+ */
+let kernelHook = null;
+/**
+ * Get or create the kernel hook (lazy initialization)
+ * Safe to call during boot - returns null if kernel not ready
+ */
+function getKernelHook() {
+    if (kernelHook)
+        return kernelHook;
+    try {
+        kernelHook = createLoggerHook('shared-logger');
+        return kernelHook;
+    }
+    catch {
+        // Kernel not ready yet (during early boot), will retry on next log
+        return null;
+    }
+}
 // ═══════════════════════════════════════════════════════════════════════════
 // Logger Implementation
 // ═══════════════════════════════════════════════════════════════════════════
@@ -103,12 +137,17 @@ class StandardizedLogger {
     /**
      * Core logging function (private)
      *
-     * DB-First Architecture:
+     * DB-First Architecture with Kernel Integration:
      * - In production (dbFirstMode=true): Write to DB only, ConsoleRenderer handles display
      * - In development: Write to DB AND console (immediate feedback)
      * - On DB failure: Always fallback to console (safety)
+     * - ALWAYS: Report UP to kernel observation layer (non-blocking)
      */
     log(level, component, operation, message, context) {
+        // Inject kernel correlation IDs if available (unified tracing)
+        // This ensures logs from this system participate in kernel traces
+        const kernelCorrelationId = getCurrentCorrelationId();
+        const kernelParentCorrelationId = getParentCorrelationId();
         // Build structured log entry
         const entry = {
             timestamp: new Date(),
@@ -117,11 +156,32 @@ class StandardizedLogger {
             operation,
             message,
             ...context,
+            // Use kernel correlation if in a trace, otherwise use provided/none
+            correlationId: context?.correlationId ?? kernelCorrelationId,
+            parentCorrelationId: context?.parentCorrelationId ?? kernelParentCorrelationId,
             errorName: context?.error?.name,
             errorMessage: context?.error?.message,
             errorStack: context?.error?.stack,
             errorCode: context?.error?.code,
         };
+        // ═══════════════════════════════════════════════════════════════════════
+        // KERNEL INTEGRATION — Report UP to observation layer (non-blocking)
+        // ═══════════════════════════════════════════════════════════════════════
+        // The kernel observes this log but doesn't interfere with our DB/Loki flow
+        const hook = getKernelHook();
+        if (hook) {
+            hook.log(level, component, operation, message, {
+                correlationId: entry.correlationId,
+                parentCorrelationId: entry.parentCorrelationId,
+                userId: entry.userId,
+                guildId: entry.guildId,
+                channelId: entry.channelId,
+                durationMs: entry.durationMs,
+                errorName: entry.errorName,
+                errorMessage: entry.errorMessage,
+                ...entry.metadata,
+            });
+        }
         // Send to TimescaleDB (async, non-blocking)
         // This is the PRIMARY destination - database is source of truth
         this.sendToDatabase(entry).catch(err => {

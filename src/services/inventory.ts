@@ -24,10 +24,11 @@
  * @module services/inventory
  */
 
-import { prisma } from "../shared/prisma.js";
+// LOGGER FIRST — Must be early import to capture initialization errors
 import { getLogger } from "../shared/logging/index.js";
-
 const logger = getLogger();
+
+import { prisma } from "../shared/prisma.js";
 
 // ============================================================================
 // ITEM IDS (Well-known item IDs from the database)
@@ -66,6 +67,11 @@ export const ITEM_IDS = {
   ASPEAR_BERRY: 27,
   LUM_BERRY: 28,     // Cures any status condition
   RAZZ_BERRY: 29,    // Catch bonus for encounters
+  
+  // Key Items / Equipment (100+)
+  OLD_ROD: 100,
+  GOOD_ROD: 101,
+  SUPER_ROD: 102,
 } as const;
 
 // ============================================================================

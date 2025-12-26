@@ -10,14 +10,15 @@
  * - Deferred pruning: Startup not blocked by housekeeping
  */
 
+// LOGGER FIRST — Must be early import to capture initialization errors
+import { getLogger } from '../../shared/logging/index.js';
+const logger = getLogger();
+
 import crypto from 'crypto';
 import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { getLogger } from '../../shared/logging/index.js';
 import { getFilesafeTimestamp } from '../../shared/utils/index.js';
-
-const logger = getLogger();
 import { ensureError } from '../../shared/utils/error-utils.js';
 import { errorTracker } from '../../services/monitoring/index.js';
 import {

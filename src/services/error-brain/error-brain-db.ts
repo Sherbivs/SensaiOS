@@ -30,13 +30,20 @@
  * @module services/error-brain/error-brain-db
  */
 
+// KERNEL FIRST — Must be first import to monitor other system initialization
+import {
+  createIntelligenceHook,
+  type IntelligenceHook,
+} from '../../kernel/kernel-hooks.js';
+
+// LOGGER SECOND — Must be early import to capture initialization errors
+import { getLogger } from '../../shared/logging/index.js';
+const logger = getLogger();
+
 import initSqlJs, { type Database } from 'sql.js';
 import fsPromises from 'node:fs/promises';
 import path from 'node:path';
 import { ErrorBrainConfig } from '../../config/error-brain-config.js';
-import { getLogger } from '../../shared/logging/index.js';
-
-const logger = getLogger();
 
 // ============================================================================
 // Type Definitions
@@ -151,6 +158,28 @@ let SQL: Awaited<ReturnType<typeof initSqlJs>> | null = null;
 let db: Database | null = null;
 let isInitialized = false;
 let autoSaveInterval: NodeJS.Timeout | null = null;
+
+// ============================================================================
+// Kernel Integration
+// ============================================================================
+
+/** Lazy-initialized kernel hook for error-brain-db */
+let kernelHook: IntelligenceHook | null = null;
+
+/**
+ * Get or create kernel hook for error-brain-db observability.
+ * Uses lazy initialization to avoid startup dependencies.
+ */
+function getErrorBrainDbHook(): IntelligenceHook | null {
+  if (!kernelHook) {
+    try {
+      kernelHook = createIntelligenceHook("error-brain-db");
+    } catch {
+      // Kernel not available, silently skip
+    }
+  }
+  return kernelHook;
+}
 
 // ============================================================================
 // Schema Version
@@ -524,6 +553,13 @@ export function upsertTimePattern(
       sample_count = sample_count + 1,
       last_updated = ?
   `, [hour, dayOfWeek, fingerprint, avgCount, stdDev, anomalyThreshold, now, avgCount, stdDev, now]);
+
+  // Report learning event to kernel
+  getErrorBrainDbHook()?.learning(
+    "time_pattern",
+    fingerprint ?? "global",
+    { hour, avgCount, stdDev, dayOfWeek }
+  );
 }
 
 // ============================================================================
@@ -582,6 +618,13 @@ export function upsertCorrelation(
       confidence = MIN(0.99, confidence + 0.05),
       last_observed = ?
   `, [primaryFingerprint, secondaryFingerprint, correlationStrength, avgTimeDeltaMs, now, correlationStrength, avgTimeDeltaMs, now]);
+
+  // Report learning event to kernel
+  getErrorBrainDbHook()?.learning(
+    "correlation",
+    primaryFingerprint,
+    { secondary: secondaryFingerprint, strength: correlationStrength, avgTimeDeltaMs }
+  );
 }
 
 // ============================================================================
@@ -643,6 +686,13 @@ export function upsertCascade(
       confidence = MIN(0.99, confidence + 0.05),
       last_observed = ?
   `, [rootFingerprint, childJson, cascadeDepth, avgSpreadTimeMs, totalImpact, now, childJson, cascadeDepth, avgSpreadTimeMs, totalImpact, now]);
+
+  // Report learning event to kernel
+  getErrorBrainDbHook()?.learning(
+    "cascade",
+    rootFingerprint,
+    { childCount: childFingerprints.length, depth: cascadeDepth, avgSpreadTimeMs, totalImpact }
+  );
 }
 
 // ============================================================================
@@ -723,6 +773,13 @@ export function recordRecoveryOutcome(
       VALUES (?, ?, ?, ?, ?, ?, ?)
     `, [fingerprint, strategy, successCount, failureCount, recoveryTimeMs ?? null, effectivenessScore, now]);
   }
+
+  // Report learning event to kernel
+  getErrorBrainDbHook()?.learning(
+    "recovery",
+    fingerprint,
+    { strategy, success, recoveryTimeMs }
+  );
 }
 
 // ============================================================================

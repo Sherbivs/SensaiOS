@@ -27,11 +27,12 @@
  * @module services/error-brain/error-brain-cache
  */
 
-import { ErrorBrainConfig } from '../../config/error-brain-config.js';
+// LOGGER FIRST — Must be early import to capture initialization errors
 import { getLogger } from '../../shared/logging/index.js';
-import * as ErrorBrainDb from './error-brain-db.js';
-
 const logger = getLogger();
+
+import { ErrorBrainConfig } from '../../config/error-brain-config.js';
+import * as ErrorBrainDb from './error-brain-db.js';
 import type {
   TimePatternEntry,
   CorrelationEntry,

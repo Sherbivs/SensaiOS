@@ -15,12 +15,13 @@
  * @see homestead-manager — Channel management
  */
 
+// LOGGER FIRST — Must be early import to capture initialization errors
+import { getLogger } from "../shared/logging/index.js";
+const logger = getLogger();
+
 import { User as DiscordUser, GuildMember } from 'discord.js';
 import { prisma } from '../shared/prisma.js';
 import { getErrorMessage } from '../shared/utils/error-utils.js';
-import { getLogger } from "../shared/logging/index.js";
-
-const logger = getLogger();
 import { 
   resolveDiscordUser, 
   hasDiscordIdentity,
