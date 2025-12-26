@@ -28,15 +28,26 @@ import {
   Client,
   EmbedBuilder,
   User as DiscordUser,
+  ButtonStyle,
 } from "discord.js";
 
 import { EMBED_COLORS } from "../shared/embed-colors.js";
-import { dangerButton, navButton } from "../shared/button-utils.js";
+import { dangerButton, navButton, primaryButton } from "../shared/button-utils.js";
 import { safeReply } from "../shared/response-helpers.js";
 import { getLogger } from "../../shared/logging/index.js";
 import { HomesteadChannelManager } from "../../services/homestead-manager.js";
 import { ensureUser } from "../../shared/models/user-queries-pg.js";
 import { prisma } from "../../shared/prisma.js";
+import { isUsableItem, getUsableTargets, useItemOnPokemon, getItemName } from "../../services/item-effects.js";
+import { getSpecies } from "../../data/dexpack.js";
+
+/**
+ * Helper to get a species name by ID
+ */
+function getSpeciesNameById(speciesId: number): string {
+  const species = getSpecies(speciesId);
+  return species?.name || `#${speciesId}`;
+}
 
 const logger = getLogger();
 
@@ -60,6 +71,9 @@ export type ItemCategory = typeof ITEM_CATEGORIES[number]["id"];
 
 export const BAG_PAGE_PREFIX = "BAG_PAGE_";
 export const BAG_CATEGORY_PREFIX = "BAG_CAT_";
+export const BAG_ITEM_PREFIX = "BAG_ITEM_";
+export const BAG_USE_PREFIX = "BAG_USE_";
+export const BAG_TARGET_PREFIX = "BAG_TARGET_";
 const ITEMS_PER_PAGE = 8;
 
 // ============================================================================
@@ -177,8 +191,9 @@ export function buildCategoryButtons(activeCategory?: ItemCategory): ActionRowBu
 
 /**
  * Build item list buttons with pagination
+ * @deprecated Use buildSelectableItemButtons instead
  */
-function buildItemListButtons(
+function _buildItemListButtons(
   category: ItemCategory,
   page: number,
   totalPages: number
@@ -241,8 +256,9 @@ function buildBagOverviewEmbed(snapshot: BagSnapshot): EmbedBuilder {
 
 /**
  * Build category view embed
+ * @deprecated Logic moved inline to openBagCategory
  */
-function buildCategoryEmbed(
+function _buildCategoryEmbed(
   snapshot: BagSnapshot,
   category: ItemCategory,
   page: number = 1
@@ -300,6 +316,233 @@ function getItemEmoji(item: InventoryItem): string {
 }
 
 // ============================================================================
+// ITEM USE FUNCTIONALITY
+// ============================================================================
+
+/**
+ * Build item list with selectable buttons for a category
+ */
+function buildSelectableItemButtons(
+  items: InventoryItem[],
+  category: ItemCategory,
+  page: number,
+  totalPages: number
+): ActionRowBuilder<ButtonBuilder>[] {
+  const rows: ActionRowBuilder<ButtonBuilder>[] = [];
+  
+  // Add item buttons (up to 4 per row, max 2 rows of items = 8 items)
+  let currentRow = new ActionRowBuilder<ButtonBuilder>();
+  let itemsInRow = 0;
+  
+  for (const item of items) {
+    const emoji = getItemEmoji(item);
+    const usable = isUsableItem(item.itemId);
+    
+    const button = new ButtonBuilder()
+      .setCustomId(`${BAG_ITEM_PREFIX}${item.itemId}`)
+      .setLabel(`${item.name} ×${item.qty}`)
+      .setStyle(usable ? ButtonStyle.Primary : ButtonStyle.Secondary)
+      .setEmoji(emoji);
+    
+    currentRow.addComponents(button);
+    itemsInRow++;
+    
+    if (itemsInRow === 4) {
+      rows.push(currentRow);
+      currentRow = new ActionRowBuilder<ButtonBuilder>();
+      itemsInRow = 0;
+    }
+  }
+  
+  // Push remaining items
+  if (itemsInRow > 0) {
+    rows.push(currentRow);
+  }
+  
+  // Navigation row
+  const navRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`${BAG_PAGE_PREFIX}${category}_${Math.max(1, page - 1)}`)
+      .setLabel("⬅️ Prev")
+      .setStyle(ButtonStyle.Secondary)
+      .setDisabled(page <= 1),
+    new ButtonBuilder()
+      .setCustomId(`${BAG_PAGE_PREFIX}${category}_${Math.min(totalPages, page + 1)}`)
+      .setLabel("➡️ Next")
+      .setStyle(ButtonStyle.Secondary)
+      .setDisabled(page >= totalPages),
+    dangerButton("BAG_BACK", "🏠 Back"),
+  );
+  rows.push(navRow);
+  
+  return rows;
+}
+
+/**
+ * Build item detail embed showing info and usage options
+ */
+function buildItemDetailEmbed(item: InventoryItem): EmbedBuilder {
+  const emoji = getItemEmoji(item);
+  const usable = isUsableItem(item.itemId);
+  
+  const embed = new EmbedBuilder()
+    .setTitle(`${emoji} ${item.name}`)
+    .setColor(usable ? EMBED_COLORS.SUCCESS : EMBED_COLORS.INFO)
+    .addFields(
+      { name: "Quantity", value: `×${item.qty}`, inline: true },
+      { name: "Category", value: ITEM_CATEGORIES.find(c => c.id === item.kind)?.label || item.kind, inline: true },
+    );
+  
+  // Add description based on item type
+  let description = "";
+  if (item.kind === "potion") {
+    description = "Use on a Pokémon to restore HP.";
+  } else if (item.kind === "status") {
+    description = "Use on a Pokémon to cure status conditions.";
+  } else if (item.kind === "berry") {
+    description = "Can be used on Pokémon for various effects.";
+  } else if (item.kind === "ball") {
+    description = "Use during encounters to catch wild Pokémon.";
+  } else if (item.kind === "evolution") {
+    description = "Use on specific Pokémon to trigger evolution.";
+  } else if (item.kind === "held") {
+    description = "Give to a Pokémon to hold during battles.";
+  } else if (item.kind === "key") {
+    description = "Special item. Cannot be used or discarded.";
+  } else if (item.kind === "battle") {
+    description = "Use during battle for temporary boosts.";
+  }
+  
+  if (description) {
+    embed.setDescription(description);
+  }
+  
+  if (usable) {
+    embed.setFooter({ text: "💡 Click 'Use' to select a Pokémon" });
+  }
+  
+  return embed;
+}
+
+/**
+ * Build item detail buttons
+ */
+function buildItemDetailButtons(item: InventoryItem): ActionRowBuilder<ButtonBuilder>[] {
+  const usable = isUsableItem(item.itemId);
+  
+  const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
+    ...(usable ? [
+      primaryButton(`${BAG_USE_PREFIX}${item.itemId}`, "✨ Use"),
+    ] : []),
+    navButton(`${BAG_CATEGORY_PREFIX}${item.kind}`, "◀️ Back to List", false),
+    dangerButton("BAG_BACK", "🏠 Home"),
+  );
+  
+  return [row];
+}
+
+/**
+ * Build Pokémon target selection embed
+ */
+function buildTargetSelectEmbed(
+  item: InventoryItem,
+  targets: Array<{ id: string; speciesId: number; nickname: string | null; hp: number; maxHp: number; status: string | null; slot: number }>
+): EmbedBuilder {
+  const emoji = getItemEmoji(item);
+  
+  const embed = new EmbedBuilder()
+    .setTitle(`${emoji} Use ${item.name}`)
+    .setColor(EMBED_COLORS.SUCCESS)
+    .setDescription("Select a Pokémon to use this item on:");
+  
+  if (targets.length === 0) {
+    embed.setDescription("No Pokémon in your party can use this item right now.");
+    embed.setColor(EMBED_COLORS.WARNING);
+  } else {
+    const targetLines = targets.map(p => {
+      const name = p.nickname || getSpeciesNameById(p.speciesId);
+      const hpBar = buildHpBar(p.hp, p.maxHp);
+      const statusText = p.status ? ` [${p.status}]` : "";
+      return `**${p.slot}.** ${name}${statusText}\n${hpBar} ${p.hp}/${p.maxHp} HP`;
+    }).join("\n\n");
+    
+    embed.addFields({ name: "Available Targets", value: targetLines });
+  }
+  
+  return embed;
+}
+
+/**
+ * Build HP bar string
+ */
+function buildHpBar(hp: number, maxHp: number): string {
+  const percent = Math.floor((hp / maxHp) * 100);
+  const filled = Math.round(percent / 10);
+  const empty = 10 - filled;
+  
+  let color = "🟩"; // Green
+  if (percent <= 25) color = "🟥"; // Red
+  else if (percent <= 50) color = "🟨"; // Yellow
+  
+  return color.repeat(filled) + "⬜".repeat(empty);
+}
+
+/**
+ * Build target selection buttons
+ */
+function buildTargetSelectButtons(
+  itemId: number,
+  targets: Array<{ id: string; speciesId: number; nickname: string | null; slot: number }>
+): ActionRowBuilder<ButtonBuilder>[] {
+  const rows: ActionRowBuilder<ButtonBuilder>[] = [];
+  
+  if (targets.length === 0) {
+    // No targets - just back button
+    const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
+      navButton(`${BAG_ITEM_PREFIX}${itemId}`, "◀️ Back", false),
+      dangerButton("BAG_BACK", "🏠 Home"),
+    );
+    return [row];
+  }
+  
+  // Target buttons (one per Pokémon, up to 5 per row)
+  let currentRow = new ActionRowBuilder<ButtonBuilder>();
+  let inRow = 0;
+  
+  for (const target of targets) {
+    const name = target.nickname || getSpeciesNameById(target.speciesId);
+    const shortName = name.length > 12 ? name.substring(0, 10) + "…" : name;
+    
+    const button = new ButtonBuilder()
+      .setCustomId(`${BAG_TARGET_PREFIX}${itemId}_${target.id}`)
+      .setLabel(`${target.slot}. ${shortName}`)
+      .setStyle(ButtonStyle.Success);
+    
+    currentRow.addComponents(button);
+    inRow++;
+    
+    if (inRow === 4) {
+      rows.push(currentRow);
+      currentRow = new ActionRowBuilder<ButtonBuilder>();
+      inRow = 0;
+    }
+  }
+  
+  // Add cancel to last target row or new row
+  if (inRow > 0) {
+    currentRow.addComponents(dangerButton(`${BAG_ITEM_PREFIX}${itemId}`, "❌ Cancel"));
+    rows.push(currentRow);
+  } else {
+    const navRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
+      dangerButton(`${BAG_ITEM_PREFIX}${itemId}`, "❌ Cancel"),
+    );
+    rows.push(navRow);
+  }
+  
+  return rows;
+}
+
+// ============================================================================
 // SCREEN HANDLERS
 // ============================================================================
 
@@ -336,7 +579,7 @@ export async function openBagScreen(
 }
 
 /**
- * Open a specific category view in the bag
+ * Open a specific category view in the bag with selectable items
  */
 async function openBagCategory(
   interaction: ButtonInteraction,
@@ -345,18 +588,179 @@ async function openBagCategory(
 ): Promise<void> {
   try {
     const snapshot = await loadBagSnapshot(interaction.user.id);
-    const { embed, totalPages } = buildCategoryEmbed(snapshot, category, page);
-    const components = buildItemListButtons(category, page, totalPages);
+    const categoryItems = snapshot.items.filter(item => item.kind === category);
+    
+    const totalPages = Math.max(1, Math.ceil(categoryItems.length / ITEMS_PER_PAGE));
+    const currentPage = Math.min(Math.max(1, page), totalPages);
+    const startIdx = (currentPage - 1) * ITEMS_PER_PAGE;
+    const pageItems = categoryItems.slice(startIdx, startIdx + ITEMS_PER_PAGE);
+    
+    const categoryInfo = ITEM_CATEGORIES.find(c => c.id === category);
+    
+    const embed = new EmbedBuilder()
+      .setTitle(`🎒 ${categoryInfo?.emoji || "📦"} ${categoryInfo?.label || category}`)
+      .setColor(EMBED_COLORS.INFO)
+      .setFooter({ text: `Page ${currentPage} of ${totalPages} • ${categoryItems.length} item types` });
 
-    await interaction.update({
-      embeds: [embed],
-      components,
-    });
+    if (pageItems.length === 0) {
+      embed.setDescription(`_No ${categoryInfo?.label?.toLowerCase() || "items"} in your bag._\n\nExplore to find more items!`);
+      
+      // Just show back button for empty category
+      const backRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
+        dangerButton("BAG_BACK", "🏠 Back"),
+      );
+      
+      await interaction.update({
+        embeds: [embed],
+        components: [backRow],
+      });
+    } else {
+      embed.setDescription("Tap an item to view details and use it.");
+      
+      const components = buildSelectableItemButtons(pageItems, category, currentPage, totalPages);
+      
+      await interaction.update({
+        embeds: [embed],
+        components,
+      });
+    }
   } catch (error) {
     logger.error("HomesteadBag", "openBagCategory", "Failed to open category", {
       metadata: { userId: interaction.user.id, category, error },
     });
     await safeReply(interaction, "Something went wrong opening your bag.", { ephemeral: true });
+  }
+}
+
+/**
+ * Open item detail view
+ */
+async function openItemDetail(
+  interaction: ButtonInteraction,
+  itemId: number
+): Promise<void> {
+  try {
+    const snapshot = await loadBagSnapshot(interaction.user.id);
+    const item = snapshot.items.find(i => i.itemId === itemId);
+    
+    if (!item) {
+      await safeReply(interaction, "You don't have this item.", { ephemeral: true });
+      return;
+    }
+    
+    const embed = buildItemDetailEmbed(item);
+    const components = buildItemDetailButtons(item);
+    
+    await interaction.update({
+      embeds: [embed],
+      components,
+    });
+  } catch (error) {
+    logger.error("HomesteadBag", "openItemDetail", "Failed to open item detail", {
+      metadata: { userId: interaction.user.id, itemId, error },
+    });
+    await safeReply(interaction, "Something went wrong.", { ephemeral: true });
+  }
+}
+
+/**
+ * Open target selection for item use
+ */
+async function openTargetSelection(
+  interaction: ButtonInteraction,
+  itemId: number
+): Promise<void> {
+  try {
+    const snapshot = await loadBagSnapshot(interaction.user.id);
+    const item = snapshot.items.find(i => i.itemId === itemId);
+    
+    if (!item) {
+      await safeReply(interaction, "You don't have this item.", { ephemeral: true });
+      return;
+    }
+    
+    // Get valid targets
+    const targets = await getUsableTargets(interaction.user.id, itemId);
+    
+    const embed = buildTargetSelectEmbed(item, targets);
+    const components = buildTargetSelectButtons(itemId, targets);
+    
+    await interaction.update({
+      embeds: [embed],
+      components,
+    });
+  } catch (error) {
+    logger.error("HomesteadBag", "openTargetSelection", "Failed to open target selection", {
+      metadata: { userId: interaction.user.id, itemId, error },
+    });
+    await safeReply(interaction, "Something went wrong.", { ephemeral: true });
+  }
+}
+
+/**
+ * Execute item use on target Pokémon
+ */
+async function executeItemUse(
+  interaction: ButtonInteraction,
+  itemId: number,
+  pokemonId: string
+): Promise<void> {
+  try {
+    const result = await useItemOnPokemon(interaction.user.id, itemId, pokemonId);
+    
+    // Get item name for logging purposes
+    const _itemName = getItemName(itemId);
+    
+    if (result.success) {
+      const embed = new EmbedBuilder()
+        .setTitle("✨ Item Used!")
+        .setColor(EMBED_COLORS.SUCCESS)
+        .setDescription(result.message);
+      
+      if (result.hpRestored) {
+        embed.addFields({ name: "HP Restored", value: `+${result.hpRestored}`, inline: true });
+      }
+      if (result.newHp !== undefined) {
+        embed.addFields({ name: "Current HP", value: `${result.newHp}`, inline: true });
+      }
+      if (result.statusCured) {
+        embed.addFields({ name: "Status Cured", value: result.statusCured, inline: true });
+      }
+      
+      const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
+        primaryButton(`${BAG_USE_PREFIX}${itemId}`, "🔄 Use Another"),
+        dangerButton("BAG_BACK", "🏠 Home"),
+      );
+      
+      await interaction.update({
+        embeds: [embed],
+        components: [row],
+      });
+      
+      logger.info("HomesteadBag", "executeItemUse", "Item used successfully", {
+        metadata: { userId: interaction.user.id, itemId, pokemonId, result: result.message },
+      });
+    } else {
+      const embed = new EmbedBuilder()
+        .setTitle("❌ Cannot Use Item")
+        .setColor(EMBED_COLORS.ERROR)
+        .setDescription(result.message);
+      
+      const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
+        navButton(`${BAG_ITEM_PREFIX}${itemId}`, "◀️ Back", false),
+        dangerButton("BAG_BACK", "🏠 Home"),
+      );
+      
+      await interaction.update({
+        embeds: [embed],
+        components: [row],
+      });
+    }
+  } catch (error) {
+    logger.error("HomesteadBag", "executeItemUse", "Failed to use item", {
+      metadata: { userId: interaction.user.id, itemId, pokemonId, error },
+    });
+    await safeReply(interaction, "Something went wrong using the item.", { ephemeral: true });
   }
 }
 
@@ -384,6 +788,44 @@ export async function handleBagButton(interaction: ButtonInteraction): Promise<v
     if (ITEM_CATEGORIES.some(c => c.id === category) && !isNaN(page)) {
       await openBagCategory(interaction, category as ItemCategory, page);
       return;
+    }
+  }
+
+  // Item detail view: BAG_ITEM_<itemId>
+  if (customId.startsWith(BAG_ITEM_PREFIX)) {
+    const itemIdStr = customId.substring(BAG_ITEM_PREFIX.length);
+    const itemId = parseInt(itemIdStr, 10);
+    
+    if (!isNaN(itemId)) {
+      await openItemDetail(interaction, itemId);
+      return;
+    }
+  }
+
+  // Item use (target selection): BAG_USE_<itemId>
+  if (customId.startsWith(BAG_USE_PREFIX)) {
+    const itemIdStr = customId.substring(BAG_USE_PREFIX.length);
+    const itemId = parseInt(itemIdStr, 10);
+    
+    if (!isNaN(itemId)) {
+      await openTargetSelection(interaction, itemId);
+      return;
+    }
+  }
+
+  // Target selection: BAG_TARGET_<itemId>_<pokemonId>
+  if (customId.startsWith(BAG_TARGET_PREFIX)) {
+    const rest = customId.substring(BAG_TARGET_PREFIX.length);
+    const underscoreIdx = rest.indexOf("_");
+    if (underscoreIdx !== -1) {
+      const itemIdStr = rest.substring(0, underscoreIdx);
+      const pokemonId = rest.substring(underscoreIdx + 1);
+      const itemId = parseInt(itemIdStr, 10);
+      
+      if (!isNaN(itemId) && pokemonId) {
+        await executeItemUse(interaction, itemId, pokemonId);
+        return;
+      }
     }
   }
 
