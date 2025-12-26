@@ -55,10 +55,10 @@ function buildActionRow() {
 }
 /**
  * Build secondary action row per Game Design Bible § 6
- * Layout: [🎒 Bag] [📖 Pokédex] [⚙️ Settings]
+ * Layout: [🎒 Bag] [� Shop] [📖 Pokédex] [⚙️ Settings]
  */
 function buildSecondaryRow() {
-    return new ActionRowBuilder().addComponents(secondaryButton("HOME_BAG", "🎒 Bag"), secondaryButton("HOME_POKEDEX", "📖 Pokédex"), secondaryButton("HOME_SETTINGS", "⚙️ Settings"));
+    return new ActionRowBuilder().addComponents(secondaryButton("HOME_BAG", "🎒 Bag"), secondaryButton("HOME_SHOP", "🛒 Shop"), secondaryButton("HOME_POKEDEX", "📖 Pokédex"), secondaryButton("HOME_SETTINGS", "⚙️ Settings"));
 }
 function formatPartyEntry(slot) {
     const mon = slot.pokemon;

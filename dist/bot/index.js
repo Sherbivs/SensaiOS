@@ -19,6 +19,8 @@ import { openPartyScreen, handlePartyButton, PARTY_SLOT_PREFIX, PARTY_SET_LEAD_P
 import { openStorageScreen, handleStorageButton, STORAGE_MON_PREFIX, STORAGE_PAGE_PREFIX, STORAGE_TO_PARTY_PREFIX } from "./homestead/storage.js";
 import { openSettingsScreen, handleSettingsButton, SETTINGS_TOGGLE_PREFIX } from "./homestead/settings.js";
 import { openDailyScreen, handleDailyButton } from "./homestead/daily.js";
+import { openShopScreen, handleShopButton, SHOP_CATEGORY_PREFIX, SHOP_BUY_PREFIX } from "./homestead/shop.js";
+import { HomesteadChannelManager } from "../services/homestead-manager.js";
 import { handleOpsCommand, isAdmin } from "./ops/admin.js";
 import { handleEncounterButton } from "./wilds/controls.js";
 import { handleWalk } from "./wilds/walk.js";
@@ -238,6 +240,16 @@ export async function bootDiscord(opts = {}) {
                             await interaction.reply({ content: "This action must be used in a server.", ephemeral: true });
                         }
                         break;
+                    case "HOME_SHOP":
+                        // Open shop screen per Game Design Bible § 6
+                        if (interaction.guildId) {
+                            await openShopScreen(interaction.client, interaction.guildId, interaction.user);
+                            await interaction.reply({ content: "🛒 Opening the Poké Mart...", ephemeral: true });
+                        }
+                        else {
+                            await interaction.reply({ content: "This action must be used in a server.", ephemeral: true });
+                        }
+                        break;
                     case "HOME_POKEDEX":
                         // Open Pokédex screen per Game Design Bible § 6
                         if (interaction.guildId) {
@@ -306,6 +318,18 @@ export async function bootDiscord(opts = {}) {
                         // Bag button handlers: BAG_CAT_<category>, BAG_PAGE_<category>_<page>
                         if (id.startsWith(BAG_CATEGORY_PREFIX) || id.startsWith(BAG_PAGE_PREFIX)) {
                             await handleBagButton(interaction);
+                            break;
+                        }
+                        // Shop button handlers: SHOP_CAT_<category>, SHOP_BUY_<item>, SHOP_BACK
+                        if (id.startsWith(SHOP_CATEGORY_PREFIX) || id.startsWith(SHOP_BUY_PREFIX) || id === "SHOP_BACK") {
+                            if (id === "SHOP_BACK" && interaction.guildId) {
+                                // Return to home screen
+                                await openPartyView(interaction);
+                            }
+                            else {
+                                const manager = new HomesteadChannelManager(interaction.client, interaction.guildId);
+                                await handleShopButton(interaction, manager);
+                            }
                             break;
                         }
                         // Pokédex button handlers: DEX_REGION_<region>, DEX_PAGE_<region>_<page>

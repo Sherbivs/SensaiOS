@@ -41,6 +41,7 @@ import { getProdDb } from "../../shared/pg-connection.js";
 import { HomesteadChannelManager } from "../../services/homestead-manager.js";
 import { getLogger } from "../../shared/logging/index.js";
 import { getSpriteUrl } from "../../lib/assets.js";
+import { giveStarterKit, formatItemRewardsInline } from "../../services/inventory.js";
 
 const logger = getLogger();
 
@@ -260,8 +261,17 @@ export async function runOpenStarterSelection(
         // Create the starter
         const result = await createOpenStarter(user.id, validation.speciesId);
         
+        // Give starter kit items
+        const starterItems = await giveStarterKit(user.id);
+        const itemsText = starterItems.length > 0 
+          ? `\n\n🎒 **Starter Kit:** ${formatItemRewardsInline(starterItems)}`
+          : '';
+        
         // Send confirmation
         const confirmEmbed = buildConfirmationEmbed(validation.name, validation.speciesId);
+        if (itemsText) {
+          confirmEmbed.setDescription((confirmEmbed.data.description || '') + itemsText);
+        }
         await channel.send({ embeds: [confirmEmbed] });
         
         // Send rules/how-to-play

@@ -21,6 +21,8 @@ import type { PartySlotWithPokemon } from "../../types/db-models.js";
 import type { PoolClient } from "pg";
 import { HomesteadChannelManager } from "../../services/homestead-manager.js";
 import { awardCatchExp, formatLevelUpMessage } from "../../services/leveling.js";
+import { rollCatchRewards, formatItemRewardsInline } from "../../services/inventory.js";
+import type { RarityTier } from "../../core/encounter/spawn.js";
 
 function isJsonObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -166,8 +168,17 @@ export async function handleEncounterButton(interaction: ButtonInteraction) {
         }
       }
       
+      // Roll for bonus item rewards based on encounter rarity
+      let itemMessage = "";
+      const encData = isJsonObject(enc.dataJson) ? enc.dataJson : {};
+      const rarity = (encData.rarity as RarityTier) || "common";
+      const itemRewards = await rollCatchRewards(interaction.user.id, rarity);
+      if (itemRewards.length > 0) {
+        itemMessage = `\n🎁 **Bonus:** ${formatItemRewardsInline(itemRewards)}`;
+      }
+      
       const messages = composeCatchSuccessMessages(interaction.user.id, res.pokemonId);
-      await replyInfo(interaction, messages.dm + expMessage);
+      await replyInfo(interaction, messages.dm + expMessage + itemMessage);
       await notifyThread(messages.thread);
     } else if (res.ok) {
       await replyInfo(interaction, `Oh no! It broke free. Try again.`);

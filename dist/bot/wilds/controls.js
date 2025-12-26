@@ -11,6 +11,7 @@ import { transaction } from "../../shared/pg-transaction.js";
 import { getProdDb } from "../../shared/pg-connection.js";
 import { HomesteadChannelManager } from "../../services/homestead-manager.js";
 import { awardCatchExp, formatLevelUpMessage } from "../../services/leveling.js";
+import { rollCatchRewards, formatItemRewardsInline } from "../../services/inventory.js";
 function isJsonObject(value) {
     return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -136,8 +137,16 @@ export async function handleEncounterButton(interaction) {
                     // formatLevelUpMessage handles showing evolution messages
                 }
             }
+            // Roll for bonus item rewards based on encounter rarity
+            let itemMessage = "";
+            const encData = isJsonObject(enc.dataJson) ? enc.dataJson : {};
+            const rarity = encData.rarity || "common";
+            const itemRewards = await rollCatchRewards(interaction.user.id, rarity);
+            if (itemRewards.length > 0) {
+                itemMessage = `\n🎁 **Bonus:** ${formatItemRewardsInline(itemRewards)}`;
+            }
             const messages = composeCatchSuccessMessages(interaction.user.id, res.pokemonId);
-            await replyInfo(interaction, messages.dm + expMessage);
+            await replyInfo(interaction, messages.dm + expMessage + itemMessage);
             await notifyThread(messages.thread);
         }
         else if (res.ok) {

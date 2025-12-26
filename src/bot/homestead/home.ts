@@ -98,11 +98,12 @@ function buildActionRow(): ActionRowBuilder<ButtonBuilder> {
 
 /**
  * Build secondary action row per Game Design Bible § 6
- * Layout: [🎒 Bag] [📖 Pokédex] [⚙️ Settings]
+ * Layout: [🎒 Bag] [� Shop] [📖 Pokédex] [⚙️ Settings]
  */
 function buildSecondaryRow(): ActionRowBuilder<ButtonBuilder> {
   return new ActionRowBuilder<ButtonBuilder>().addComponents(
     secondaryButton("HOME_BAG", "🎒 Bag"),
+    secondaryButton("HOME_SHOP", "🛒 Shop"),
     secondaryButton("HOME_POKEDEX", "📖 Pokédex"),
     secondaryButton("HOME_SETTINGS", "⚙️ Settings")
   );
