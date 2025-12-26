@@ -52,8 +52,28 @@ export function composeCatchSuccessMessages(discordId, pokemonId) {
         thread: `🎉 <@${discordId}> caught the wild Pokémon${idSuffix}!`,
     };
 }
+function extractRarityFromDataJson(dataJson) {
+    if (!isJsonObject(dataJson))
+        return "common";
+    const rarity = dataJson.rarity;
+    if (rarity === "uncommon" || rarity === "rare" || rarity === "ultra-rare")
+        return rarity;
+    return "common";
+}
+function extractShinyFromDataJson(dataJson) {
+    if (!isJsonObject(dataJson))
+        return false;
+    return dataJson.isShiny === true;
+}
 export function buildEncounterEmbed(enc) {
-    return encounterEmbed({ speciesId: enc.speciesId, level: enc.level });
+    const rarity = extractRarityFromDataJson(enc.dataJson);
+    const isShiny = extractShinyFromDataJson(enc.dataJson);
+    return encounterEmbed({
+        speciesId: enc.speciesId,
+        level: enc.level,
+        rarity,
+        isShiny,
+    });
 }
 export function buildEncounterButtons(encounterId) {
     return encounterButtons(encounterId);

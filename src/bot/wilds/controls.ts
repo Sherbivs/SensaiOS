@@ -68,8 +68,27 @@ export function composeCatchSuccessMessages(discordId: string, pokemonId?: strin
   };
 }
 
-export function buildEncounterEmbed(enc: { speciesId: number; level: number }) {
-  return encounterEmbed({ speciesId: enc.speciesId, level: enc.level });
+function extractRarityFromDataJson(dataJson: unknown): "common" | "uncommon" | "rare" | "ultra-rare" {
+  if (!isJsonObject(dataJson)) return "common";
+  const rarity = dataJson.rarity;
+  if (rarity === "uncommon" || rarity === "rare" || rarity === "ultra-rare") return rarity;
+  return "common";
+}
+
+function extractShinyFromDataJson(dataJson: unknown): boolean {
+  if (!isJsonObject(dataJson)) return false;
+  return dataJson.isShiny === true;
+}
+
+export function buildEncounterEmbed(enc: { speciesId: number; level: number; dataJson?: unknown }) {
+  const rarity = extractRarityFromDataJson(enc.dataJson);
+  const isShiny = extractShinyFromDataJson(enc.dataJson);
+  return encounterEmbed({ 
+    speciesId: enc.speciesId, 
+    level: enc.level,
+    rarity,
+    isShiny,
+  });
 }
 
 export function buildEncounterButtons(encounterId: string) {

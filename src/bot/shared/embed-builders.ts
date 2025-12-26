@@ -291,6 +291,16 @@ export function battleActionEmbed(): EmbedBuilder {
 // ============================================================================
 
 /**
+ * Rarity tier colors from Game Design Bible
+ */
+const RARITY_COLORS = {
+  common: 0x808080,      // Gray
+  uncommon: 0x3498db,    // Blue
+  rare: 0x9b59b6,        // Purple
+  "ultra-rare": 0xf1c40f, // Gold
+} as const;
+
+/**
  * Data for wild encounter embed
  */
 export interface EncounterEmbedData {
@@ -299,23 +309,57 @@ export interface EncounterEmbedData {
   speciesName?: string;
   spriteUrl?: string | null;
   isShiny?: boolean;
+  rarity?: "common" | "uncommon" | "rare" | "ultra-rare";
 }
 
 /**
- * Build wild encounter embed
+ * Build wild encounter embed with rarity visual treatment
  * Used in: src/bot/wilds/controls.ts
  */
 export function encounterEmbed(data: EncounterEmbedData): EmbedBuilder {
   const speciesLabel = data.speciesName || `Species #${data.speciesId}`;
-  const shinyPrefix = data.isShiny ? "✨ " : "";
+  const rarity = data.rarity ?? "common";
+  
+  // Shiny has special rainbow treatment
+  const isShiny = data.isShiny ?? false;
+  
+  // Build title based on rarity
+  let title = "A wild Pokémon appeared!";
+  let description = `${speciesLabel} • Lv ${data.level}`;
+  
+  if (isShiny) {
+    title = "⭐✨🌟 INCREDIBLE! 🌟✨⭐";
+    description = `A **SHINY** ${speciesLabel} appeared!\n\n*This is extremely rare! (1 in 1000)*`;
+  } else if (rarity === "ultra-rare") {
+    title = "🌟 An ULTRA RARE Pokémon appeared! 🌟";
+    description = `**${speciesLabel}** • Lv ${data.level}\n\n*This legendary encounter is extremely rare!*`;
+  } else if (rarity === "rare") {
+    title = "✨ A RARE Pokémon appeared!";
+    description = `**${speciesLabel}** • Lv ${data.level}\n\n*A rare find!*`;
+  } else if (rarity === "uncommon") {
+    title = "💎 An uncommon Pokémon appeared!";
+    description = `${speciesLabel} • Lv ${data.level}`;
+  }
+  
+  // Color: Shiny gets rainbow (cycling), others get rarity color
+  const color = isShiny ? 0xff69b4 : // Hot pink for shiny
+                RARITY_COLORS[rarity] ?? EMBED_COLORS.SUCCESS;
   
   const embed = new EmbedBuilder()
-    .setTitle(`${shinyPrefix}A wild Pokémon appeared!`)
-    .setDescription(`${speciesLabel} • Lv ${data.level}`)
-    .setColor(data.isShiny ? EMBED_COLORS.WARNING : EMBED_COLORS.SUCCESS);
+    .setTitle(title)
+    .setDescription(description)
+    .setColor(color);
 
   if (data.spriteUrl) {
     embed.setThumbnail(data.spriteUrl);
+  }
+  
+  // Add footer with rarity indicator
+  if (isShiny) {
+    embed.setFooter({ text: "⭐ SHINY ⭐ • Other trainers will be jealous!" });
+  } else if (rarity !== "common") {
+    const rarityEmoji = rarity === "ultra-rare" ? "🏆" : rarity === "rare" ? "💎" : "🔹";
+    embed.setFooter({ text: `${rarityEmoji} ${rarity.toUpperCase()} encounter` });
   }
 
   return embed;
