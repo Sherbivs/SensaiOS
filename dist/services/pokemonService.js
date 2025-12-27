@@ -4,8 +4,12 @@
  *
  * Provides Pokemon data access with caching and scheduled refresh from PokéAPI.
  *
+ * MIGRATION (2025-12-27): Moved from /Store/pokemon-cache.json to PostgreSQL
+ * Reference: docs/projects/STORE-WRITE-ELIMINATION.md
+ *
  * FEATURES:
- *   - File-based cache persistence to Store directory
+ *   - Database-backed cache persistence (CacheEntry table)
+ *   - In-memory LRU cache for hot access
  *   - Automatic weekly refresh via cron
  *   - Concurrent batch fetching from PokéAPI
  *   - Frozen immutable Pokemon entries
@@ -13,8 +17,7 @@
 // LOGGER FIRST — Must be early import to capture initialization errors
 import { getLogger } from '../shared/logging/index.js';
 const logger = getLogger();
-import fs from 'node:fs/promises';
-import path from 'node:path';
+import { prisma } from '../shared/prisma.js';
 import { deepClone, normalizeString } from '../shared/utils/index.js';
 // ─────────────────────────────────────────────────────────────────────────────
 // Lazy Dependencies
@@ -55,10 +58,10 @@ const POKE_API_URL = 'https://pokeapi.co/api/v2/pokemon';
 const REQUEST_TIMEOUT_MS = 20_000;
 const PAGE_SIZE = 200;
 const CONCURRENCY_LIMIT = 20;
-// Store directory: /Store on Render, Store/ locally
-const storeRoot = process.env['RENDER'] ? '/Store' : path.join(process.cwd(), 'Store');
-const CACHE_FILE_PATH = path.join(storeRoot, 'pokemon-cache.json');
-const CACHE_FILE_VERSION = 1;
+// Database cache key and namespace
+const POKEMON_CACHE_KEY = 'pokemon-service:full-roster';
+const CACHE_NAMESPACE = 'pokemon-cache';
+const CACHE_VERSION = 1;
 const CRON_SCHEDULE = '0 0 * * 4'; // 12 AM every Thursday
 const DEFAULT_TIMEZONE = process.env['POKEMON_CACHE_TZ'] || 'Etc/UTC';
 const HTTP_HEADERS = Object.freeze({
@@ -110,9 +113,7 @@ function ensureCron() {
 function cloneValue(value) {
     return deepClone(value);
 }
-async function ensureCacheDirectory() {
-    await fs.mkdir(path.dirname(CACHE_FILE_PATH), { recursive: true });
-}
+// REMOVED: ensureCacheDirectory - no longer needed with database persistence
 function normaliseAbility(ability) {
     if (typeof ability === 'string') {
         return { name: ability, is_hidden: false, slot: null };
@@ -304,48 +305,69 @@ function setPokemonCache(list, fetchedAt) {
     }
 }
 async function loadCacheFromDisk() {
+    // MIGRATION: Load from database instead of file
     try {
-        const raw = await fs.readFile(CACHE_FILE_PATH, 'utf8');
-        const parsed = JSON.parse(raw);
-        if (!parsed) {
+        const entry = await prisma.cacheEntry.findUnique({
+            where: { key: POKEMON_CACHE_KEY },
+        });
+        if (!entry) {
             return null;
         }
-        if (Array.isArray(parsed)) {
-            return { list: parsed, fetchedAt: null };
-        }
-        const payload = parsed;
-        const list = Array.isArray(payload.pokemon) ? payload.pokemon : null;
-        if (!list) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const payload = entry.value;
+        if (!payload || !Array.isArray(payload.pokemon)) {
             return null;
         }
-        const fetchedAt = payload.lastFetchedAt || payload.fetchedAt || null;
-        return { list, fetchedAt };
+        return {
+            list: payload.pokemon,
+            fetchedAt: payload.lastFetchedAt || null,
+        };
     }
     catch (error) {
-        const err = error;
-        if (err?.code === 'ENOENT') {
-            return null;
-        }
-        logger.warn('pokemon-service', 'load-cache', 'Failed to read Pokémon cache from disk', { metadata: { error, cacheFile: CACHE_FILE_PATH } });
+        logger.warn('pokemon-service', 'load-cache', 'Failed to read Pokémon cache from database', {
+            metadata: { error, cacheKey: POKEMON_CACHE_KEY }
+        });
         return null;
     }
 }
 async function writeCacheToDisk(list, fetchedAt) {
+    // MIGRATION: Write to database instead of file
     try {
-        await ensureCacheDirectory();
         const iso = fetchedAt instanceof Date && !Number.isNaN(fetchedAt.getTime())
             ? fetchedAt.toISOString()
             : new Date().toISOString();
         const payload = {
-            version: CACHE_FILE_VERSION,
+            version: CACHE_VERSION,
             lastFetchedAt: iso,
             total: Array.isArray(list) ? list.length : 0,
             pokemon: Array.isArray(list) ? list : [],
         };
-        await fs.writeFile(CACHE_FILE_PATH, JSON.stringify(payload, null, 2), 'utf8');
+        const dataStr = JSON.stringify(payload);
+        const sizeBytes = Buffer.byteLength(dataStr, 'utf8');
+        await prisma.cacheEntry.upsert({
+            where: { key: POKEMON_CACHE_KEY },
+            update: {
+                value: payload,
+                sizeBytes,
+                accessCount: { increment: 1 },
+                lastAccessedAt: new Date(),
+                expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+            },
+            create: {
+                key: POKEMON_CACHE_KEY,
+                namespace: CACHE_NAMESPACE,
+                value: payload,
+                sizeBytes,
+                accessCount: 1,
+                lastAccessedAt: new Date(),
+                expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+            },
+        });
     }
     catch (error) {
-        logger.warn('pokemon-service', 'write-cache', 'Failed to write Pokémon cache to disk', { metadata: { error, cacheFile: CACHE_FILE_PATH } });
+        logger.warn('pokemon-service', 'write-cache', 'Failed to write Pokémon cache to database', {
+            metadata: { error, cacheKey: POKEMON_CACHE_KEY }
+        });
     }
 }
 async function getJson(url) {
@@ -454,7 +476,7 @@ async function refreshPokemonCache(options = {}) {
         });
         logger.info('pokemon-service', 'refresh-complete', 'Pokémon cache refresh complete', {
             durationMs: Date.now() - startedAt.getTime(),
-            metadata: { reason, total: pokemonList.length, cacheFile: CACHE_FILE_PATH },
+            metadata: { reason, total: pokemonList.length, cacheKey: POKEMON_CACHE_KEY },
         });
         return {
             total: pokemonList.length,
@@ -470,19 +492,19 @@ async function refreshPokemonCache(options = {}) {
 }
 /**
  * Initialize the Pokemon cache.
- * Loads from disk, refreshes from API, and schedules weekly refresh.
+ * Loads from database, refreshes from API, and schedules weekly refresh.
  */
 async function initializePokemonCache() {
     if (initializationPromise) {
         return initializationPromise;
     }
     initializationPromise = (async () => {
-        await ensureCacheDirectory();
+        // MIGRATION: No directory setup needed - using database
         const disk = await loadCacheFromDisk();
         if (disk && Array.isArray(disk.list) && disk.list.length > 0) {
             setPokemonCache(disk.list, disk.fetchedAt);
-            logger.info('pokemon-service', 'load-disk', 'Loaded Pokémon cache from disk', {
-                metadata: { cacheFile: CACHE_FILE_PATH, total: pokemonList.length, lastFetchedAt: lastFetchedAt ? lastFetchedAt.toISOString() : null },
+            logger.info('pokemon-service', 'load-db', 'Loaded Pokémon cache from database', {
+                metadata: { cacheKey: POKEMON_CACHE_KEY, total: pokemonList.length, lastFetchedAt: lastFetchedAt ? lastFetchedAt.toISOString() : null },
             });
         }
         try {
@@ -552,7 +574,7 @@ async function getAllPokemon() {
  */
 function getCacheMetadata() {
     return {
-        cacheFile: CACHE_FILE_PATH,
+        cacheFile: POKEMON_CACHE_KEY, // MIGRATION: Now database key
         total: pokemonList.length,
         lastFetchedAt: lastFetchedAt ? new Date(lastFetchedAt.getTime()) : null,
         lastFetchAttemptAt: lastFetchAttemptAt ? new Date(lastFetchAttemptAt.getTime()) : null,

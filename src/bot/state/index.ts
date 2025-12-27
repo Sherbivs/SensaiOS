@@ -64,10 +64,11 @@ export {
   IS_PRODUCTION,
   IS_TEST,
   
-  // Paths
-  STORE_BASE,
-  STATE_DIR,
-  ARCHIVE_DIR,
+  // Paths (DEPRECATED - Database-First Architecture 2025-12-27)
+  // These are kept for backwards compatibility but NO LONGER USED for persistence.
+  /** @deprecated Use database keys instead */ STORE_BASE,
+  /** @deprecated Use database keys instead */ STATE_DIR,
+  /** @deprecated Use database keys instead */ ARCHIVE_DIR,
   
   // Constants
   MAX_TIMELINE_EVENTS,

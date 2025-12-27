@@ -33,10 +33,9 @@ const logger = getLogger();
 
 import { EventBus, type BusEvent } from '../shared/event-bus.js';
 import { Client, type TextChannel, EmbedBuilder, type ColorResolvable } from 'discord.js';
-import { existsSync, mkdirSync, writeFileSync, readdirSync, unlinkSync, statSync } from 'node:fs';
-import { join as pathJoin } from 'node:path';
 import { performance } from 'node:perf_hooks';
 import { getErrorMessage } from '../shared/utils/error-utils.js';
+import { prisma } from '../shared/prisma.js';
 import {
   ALERT_DISPATCHER_ENABLED,
   ALERT_TEST_MODE,
@@ -569,47 +568,53 @@ class AlertDispatcher {
   }
   
   // ============================================================================
-  // Persistence
+  // Persistence (Database-Backed)
   // ============================================================================
   
   /**
    * Ensure persist directory exists
+   * @deprecated Now uses database. Kept for backward compatibility.
    */
   private ensurePersistDir(): void {
-    try {
-      if (!existsSync(CONFIG.persistDir)) {
-        mkdirSync(CONFIG.persistDir, { recursive: true });
-        logger.info('alert-dispatcher', 'create-dir', '[AlertDispatcher] Created persist directory', {
-          metadata: { path: CONFIG.persistDir },
-        });
-      }
-    } catch (error) {
-      logger.warn('alert-dispatcher', 'create-dir', '[AlertDispatcher] Failed to create persist directory', {
-        metadata: { path: CONFIG.persistDir, errorMsg: getErrorMessage(error) },
-      });
-    }
+    // No-op - persistence is now database-backed via alert_queue table
+    // This method is kept for backward compatibility
   }
   
   /**
-   * Persist alert to JSON file for audit trail
+   * Persist alert to database for audit trail
+   * MIGRATION (2025-12-27): Moved from /Store/alerts/*.json to PostgreSQL
    */
   private persistAlert(record: AlertRecord): void {
+    // Fire and forget - don't block alert routing
+    void this.persistAlertAsync(record);
+  }
+  
+  /**
+   * Async implementation of alert persistence
+   */
+  private async persistAlertAsync(record: AlertRecord): Promise<void> {
     try {
-      const filename = `${record.timestamp.toISOString().replace(/[:.]/g, '-')}_${record.level}_${record.id}.json`;
-      const filepath = pathJoin(CONFIG.persistDir, filename);
-      
-      const data = {
-        ...record,
-        persistedAt: new Date().toISOString(),
-      };
-      
-      writeFileSync(filepath, JSON.stringify(data, null, 2));
+      await prisma.alertQueue.create({
+        data: {
+          alertId: record.id,
+          alertType: record.type,
+          level: record.level,
+          message: record.message,
+          source: record.source,
+          correlationId: record.correlationId,
+          payload: record.data ? (record.data as object) : undefined,
+          routedChannel: record.routed.channel,
+          routedDm: record.routed.dm,
+          processed: true, // Already routed
+          processedAt: new Date(),
+        },
+      });
       
       record.routed.persisted = true;
       this.stats.persistedAlerts++;
       
-      // Cleanup old alerts
-      this.cleanupOldAlerts();
+      // Cleanup old alerts in background
+      void this.cleanupOldAlertsAsync();
       
     } catch (error) {
       record.errors.push(`Persist failed: ${getErrorMessage(error)}`);
@@ -618,45 +623,42 @@ class AlertDispatcher {
   }
   
   /**
-   * Cleanup alerts older than retention period
+   * Cleanup alerts older than retention period (database)
    */
-  private cleanupOldAlerts(): void {
+  private async cleanupOldAlertsAsync(): Promise<void> {
     try {
-      if (!existsSync(CONFIG.persistDir)) {
-        return;
-      }
-      
-      const files = readdirSync(CONFIG.persistDir);
       const retentionMs = CONFIG.retentionDays * 24 * 60 * 60 * 1000;
-      const now = Date.now();
-      let cleaned = 0;
+      const cutoff = new Date(Date.now() - retentionMs);
       
-      for (const file of files) {
-        if (!file.endsWith('.json')) continue;
-        
-        const filepath = pathJoin(CONFIG.persistDir, file);
-        const fileStat = statSync(filepath);
-        
-        if (now - fileStat.mtimeMs > retentionMs) {
-          unlinkSync(filepath);
-          cleaned++;
-        }
-      }
+      const result = await prisma.alertQueue.deleteMany({
+        where: {
+          createdAt: { lt: cutoff },
+        },
+      });
       
-      if (cleaned > 0) {
-        logger.info('alert-dispatcher', 'cleanup', '[AlertDispatcher] Cleaned up old alerts', {
-          metadata: { count: cleaned, retentionDays: CONFIG.retentionDays },
+      if (result.count > 0) {
+        logger.info('alert-dispatcher', 'cleanup', '[AlertDispatcher] Cleaned up old alerts from database', {
+          metadata: { count: result.count, retentionDays: CONFIG.retentionDays },
         });
       }
       
     } catch (error) {
-      logger.warn('alert-dispatcher', 'cleanup', '[AlertDispatcher] Cleanup failed', {
+      logger.warn('alert-dispatcher', 'cleanup', '[AlertDispatcher] Database cleanup failed', {
         metadata: { errorMsg: getErrorMessage(error) },
       });
     }
   }
   
-  // ============================================================================
+  /**
+   * Cleanup alerts older than retention period (sync wrapper)
+   * @deprecated Use cleanupOldAlertsAsync. Kept for backward compatibility.
+   */
+  private cleanupOldAlerts(): void {
+    // Trigger async cleanup, don't block
+    void this.cleanupOldAlertsAsync();
+  }
+      
+      // ============================================================================
   // Cooldown Management
   // ============================================================================
   

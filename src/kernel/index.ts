@@ -66,7 +66,6 @@ export {
   getPersistenceStats,
   shutdownPersistence,
   createPrismaHook,
-  createFileDbHook,
   type PersistenceConfig,
   type KernelSnapshot,
   type DatabaseExportHook,

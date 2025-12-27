@@ -1,20 +1,18 @@
 /**
- * Runtime cache facade that fronts the on-disk cache with an in-memory LRU layer.
+ * Runtime cache facade that fronts the database cache with an in-memory LRU layer.
  *
- * ⚠️ IMPORTANT: This module manages BOTH resources:
+ * MIGRATION (2025-12-27): Moved from /Store/runtime-cache to PostgreSQL
+ * Reference: docs/projects/STORE-WRITE-ELIMINATION.md
+ *
+ * ⚠️ IMPORTANT: This module now manages:
  * - RAM: In-memory LRU cache (5 MB hot layer, part of 2 GB RAM limit)
- * - Disk: On-disk persistence (/Store/runtime-cache, part of 1 GB disk limit)
+ * - Database: PostgreSQL CacheEntry table for persistence
  *
  * Resource Tracking:
  * - RAM usage: Tracked via in-memory map size (DEFAULT_MAX_MEMORY_BYTES = 5 MB)
- * - Disk usage: Checked via fs.statfsSync() before writes (WORKSPACE_LIMIT_BYTES = 1 GB)
+ * - Database: CacheEntry table with sizeBytes tracking
  *
- * This is one of the few modules that bridges both resource types.
- * For RAM-only monitoring, see: src/services/monitoring/resource-monitor.ts
- * For complete resource guide, see: docs/RESOURCE-LIMITS-RAM-VS-DISK.md
- *
- * Entries are organized by namespace and optional shard. Values live on disk under
- * `/Store/runtime-cache/<namespace>/<shard?>` so they persist beyond process restarts,
+ * Entries are organized by namespace and optional shard. Values persist in database
  * while the in-memory layer serves hot paths and enforces RAM limits separately.
  */
 
@@ -22,11 +20,9 @@
 import { getLogger } from "../../shared/logging/index.js";
 const logger = getLogger();
 
-import fs from "node:fs";
-import fsPromises from "node:fs/promises";
 import os from "node:os";
-import path from "node:path";
 
+import { prisma } from "../../shared/prisma.js";
 import { ensureError } from "../../shared/utils/error-utils.js";
 import * as legacyCacheModule from "../cache.js";
 import { errorTracker } from "../monitoring/error-tracker.js";
@@ -37,14 +33,10 @@ const { MAX_CACHE_PERCENT, MAX_CACHE_FILE_AGE_MS } = (legacyCache as {
   MAX_CACHE_FILE_AGE_MS: number;
 });
 
-// On Render with persistent disk mounted at /Store
-// Locally falls back to Store/ in project directory
-const PRIMARY_RUNTIME_CACHE_DIR = process.env.RENDER 
-  ? "/Store/runtime-cache"
-  : path.join(process.cwd(), "Store", "runtime-cache");
-const FALLBACK_RUNTIME_CACHE_DIR = path.join(process.cwd(), "Store", "runtime-cache");
+// MIGRATION: Using database instead of /Store
+// Cache namespace for database entries
+const FACADE_CACHE_NAMESPACE = 'runtime-cache';
 const CACHE_RECORD_VERSION = 1;
-const WORKSPACE_LIMIT_BYTES = 1024 * 1024 * 1024; // 1 GiB safety ceiling mirroring the legacy cache.
 const DEFAULT_MAX_MEMORY_BYTES = 5 * 1024 * 1024; // 5 MiB hot layer (reduced from 16 MiB for memory optimization).
 const DEFAULT_MAX_MEMORY_ITEMS = 200; // Reduced from 512 for memory optimization.
 const MAINTENANCE_MIN_INTERVAL_MS = 5_000;
@@ -210,10 +202,11 @@ class InMemoryLru<T> {
   }
 }
 
+// MIGRATION: rootDir no longer needed - using database
 const config: Required<CacheFacadeConfig> = {
   maxMemoryBytes: DEFAULT_MAX_MEMORY_BYTES,
   maxMemoryItems: DEFAULT_MAX_MEMORY_ITEMS,
-  rootDir: resolveRuntimeRoot(),
+  rootDir: os.tmpdir(), // Unused, kept for backward compatibility
 };
 
 let memoryCache = new InMemoryLru<unknown>(config.maxMemoryBytes, config.maxMemoryItems);
@@ -309,13 +302,10 @@ function serializeError(err: unknown): MaintenanceError {
   return { message: error.message, name: error.name };
 }
 
-function namespaceFromPath(filePath: string): string {
-  const relative = path.relative(config.rootDir, filePath);
-  if (!relative || relative.startsWith("..")) {
-    return "unknown";
-  }
-  const [first] = relative.split(path.sep);
-  return first || "unknown";
+// MIGRATION: Namespace extraction from database key instead of file path
+function namespaceFromKey(key: string): string {
+  const parts = key.split("::");
+  return parts[0] || "unknown";
 }
 
 function ensureMaintenanceTimer(): void {
@@ -370,9 +360,9 @@ export function configureCacheFacade(overrides: CacheFacadeConfig): void {
   if (typeof overrides.maxMemoryItems === "number" && overrides.maxMemoryItems > 0) {
     config.maxMemoryItems = overrides.maxMemoryItems;
   }
+  // MIGRATION: rootDir no longer used - database handles persistence
   if (typeof overrides.rootDir === "string" && overrides.rootDir.trim() !== "") {
-    const resolved = ensureDirSync(overrides.rootDir.trim()) ? overrides.rootDir.trim() : config.rootDir;
-    config.rootDir = resolved;
+    config.rootDir = overrides.rootDir.trim();
   }
 
   memoryCache = new InMemoryLru<unknown>(config.maxMemoryBytes, config.maxMemoryItems);
@@ -534,104 +524,111 @@ function sanitizeSegment(segment: string): string {
   return segment.replace(/[^a-z0-9_-]/gi, "_").toLowerCase();
 }
 
-function namespaceDir(namespace: string, shard?: string): string {
-  const ns = sanitizeSegment(namespace);
-  const dir = shard ? path.join(config.rootDir, ns, sanitizeSegment(shard)) : path.join(config.rootDir, ns);
-  ensureDirSync(dir);
-  return dir;
+// MIGRATION: Build database key instead of file path
+function buildDbKey(descriptor: CacheDescriptor): string {
+  const ns = sanitizeSegment(descriptor.namespace);
+  const shard = descriptor.shard ? sanitizeSegment(descriptor.shard) : "default";
+  const key = sanitizeSegment(descriptor.key);
+  return `${ns}::${shard}::${key}`;
 }
 
-function recordPath(descriptor: CacheDescriptor): string {
-  const dir = namespaceDir(descriptor.namespace, descriptor.shard);
-  const filename = `${sanitizeSegment(descriptor.key)}.json`;
-  return path.join(dir, filename);
-}
-
+// MIGRATION: Read from database instead of disk
 async function readFromDisk<T>(descriptor: CacheDescriptor): Promise<CacheRecord<T> | null> {
-  const filePath = recordPath(descriptor);
+  const dbKey = buildDbKey(descriptor);
   try {
-    const raw = await fsPromises.readFile(filePath, "utf8");
-    const parsed = JSON.parse(raw) as CacheRecord<T>;
-    if (parsed.version !== CACHE_RECORD_VERSION) {
-      await fsPromises.unlink(filePath);
+    const entry = await prisma.cacheEntry.findUnique({
+      where: { key: dbKey },
+    });
+    
+    if (!entry) {
       return null;
     }
-    if (typeof parsed.expiresAt !== "number") {
-      await fsPromises.unlink(filePath);
+    
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const parsed = entry.value as any;
+    if (!parsed || parsed.version !== CACHE_RECORD_VERSION) {
+      // Invalid entry, remove it
+      await prisma.cacheEntry.delete({ where: { key: dbKey } }).catch(() => {});
       return null;
     }
-    parsed.sizeBytes = estimateSize(parsed.value);
-    return parsed;
+    
+    const record: CacheRecord<T> = {
+      namespace: descriptor.namespace,
+      key: descriptor.key,
+      shard: descriptor.shard,
+      version: parsed.version,
+      storedAt: parsed.storedAt,
+      ttlMs: parsed.ttlMs,
+      expiresAt: parsed.expiresAt,
+      value: parsed.value,
+      sizeBytes: estimateSize(parsed.value),
+    };
+    
+    return record;
   } catch (err: unknown) {
-    if ((err as NodeJS.ErrnoException)?.code === "ENOENT") {
-      return null;
-    }
     const error = ensureError(err);
-    logger.warn('cache-facade', 'readFromDisk', 'Cache read error', { error: { name: error.name, message: error.message }, metadata: buildLogMeta(descriptor, "disk") });
+    logger.warn('cache-facade', 'readFromDb', 'Cache read error', { error: { name: error.name, message: error.message }, metadata: buildLogMeta(descriptor, "db") });
     return null;
   }
 }
 
+// MIGRATION: Persist to database instead of disk
 async function persistRecord<T>(record: CacheRecord<T>): Promise<void> {
-  const filePath = recordPath(record);
+  const dbKey = buildDbKey(record);
   try {
-    await fsPromises.mkdir(path.dirname(filePath), { recursive: true });
-    await fsPromises.writeFile(filePath, JSON.stringify(record), "utf8");
+    const payload = {
+      version: record.version,
+      storedAt: record.storedAt,
+      ttlMs: record.ttlMs,
+      expiresAt: record.expiresAt,
+      value: record.value,
+    };
+    
+    await prisma.cacheEntry.upsert({
+      where: { key: dbKey },
+      update: {
+        value: payload as object,
+        sizeBytes: record.sizeBytes,
+        accessCount: { increment: 1 },
+        lastAccessedAt: new Date(),
+        expiresAt: new Date(record.expiresAt),
+      },
+      create: {
+        key: dbKey,
+        namespace: FACADE_CACHE_NAMESPACE,
+        value: payload as object,
+        sizeBytes: record.sizeBytes,
+        accessCount: 1,
+        lastAccessedAt: new Date(),
+        expiresAt: new Date(record.expiresAt),
+      },
+    });
   } catch (err) {
     const error = ensureError(err);
-    logger.error('cache-facade', 'persistRecord', 'Cache write error', { error: { name: error.name, message: error.message }, metadata: buildLogMeta(record, "disk") });
+    logger.error('cache-facade', 'persistRecord', 'Cache write error', { error: { name: error.name, message: error.message }, metadata: buildLogMeta(record, "db") });
   }
   recordWrite(record.namespace);
   scheduleMaintenance("write");
 }
 
+// MIGRATION: Delete from database instead of file
 async function safeUnlink(descriptor: CacheDescriptor): Promise<void> {
-  const filePath = recordPath(descriptor);
+  const dbKey = buildDbKey(descriptor);
   try {
-    await fsPromises.unlink(filePath);
+    await prisma.cacheEntry.delete({ where: { key: dbKey } });
   } catch (err) {
-    if ((err as NodeJS.ErrnoException)?.code === "ENOENT") {
-      return;
-    }
+    // Ignore not found errors
     const error = ensureError(err);
-    logger.warn('cache-facade', 'safeUnlink', 'Cache unlink error', { error: { name: error.name, message: error.message }, metadata: buildLogMeta(descriptor, "disk") });
+    if (!String(error.message).includes('Record to delete does not exist')) {
+      logger.warn('cache-facade', 'safeUnlink', 'Cache delete error', { error: { name: error.name, message: error.message }, metadata: buildLogMeta(descriptor, "db") });
+    }
   }
 }
 
+// MIGRATION: No longer needed - using database
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function resolveRuntimeRoot(): string {
-  if (ensureDirSync(PRIMARY_RUNTIME_CACHE_DIR)) {
-    return PRIMARY_RUNTIME_CACHE_DIR;
-  }
-  if (ensureDirSync(FALLBACK_RUNTIME_CACHE_DIR)) {
-    return FALLBACK_RUNTIME_CACHE_DIR;
-  }
-  // Fallback to OS tmp if both destinations fail.
-  const tmp = path.join(os.tmpdir(), "infinity-gauntlet-runtime-cache");
-  ensureDirSync(tmp);
-  return tmp;
-}
-
-function ensureDirSync(dir: string): boolean {
-  try {
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
-    }
-    const probe = path.join(dir, ".write-test");
-    fs.writeFileSync(probe, String(Date.now()));
-    fs.unlinkSync(probe);
-    return true;
-  } catch (err) {
-    // Track cache write failure (fire-and-forget to avoid blocking)
-    errorTracker.captureError(ensureError(err), {
-      category: 'CACHE',
-      operation: 'cache:ensureDirWritable',
-      customData: { dir },
-    }).catch(() => {}); // Prevent unhandled rejection
-    
-    const error = ensureError(err);
-    logger.warn('cache-facade', 'ensureDirSync', 'Cache dir failure', { error: { name: error.name, message: error.message }, metadata: { dir } });
-    return false;
-  }
+  return os.tmpdir(); // Unused but kept for backward compatibility
 }
 
 function buildLogMeta(descriptor: CacheDescriptor, source: string, err?: unknown): Record<string, unknown> {
@@ -698,136 +695,68 @@ function scheduleMaintenance(reason: MaintenanceReason = "write"): void {
   void runImmediateMaintenance(reason);
 }
 
+// MIGRATION: Database-based disk budget enforcement
 async function enforceDiskBudget(): Promise<void> {
-  const entries = await listDiskEntries();
-  let totalSize = entries.reduce((sum, entry) => sum + entry.size, 0);
-  const budget = calculateMaintenanceBudget();
-
-  for (const entry of entries) {
-    if (totalSize <= budget.maxAllowedBytes) break;
-    try {
-      await fsPromises.unlink(entry.filePath);
-      totalSize -= entry.size;
-      recordDiskRemoval(namespaceFromPath(entry.filePath), "budget");
-      logger.warn('cache-facade', 'enforceDiskBudget', 'Cache prune disk', { metadata: { file: path.basename(entry.filePath), size: entry.size } });
-    } catch (err) {
-      if ((err as NodeJS.ErrnoException)?.code === "ENOENT") {
-        continue;
+  try {
+    // Get total cache size from database
+    const result = await prisma.cacheEntry.aggregate({
+      where: { namespace: FACADE_CACHE_NAMESPACE },
+      _sum: { sizeBytes: true },
+      _count: true,
+    });
+    
+    const totalSize = result._sum.sizeBytes || 0;
+    const maxAllowedBytes = 100 * 1024 * 1024; // 100 MB limit for runtime cache
+    
+    if (totalSize > maxAllowedBytes) {
+      // Delete oldest entries until under budget
+      const entriesToDelete = await prisma.cacheEntry.findMany({
+        where: { namespace: FACADE_CACHE_NAMESPACE },
+        orderBy: { lastAccessedAt: 'asc' },
+        take: Math.ceil(result._count / 4), // Delete 25% of entries
+        select: { key: true, sizeBytes: true },
+      });
+      
+      for (const entry of entriesToDelete) {
+        await prisma.cacheEntry.delete({ where: { key: entry.key } }).catch(() => {});
+        logger.warn('cache-facade', 'enforceDiskBudget', 'Cache prune db', { metadata: { key: entry.key, size: entry.sizeBytes } });
       }
-      const error = ensureError(err);
-      logger.warn('cache-facade', 'enforceDiskBudget', 'Cache prune error', { error: { name: error.name, message: error.message }, metadata: { file: entry.filePath } });
     }
+  } catch (err) {
+    const error = ensureError(err);
+    logger.warn('cache-facade', 'enforceDiskBudget', 'Cache budget enforcement error', { error: { name: error.name, message: error.message } });
   }
 }
 
+// MIGRATION: Database-based cleanup for expired entries
 async function cleanExpiredFiles(): Promise<void> {
-  const entries = await listDiskEntries();
-  const now = Date.now();
-  for (const entry of entries) {
-    if (now - entry.mtimeMs <= MAX_CACHE_FILE_AGE_MS) continue;
-    try {
-      await fsPromises.unlink(entry.filePath);
-      recordDiskRemoval(namespaceFromPath(entry.filePath), "expired");
-      logger.info('cache-facade', 'cleanExpiredFiles', 'Cache cleanup disk', { metadata: { file: path.basename(entry.filePath) } });
-    } catch (err) {
-      if ((err as NodeJS.ErrnoException)?.code === "ENOENT") {
-        continue;
-      }
-      const error = ensureError(err);
-      logger.warn('cache-facade', 'cleanExpiredFiles', 'Cache cleanup error', { error: { name: error.name, message: error.message }, metadata: { file: entry.filePath } });
+  try {
+    const result = await prisma.cacheEntry.deleteMany({
+      where: {
+        namespace: FACADE_CACHE_NAMESPACE,
+        expiresAt: { lt: new Date() },
+      },
+    });
+    
+    if (result.count > 0) {
+      logger.info('cache-facade', 'cleanExpiredFiles', 'Cache cleanup db', { metadata: { deletedCount: result.count } });
     }
+  } catch (err) {
+    const error = ensureError(err);
+    logger.warn('cache-facade', 'cleanExpiredFiles', 'Cache cleanup error', { error: { name: error.name, message: error.message } });
   }
 }
 
+// MIGRATION: No longer needed - database handles storage
 function calculateMaintenanceBudget(): MaintenanceBudget {
-  // ⚠️ DISK SPACE CHECK: This function monitors /Store persistent disk (1 GB limit)
-  // It does NOT monitor RAM. This is separate from process.memoryUsage() checks.
-  // See: docs/RESOURCE-LIMITS-RAM-VS-DISK.md for complete resource distinction
-  const { free } = getDiskStats(config.rootDir);
-  const approx = approxFreeBytes(config.rootDir, free);
-  const maxAllowedBytes = Math.min(
-    Math.floor(approx * MAX_CACHE_PERCENT),
-    Math.floor(WORKSPACE_LIMIT_BYTES * MAX_CACHE_PERCENT)
-  );
   return {
-    approxBytes: approx,
-    maxAllowedBytes,
+    approxBytes: 100 * 1024 * 1024, // 100 MB approximate
+    maxAllowedBytes: 100 * 1024 * 1024, // 100 MB limit
   };
 }
 
-function getDiskStats(dir: string): { free: number; total: number } {
-  // ⚠️ DISK MONITORING: Uses fs.statfsSync() to check /Store filesystem
-  // This tracks persistent disk (1 GB limit), NOT RAM (2 GB limit)
-  // For RAM monitoring, see: src/services/monitoring/resource-monitor.ts
-  try {
-    const stats = fs.statfsSync(dir);
-    const free = Number(stats.bavail) * Number(stats.bsize);
-    const total = Number(stats.blocks) * Number(stats.bsize);
-    return { free, total };
-  } catch (err) {
-    const error = ensureError(err);
-    logger.warn('cache-facade', 'getDiskStats', 'Cache disk stats error', { error: { name: error.name, message: error.message }, metadata: { dir } });
-    return { free: 0, total: 0 };
-  }
-}
-
-function approxFreeBytes(dir: string, diskFree: number): number {
-  if (diskFree > 0) {
-    return Math.min(diskFree, WORKSPACE_LIMIT_BYTES);
-  }
-  const mem = os.freemem();
-  if (mem > 0) {
-    return Math.min(mem, WORKSPACE_LIMIT_BYTES);
-  }
-  // Last resort, use directory size as a signal.
-  try {
-    const stats = fs.statSync(dir);
-    return Math.min(stats.size ?? WORKSPACE_LIMIT_BYTES, WORKSPACE_LIMIT_BYTES);
-  } catch {
-    return WORKSPACE_LIMIT_BYTES;
-  }
-}
-
-async function listDiskEntries(): Promise<DiskEntry[]> {
-  const entries: DiskEntry[] = [];
-  async function walk(current: string): Promise<void> {
-    let dirEntries: fs.Dirent[];
-    try {
-      dirEntries = await fsPromises.readdir(current, { withFileTypes: true });
-    } catch (err) {
-      if ((err as NodeJS.ErrnoException)?.code === "ENOENT") {
-        return;
-      }
-      const error = ensureError(err);
-      logger.warn('cache-facade', 'listDiskEntries', 'Cache walk error', { error: { name: error.name, message: error.message }, metadata: { dir: current } });
-      return;
-    }
-
-    await Promise.all(
-      dirEntries.map(async (entry) => {
-        const fullPath = path.join(current, entry.name);
-        if (entry.isDirectory()) {
-          await walk(fullPath);
-          return;
-        }
-        if (!entry.isFile()) {
-          return;
-        }
-        try {
-          const stats = await fsPromises.stat(fullPath);
-          entries.push({ filePath: fullPath, size: stats.size, mtimeMs: stats.mtimeMs });
-        } catch (err) {
-          const error = ensureError(err);
-          logger.warn('cache-facade', 'listDiskEntries', 'Cache stat error', { error: { name: error.name, message: error.message }, metadata: { file: fullPath } });
-        }
-      })
-    );
-  }
-
-  await walk(config.rootDir);
-  entries.sort((a, b) => a.mtimeMs - b.mtimeMs);
-  return entries;
-}
+// MIGRATION: Remove unused disk functions - using database now
+// getDiskStats, approxFreeBytes, listDiskEntries, namespaceFromPath removed
 
 function toIso(timestamp: number | null): string | null {
   if (typeof timestamp !== "number" || Number.isNaN(timestamp)) {
@@ -898,34 +827,32 @@ type CollectOptions = {
   maintenanceReason?: MaintenanceReason;
 };
 
+// MIGRATION: Database-based metrics collection
 export async function collectCacheMetrics(options: CollectOptions = {}): Promise<CacheMetricsSnapshot> {
   ensureMaintenanceTimer();
-  const [entries, budget] = await Promise.all([listDiskEntries(), Promise.resolve(calculateMaintenanceBudget())]);
+  
+  // Get stats from database
+  const [dbStats, budget] = await Promise.all([
+    prisma.cacheEntry.aggregate({
+      where: { namespace: FACADE_CACHE_NAMESPACE },
+      _sum: { sizeBytes: true },
+      _count: true,
+      _min: { lastAccessedAt: true },
+      _max: { lastAccessedAt: true },
+    }).catch(() => ({ _sum: { sizeBytes: 0 }, _count: 0, _min: { lastAccessedAt: null }, _max: { lastAccessedAt: null } })),
+    Promise.resolve(calculateMaintenanceBudget()),
+  ]);
+  
   const memoryStats = memoryCache.stats();
+  const totalBytes = dbStats._sum.sizeBytes || 0;
+  const entryCount = dbStats._count || 0;
+  const oldestEntryMs = dbStats._min.lastAccessedAt?.getTime() ?? null;
+  const newestEntryMs = dbStats._max.lastAccessedAt?.getTime() ?? null;
 
-  const totalBytes = entries.reduce((sum, entry) => sum + entry.size, 0);
-  const oldestEntryMs = entries.length ? entries[0].mtimeMs : null;
-  const newestEntryMs = entries.length ? entries[entries.length - 1].mtimeMs : null;
-
-  const namespaceDisk = new Map<string, { entries: number; bytes: number; oldest: number | null; newest: number | null }>();
-  for (const entry of entries) {
-    const ns = namespaceFromPath(entry.filePath);
-    let stats = namespaceDisk.get(ns);
-    if (!stats) {
-      stats = { entries: 0, bytes: 0, oldest: null, newest: null };
-      namespaceDisk.set(ns, stats);
-    }
-    stats.entries += 1;
-    stats.bytes += entry.size;
-    stats.oldest = stats.oldest === null ? entry.mtimeMs : Math.min(stats.oldest, entry.mtimeMs);
-    stats.newest = stats.newest === null ? entry.mtimeMs : Math.max(stats.newest, entry.mtimeMs);
-  }
-
-  const namespaces = new Set([...namespaceMetrics.keys(), ...namespaceDisk.keys()]);
+  const namespaces = new Set([...namespaceMetrics.keys()]);
   const snapshotNamespaces: CacheNamespaceMetricsSnapshot[] = [];
   for (const ns of namespaces) {
     const metrics = ensureNamespaceMetrics(ns);
-    const disk = namespaceDisk.get(ns) ?? { entries: 0, bytes: 0, oldest: null, newest: null };
     snapshotNamespaces.push({
       namespace: ns,
       memoryHits: metrics.memoryHits,
@@ -944,10 +871,10 @@ export async function collectCacheMetrics(options: CollectOptions = {}): Promise
       lastEvictedIso: toIso(metrics.lastEvictedAt),
       lastCleanupIso: toIso(metrics.lastCleanupAt),
       lastWriteIso: toIso(metrics.lastWriteAt),
-      diskEntries: disk.entries,
-      diskBytes: disk.bytes,
-      oldestEntryIso: toIso(disk.oldest),
-      newestEntryIso: toIso(disk.newest),
+      diskEntries: entryCount,
+      diskBytes: totalBytes,
+      oldestEntryIso: toIso(oldestEntryMs),
+      newestEntryIso: toIso(newestEntryMs),
     });
   }
 
@@ -966,11 +893,11 @@ export async function collectCacheMetrics(options: CollectOptions = {}): Promise
       maxBytes: memoryStats.maxBytes,
     },
     disk: {
-      entries: entries.length,
+      entries: entryCount,
       bytes: totalBytes,
       approxFreeBytes: budget.approxBytes,
       maxAllowedBytes: budget.maxAllowedBytes,
-      rootDir: config.rootDir,
+      rootDir: 'database', // MIGRATION: Now using database
       oldestEntryIso: toIso(oldestEntryMs),
       newestEntryIso: toIso(newestEntryMs),
     },

@@ -55,13 +55,16 @@ if (onPremiseExperimentPrisma) {
 
 **See `operations-bible/02-database-operations.md` for complete URL selection logic.**
 
-### State Persistence (Security Bot)
-Security bot maintains 7-day state history in `Store/security-bot-state/`:
-- `current.json` — Active runtime state
-- `previous.json` — Backup from last restart
-- `snapshots/*.json` — Hourly backups (7-day retention)
+### State Persistence (Security Bot) — Database-First Architecture
+Security bot maintains operational state via PostgreSQL `CacheEntry` table (migrated from /Store 2025-12-27):
+- `security-bot-state:current` — Active runtime state
+- `security-bot-state:previous` — Backup from last save
+- `security-bot-state:snapshot:{timestamp}` — Timestamped snapshots (7-day retention)
+- `security-bot-state:backup-{n}` — Rotating backups (0, 1, 2)
+- `security-bot-state:role-archive` — Role change archive with HMAC
+- `security-bot-state:baselines` — Security baselines with HMAC
 
-Cumulative statistics (sweeps, alerts, permission changes) survive restarts. Auto-saves every 5 minutes + final save on SIGTERM/SIGINT.
+Cumulative statistics (sweeps, alerts, permission changes) survive restarts. Auto-saves every 5 minutes + final save on SIGTERM/SIGINT. Zero /Store file writes for state persistence.
 
 ### Event Bus (Phase 2.4.3 Complete)
 Unified pub-sub system at `src/shared/event-bus.ts`:
@@ -193,7 +196,7 @@ Run as separate Render services (17 files total):
 - **Outbox:** Drains Event Bus messages
 - **Cache:** Refreshes Pokémon cache hourly
 - **Data Pipeline:** Rebuilds reference data
-- **Security:** Role sweeps with 7-day state persistence
+- **Security:** Role sweeps with database-first state persistence
 - **Error Handler:** `worker-error-handler.ts` (Background job failures, class: `WorkerErrorHandler`)
 - **Engine Workers:** `engine-workers.ts` (4 workers: cache refresh, buffer flush, read-db sync, write-db validator)
 - **Heap Pruner:** `heap-pruner.ts` (Heap snapshot cleanup)

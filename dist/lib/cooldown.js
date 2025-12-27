@@ -1,19 +1,24 @@
+/**
+ * Cooldown Manager - Rate limiting for Discord commands
+ *
+ * MIGRATION (2025-12-27): Moved from /Store/cooldowns to PostgreSQL
+ * Reference: docs/projects/STORE-WRITE-ELIMINATION.md
+ */
 // LOGGER FIRST — Must be early import to capture initialization errors
 import { getLogger } from '../shared/logging/index.js';
 const logger = getLogger();
-import fs from 'node:fs';
-import path from 'node:path';
+import { prisma } from '../shared/prisma.js';
 // ============================================================================
 // Module State
 // ============================================================================
-// In-memory cooldowns; suitable for a single running instance
+// In-memory cooldowns for fast access; database is backup
 const store = new Map(); // key -> timestamp (ms)
 // Configuration
 const CLEANUP_INTERVAL_MS = 10 * 60 * 1000; // 10 minutes
-const PERSIST_INTERVAL_MS = 30 * 1000; // 30 seconds (reduced from 1min for seamless restart optimization - 50% data loss reduction)
+const PERSIST_INTERVAL_MS = 30 * 1000; // 30 seconds
 const MAX_COOLDOWN_AGE_MS = 60 * 60 * 1000; // 1 hour TTL
-const STORAGE_DIR = process.env.RENDER ? '/Store/cooldowns' : path.join(process.cwd(), 'Store', 'cooldowns');
-const STORAGE_FILE = path.join(STORAGE_DIR, 'cooldowns.json');
+const CACHE_KEY = 'cooldowns:state';
+const CACHE_NAMESPACE = 'cooldowns';
 let cleanupTimer = null;
 let persistTimer = null;
 // ============================================================================
@@ -58,7 +63,7 @@ export function cleanup() {
     }
 }
 /**
- * Persist cooldown state to disk for recovery after restarts.
+ * Persist cooldown state to database for recovery after restarts.
  * Only saves entries that are still valid (not expired).
  */
 export async function persist() {
@@ -71,35 +76,58 @@ export async function persist() {
                 validEntries[key] = until;
             }
         }
-        // Ensure directory exists
-        if (!fs.existsSync(STORAGE_DIR)) {
-            fs.mkdirSync(STORAGE_DIR, { recursive: true });
-        }
         const snapshot = {
             version: 1,
             savedAt: now,
             entries: validEntries,
             count: Object.keys(validEntries).length,
         };
-        fs.writeFileSync(STORAGE_FILE, JSON.stringify(snapshot, null, 2), 'utf8');
-        logger.info('Cooldown', 'persist', `Persisted ${snapshot.count} entries to disk`);
+        const dataStr = JSON.stringify(snapshot);
+        const sizeBytes = Buffer.byteLength(dataStr, 'utf8');
+        await prisma.cacheEntry.upsert({
+            where: { key: CACHE_KEY },
+            update: {
+                value: snapshot,
+                sizeBytes,
+                accessCount: { increment: 1 },
+                lastAccessedAt: new Date(),
+                expiresAt: new Date(now + MAX_COOLDOWN_AGE_MS),
+            },
+            create: {
+                key: CACHE_KEY,
+                namespace: CACHE_NAMESPACE,
+                value: snapshot,
+                sizeBytes,
+                accessCount: 1,
+                lastAccessedAt: new Date(),
+                expiresAt: new Date(now + MAX_COOLDOWN_AGE_MS),
+            },
+        });
+        logger.info('Cooldown', 'persist', `Persisted ${snapshot.count} entries to database`);
     }
     catch (err) {
         logger.warn('Cooldown', 'persist', `Persist failed: ${err.message}`);
     }
 }
 /**
- * Load cooldown state from disk on startup.
+ * Load cooldown state from database on startup.
  * Filters out expired entries during load.
  */
 export function load() {
+    // Async load in background
+    void loadAsync();
+}
+async function loadAsync() {
     try {
-        if (!fs.existsSync(STORAGE_FILE)) {
+        const entry = await prisma.cacheEntry.findUnique({
+            where: { key: CACHE_KEY },
+        });
+        if (!entry) {
             logger.info('Cooldown', 'load', 'No persisted state found (first startup)');
             return;
         }
-        const content = fs.readFileSync(STORAGE_FILE, 'utf8');
-        const snapshot = JSON.parse(content);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const snapshot = entry.value;
         const now = Date.now();
         const threshold = now - MAX_COOLDOWN_AGE_MS;
         let loaded = 0;
@@ -113,7 +141,7 @@ export function load() {
                 skipped++;
             }
         }
-        logger.info('Cooldown', 'load', `Loaded ${loaded} entries from disk (${skipped} expired, skipped)`);
+        logger.info('Cooldown', 'load', `Loaded ${loaded} entries from database (${skipped} expired, skipped)`);
     }
     catch (err) {
         logger.warn('Cooldown', 'load', `Load failed: ${err.message}`);

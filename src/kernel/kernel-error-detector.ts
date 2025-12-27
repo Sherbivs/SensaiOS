@@ -4,6 +4,9 @@
  * ═══════════════════════════════════════════════════════════════════════════
  * BOOT ORDER: Loads immediately after kernel-logger.
  * Only depends on kernel-logger (no other application modules).
+ * 
+ * MIGRATION (2025-12-27): Moved from /Store/kernel-logs to PostgreSQL
+ * Storage: CacheEntry table with namespace 'kernel-errors'
  * ═══════════════════════════════════════════════════════════════════════════
  * 
  * Captures all errors from the very first moment of execution:
@@ -22,10 +25,9 @@
  * @module kernel/kernel-error-detector
  */
 
-import fs from 'node:fs';
-import path from 'node:path';
 import crypto from 'node:crypto';
 import { kernel, klog } from './kernel-logger.js';
+import { prisma } from '../shared/prisma.js';
 
 // ============================================================================
 // TYPES
@@ -100,9 +102,7 @@ const ERROR_BUFFER_SIZE = 1000;
 const PATTERN_MAP_SIZE = 500;
 const CRASH_WINDOW_MS = 10000; // 10 seconds
 const CRASH_THRESHOLD = 5; // 5 errors in window = crash
-const ERROR_LOG_DIR = process.env.KERNEL_LOG_DIR || (
-  process.env.RENDER ? '/Store/kernel-logs' : 'Store/kernel-logs'
-);
+const KERNEL_ERRORS_NAMESPACE = 'kernel-errors';
 
 // ============================================================================
 // STATE
@@ -389,33 +389,34 @@ export function detectCrash(): CrashDetection {
 }
 
 /**
- * Persist crash report for post-mortem analysis
+ * Persist crash report to database (fire-and-forget for crash safety)
  */
 function persistCrashReport(): void {
-  try {
-    if (!fs.existsSync(ERROR_LOG_DIR)) {
-      fs.mkdirSync(ERROR_LOG_DIR, { recursive: true });
-    }
-    
-    const crashReport = {
-      timestamp: new Date().toISOString(),
-      uptimeMs: Date.now() - BOOT_TIME,
-      phase: currentPhase,
-      stats: getErrorStats(),
-      recentErrors: errorBuffer.slice(-100),
-      patterns: Array.from(patternMap.values()),
-      crashDetection: detectCrash(),
-    };
-    
-    const filename = `crash-${Date.now()}.json`;
-    const filepath = path.join(ERROR_LOG_DIR, filename);
-    fs.writeFileSync(filepath, JSON.stringify(crashReport, null, 2));
-    
-    kernel.critical('kernel-error', `Crash report saved: ${filepath}`);
-  } catch (error) {
+  const crashReport = {
+    timestamp: new Date().toISOString(),
+    uptimeMs: Date.now() - BOOT_TIME,
+    phase: currentPhase,
+    stats: getErrorStats(),
+    recentErrors: errorBuffer.slice(-100),
+    patterns: Array.from(patternMap.values()),
+    crashDetection: detectCrash(),
+  };
+  
+  const key = `${KERNEL_ERRORS_NAMESPACE}:crash-${Date.now()}`;
+  
+  // Fire-and-forget database write
+  prisma.cacheEntry.create({
+    data: {
+      key,
+      namespace: KERNEL_ERRORS_NAMESPACE,
+      value: JSON.parse(JSON.stringify(crashReport)),
+    },
+  }).then(() => {
+    kernel.critical('kernel-error', `Crash report saved: ${key}`);
+  }).catch((error) => {
     // eslint-disable-next-line no-console
     console.error('[KERNEL-ERROR] Failed to persist crash report:', error);
-  }
+  });
 }
 
 // ============================================================================
@@ -580,7 +581,7 @@ export function getLearnings(): {
 // ============================================================================
 
 /**
- * Shutdown error detector (persist final state)
+ * Shutdown error detector (persist final state to database)
  */
 export function shutdownErrorDetector(): void {
   setPhase('SHUTDOWN');
@@ -594,20 +595,21 @@ export function shutdownErrorDetector(): void {
   
   // Persist final error log if there were errors
   if (errorBuffer.length > 0) {
-    try {
-      if (!fs.existsSync(ERROR_LOG_DIR)) {
-        fs.mkdirSync(ERROR_LOG_DIR, { recursive: true });
-      }
-      
-      const report = exportErrorData();
-      const filename = `errors-${Date.now()}.json`;
-      const filepath = path.join(ERROR_LOG_DIR, filename);
-      fs.writeFileSync(filepath, JSON.stringify(report, null, 2));
-      
-      kernel.info('kernel-error', `Error report saved: ${filepath}`);
-    } catch (error) {
+    const report = exportErrorData();
+    const key = `${KERNEL_ERRORS_NAMESPACE}:errors-${Date.now()}`;
+    
+    // Fire-and-forget to database
+    prisma.cacheEntry.create({
+      data: {
+        key,
+        namespace: KERNEL_ERRORS_NAMESPACE,
+        value: JSON.parse(JSON.stringify(report)),
+      },
+    }).then(() => {
+      kernel.info('kernel-error', `Error report saved: ${key}`);
+    }).catch((error) => {
       // eslint-disable-next-line no-console
       console.error('[KERNEL-ERROR] Failed to persist error report:', error);
-    }
+    });
   }
 }

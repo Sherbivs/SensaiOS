@@ -112,12 +112,20 @@ export const ModelName = {
     EventHistory: 'EventHistory',
     MemberRoleHistory: 'MemberRoleHistory',
     SecurityEvent: 'SecurityEvent',
+    RoleChangeAudit: 'RoleChangeAudit',
+    ThreatDetection: 'ThreatDetection',
+    SecurityBaseline: 'SecurityBaseline',
+    PermissionSnapshot: 'PermissionSnapshot',
     WorkerMetrics: 'WorkerMetrics',
     TradeLog: 'TradeLog',
     PlayerStats: 'PlayerStats',
     AchievementDef: 'AchievementDef',
     AchievementUnlock: 'AchievementUnlock',
-    LeaderboardSnapshot: 'LeaderboardSnapshot'
+    LeaderboardSnapshot: 'LeaderboardSnapshot',
+    RuntimeMetric: 'RuntimeMetric',
+    AlertQueue: 'AlertQueue',
+    GuildConfig: 'GuildConfig',
+    CacheEntry: 'CacheEntry'
 };
 /**
  * Enums
@@ -626,6 +634,81 @@ export const SecurityEventScalarFieldEnum = {
     previousHash: 'previousHash',
     createdAt: 'createdAt'
 };
+export const RoleChangeAuditScalarFieldEnum = {
+    id: 'id',
+    guildId: 'guildId',
+    guildName: 'guildName',
+    memberId: 'memberId',
+    memberTag: 'memberTag',
+    changeType: 'changeType',
+    roleId: 'roleId',
+    roleName: 'roleName',
+    rolePosition: 'rolePosition',
+    executorId: 'executorId',
+    executorTag: 'executorTag',
+    executorRoles: 'executorRoles',
+    authorized: 'authorized',
+    authReason: 'authReason',
+    reverted: 'reverted',
+    revertedAt: 'revertedAt',
+    revertedBy: 'revertedBy',
+    revertReason: 'revertReason',
+    origin: 'origin',
+    checksum: 'checksum',
+    metadata: 'metadata',
+    createdAt: 'createdAt'
+};
+export const ThreatDetectionScalarFieldEnum = {
+    id: 'id',
+    threatType: 'threatType',
+    severity: 'severity',
+    confidence: 'confidence',
+    guildId: 'guildId',
+    guildName: 'guildName',
+    description: 'description',
+    evidence: 'evidence',
+    triggeringEntryId: 'triggeringEntryId',
+    mitreAttack: 'mitreAttack',
+    mitreTactic: 'mitreTactic',
+    recommendedAction: 'recommendedAction',
+    autoMitigated: 'autoMitigated',
+    mitigationAction: 'mitigationAction',
+    resolved: 'resolved',
+    resolvedBy: 'resolvedBy',
+    resolvedAt: 'resolvedAt',
+    resolutionNotes: 'resolutionNotes',
+    falsePositive: 'falsePositive',
+    createdAt: 'createdAt'
+};
+export const SecurityBaselineScalarFieldEnum = {
+    id: 'id',
+    guildId: 'guildId',
+    guildName: 'guildName',
+    averageChangesPerHour: 'averageChangesPerHour',
+    averageChangesPerDay: 'averageChangesPerDay',
+    peakActivityHours: 'peakActivityHours',
+    rapidChangeThreshold: 'rapidChangeThreshold',
+    maxChangesPerMember: 'maxChangesPerMember',
+    expectedOrigins: 'expectedOrigins',
+    confidenceLevel: 'confidenceLevel',
+    dataPointCount: 'dataPointCount',
+    computedAt: 'computedAt',
+    updatedAt: 'updatedAt'
+};
+export const PermissionSnapshotScalarFieldEnum = {
+    id: 'id',
+    guildId: 'guildId',
+    guildName: 'guildName',
+    roleId: 'roleId',
+    roleName: 'roleName',
+    permissions: 'permissions',
+    position: 'position',
+    color: 'color',
+    hoist: 'hoist',
+    mentionable: 'mentionable',
+    signature: 'signature',
+    capturedAt: 'capturedAt'
+};
 export const WorkerMetricsScalarFieldEnum = {
     id: 'id',
     timestamp: 'timestamp',
@@ -714,6 +797,49 @@ export const LeaderboardSnapshotScalarFieldEnum = {
     weekOf: 'weekOf',
     rankings: 'rankings',
     createdAt: 'createdAt'
+};
+export const RuntimeMetricScalarFieldEnum = {
+    id: 'id',
+    metricType: 'metricType',
+    timestamp: 'timestamp',
+    trigger: 'trigger',
+    uptimeMs: 'uptimeMs',
+    errorMessage: 'errorMessage',
+    stackTrace: 'stackTrace',
+    metadata: 'metadata',
+    createdAt: 'createdAt'
+};
+export const AlertQueueScalarFieldEnum = {
+    id: 'id',
+    alertId: 'alertId',
+    alertType: 'alertType',
+    level: 'level',
+    message: 'message',
+    source: 'source',
+    correlationId: 'correlationId',
+    payload: 'payload',
+    routedChannel: 'routedChannel',
+    routedDm: 'routedDm',
+    processed: 'processed',
+    processedAt: 'processedAt',
+    createdAt: 'createdAt'
+};
+export const GuildConfigScalarFieldEnum = {
+    guildId: 'guildId',
+    configKey: 'configKey',
+    configValue: 'configValue',
+    updatedAt: 'updatedAt'
+};
+export const CacheEntryScalarFieldEnum = {
+    key: 'key',
+    namespace: 'namespace',
+    value: 'value',
+    sizeBytes: 'sizeBytes',
+    accessCount: 'accessCount',
+    lastAccessedAt: 'lastAccessedAt',
+    expiresAt: 'expiresAt',
+    createdAt: 'createdAt',
+    updatedAt: 'updatedAt'
 };
 export const SortOrder = {
     asc: 'asc',
@@ -1017,6 +1143,49 @@ export const SecurityEventOrderByRelevanceFieldEnum = {
     checksum: 'checksum',
     previousHash: 'previousHash'
 };
+export const RoleChangeAuditOrderByRelevanceFieldEnum = {
+    guildId: 'guildId',
+    guildName: 'guildName',
+    memberId: 'memberId',
+    memberTag: 'memberTag',
+    changeType: 'changeType',
+    roleId: 'roleId',
+    roleName: 'roleName',
+    executorId: 'executorId',
+    executorTag: 'executorTag',
+    executorRoles: 'executorRoles',
+    authReason: 'authReason',
+    revertedBy: 'revertedBy',
+    revertReason: 'revertReason',
+    origin: 'origin',
+    checksum: 'checksum'
+};
+export const ThreatDetectionOrderByRelevanceFieldEnum = {
+    threatType: 'threatType',
+    severity: 'severity',
+    guildId: 'guildId',
+    guildName: 'guildName',
+    description: 'description',
+    mitreAttack: 'mitreAttack',
+    mitreTactic: 'mitreTactic',
+    recommendedAction: 'recommendedAction',
+    mitigationAction: 'mitigationAction',
+    resolvedBy: 'resolvedBy',
+    resolutionNotes: 'resolutionNotes'
+};
+export const SecurityBaselineOrderByRelevanceFieldEnum = {
+    guildId: 'guildId',
+    guildName: 'guildName',
+    expectedOrigins: 'expectedOrigins'
+};
+export const PermissionSnapshotOrderByRelevanceFieldEnum = {
+    guildId: 'guildId',
+    guildName: 'guildName',
+    roleId: 'roleId',
+    roleName: 'roleName',
+    permissions: 'permissions',
+    signature: 'signature'
+};
 export const WorkerMetricsOrderByRelevanceFieldEnum = {
     workerId: 'workerId',
     workerName: 'workerName',
@@ -1052,5 +1221,29 @@ export const AchievementUnlockOrderByRelevanceFieldEnum = {
 export const LeaderboardSnapshotOrderByRelevanceFieldEnum = {
     id: 'id',
     boardType: 'boardType'
+};
+export const RuntimeMetricOrderByRelevanceFieldEnum = {
+    id: 'id',
+    metricType: 'metricType',
+    trigger: 'trigger',
+    errorMessage: 'errorMessage',
+    stackTrace: 'stackTrace'
+};
+export const AlertQueueOrderByRelevanceFieldEnum = {
+    id: 'id',
+    alertId: 'alertId',
+    alertType: 'alertType',
+    level: 'level',
+    message: 'message',
+    source: 'source',
+    correlationId: 'correlationId'
+};
+export const GuildConfigOrderByRelevanceFieldEnum = {
+    guildId: 'guildId',
+    configKey: 'configKey'
+};
+export const CacheEntryOrderByRelevanceFieldEnum = {
+    key: 'key',
+    namespace: 'namespace'
 };
 export const defineExtension = runtime.Extensions.defineExtension;

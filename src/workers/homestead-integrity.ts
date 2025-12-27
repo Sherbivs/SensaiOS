@@ -9,13 +9,16 @@
  * ARCHITECTURE:
  * - Hourly Cron Job: Scheduled via Render cron service
  * - Guild-Level Verification: Iterates through all guilds with homesteads
- * - IntegrityReport Generation: JSON reports stored to Store/homestead-integrity/
+ * - IntegrityReport Generation: Reports stored to PostgreSQL runtime_metrics table
  * - Alert System: DRIPTVDD alerts when issue rate exceeds 5%
+ * 
+ * MIGRATION (2025-12-27): Moved from Store/homestead-integrity/ to PostgreSQL
+ * Reference: docs/projects/STORE-WRITE-ELIMINATION.md
  * 
  * INTEGRATION POINTS:
  * - HomesteadVerificationService: verifyIntegrity() method
  * - EventBus: emitAlert() for DRIPTVDD notifications
- * - File System: Store/homestead-integrity/ for report persistence
+ * - PostgreSQL: runtime_metrics table for report persistence
  * - Prisma: Database queries for guild homestead lookups
  * 
  * SECURITY:
@@ -35,8 +38,6 @@ const logger = getLogger();
 import { Client, GatewayIntentBits } from 'discord.js';
 import { prisma } from '../shared/prisma.js';
 import { HomesteadVerificationService } from '../services/homestead-verification.js';
-import { promises as fs } from 'fs';
-import { join } from 'path';
 import type { IntegrityReport } from '../services/homestead-verification.js';
 import { getErrorMessage } from '../shared/utils/error-utils.js';
 import { daysAgo } from '../shared/utils/date-utils.js';
@@ -45,8 +46,8 @@ import { daysAgo } from '../shared/utils/date-utils.js';
 // CONFIGURATION
 // ============================================================================
 
-const INTEGRITY_REPORT_DIR = 'Store/homestead-integrity';
 const ISSUE_RATE_THRESHOLD = 0.05; // 5% orphan/ghost rate triggers alert
+const REPORT_RETENTION_DAYS = 30;
 // Note: Scheduled hourly via Render cron (see render.yaml)
 
 // ============================================================================
@@ -113,50 +114,69 @@ function emitIntegrityAlert(report: IntegrityReport, reportPath: string): void {
 }
 
 // ============================================================================
-// REPORT PERSISTENCE
+// REPORT PERSISTENCE (Database-Backed)
 // ============================================================================
 
 /**
- * Saves IntegrityReport to disk as JSON.
- * Format: {guildId}-{timestamp}.json
+ * Saves IntegrityReport to database via runtime_metrics table.
+ * Returns a logical report ID for logging.
+ * 
+ * MIGRATION (2025-12-27): Moved from Store/homestead-integrity/*.json to PostgreSQL
  */
 async function saveIntegrityReport(report: IntegrityReport): Promise<string> {
-  // Ensure report directory exists
-  await fs.mkdir(INTEGRITY_REPORT_DIR, { recursive: true });
-
-  // Generate filename with timestamp
+  // Generate logical report ID
   const timestamp = report.timestamp.toISOString().replace(/:/g, '-');
-  const filename = `${report.guildId}-${timestamp}.json`;
-  const filepath = join(INTEGRITY_REPORT_DIR, filename);
+  const reportId = `homestead-integrity-${report.guildId}-${timestamp}`;
 
-  // Write report as formatted JSON
-  await fs.writeFile(
-    filepath,
-    JSON.stringify(report, null, 2),
-    'utf-8'
-  );
+  try {
+    await prisma.runtimeMetric.create({
+      data: {
+        metricType: 'homestead-integrity',
+        trigger: report.guildId,
+        uptimeMs: null,
+        errorMessage: null,
+        stackTrace: null,
+        metadata: {
+          reportId,
+          guildId: report.guildId,
+          totalHomesteads: report.totalHomesteads,
+          verified: report.verified,
+          unverified: report.unverified,
+          orphans: report.orphans,
+          ghosts: report.ghosts,
+          orphanList: report.orphanList,
+          ghostList: report.ghostList,
+          issueRate: report.totalHomesteads > 0 
+            ? ((report.orphans + report.ghosts) / report.totalHomesteads * 100).toFixed(2)
+            : '0.00',
+        } as object, // Cast for Prisma Json field
+      },
+    });
 
-  return filepath;
+    return reportId;
+  } catch (err) {
+    logger.error('HomesteadIntegrity', 'saveIntegrityReport', `Failed to save report: ${getErrorMessage(err)}`, errorContext(err as Error));
+    return reportId; // Return ID anyway for logging
+  }
 }
 
 /**
  * Cleans up old integrity reports (retain last 30 days).
+ * Uses database delete instead of file system operations.
  */
 async function cleanupOldReports(): Promise<void> {
   try {
-    const files = await fs.readdir(INTEGRITY_REPORT_DIR);
-    const cutoffTime = daysAgo(30).getTime();
+    const cutoffDate = daysAgo(REPORT_RETENTION_DAYS);
 
-    for (const file of files) {
-      if (!file.endsWith('.json')) continue;
+    const result = await prisma.runtimeMetric.deleteMany({
+      where: {
+        metricType: 'homestead-integrity',
+        timestamp: { lt: cutoffDate },
+      },
+    });
 
-      const filepath = join(INTEGRITY_REPORT_DIR, file);
-      const stats = await fs.stat(filepath);
-
-      if (stats.mtimeMs < cutoffTime) {
-        await fs.unlink(filepath);
-        logger.info('HomesteadIntegrity', 'cleanupOldReports', `Deleted old report: ${file}`);
-      }
+    if (result.count > 0) {
+      logger.info('HomesteadIntegrity', 'cleanupOldReports', `Deleted ${result.count} old reports from database`);
     }
   } catch (err) {
     logger.error('HomesteadIntegrity', 'cleanupOldReports', `Cleanup error: ${getErrorMessage(err)}`, errorContext(err as Error));

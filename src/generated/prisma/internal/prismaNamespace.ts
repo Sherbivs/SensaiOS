@@ -438,7 +438,11 @@ export const ModelName = {
   PlayerStats: 'PlayerStats',
   AchievementDef: 'AchievementDef',
   AchievementUnlock: 'AchievementUnlock',
-  LeaderboardSnapshot: 'LeaderboardSnapshot'
+  LeaderboardSnapshot: 'LeaderboardSnapshot',
+  RuntimeMetric: 'RuntimeMetric',
+  AlertQueue: 'AlertQueue',
+  GuildConfig: 'GuildConfig',
+  CacheEntry: 'CacheEntry'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -454,7 +458,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "tenant" | "trainer" | "dexPack" | "trainerSettings" | "type" | "ability" | "item" | "move" | "species" | "speciesType" | "speciesAbility" | "speciesLearnset" | "evolutionStep" | "typeChart" | "nameVariant" | "user" | "homesteadChannel" | "discordGuild" | "discordMember" | "pokemonInstance" | "party" | "partySlot" | "inventory" | "encounter" | "battle" | "cooldown" | "busMessage" | "busIdemToken" | "auditLog" | "dbVersion" | "dbSyncState" | "logEntry" | "errorLog" | "errorAlert" | "errorKnowledge" | "errorResolution" | "errorDependency" | "errorCodeContext" | "battleAnalytics" | "consoleOutput" | "dataPoolSyncStatus" | "discordRole" | "eventHistory" | "memberRoleHistory" | "securityEvent" | "roleChangeAudit" | "threatDetection" | "securityBaseline" | "permissionSnapshot" | "workerMetrics" | "tradeLog" | "playerStats" | "achievementDef" | "achievementUnlock" | "leaderboardSnapshot"
+    modelProps: "tenant" | "trainer" | "dexPack" | "trainerSettings" | "type" | "ability" | "item" | "move" | "species" | "speciesType" | "speciesAbility" | "speciesLearnset" | "evolutionStep" | "typeChart" | "nameVariant" | "user" | "homesteadChannel" | "discordGuild" | "discordMember" | "pokemonInstance" | "party" | "partySlot" | "inventory" | "encounter" | "battle" | "cooldown" | "busMessage" | "busIdemToken" | "auditLog" | "dbVersion" | "dbSyncState" | "logEntry" | "errorLog" | "errorAlert" | "errorKnowledge" | "errorResolution" | "errorDependency" | "errorCodeContext" | "battleAnalytics" | "consoleOutput" | "dataPoolSyncStatus" | "discordRole" | "eventHistory" | "memberRoleHistory" | "securityEvent" | "roleChangeAudit" | "threatDetection" | "securityBaseline" | "permissionSnapshot" | "workerMetrics" | "tradeLog" | "playerStats" | "achievementDef" | "achievementUnlock" | "leaderboardSnapshot" | "runtimeMetric" | "alertQueue" | "guildConfig" | "cacheEntry"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -4528,6 +4532,302 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         }
       }
     }
+    RuntimeMetric: {
+      payload: Prisma.$RuntimeMetricPayload<ExtArgs>
+      fields: Prisma.RuntimeMetricFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.RuntimeMetricFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$RuntimeMetricPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.RuntimeMetricFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$RuntimeMetricPayload>
+        }
+        findFirst: {
+          args: Prisma.RuntimeMetricFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$RuntimeMetricPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.RuntimeMetricFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$RuntimeMetricPayload>
+        }
+        findMany: {
+          args: Prisma.RuntimeMetricFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$RuntimeMetricPayload>[]
+        }
+        create: {
+          args: Prisma.RuntimeMetricCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$RuntimeMetricPayload>
+        }
+        createMany: {
+          args: Prisma.RuntimeMetricCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.RuntimeMetricCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$RuntimeMetricPayload>[]
+        }
+        delete: {
+          args: Prisma.RuntimeMetricDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$RuntimeMetricPayload>
+        }
+        update: {
+          args: Prisma.RuntimeMetricUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$RuntimeMetricPayload>
+        }
+        deleteMany: {
+          args: Prisma.RuntimeMetricDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.RuntimeMetricUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.RuntimeMetricUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$RuntimeMetricPayload>[]
+        }
+        upsert: {
+          args: Prisma.RuntimeMetricUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$RuntimeMetricPayload>
+        }
+        aggregate: {
+          args: Prisma.RuntimeMetricAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateRuntimeMetric>
+        }
+        groupBy: {
+          args: Prisma.RuntimeMetricGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.RuntimeMetricGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.RuntimeMetricCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.RuntimeMetricCountAggregateOutputType> | number
+        }
+      }
+    }
+    AlertQueue: {
+      payload: Prisma.$AlertQueuePayload<ExtArgs>
+      fields: Prisma.AlertQueueFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.AlertQueueFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AlertQueuePayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.AlertQueueFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AlertQueuePayload>
+        }
+        findFirst: {
+          args: Prisma.AlertQueueFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AlertQueuePayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.AlertQueueFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AlertQueuePayload>
+        }
+        findMany: {
+          args: Prisma.AlertQueueFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AlertQueuePayload>[]
+        }
+        create: {
+          args: Prisma.AlertQueueCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AlertQueuePayload>
+        }
+        createMany: {
+          args: Prisma.AlertQueueCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.AlertQueueCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AlertQueuePayload>[]
+        }
+        delete: {
+          args: Prisma.AlertQueueDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AlertQueuePayload>
+        }
+        update: {
+          args: Prisma.AlertQueueUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AlertQueuePayload>
+        }
+        deleteMany: {
+          args: Prisma.AlertQueueDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.AlertQueueUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.AlertQueueUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AlertQueuePayload>[]
+        }
+        upsert: {
+          args: Prisma.AlertQueueUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AlertQueuePayload>
+        }
+        aggregate: {
+          args: Prisma.AlertQueueAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateAlertQueue>
+        }
+        groupBy: {
+          args: Prisma.AlertQueueGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AlertQueueGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.AlertQueueCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AlertQueueCountAggregateOutputType> | number
+        }
+      }
+    }
+    GuildConfig: {
+      payload: Prisma.$GuildConfigPayload<ExtArgs>
+      fields: Prisma.GuildConfigFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.GuildConfigFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GuildConfigPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.GuildConfigFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GuildConfigPayload>
+        }
+        findFirst: {
+          args: Prisma.GuildConfigFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GuildConfigPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.GuildConfigFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GuildConfigPayload>
+        }
+        findMany: {
+          args: Prisma.GuildConfigFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GuildConfigPayload>[]
+        }
+        create: {
+          args: Prisma.GuildConfigCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GuildConfigPayload>
+        }
+        createMany: {
+          args: Prisma.GuildConfigCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.GuildConfigCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GuildConfigPayload>[]
+        }
+        delete: {
+          args: Prisma.GuildConfigDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GuildConfigPayload>
+        }
+        update: {
+          args: Prisma.GuildConfigUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GuildConfigPayload>
+        }
+        deleteMany: {
+          args: Prisma.GuildConfigDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.GuildConfigUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.GuildConfigUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GuildConfigPayload>[]
+        }
+        upsert: {
+          args: Prisma.GuildConfigUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GuildConfigPayload>
+        }
+        aggregate: {
+          args: Prisma.GuildConfigAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateGuildConfig>
+        }
+        groupBy: {
+          args: Prisma.GuildConfigGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.GuildConfigGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.GuildConfigCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.GuildConfigCountAggregateOutputType> | number
+        }
+      }
+    }
+    CacheEntry: {
+      payload: Prisma.$CacheEntryPayload<ExtArgs>
+      fields: Prisma.CacheEntryFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.CacheEntryFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CacheEntryPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.CacheEntryFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CacheEntryPayload>
+        }
+        findFirst: {
+          args: Prisma.CacheEntryFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CacheEntryPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.CacheEntryFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CacheEntryPayload>
+        }
+        findMany: {
+          args: Prisma.CacheEntryFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CacheEntryPayload>[]
+        }
+        create: {
+          args: Prisma.CacheEntryCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CacheEntryPayload>
+        }
+        createMany: {
+          args: Prisma.CacheEntryCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.CacheEntryCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CacheEntryPayload>[]
+        }
+        delete: {
+          args: Prisma.CacheEntryDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CacheEntryPayload>
+        }
+        update: {
+          args: Prisma.CacheEntryUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CacheEntryPayload>
+        }
+        deleteMany: {
+          args: Prisma.CacheEntryDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.CacheEntryUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.CacheEntryUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CacheEntryPayload>[]
+        }
+        upsert: {
+          args: Prisma.CacheEntryUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CacheEntryPayload>
+        }
+        aggregate: {
+          args: Prisma.CacheEntryAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateCacheEntry>
+        }
+        groupBy: {
+          args: Prisma.CacheEntryGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.CacheEntryGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.CacheEntryCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.CacheEntryCountAggregateOutputType> | number
+        }
+      }
+    }
   }
 } & {
   other: {
@@ -5449,6 +5749,65 @@ export const LeaderboardSnapshotScalarFieldEnum = {
 export type LeaderboardSnapshotScalarFieldEnum = (typeof LeaderboardSnapshotScalarFieldEnum)[keyof typeof LeaderboardSnapshotScalarFieldEnum]
 
 
+export const RuntimeMetricScalarFieldEnum = {
+  id: 'id',
+  metricType: 'metricType',
+  timestamp: 'timestamp',
+  trigger: 'trigger',
+  uptimeMs: 'uptimeMs',
+  errorMessage: 'errorMessage',
+  stackTrace: 'stackTrace',
+  metadata: 'metadata',
+  createdAt: 'createdAt'
+} as const
+
+export type RuntimeMetricScalarFieldEnum = (typeof RuntimeMetricScalarFieldEnum)[keyof typeof RuntimeMetricScalarFieldEnum]
+
+
+export const AlertQueueScalarFieldEnum = {
+  id: 'id',
+  alertId: 'alertId',
+  alertType: 'alertType',
+  level: 'level',
+  message: 'message',
+  source: 'source',
+  correlationId: 'correlationId',
+  payload: 'payload',
+  routedChannel: 'routedChannel',
+  routedDm: 'routedDm',
+  processed: 'processed',
+  processedAt: 'processedAt',
+  createdAt: 'createdAt'
+} as const
+
+export type AlertQueueScalarFieldEnum = (typeof AlertQueueScalarFieldEnum)[keyof typeof AlertQueueScalarFieldEnum]
+
+
+export const GuildConfigScalarFieldEnum = {
+  guildId: 'guildId',
+  configKey: 'configKey',
+  configValue: 'configValue',
+  updatedAt: 'updatedAt'
+} as const
+
+export type GuildConfigScalarFieldEnum = (typeof GuildConfigScalarFieldEnum)[keyof typeof GuildConfigScalarFieldEnum]
+
+
+export const CacheEntryScalarFieldEnum = {
+  key: 'key',
+  namespace: 'namespace',
+  value: 'value',
+  sizeBytes: 'sizeBytes',
+  accessCount: 'accessCount',
+  lastAccessedAt: 'lastAccessedAt',
+  expiresAt: 'expiresAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type CacheEntryScalarFieldEnum = (typeof CacheEntryScalarFieldEnum)[keyof typeof CacheEntryScalarFieldEnum]
+
+
 export const SortOrder = {
   asc: 'asc',
   desc: 'desc'
@@ -6058,6 +6417,46 @@ export const LeaderboardSnapshotOrderByRelevanceFieldEnum = {
 export type LeaderboardSnapshotOrderByRelevanceFieldEnum = (typeof LeaderboardSnapshotOrderByRelevanceFieldEnum)[keyof typeof LeaderboardSnapshotOrderByRelevanceFieldEnum]
 
 
+export const RuntimeMetricOrderByRelevanceFieldEnum = {
+  id: 'id',
+  metricType: 'metricType',
+  trigger: 'trigger',
+  errorMessage: 'errorMessage',
+  stackTrace: 'stackTrace'
+} as const
+
+export type RuntimeMetricOrderByRelevanceFieldEnum = (typeof RuntimeMetricOrderByRelevanceFieldEnum)[keyof typeof RuntimeMetricOrderByRelevanceFieldEnum]
+
+
+export const AlertQueueOrderByRelevanceFieldEnum = {
+  id: 'id',
+  alertId: 'alertId',
+  alertType: 'alertType',
+  level: 'level',
+  message: 'message',
+  source: 'source',
+  correlationId: 'correlationId'
+} as const
+
+export type AlertQueueOrderByRelevanceFieldEnum = (typeof AlertQueueOrderByRelevanceFieldEnum)[keyof typeof AlertQueueOrderByRelevanceFieldEnum]
+
+
+export const GuildConfigOrderByRelevanceFieldEnum = {
+  guildId: 'guildId',
+  configKey: 'configKey'
+} as const
+
+export type GuildConfigOrderByRelevanceFieldEnum = (typeof GuildConfigOrderByRelevanceFieldEnum)[keyof typeof GuildConfigOrderByRelevanceFieldEnum]
+
+
+export const CacheEntryOrderByRelevanceFieldEnum = {
+  key: 'key',
+  namespace: 'namespace'
+} as const
+
+export type CacheEntryOrderByRelevanceFieldEnum = (typeof CacheEntryOrderByRelevanceFieldEnum)[keyof typeof CacheEntryOrderByRelevanceFieldEnum]
+
+
 
 /**
  * Field references
@@ -6374,6 +6773,10 @@ export type GlobalOmitConfig = {
   achievementDef?: Prisma.AchievementDefOmit
   achievementUnlock?: Prisma.AchievementUnlockOmit
   leaderboardSnapshot?: Prisma.LeaderboardSnapshotOmit
+  runtimeMetric?: Prisma.RuntimeMetricOmit
+  alertQueue?: Prisma.AlertQueueOmit
+  guildConfig?: Prisma.GuildConfigOmit
+  cacheEntry?: Prisma.CacheEntryOmit
 }
 
 /* Types for Logging */

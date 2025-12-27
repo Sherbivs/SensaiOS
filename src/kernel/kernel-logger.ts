@@ -4,6 +4,10 @@
  * ═══════════════════════════════════════════════════════════════════════════
  * BOOT ORDER: This module MUST load before ALL other application code.
  * No dependencies on other application modules allowed.
+ * 
+ * MIGRATION (2025-12-27): File logging disabled (Database-First Architecture)
+ * - Ring buffer + console output retained (synchronous, zero-dependency)
+ * - Use kernel.exportLogs() to persist to database after boot
  * ═══════════════════════════════════════════════════════════════════════════
  * 
  * Provides synchronous, dependency-free logging that works from the very
@@ -20,15 +24,16 @@
  * - Zero external dependencies
  * - Pre-boot queue with automatic replay
  * - Ring buffer for memory-bounded storage
- * - File persistence for crash recovery
+ * - Console output for crash recovery
  * - Structured JSON entries with timestamps
  * - Severity levels (KERNEL, CRITICAL, ERROR, WARN, INFO, DEBUG, TRACE)
  * 
  * @module kernel/kernel-logger
  */
 
-import fs from 'node:fs';
-import path from 'node:path';
+// NOTE: File system imports removed - Database-First Architecture (2025-12-27)
+// Ring buffer + console is sufficient for pre-boot logging
+// File persistence replaced with database export after boot
 
 // ============================================================================
 // TYPES
@@ -95,10 +100,7 @@ export interface PreBootStats {
 const BOOT_TIME = Date.now();
 const RING_BUFFER_SIZE = 10000; // Max entries in memory
 const MAX_PREBOOT_ENTRIES = 1000; // Max entries before boot (prevents memory exhaustion)
-const _LOG_FILE_NAME = 'kernel.log'; // Reserved for future file rotation
-const LOG_DIR = process.env.KERNEL_LOG_DIR || (
-  process.env.RENDER ? '/Store/kernel-logs' : 'Store/kernel-logs'
-);
+// File logging disabled - Database-First Architecture (2025-12-27);
 
 // Level priorities for filtering
 const LEVEL_PRIORITY: Record<KernelLogLevel, number> = {
@@ -117,8 +119,9 @@ const LEVEL_PRIORITY: Record<KernelLogLevel, number> = {
 
 const ringBuffer: KernelLogEntry[] = [];
 let currentLogLevel: KernelLogLevel = 'INFO';
-let persistPath: string | null = null;
-let fileHandle: number | null = null;
+// File logging disabled - Database-First Architecture (2025-12-27)
+const persistPath: string | null = null;
+const fileHandle: number | null = null;
 let initialized = false;
 let shuttingDown = false;
 let entriesByLevel: Record<KernelLogLevel, number> = {
@@ -153,46 +156,15 @@ let preBootReplayed = false;
 
 /**
  * Initialize kernel logger (called automatically on first use)
- * Creates log directory and file, opens file handle for sync writes.
+ * Database-First Architecture (2025-12-27): File logging disabled
+ * Uses ring buffer + console output only
  */
 function ensureInitialized(): void {
   if (initialized) return;
   initialized = true;
   
-  try {
-    // Create log directory
-    if (!fs.existsSync(LOG_DIR)) {
-      fs.mkdirSync(LOG_DIR, { recursive: true });
-    }
-    
-    // Generate timestamped log file
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    persistPath = path.join(LOG_DIR, `kernel-${timestamp}.log`);
-    
-    // Open file for synchronous appending
-    fileHandle = fs.openSync(persistPath, 'a');
-    
-    // Write header
-    const header = [
-      '════════════════════════════════════════════════════════════════════════════════',
-      `KERNEL LOG INITIALIZED: ${new Date().toISOString()}`,
-      `Process ID: ${process.pid}`,
-      `Node Version: ${process.version}`,
-      `Platform: ${process.platform}/${process.arch}`,
-      `Working Dir: ${process.cwd()}`,
-      '════════════════════════════════════════════════════════════════════════════════',
-      '',
-    ].join('\n');
-    
-    fs.writeSync(fileHandle, header);
-    
-  } catch (error) {
-    // Fallback: console only mode
-    // eslint-disable-next-line no-console
-    console.error('[KERNEL] Failed to initialize file logging:', error);
-    persistPath = null;
-    fileHandle = null;
-  }
+  // File logging disabled - ring buffer + console is sufficient for pre-boot
+  // Use kernel.exportLogs() to persist to database after boot completes
 }
 
 // ============================================================================
@@ -227,17 +199,11 @@ function outputToConsole(entry: KernelLogEntry, isPreBoot: boolean): void {
 }
 
 /**
- * Output a log entry to file (synchronous)
+ * Output a log entry to file (DISABLED - Database-First Architecture 2025-12-27)
+ * File logging removed, ring buffer + console is retained
  */
-function outputToFile(entry: KernelLogEntry): void {
-  if (fileHandle !== null) {
-    try {
-      const jsonLine = JSON.stringify(entry) + '\n';
-      fs.writeSync(fileHandle, jsonLine);
-    } catch {
-      // Ignore file write errors to avoid cascade
-    }
-  }
+function outputToFile(_entry: KernelLogEntry): void {
+  // File logging disabled - use kernel.exportLogs() for database persistence
 }
 
 /**
@@ -257,7 +223,7 @@ function processLogEntry(entry: KernelLogEntry): void {
     outputToConsole(entry, false);
   }
   
-  // Output to file
+  // Output to file (disabled)
   outputToFile(entry);
 }
 
@@ -591,6 +557,7 @@ export function getRecentErrors(limit = 50): KernelLogEntry[] {
 
 /**
  * Flush and close kernel logger (call on process exit)
+ * Database-First Architecture (2025-12-27): File handle cleanup removed
  */
 export function shutdownKernelLogger(): void {
   if (shuttingDown) return;
@@ -601,26 +568,8 @@ export function shutdownKernelLogger(): void {
     uptimeMs: Date.now() - BOOT_TIME,
   });
   
-  if (fileHandle !== null) {
-    try {
-      // Write footer
-      const footer = [
-        '',
-        '════════════════════════════════════════════════════════════════════════════════',
-        `KERNEL LOG CLOSED: ${new Date().toISOString()}`,
-        `Total Entries: ${ringBuffer.length}`,
-        `Uptime: ${Date.now() - BOOT_TIME}ms`,
-        '════════════════════════════════════════════════════════════════════════════════',
-        '',
-      ].join('\n');
-      
-      fs.writeSync(fileHandle, footer);
-      fs.closeSync(fileHandle);
-    } catch {
-      // Ignore close errors
-    }
-    fileHandle = null;
-  }
+  // File logging disabled - ring buffer persists until process exit
+  // Use kernel.exportLogs() to persist to database if needed
 }
 
 // ============================================================================

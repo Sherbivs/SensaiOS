@@ -22,8 +22,6 @@ import { getLogger } from "../../shared/logging/index.js";
 const logger = getLogger();
 
 import crypto from 'node:crypto';
-import fs from 'node:fs/promises';
-import path from 'node:path';
 import { toEasternLogFormat } from '../../shared/datetime.js';
 import { EventBus } from '../../shared/event-bus.js';
 import { prisma } from '../../shared/prisma.js';
@@ -997,7 +995,7 @@ export class ErrorTracker {
   }
   
   /**
-   * Generate AI-optimized error report and store to disk
+   * Generate AI-optimized error report and store to database
    * Runs in background (fire-and-forget) to avoid blocking error capture
    */
   private async generateAndStoreAIReport(
@@ -1007,9 +1005,6 @@ export class ErrorTracker {
     fingerprint: string
   ): Promise<void> {
     try {
-      const reportsDir = path.join(process.cwd(), 'Store', 'error-reports');
-      await fs.mkdir(reportsDir, { recursive: true });
-      
       // Capture full error context snapshot
       const snapshot = await captureErrorContextSnapshot(error, {
         ...context,
@@ -1019,14 +1014,26 @@ export class ErrorTracker {
       // Generate AI-optimized report
       const report = formatErrorReportForAI(snapshot);
       
-      // Write to disk with fingerprint-based filename (for deduplication)
+      // Store to database instead of /Store file
       const shortFingerprint = fingerprint.substring(0, 12);
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-      const filename = `error-${shortFingerprint}-${timestamp}.md`;
-      const filepath = path.join(reportsDir, filename);
+      const cacheKey = `error-report:${shortFingerprint}:${timestamp}`;
       
-      await fs.writeFile(filepath, report, 'utf-8');
-      logger.error('error-tracker', 'ai-report', `   📊 AI Report: ${filepath}`);
+      await prisma.cacheEntry.upsert({
+        where: { key: cacheKey },
+        update: {
+          value: { report, fingerprint, context } as object,
+          updatedAt: new Date(),
+        },
+        create: {
+          key: cacheKey,
+          namespace: 'error-reports',
+          value: { report, fingerprint, context } as object,
+          sizeBytes: report.length,
+          expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+        },
+      });
+      logger.error('error-tracker', 'ai-report', `   📊 AI Report: db:error-reports/${cacheKey}`);
     } catch (reportError) {
       // Report generation failed - not critical
       logger.warn('error-tracker', 'ai-report', '[ErrorTracker] AI report generation failed: ' + String(reportError));
@@ -1301,8 +1308,8 @@ export class ErrorTracker {
   }
 
   /**
-   * Write error to emergency log file as last-resort fallback
-   * Ensures ZERO false negatives even if database and live stream fail
+   * Write error to emergency log as last-resort fallback
+   * Stores to database - ensures ZERO false negatives even if main DB path fails
    */
   private async writeToEmergencyLog(
     error: Error,
@@ -1311,12 +1318,8 @@ export class ErrorTracker {
     parsedStack?: ParsedStackTrace
   ): Promise<void> {
     try {
-      const emergencyDir = path.join(process.cwd(), 'Store', 'emergency-error-logs');
-      await fs.mkdir(emergencyDir, { recursive: true });
-      
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-      const filename = `error-${timestamp}.json`;
-      const filepath = path.join(emergencyDir, filename);
+      const cacheKey = `emergency-error:${timestamp}`;
       
       const emergencyEntry = {
         timestamp: new Date().toISOString(),
@@ -1346,8 +1349,16 @@ export class ErrorTracker {
         } : null,
       };
       
-      await fs.writeFile(filepath, JSON.stringify(emergencyEntry, null, 2));
-      logger.error('error-tracker', 'emergency', `   📝 Emergency log written: ${filepath}`);
+      await prisma.cacheEntry.create({
+        data: {
+          key: cacheKey,
+          namespace: 'emergency-error-logs',
+          value: emergencyEntry as object,
+          sizeBytes: JSON.stringify(emergencyEntry).length,
+          expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
+        },
+      });
+      logger.error('error-tracker', 'emergency', `   📝 Emergency log written: db:emergency-error-logs/${cacheKey}`);
     } catch (fileError) {
       // Absolute last resort: just log to console
       logger.error('error-tracker', 'emergency', '[ErrorTracker] Emergency file write also failed: ' + String(fileError));

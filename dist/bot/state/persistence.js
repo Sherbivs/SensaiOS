@@ -3,8 +3,11 @@
  * Manages security bot operational state across restarts
  * @module bot/state/persistence
  *
+ * MIGRATION (2025-12-27): Moved from /Store file system to PostgreSQL CacheEntry table
+ * Database-First Architecture - All state stored in CLOUD-PROD-MASTER
+ *
  * RELIABILITY FEATURES (2025-12-21):
- * - Atomic writes: temp file + rename prevents corruption
+ * - Atomic writes: Database transactions ensure consistency
  * - Checksum verification: SHA256 detects tampering/corruption
  * - Snapshot recovery: Falls back to recent snapshot before default
  * - Deferred pruning: Startup not blocked by housekeeping
@@ -13,22 +16,20 @@
 import { getLogger } from '../../shared/logging/index.js';
 const logger = getLogger();
 import crypto from 'crypto';
-import fs from 'fs/promises';
-import path from 'path';
-import { fileURLToPath } from 'url';
+import { prisma } from '../../shared/prisma.js';
 import { getFilesafeTimestamp } from '../../shared/utils/index.js';
 import { ensureError } from '../../shared/utils/error-utils.js';
 import { errorTracker } from '../../services/monitoring/index.js';
-import { STATE_DIR, MAX_TIMELINE_EVENTS, SNAPSHOT_RETENTION_DAYS } from './config.js';
+import { MAX_TIMELINE_EVENTS, SNAPSHOT_RETENTION_DAYS } from './config.js';
 // ─────────────────────────────────────────────────────────────────────────────
-// Configuration (imports from config.ts + local path resolution)
+// Configuration (Database-First Architecture)
 // ─────────────────────────────────────────────────────────────────────────────
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-// Derive paths from canonical STATE_DIR
-const CURRENT_STATE_PATH = path.join(STATE_DIR, 'current.json');
-const PREVIOUS_STATE_PATH = path.join(STATE_DIR, 'previous.json');
-const SNAPSHOTS_DIR = path.join(STATE_DIR, 'snapshots');
+// Database keys for state storage (replaces file paths)
+const STATE_NAMESPACE = 'security-bot-state';
+const CURRENT_STATE_KEY = `${STATE_NAMESPACE}:current`;
+const PREVIOUS_STATE_KEY = `${STATE_NAMESPACE}:previous`;
+const SNAPSHOT_KEY_PREFIX = `${STATE_NAMESPACE}:snapshot:`;
+const BACKUP_KEY_PREFIX = `${STATE_NAMESPACE}:backup-`;
 const SCHEMA_VERSION = '1.1.0';
 const STATE_VERSION = 1;
 /**
@@ -45,19 +46,20 @@ const STATE_VERSION = 1;
  *   general-purpose background saves. May be referenced in documentation or
  *   config files but persistence module uses its own optimized interval.
  *
- * - **Tradeoff:** Slight increase in disk I/O (negligible on SSD) vs better
- *   crash resilience. State files are <100KB so writes are fast.
+ * - **Tradeoff:** Database writes are fast and transactional, even better than
+ *   file system writes. State payloads are <100KB.
  *
  * - **Shutdown behavior:** Final save always occurs on SIGTERM/SIGINT,
  *   so graceful shutdowns capture 100% of state regardless of interval.
  */
 const AUTO_SAVE_INTERVAL_MS = 30 * 1000;
 const METRICS_HISTORY_DAYS = 7;
+const BACKUP_COUNT = 3;
 // ─────────────────────────────────────────────────────────────────────────────
 // Module State (P2-R2: Degraded Mode)
 // ─────────────────────────────────────────────────────────────────────────────
 /**
- * Degraded mode flag - true when state directory is unavailable.
+ * Degraded mode flag - true when database is unavailable.
  * In degraded mode, state changes are memory-only and won't persist.
  */
 let degradedMode = false;
@@ -188,52 +190,49 @@ function migrateState(state) {
     return state;
 }
 // ─────────────────────────────────────────────────────────────────────────────
-// File Operations
+// Database Operations (Database-First Architecture 2025-12-27)
 // ─────────────────────────────────────────────────────────────────────────────
 /**
- * Load state from JSON file with checksum verification
+ * Load state from database with checksum verification
  */
-async function loadStateFile(filePath) {
+async function loadStateFromDb(key) {
     try {
-        const data = await fs.readFile(filePath, 'utf8');
-        const state = JSON.parse(data);
+        const entry = await prisma.cacheEntry.findUnique({
+            where: { key },
+        });
+        if (!entry) {
+            return null;
+        }
+        const state = entry.value;
         if (!validateState(state)) {
-            logger.error('security-state', 'load', '[State] Invalid state structure', { metadata: { filePath } });
+            logger.error('security-state', 'load', '[State] Invalid state structure', { metadata: { key } });
             return null;
         }
         // Verify checksum integrity
         if (!verifyStateChecksum(state)) {
-            logger.error('security-state', 'load', '[State] Checksum verification failed, rejecting file', { metadata: { filePath } });
+            logger.error('security-state', 'load', '[State] Checksum verification failed, rejecting entry', { metadata: { key } });
             return null;
         }
         return migrateState(state);
     }
     catch (err) {
-        const error = err;
-        if (error.code === 'ENOENT') {
-            return null;
-        }
-        logger.error('security-state', 'load', '[State] Error loading file', { metadata: { filePath, errorMsg: error.message } });
-        errorTracker.captureError(ensureError(error), {
+        const error = ensureError(err);
+        logger.error('security-state', 'load', '[State] Error loading from database', { metadata: { key, errorMsg: error.message } });
+        errorTracker.captureError(error, {
             category: 'WORKER',
-            operation: 'state:loadFile',
-            customData: { filePath, errorCode: error.code },
+            operation: 'state:loadFromDb',
+            customData: { key },
         }).catch(() => { });
         return null;
     }
 }
 /**
- * Save state to JSON file (ATOMIC)
+ * Save state to database (ATOMIC via upsert)
  *
- * Uses write-to-temp + rename pattern for crash safety:
- * 1. Write to {filePath}.tmp
- * 2. Atomically rename to final path
- * 3. If crash during write, .tmp is incomplete but original is safe
+ * Database transactions ensure atomicity - no temp file needed.
  */
-async function saveStateFile(filePath, state) {
-    const tempPath = `${filePath}.tmp`;
+async function saveStateToDb(key, state) {
     try {
-        await fs.mkdir(path.dirname(filePath), { recursive: true });
         // Add checksum before saving
         const stateWithChecksum = {
             ...state,
@@ -242,44 +241,47 @@ async function saveStateFile(filePath, state) {
                 checksum: computeStateChecksum(state)
             }
         };
-        const json = JSON.stringify(stateWithChecksum, null, 2);
-        // Step 1: Write to temp file
-        await fs.writeFile(tempPath, json, 'utf8');
-        // Step 2: Atomic rename (same filesystem = atomic on POSIX)
-        await fs.rename(tempPath, filePath);
+        const jsonSize = JSON.stringify(stateWithChecksum).length;
+        await prisma.cacheEntry.upsert({
+            where: { key },
+            update: {
+                value: stateWithChecksum,
+                sizeBytes: jsonSize,
+                updatedAt: new Date(),
+            },
+            create: {
+                key,
+                namespace: STATE_NAMESPACE,
+                value: stateWithChecksum,
+                sizeBytes: jsonSize,
+                // State entries don't expire (permanent storage)
+            },
+        });
         return true;
     }
     catch (err) {
-        const error = err;
-        logger.error('security-state', 'save', '[State] Error saving file', { metadata: { filePath, errorMsg: error.message } });
-        // Cleanup temp file if it exists
-        try {
-            await fs.unlink(tempPath);
-        }
-        catch {
-            // Ignore cleanup errors
-        }
-        await errorTracker.captureError(ensureError(error), {
+        const error = ensureError(err);
+        logger.error('security-state', 'save', '[State] Error saving to database', { metadata: { key, errorMsg: error.message } });
+        await errorTracker.captureError(error, {
             category: 'WORKER',
-            operation: 'state:saveFile',
-            customData: { filePath, errorCode: error.code },
+            operation: 'state:saveToDb',
+            customData: { key },
         });
         return false;
     }
 }
 // ─────────────────────────────────────────────────────────────────────────────
-// Snapshots
+// Snapshots (Database-First Architecture)
 // ─────────────────────────────────────────────────────────────────────────────
 /**
- * Create timestamped snapshot
+ * Create timestamped snapshot in database
  */
 async function createSnapshot(state) {
     try {
-        await fs.mkdir(SNAPSHOTS_DIR, { recursive: true });
         const timestamp = getFilesafeTimestamp();
-        const snapshotPath = path.join(SNAPSHOTS_DIR, `${timestamp}.json`);
-        await saveStateFile(snapshotPath, state);
-        return snapshotPath;
+        const snapshotKey = `${SNAPSHOT_KEY_PREFIX}${timestamp}`;
+        const success = await saveStateToDb(snapshotKey, state);
+        return success ? snapshotKey : null;
     }
     catch (err) {
         const error = ensureError(err);
@@ -288,28 +290,28 @@ async function createSnapshot(state) {
     }
 }
 /**
- * Prune old snapshots
+ * Prune old snapshots from database
  */
 async function pruneSnapshots() {
     try {
-        await fs.mkdir(SNAPSHOTS_DIR, { recursive: true });
-        const files = await fs.readdir(SNAPSHOTS_DIR);
         const now = Date.now();
         const maxAge = SNAPSHOT_RETENTION_DAYS * 24 * 60 * 60 * 1000;
-        let pruned = 0;
-        for (const file of files) {
-            if (!file.endsWith('.json'))
-                continue;
-            const filePath = path.join(SNAPSHOTS_DIR, file);
-            const stats = await fs.stat(filePath);
-            const age = now - stats.mtime.getTime();
-            if (age > maxAge) {
-                await fs.unlink(filePath);
-                pruned++;
-            }
-        }
-        if (pruned > 0) {
-            logger.info('security-state', 'prune', '[State] Pruned old snapshots', { metadata: { count: pruned } });
+        const cutoffDate = new Date(now - maxAge);
+        // Find and delete old snapshots
+        const oldSnapshots = await prisma.cacheEntry.findMany({
+            where: {
+                key: { startsWith: SNAPSHOT_KEY_PREFIX },
+                updatedAt: { lt: cutoffDate },
+            },
+            select: { key: true },
+        });
+        if (oldSnapshots.length > 0) {
+            await prisma.cacheEntry.deleteMany({
+                where: {
+                    key: { in: oldSnapshots.map(s => s.key) },
+                },
+            });
+            logger.info('security-state', 'prune', '[State] Pruned old snapshots', { metadata: { count: oldSnapshots.length } });
         }
     }
     catch (err) {
@@ -318,24 +320,25 @@ async function pruneSnapshots() {
     }
 }
 /**
- * Load the newest valid snapshot from snapshots directory
+ * Load the newest valid snapshot from database
  * Returns null if no valid snapshots exist
  */
 async function loadNewestSnapshot() {
     try {
-        await fs.mkdir(SNAPSHOTS_DIR, { recursive: true });
-        const files = await fs.readdir(SNAPSHOTS_DIR);
-        const jsonFiles = files
-            .filter(f => f.endsWith('.json'))
-            .sort()
-            .reverse(); // Newest first (timestamp-based naming)
-        for (const file of jsonFiles) {
-            const filePath = path.join(SNAPSHOTS_DIR, file);
-            logger.debug('security-state', 'load', '[State] Trying snapshot', { metadata: { file } });
-            const state = await loadStateFile(filePath);
+        // Get all snapshots ordered by key (timestamp-based naming means alphabetical = chronological)
+        const snapshots = await prisma.cacheEntry.findMany({
+            where: {
+                key: { startsWith: SNAPSHOT_KEY_PREFIX },
+            },
+            orderBy: { key: 'desc' }, // Newest first
+            select: { key: true },
+        });
+        for (const snapshot of snapshots) {
+            logger.debug('security-state', 'load', '[State] Trying snapshot', { metadata: { key: snapshot.key } });
+            const state = await loadStateFromDb(snapshot.key);
             if (state) {
                 logger.info('security-state', 'load', '[State] Recovered from snapshot', {
-                    metadata: { file, lastSaved: state.metadata.lastSaved }
+                    metadata: { key: snapshot.key, lastSaved: state.metadata.lastSaved }
                 });
                 return state;
             }
@@ -349,34 +352,60 @@ async function loadNewestSnapshot() {
     }
 }
 // ─────────────────────────────────────────────────────────────────────────────
-// Backup Rotation (P2-R1)
+// Backup Rotation (Database-First Architecture)
 // ─────────────────────────────────────────────────────────────────────────────
-const BACKUP_COUNT = 3;
 /**
- * Rotate backup files (keep last N backups)
+ * Rotate backup entries in database (keep last N backups)
  *
  * Creates a chain: current -> backup-0 -> backup-1 -> backup-2
  * This provides multiple recovery points if both current and previous corrupt.
  */
 async function rotateBackups() {
     try {
-        // Rotate existing backups (backup-0 -> backup-1 -> backup-2)
+        // Rotate existing backups (backup-2 <- backup-1 <- backup-0)
         for (let i = BACKUP_COUNT - 1; i > 0; i--) {
-            const src = path.join(STATE_DIR, `backup-${i - 1}.json`);
-            const dst = path.join(STATE_DIR, `backup-${i}.json`);
-            try {
-                await fs.rename(src, dst);
-            }
-            catch {
-                // Ignore missing files during rotation
+            const srcKey = `${BACKUP_KEY_PREFIX}${i - 1}`;
+            const dstKey = `${BACKUP_KEY_PREFIX}${i}`;
+            const srcEntry = await prisma.cacheEntry.findUnique({
+                where: { key: srcKey },
+            });
+            if (srcEntry) {
+                // Copy src to dst
+                await prisma.cacheEntry.upsert({
+                    where: { key: dstKey },
+                    update: {
+                        value: srcEntry.value,
+                        sizeBytes: srcEntry.sizeBytes,
+                        updatedAt: new Date(),
+                    },
+                    create: {
+                        key: dstKey,
+                        namespace: STATE_NAMESPACE,
+                        value: srcEntry.value,
+                        sizeBytes: srcEntry.sizeBytes,
+                    },
+                });
             }
         }
         // Copy current to backup-0
-        try {
-            await fs.copyFile(CURRENT_STATE_PATH, path.join(STATE_DIR, 'backup-0.json'));
-        }
-        catch {
-            // Current might not exist yet
+        const currentEntry = await prisma.cacheEntry.findUnique({
+            where: { key: CURRENT_STATE_KEY },
+        });
+        if (currentEntry) {
+            await prisma.cacheEntry.upsert({
+                where: { key: `${BACKUP_KEY_PREFIX}0` },
+                update: {
+                    value: currentEntry.value,
+                    sizeBytes: currentEntry.sizeBytes,
+                    updatedAt: new Date(),
+                },
+                create: {
+                    key: `${BACKUP_KEY_PREFIX}0`,
+                    namespace: STATE_NAMESPACE,
+                    value: currentEntry.value,
+                    sizeBytes: currentEntry.sizeBytes,
+                },
+            });
         }
     }
     catch (err) {
@@ -385,27 +414,27 @@ async function rotateBackups() {
     }
 }
 // ─────────────────────────────────────────────────────────────────────────────
-// Core State Operations
+// Core State Operations (Database-First Architecture)
 // ─────────────────────────────────────────────────────────────────────────────
 /**
  * Load current state with full fallback chain:
- * 1. current.json — Primary state file
- * 2. previous.json — Backup from last successful save
+ * 1. security-bot-state:current — Primary state entry
+ * 2. security-bot-state:previous — Backup from last successful save
  * 3. Newest valid snapshot — Hourly backups (7-day retention)
  * 4. Fresh default state — Clean slate if all else fails
  */
 export async function loadState() {
-    logger.info('security-state', 'load', '[State] Loading operational state...');
-    // Try 1: current.json
-    let state = await loadStateFile(CURRENT_STATE_PATH);
-    // Try 2: previous.json
+    logger.info('security-state', 'load', '[State] Loading operational state from database...');
+    // Try 1: current entry
+    let state = await loadStateFromDb(CURRENT_STATE_KEY);
+    // Try 2: previous entry
     if (!state) {
-        logger.info('security-state', 'load', '[State] current.json not found/corrupted, trying previous.json...');
-        state = await loadStateFile(PREVIOUS_STATE_PATH);
+        logger.info('security-state', 'load', '[State] Current state not found/corrupted, trying previous...');
+        state = await loadStateFromDb(PREVIOUS_STATE_KEY);
     }
     // Try 3: Newest snapshot (P0 recovery chain)
     if (!state) {
-        logger.warn('security-state', 'warning', '[State] Primary files unavailable, searching snapshots...');
+        logger.warn('security-state', 'warning', '[State] Primary entries unavailable, searching snapshots...');
         state = await loadNewestSnapshot();
     }
     // Try 4: Fresh state
@@ -423,9 +452,9 @@ export async function loadState() {
  */
 export async function saveState(state) {
     state.metadata.lastSaved = new Date().toISOString();
-    // P2-R1: Rotate backups before saving (non-blocking)
+    // Rotate backups before saving (non-blocking friendly)
     await rotateBackups();
-    const success = await saveStateFile(CURRENT_STATE_PATH, state);
+    const success = await saveStateToDb(CURRENT_STATE_KEY, state);
     if (success) {
         logger.info('security-state', 'save', '[State] State saved successfully');
     }
@@ -433,42 +462,62 @@ export async function saveState(state) {
 }
 /**
  * Initialize state on startup with performance timing
+ *
+ * Database-First: No filesystem operations needed.
  */
 export async function initializeState() {
     const startTime = performance.now();
     let recoveryTier = 'current';
-    logger.info('security-state', 'init', '[State] Initializing state persistence...');
-    logger.info('security-state', 'init', '[State] STATE_DIR', { metadata: { path: STATE_DIR } });
+    logger.info('security-state', 'init', '[State] Initializing state persistence (Database-First)...');
+    logger.info('security-state', 'init', '[State] Database namespace', { metadata: { namespace: STATE_NAMESPACE } });
     logger.info('security-state', 'init', '[State] Working directory', { metadata: { cwd: process.cwd() } });
-    logger.info('security-state', 'init', '[State] Module location', { metadata: { dirname: __dirname } });
+    // Database-First: No mkdir needed - database is always available
+    // Check database connectivity
     try {
-        await fs.mkdir(STATE_DIR, { recursive: true });
-        await fs.mkdir(SNAPSHOTS_DIR, { recursive: true });
-        logger.info('security-state', 'init', '[State] State directory verified/created');
+        await prisma.$queryRaw `SELECT 1`;
+        logger.info('security-state', 'init', '[State] Database connection verified');
     }
     catch (err) {
         const error = err;
         degradedMode = true; // P2-R2: Set degraded flag
-        logger.error('security-state', 'error', '[State] CRITICAL: Cannot create state directory', { metadata: { errorMsg: error.message } });
+        logger.error('security-state', 'error', '[State] CRITICAL: Database connection failed', { metadata: { errorMsg: error.message } });
         logger.error('security-state', 'error', '[State] ENTERING DEGRADED MODE - state persistence disabled');
         await errorTracker.captureError(ensureError(error), {
             category: 'WORKER',
             severity: 'CRITICAL',
-            operation: 'state:initializeDirectories',
+            operation: 'state:initializeDatabase',
             customData: {
-                stateDir: STATE_DIR,
-                snapshotsDir: SNAPSHOTS_DIR,
+                namespace: STATE_NAMESPACE,
                 errorCode: error.code,
             },
         });
     }
     const previousState = await loadState();
     // Track which recovery tier we used
-    if (await loadStateFile(CURRENT_STATE_PATH)) {
+    if (await loadStateFromDb(CURRENT_STATE_KEY)) {
         recoveryTier = 'current';
-        await fs.copyFile(CURRENT_STATE_PATH, PREVIOUS_STATE_PATH).catch(() => { });
+        // Copy current to previous as backup
+        const currentEntry = await prisma.cacheEntry.findUnique({
+            where: { key: CURRENT_STATE_KEY },
+        });
+        if (currentEntry) {
+            await prisma.cacheEntry.upsert({
+                where: { key: PREVIOUS_STATE_KEY },
+                update: {
+                    value: currentEntry.value,
+                    sizeBytes: currentEntry.sizeBytes,
+                    updatedAt: new Date(),
+                },
+                create: {
+                    key: PREVIOUS_STATE_KEY,
+                    namespace: STATE_NAMESPACE,
+                    value: currentEntry.value,
+                    sizeBytes: currentEntry.sizeBytes,
+                },
+            }).catch(() => { });
+        }
     }
-    else if (await loadStateFile(PREVIOUS_STATE_PATH)) {
+    else if (await loadStateFromDb(PREVIOUS_STATE_KEY)) {
         recoveryTier = 'previous';
     }
     else if (previousState.cumulative.restartCount > 0) {

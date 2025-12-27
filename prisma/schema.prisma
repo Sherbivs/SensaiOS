@@ -1292,3 +1292,77 @@ model LeaderboardSnapshot {
   @@index([weekOf(sort: Desc)], map: "idx_snapshot_week")
   @@map("leaderboard_snapshots")
 }
+
+// ============================================================================
+// /Store Write Elimination - Database-First Architecture (2025-12-27)
+// ============================================================================
+// These tables replace file writes to /Store directory
+// Reference: docs/projects/STORE-WRITE-ELIMINATION.md
+// Note: Cooldown model already exists above (lines 508-521)
+// ============================================================================
+
+/// Runtime metrics (replaces /Store/restart-metrics.json)
+model RuntimeMetric {
+  id           String   @id @default(cuid())
+  metricType   String   @map("metric_type")  // 'restart', 'crash', 'shutdown'
+  timestamp    DateTime @default(now())
+  trigger      String?  // SIGTERM, SIGINT, EXIT, PM2_RESTART, etc.
+  uptimeMs     BigInt?  @map("uptime_ms")
+  errorMessage String?  @map("error_message")
+  stackTrace   String?  @map("stack_trace")
+  metadata     Json?
+  createdAt    DateTime @default(now()) @map("created_at")
+  
+  @@index([metricType, timestamp(sort: Desc)], map: "idx_runtime_metric_type_time")
+  @@map("runtime_metrics")
+}
+
+/// Alert queue (replaces /Store/alerts/)
+model AlertQueue {
+  id            String    @id @default(cuid())
+  alertId       String    @map("alert_id")
+  alertType     String    @map("alert_type")
+  level         String    // 'EMERGENCY', 'CRITICAL', 'WARNING', 'INFO'
+  message       String
+  source        String?
+  correlationId String?   @map("correlation_id")
+  payload       Json?
+  routedChannel Boolean   @default(false) @map("routed_channel")
+  routedDm      Boolean   @default(false) @map("routed_dm")
+  processed     Boolean   @default(false)
+  processedAt   DateTime? @map("processed_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  
+  @@index([createdAt(sort: Desc)], map: "idx_alert_created")
+  @@index([processed, createdAt], map: "idx_alert_pending")
+  @@map("alert_queue")
+}
+
+/// Guild configuration (replaces /Store/guild-member-timeout-config.json)
+model GuildConfig {
+  guildId     String   @id @map("guild_id")
+  configKey   String   @map("config_key")
+  configValue Json     @map("config_value")
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at")
+  
+  @@index([configKey], map: "idx_guild_config_key")
+  @@map("guild_config")
+}
+
+/// Cache entries (replaces /Store/runtime-cache/, /Store/discord-cache/, /Store/pokemon-cache/)
+model CacheEntry {
+  key            String    @id @map("cache_key")
+  namespace      String
+  value          Json
+  sizeBytes      Int       @default(0) @map("size_bytes")
+  accessCount    Int       @default(0) @map("access_count")
+  lastAccessedAt DateTime? @map("last_accessed_at")
+  expiresAt      DateTime? @map("expires_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @default(now()) @updatedAt @map("updated_at")
+  
+  @@index([namespace], map: "idx_cache_namespace")
+  @@index([expiresAt], map: "idx_cache_expires")
+  @@index([lastAccessedAt], map: "idx_cache_access")
+  @@map("cache_entries")
+}

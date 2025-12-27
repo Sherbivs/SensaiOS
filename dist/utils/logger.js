@@ -8,7 +8,6 @@
  *   - Database, security bot, and error tracking integration
  *   - Change detection to avoid duplicate output
  */
-import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { resourceMonitor } from '../services/monitoring/resource-monitor.js';
@@ -433,7 +432,7 @@ async function collectDatabaseStats() {
         return defaultReturn;
     }
 }
-function collectSecurityBotStats() {
+async function collectSecurityBotStats() {
     const serviceInfo = detectServiceType();
     if (typeof global.securityBotState === 'object' && global.securityBotState) {
         const botState = global.securityBotState;
@@ -494,13 +493,14 @@ function collectSecurityBotStats() {
             failures: 0,
         };
     }
-    // Try to read from persisted state file
+    // Try to read from database (Database-First Architecture 2025-12-27)
     try {
-        const stateFile = process.env.IS_RENDER
-            ? '/Store/security-bot-state/current.json'
-            : path.resolve(__dirname, '../../Store/security-bot-state/current.json');
-        if (fs.existsSync(stateFile)) {
-            const stateData = JSON.parse(fs.readFileSync(stateFile, 'utf8'));
+        const { prisma } = await import('../shared/prisma.js');
+        const stateEntry = await prisma.cacheEntry.findUnique({
+            where: { key: 'security-bot-state:current' },
+        });
+        if (stateEntry) {
+            const stateData = stateEntry.value;
             const cumulative = stateData.cumulative || {};
             const timeline = stateData.timeline || [];
             let lastSweepTime = 'n/a';
@@ -535,12 +535,12 @@ function collectSecurityBotStats() {
                 lastSweep: lastSweepTime,
                 assignments: cumulative.permissionChangesReverted || 0,
                 failures: cumulative.revertFailures || 0,
-                source: 'persisted-state',
+                source: 'database',
             };
         }
     }
     catch {
-        // File read failed
+        // Database read failed
     }
     return null;
 }
@@ -603,7 +603,7 @@ async function refreshStats() {
     statsCache.node = collectNodeStats();
     statsCache.cache = collectCacheStats();
     statsCache.databases = await collectDatabaseStats();
-    statsCache.security = collectSecurityBotStats();
+    statsCache.security = await collectSecurityBotStats();
     statsCache.errors = await collectErrorStats();
     statsCache.lastRefresh = now;
 }

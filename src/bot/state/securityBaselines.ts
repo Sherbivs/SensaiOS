@@ -13,8 +13,12 @@
  * - Support adaptive learning (baselines evolve over time)
  * - Enable high-confidence threat detection
  * 
+ * DATABASE-FIRST ARCHITECTURE (2025-12-27):
+ * Migrated from file storage to PostgreSQL via Prisma CacheEntry table.
+ * All persistence now goes through database, eliminating /Store file writes.
+ * 
  * SECURITY:
- * - HMAC-SHA256 signatures on baseline files
+ * - HMAC-SHA256 signatures on baseline data
  * - Tamper detection via signature verification
  * - Confidence scoring based on data volume
  */
@@ -24,17 +28,17 @@ import { getLogger } from '../../shared/logging/index.js';
 const logger = getLogger();
 
 import crypto from 'crypto';
-import fs from 'fs/promises';
-import path from 'path';
+import { prisma } from '../../shared/prisma.js';
 import { ensureError } from '../../shared/utils/error-utils.js';
-import { STATE_DIR, HMAC_ALGORITHM, getHmacSecret } from './config.js';
+import { HMAC_ALGORITHM, getHmacSecret } from './config.js';
 import type { SecurityBaselines, RoleChange } from './threatDetector.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Configuration (imports from config.ts for consistency)
+// Database Keys (Database-First Architecture)
 // ─────────────────────────────────────────────────────────────────────────────
 
-const BASELINE_FILE = path.join(STATE_DIR, 'baselines.json');
+const BASELINES_NAMESPACE = 'security-bot-state';
+const BASELINES_KEY = 'security-bot-state:baselines';
 
 const MIN_DATA_POINTS = 200;
 const CONFIDENCE_THRESHOLD = 0.7;
@@ -292,16 +296,24 @@ export function generateSecurityBaselines(roleArchive: RoleArchive): FullSecurit
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Persistence
+// Database Persistence (Database-First Architecture 2025-12-27)
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Load baselines from disk with signature verification
+ * Load baselines from database with signature verification
  */
 export async function loadSecurityBaselines(): Promise<FullSecurityBaselines | null> {
   try {
-    const fileContent = await fs.readFile(BASELINE_FILE, 'utf8');
-    const data = JSON.parse(fileContent) as BaselineFileData;
+    const entry = await prisma.cacheEntry.findUnique({
+      where: { key: BASELINES_KEY },
+    });
+    
+    if (!entry) {
+      logger.debug('security-state', 'load', '[SecurityBaselines] No baselines found in database (first run)');
+      return null;
+    }
+    
+    const data = entry.value as unknown as BaselineFileData;
     
     // Verify HMAC signature
     if (data.signature) {
@@ -310,7 +322,7 @@ export async function loadSecurityBaselines(): Promise<FullSecurityBaselines | n
       
       if (!verifySignature(dataString, signature)) {
         logger.error('security-state', 'security', '[SecurityBaselines] 🚨 SECURITY ALERT: Baseline signature verification FAILED!', {
-          metadata: { file: BASELINE_FILE }
+          metadata: { key: BASELINES_KEY }
         });
         return null;
       }
@@ -324,29 +336,21 @@ export async function loadSecurityBaselines(): Promise<FullSecurityBaselines | n
       
       return baselineData.baselines;
     } else {
-      logger.warn('security-state', 'warning', '[SecurityBaselines] Baseline file has no signature (legacy format)');
+      logger.warn('security-state', 'warning', '[SecurityBaselines] Baseline data has no signature (legacy format)');
       return data.baselines || null;
     }
   } catch (err) {
-    const error = err as NodeJS.ErrnoException;
-    if (error.code === 'ENOENT') {
-      logger.debug('security-state', 'load', '[SecurityBaselines] No baseline file found (first run)');
-      return null;
-    }
-    
+    const error = ensureError(err);
     logger.error('security-state', 'load', '[SecurityBaselines] Failed to load baselines', { metadata: { errorMsg: error.message } });
     return null;
   }
 }
 
 /**
- * Save baselines to disk with HMAC signature
+ * Save baselines to database with HMAC signature
  */
 export async function saveSecurityBaselines(baselines: FullSecurityBaselines): Promise<boolean> {
   try {
-    // Ensure directory exists (use STATE_DIR from config.ts)
-    await fs.mkdir(STATE_DIR, { recursive: true });
-    
     const data: Omit<BaselineFileData, 'signature'> = {
       baselines,
       metadata: {
@@ -364,12 +368,27 @@ export async function saveSecurityBaselines(baselines: FullSecurityBaselines): P
       signature
     };
     
-    // Write to disk
-    await fs.writeFile(BASELINE_FILE, JSON.stringify(signedData, null, 2), 'utf8');
+    const jsonSize = JSON.stringify(signedData).length;
+    
+    // Save to database
+    await prisma.cacheEntry.upsert({
+      where: { key: BASELINES_KEY },
+      update: {
+        value: signedData as object,
+        sizeBytes: jsonSize,
+        updatedAt: new Date(),
+      },
+      create: {
+        key: BASELINES_KEY,
+        namespace: BASELINES_NAMESPACE,
+        value: signedData as object,
+        sizeBytes: jsonSize,
+      },
+    });
     
     logger.info('security-state', 'save', '[SecurityBaselines] ✅ Saved baselines with signature', {
       metadata: {
-        file: BASELINE_FILE,
+        key: BASELINES_KEY,
         confidence: baselines.confidenceLevel.toFixed(2),
         dataPoints: baselines.dataPointCount
       }

@@ -1,6 +1,6 @@
 # Section 27: /Store DB-Only Policy
 
-**Last Updated**: 2025-12-27 | **Status**: Policy Defined
+**Last Updated**: 2025-12-27 | **Status**: Database-First Architecture (ACTIVE)
 
 **Owner:** DRIPTVDD
 
@@ -8,32 +8,57 @@
 
 ## 1. Policy Statement
 
-**ABSOLUTE RULE:** The `/Store` persistent disk directory SHALL contain ONLY:
+**ABSOLUTE RULE:** The `/Store` persistent disk directory SHALL contain ONLY database files:
 1. **SQLite database files** (`.db`)
 2. **Database backups** (`.db.bak`, `.db.backup`)
 
-**ALL other data** (JSON files, logs, heap snapshots, state files) MUST be:
-- Parsed and stored in appropriate database tables
-- Or migrated to PostgreSQL (cloud) for cross-service access
+**ALL other data writes are PROHIBITED:**
+- ❌ JSON files
+- ❌ Log files  
+- ❌ Heap snapshots (raw)
+- ❌ State files
+- ❌ Cache files
+- ❌ Config files
+
+**Database-First Architecture**: Every data write MUST go to a database table (PostgreSQL or SQLite).
+
+**Rationale**: 
+- Eliminates file system complexity and race conditions
+- Enables SQL queries, retention policies, and backups
+- Prevents disk space fragmentation
+- Ensures atomic operations via transactions
+- Simplifies monitoring and observability
 
 ---
 
-## 2. Current Violation Audit (2025-12-27)
+## 2. Migration Status (2025-12-27)
 
-| File Type | Count | Size | Migration Target |
-|-----------|-------|------|------------------|
-| `.heapsnapshot` | 6 | 163 MB | Parse → `heap_snapshots` table |
-| `.json` (state) | 71 | 4.2 MB | → `security_bot_state` table |
-| `.log` | 3 | 44 KB | → `kernel_logs` table |
-| `cooldowns.json` | 1 | <1 KB | → `cooldowns` table |
-| `restart-metrics.json` | 1 | 4 KB | → `restart_metrics` table |
-| `guild-member-timeout-config.json` | 1 | 2 KB | → `guild_config` table |
-| **Total violations** | **83 files** | **~168 MB** | |
+### Phase 1: Emergency Cleanup (COMPLETE)
+**Result**: 219 MB → 57 MB (-162 MB, -74%)
+- ✅ Heap snapshot retention enforced (8 → 2 files)
+- ✅ Kernel log retention enforced (5 → 2 files)
+- ✅ Security snapshot pruning (59 → 39 files)
+- ✅ Empty directory removal (4 dirs)
 
-### Compliant Files
-| File | Status |
-|------|--------|
-| `engine-write.db` | ✅ COMPLIANT |
+### Phase 2: Database-First Architecture (IN PROGRESS)
+**Target**: 57 MB → ~1 MB (-56 MB, -98% vs baseline)
+- 🔄 All file writes redirected to database tables
+- 🔄 Prisma migration created (`store_write_elimination`)
+- 🔄 Service code updates in progress
+
+### Database Tables Created
+
+#### PostgreSQL Tables
+1. **`runtime_metrics`** - Replaces `/Store/restart-metrics.json`
+2. **`alert_queue`** - Replaces `/Store/alerts/`
+3. **`guild_config`** - Replaces `/Store/guild-member-timeout-config.json`
+4. **`cooldowns`** - Replaces `/Store/cooldowns/`
+5. **`cache_entries`** - Replaces `/Store/runtime-cache/`, `/Store/discord-cache/`, `/Store/pokemon-cache/`
+
+#### SQLite Tables (engine-write.db)
+1. **`heap_snapshots`** - Parses `/Store/*.heapsnapshot`, stores summaries only
+
+**Complete schema**: See `prisma/schema.prisma` § "/Store Write Elimination"
 
 ---
 
@@ -140,7 +165,22 @@ After migration, `/Store` should contain ONLY:
 
 ---
 
-## 6. Enforcement
+## 6. Target State (Post-Migration)
+
+```
+/Store/
+├── engine-write.db      (~500 KB - SQLite for battle logs, heap summaries)
+├── engine-read.db       (~100 KB - SQLite for reference data cache)
+└── (no other files - all writes go to databases)
+```
+
+**Expected size**: ~600 KB (databases only)  
+**Write frequency**: Database updates only (no new files created)  
+**Maintenance required**: NONE (databases handle retention via SQL)
+
+---
+
+## 7. Enforcement
 
 ### Build-time Check
 ```typescript
@@ -165,9 +205,16 @@ if (nonDbFiles.length > 0) {
 
 ---
 
-## 7. Benefits
+## 8. Benefits
 
-1. **Disk efficiency:** 165 MB → 1 MB (99% reduction)
+### Achieved (Phase 1)
+1. **Disk efficiency:** 219 MB → 57 MB (74% reduction, -162 MB freed)
+2. **Automated retention:** Scripts maintain heap/log/snapshot limits
+3. **Sustainable growth:** Daily maintenance prevents accumulation
+4. **Zero-downtime cleanup:** No service restarts required
+
+### Target (Full Migration)
+1. **Ultimate efficiency:** 57 MB → ~1 MB (98% reduction vs baseline)
 2. **Query-ability:** All data accessible via SQL
 3. **Backup simplicity:** Single DB file to backup
 4. **Atomic operations:** SQLite transactions vs file system race conditions
@@ -175,11 +222,15 @@ if (nonDbFiles.length > 0) {
 
 ---
 
-## 8. References
+## 9. References
 
 - [Engine Write-DB Schema](../architecture-bible/03-worker-architecture.md)
 - [Security Bot State](../Agents.md#state-persistence-security-bot)
 - [Kernel Logging Initiative](../projects/KERNEL-FIRST-LOGGING-INITIATIVE.md)
+- **Maintenance Scripts:**
+  - `scripts/store-maintenance.sh` - Daily automated cleanup
+  - `scripts/cleanup-store-heaps.sh` - Heap snapshot retention
+  - `scripts/verify-store-policy.sh` - Compliance verification
 
 ---
 

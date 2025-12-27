@@ -18,6 +18,10 @@
  * - Drip alerts on integrity violations
  * - Prevents social engineering attacks via fake role removals
  *
+ * DATABASE-FIRST ARCHITECTURE (2025-12-27):
+ * Migrated from file storage to PostgreSQL via Prisma CacheEntry table.
+ * All persistence now goes through database, eliminating /Store file writes.
+ *
  * TEAM: Security Specialist
  * FIXES: Critical Issue #2 - Archive Tampering Vulnerability
  */
@@ -25,12 +29,18 @@
 import { getLogger } from '../../shared/logging/index.js';
 const logger = getLogger();
 import crypto from 'crypto';
-import fs from 'fs/promises';
+import { prisma } from '../../shared/prisma.js';
 import { ensureError } from '../../shared/utils/error-utils.js';
 import { emitAlert } from '../eventbus-integration.js';
 import { generateSecurityBaselines, loadSecurityBaselines, saveSecurityBaselines, shouldRefreshBaselines } from './securityBaselines.js';
 import { detectSecurityThreats, calculateCurrentActivity } from './threatDetector.js';
-import { ARCHIVE_DIR, ARCHIVE_FILE, BACKUP_FILE, MAX_ARCHIVE_SIZE, HMAC_ALGORITHM, getHmacSecret } from './config.js';
+import { MAX_ARCHIVE_SIZE, HMAC_ALGORITHM, getHmacSecret } from './config.js';
+// ─────────────────────────────────────────────────────────────────────────────
+// Database Keys (Database-First Architecture)
+// ─────────────────────────────────────────────────────────────────────────────
+const ARCHIVE_NAMESPACE = 'security-bot-state';
+const ARCHIVE_KEY = 'security-bot-state:role-archive';
+const BACKUP_KEY = 'security-bot-state:role-archive-backup';
 // ─────────────────────────────────────────────────────────────────────────────
 // Bounded Set (P2-M2: Memory Safety)
 // ─────────────────────────────────────────────────────────────────────────────
@@ -125,21 +135,32 @@ function verifySignature(data, signature) {
     }
 }
 // ─────────────────────────────────────────────────────────────────────────────
-// Persistence
+// Database Persistence (Database-First Architecture 2025-12-27)
 // ─────────────────────────────────────────────────────────────────────────────
 /**
- * Persist archive to disk with HMAC signature for integrity
+ * Persist archive to database with HMAC signature for integrity
  */
 async function persistArchive() {
     try {
-        try {
-            await fs.copyFile(ARCHIVE_FILE, BACKUP_FILE);
-        }
-        catch (backupErr) {
-            const error = backupErr;
-            if (error.code !== 'ENOENT') {
-                logger.warn('security-state', 'warning', '[RoleArchive] Failed to create backup', { metadata: { errorMsg: error.message } });
-            }
+        // First, copy current to backup
+        const currentEntry = await prisma.cacheEntry.findUnique({
+            where: { key: ARCHIVE_KEY },
+        });
+        if (currentEntry) {
+            await prisma.cacheEntry.upsert({
+                where: { key: BACKUP_KEY },
+                update: {
+                    value: currentEntry.value,
+                    sizeBytes: currentEntry.sizeBytes,
+                    updatedAt: new Date(),
+                },
+                create: {
+                    key: BACKUP_KEY,
+                    namespace: ARCHIVE_NAMESPACE,
+                    value: currentEntry.value,
+                    sizeBytes: currentEntry.sizeBytes,
+                },
+            });
         }
         const data = {
             changes: roleArchiveCache.changes,
@@ -159,13 +180,27 @@ async function persistArchive() {
             ...data,
             signature
         };
-        await fs.writeFile(ARCHIVE_FILE, JSON.stringify(signedData, null, 2), 'utf8');
+        const jsonSize = JSON.stringify(signedData).length;
+        await prisma.cacheEntry.upsert({
+            where: { key: ARCHIVE_KEY },
+            update: {
+                value: signedData,
+                sizeBytes: jsonSize,
+                updatedAt: new Date(),
+            },
+            create: {
+                key: ARCHIVE_KEY,
+                namespace: ARCHIVE_NAMESPACE,
+                value: signedData,
+                sizeBytes: jsonSize,
+            },
+        });
         lastPersistTime = Date.now();
-        logger.debug('security-state', 'save', '[RoleArchive] ✅ Persisted to disk with signature', {
+        logger.debug('security-state', 'save', '[RoleArchive] ✅ Persisted to database with signature', {
             metadata: {
                 changeCount: roleArchiveCache.changes.length,
                 signatureLength: signature.length,
-                file: ARCHIVE_FILE
+                key: ARCHIVE_KEY
             }
         });
     }
@@ -176,11 +211,11 @@ async function persistArchive() {
     }
 }
 /**
- * Debounced persist wrapper (P1: Reduce disk thrashing)
+ * Debounced persist wrapper (P1: Reduce database thrashing)
  *
- * Batches rapid role changes to max 1 disk write per 5 seconds.
+ * Batches rapid role changes to max 1 database write per 5 seconds.
  * During high-activity periods (mass role changes, raids), this
- * reduces I/O from potentially hundreds of writes to a handful.
+ * reduces database calls from potentially hundreds to a handful.
  */
 function debouncedPersist() {
     const now = Date.now();
@@ -207,55 +242,77 @@ function debouncedPersist() {
     }
 }
 // ─────────────────────────────────────────────────────────────────────────────
-// Initialization
+// Initialization (Database-First Architecture)
 // ─────────────────────────────────────────────────────────────────────────────
 /**
  * Initialize the role archive system with integrity verification
+ * Loads from database with signature verification and backup restoration.
  */
 export async function initializeRoleArchive() {
     try {
-        await fs.mkdir(ARCHIVE_DIR, { recursive: true });
-        try {
-            const fileContent = await fs.readFile(ARCHIVE_FILE, 'utf8');
-            const archived = JSON.parse(fileContent);
+        // Load archive from database
+        const entry = await prisma.cacheEntry.findUnique({
+            where: { key: ARCHIVE_KEY },
+        });
+        if (entry) {
+            const archived = entry.value;
             if (archived.signature) {
                 const { signature, ...dataToVerify } = archived;
                 const dataString = JSON.stringify(dataToVerify);
                 const isValid = verifySignature(dataString, signature);
                 if (!isValid) {
-                    logger.error('security-state', 'security', '[RoleArchive] 🚨 SECURITY ALERT: Archive signature verification FAILED! File may be tampered.', {
+                    logger.error('security-state', 'security', '[RoleArchive] 🚨 SECURITY ALERT: Archive signature verification FAILED! Data may be tampered.', {
                         metadata: {
-                            file: ARCHIVE_FILE,
+                            key: ARCHIVE_KEY,
                             signatureProvided: signature.substring(0, 16) + '...'
                         }
                     });
+                    // Try to restore from backup
                     try {
                         logger.warn('security-state', 'warning', '[RoleArchive] Attempting to restore from backup...');
-                        const backupContent = await fs.readFile(BACKUP_FILE, 'utf8');
-                        const backup = JSON.parse(backupContent);
-                        if (backup.signature) {
-                            const { signature: backupSig, ...backupData } = backup;
-                            const backupDataString = JSON.stringify(backupData);
-                            if (verifySignature(backupDataString, backupSig)) {
-                                await fs.writeFile(ARCHIVE_FILE, backupContent);
-                                logger.info('security-state', 'load', '[RoleArchive] ✅ Successfully restored from backup');
-                                if (Array.isArray(backup.changes)) {
-                                    roleArchiveCache.changes = backup.changes;
+                        const backupEntry = await prisma.cacheEntry.findUnique({
+                            where: { key: BACKUP_KEY },
+                        });
+                        if (backupEntry) {
+                            const backup = backupEntry.value;
+                            if (backup.signature) {
+                                const { signature: backupSig, ...backupData } = backup;
+                                const backupDataString = JSON.stringify(backupData);
+                                if (verifySignature(backupDataString, backupSig)) {
+                                    // Restore backup to main entry
+                                    await prisma.cacheEntry.upsert({
+                                        where: { key: ARCHIVE_KEY },
+                                        update: {
+                                            value: backupEntry.value,
+                                            sizeBytes: backupEntry.sizeBytes,
+                                            updatedAt: new Date(),
+                                        },
+                                        create: {
+                                            key: ARCHIVE_KEY,
+                                            namespace: ARCHIVE_NAMESPACE,
+                                            value: backupEntry.value,
+                                            sizeBytes: backupEntry.sizeBytes,
+                                        },
+                                    });
+                                    logger.info('security-state', 'load', '[RoleArchive] ✅ Successfully restored from backup');
+                                    if (Array.isArray(backup.changes)) {
+                                        roleArchiveCache.changes = backup.changes;
+                                    }
+                                    if (backup.statistics) {
+                                        roleArchiveCache.statistics = {
+                                            ...backup.statistics,
+                                            uniqueMembers: BoundedSet.fromArray(backup.statistics.uniqueMembers || []),
+                                            rolesModified: new Map(backup.statistics.rolesModified || [])
+                                        };
+                                    }
                                 }
-                                if (backup.statistics) {
-                                    roleArchiveCache.statistics = {
-                                        ...backup.statistics,
-                                        uniqueMembers: BoundedSet.fromArray(backup.statistics.uniqueMembers || []), // P2-M2
-                                        rolesModified: new Map(backup.statistics.rolesModified || [])
-                                    };
+                                else {
+                                    logger.error('security-state', 'security', '[RoleArchive] 🚨 Backup signature also invalid! Starting fresh.');
                                 }
                             }
                             else {
-                                logger.error('security-state', 'security', '[RoleArchive] 🚨 Backup signature also invalid! Starting fresh.');
+                                logger.warn('security-state', 'warning', '[RoleArchive] Backup has no signature (legacy format). Cannot verify integrity.');
                             }
-                        }
-                        else {
-                            logger.warn('security-state', 'warning', '[RoleArchive] Backup has no signature (legacy format). Cannot verify integrity.');
                         }
                     }
                     catch (backupErr) {
@@ -264,7 +321,7 @@ export async function initializeRoleArchive() {
                     }
                     try {
                         emitAlert('critical', 'Role archive tampering detected', {
-                            file: ARCHIVE_FILE,
+                            key: ARCHIVE_KEY,
                             signatureExpected: archived.signature,
                             action: 'Restored from backup',
                         });
@@ -277,26 +334,28 @@ export async function initializeRoleArchive() {
                     }
                 }
                 else {
+                    // Valid signature - load data
                     if (Array.isArray(archived.changes)) {
                         roleArchiveCache.changes = archived.changes;
                     }
                     if (archived.statistics) {
                         roleArchiveCache.statistics = {
                             ...archived.statistics,
-                            uniqueMembers: BoundedSet.fromArray(archived.statistics.uniqueMembers || []), // P2-M2
+                            uniqueMembers: BoundedSet.fromArray(archived.statistics.uniqueMembers || []),
                             rolesModified: new Map(archived.statistics.rolesModified || [])
                         };
                     }
-                    logger.info('security-state', 'load', '[RoleArchive] ✅ Loaded from disk with valid signature', {
+                    logger.info('security-state', 'load', '[RoleArchive] ✅ Loaded from database with valid signature', {
                         metadata: {
                             changeCount: roleArchiveCache.changes.length,
                             totalChanges: roleArchiveCache.statistics.totalChanges,
-                            file: ARCHIVE_FILE
+                            key: ARCHIVE_KEY
                         }
                     });
                 }
             }
             else {
+                // Legacy format without signature
                 logger.warn('security-state', 'warning', '[RoleArchive] Archive has no signature (legacy format). Migrating to signed format on next persist.');
                 if (Array.isArray(archived.changes)) {
                     roleArchiveCache.changes = archived.changes;
@@ -304,19 +363,17 @@ export async function initializeRoleArchive() {
                 if (archived.statistics) {
                     roleArchiveCache.statistics = {
                         ...archived.statistics,
-                        uniqueMembers: BoundedSet.fromArray(archived.statistics.uniqueMembers || []), // P2-M2
+                        uniqueMembers: BoundedSet.fromArray(archived.statistics.uniqueMembers || []),
                         rolesModified: new Map(archived.statistics.rolesModified || [])
                     };
                 }
             }
         }
-        catch (err) {
-            const error = err;
-            if (error.code !== 'ENOENT') {
-                logger.warn('security-state', 'warning', '[RoleArchive] Failed to load existing archive', { metadata: { errorMsg: error.message } });
-            }
+        else {
+            logger.info('security-state', 'init', '[RoleArchive] No existing archive found, starting fresh');
         }
         roleArchiveCache.initialized = true;
+        // Initialize security baselines
         try {
             let baselines = await loadSecurityBaselines();
             if (!baselines || shouldRefreshBaselines(baselines)) {

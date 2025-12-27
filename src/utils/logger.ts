@@ -649,7 +649,7 @@ async function collectDatabaseStats(): Promise<DatabaseStats> {
   }
 }
 
-function collectSecurityBotStats(): SecurityBotStats | null {
+async function collectSecurityBotStats(): Promise<SecurityBotStats | null> {
   const serviceInfo = detectServiceType();
   
   if (typeof global.securityBotState === 'object' && global.securityBotState) {
@@ -717,14 +717,15 @@ function collectSecurityBotStats(): SecurityBotStats | null {
     };
   }
   
-  // Try to read from persisted state file
+  // Try to read from database (Database-First Architecture 2025-12-27)
   try {
-    const stateFile = process.env.IS_RENDER
-      ? '/Store/security-bot-state/current.json'
-      : path.resolve(__dirname, '../../Store/security-bot-state/current.json');
+    const { prisma } = await import('../shared/prisma.js');
+    const stateEntry = await prisma.cacheEntry.findUnique({
+      where: { key: 'security-bot-state:current' },
+    });
     
-    if (fs.existsSync(stateFile)) {
-      const stateData = JSON.parse(fs.readFileSync(stateFile, 'utf8')) as {
+    if (stateEntry) {
+      const stateData = stateEntry.value as {
         cumulative?: { guildCount?: number; permissionChangesReverted?: number; revertFailures?: number };
         timeline?: Array<{ type: string; timestamp: string | number }>;
       };
@@ -763,11 +764,11 @@ function collectSecurityBotStats(): SecurityBotStats | null {
         lastSweep: lastSweepTime,
         assignments: cumulative.permissionChangesReverted || 0,
         failures: cumulative.revertFailures || 0,
-        source: 'persisted-state',
+        source: 'database',
       };
     }
   } catch {
-    // File read failed
+    // Database read failed
   }
   
   return null;
@@ -838,7 +839,7 @@ async function refreshStats(): Promise<void> {
   statsCache.node = collectNodeStats();
   statsCache.cache = collectCacheStats();
   statsCache.databases = await collectDatabaseStats();
-  statsCache.security = collectSecurityBotStats();
+  statsCache.security = await collectSecurityBotStats();
   statsCache.errors = await collectErrorStats();
   statsCache.lastRefresh = now;
 }

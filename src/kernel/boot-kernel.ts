@@ -157,7 +157,6 @@ import {
   getPersistenceStats,
   shutdownPersistence,
   createPrismaHook,
-  createFileDbHook,
   type PersistenceConfig,
   type KernelSnapshot,
   type DatabaseExportHook,
@@ -635,7 +634,7 @@ const Kernel = {
     listSnapshots,
     getStats: getPersistenceStats,
     createPrismaHook,
-    createFileDbHook,
+    // createFileDbHook removed — Database-First Architecture (2025-12-27)
   },
   
   // ─── Output Plugin API ───────────────────────────────────────────────────

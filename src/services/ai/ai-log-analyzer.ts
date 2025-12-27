@@ -10,13 +10,11 @@
  *   - Anomaly detection (unusual patterns, spikes, degradation)
  *   - Self-learning (improve detection over time, adapt thresholds)
  *   - Insights generation (actionable recommendations for AI)
+ * 
+ * Storage: PostgreSQL CacheEntry table (Database-First Architecture 2025-12-27)
  */
 
-import fs from 'node:fs/promises';
-import { createReadStream } from 'node:fs';
-import { createGunzip } from 'node:zlib';
-import path from 'node:path';
-import readline from 'node:readline';
+import { prisma } from '../../shared/prisma.js';
 import type { LogEntry, LogLevel } from './ai-log-writer.js';
 import { ensureError } from '../../shared/utils/error-utils.js';
 
@@ -195,13 +193,13 @@ interface SerializedKnowledgeBase {
 // Configuration
 // ─────────────────────────────────────────────────────────────────────────────
 
+// Database namespace for AI logs
+const AI_LOG_NAMESPACE = 'ai-logs';
+const ANALYSIS_NAMESPACE = 'ai-logs-analysis';
+
 const CONFIG: AnalysisConfig = {
-  baseDir: process.env.IS_RENDER 
-    ? '/Store/ai-logs' 
-    : path.resolve(process.cwd(), 'Store/ai-logs'),
-  analysisDir: process.env.IS_RENDER 
-    ? '/Store/ai-logs/analysis' 
-    : path.resolve(process.cwd(), 'Store/ai-logs/analysis'),
+  baseDir: AI_LOG_NAMESPACE, // Database namespace
+  analysisDir: ANALYSIS_NAMESPACE, // Database namespace for analysis results
   
   // Pattern detection settings
   patterns: {
@@ -251,42 +249,19 @@ const stats: AnalysisStats = {
 // Log Reading
 // ─────────────────────────────────────────────────────────────────────────────
 
-/**
- * Read log entries from a file (supports both .ndjson and .ndjson.gz).
- */
-async function* readLogFile(filepath: string): AsyncGenerator<LogEntry> {
-  const isCompressed = filepath.endsWith('.gz');
-  const stream = createReadStream(filepath);
-  const decompressor = isCompressed ? createGunzip() : null;
-  const input = decompressor ? stream.pipe(decompressor) : stream;
-  
-  const rl = readline.createInterface({
-    input,
-    crlfDelay: Infinity,
-  });
-  
-  for await (const line of rl) {
-    if (!line.trim()) continue;
-    
-    try {
-      const entry = JSON.parse(line);
-      // Skip metadata entries
-      if (entry._type === 'log_file_metadata') continue;
-      
-      yield entry as LogEntry;
-      stats.logsAnalyzed++;
-    } catch (error) {
-      const err = ensureError(error);
-      console.warn('[ai-log-analyzer] Failed to parse log entry:', err.message);
-    }
-  }
+// Type for database log batch structure
+interface LogBatch {
+  _type: string;
+  entries: LogEntry[];
+  category: string;
+  created: string;
 }
 
 /**
- * Read all log files in directory (including compressed).
+ * Read log entries from database (Database-First Architecture).
  */
 async function* readAllLogs(
-  dirPath: string = CONFIG.baseDir, 
+  _namespace: string = CONFIG.baseDir, 
   options: QueryOptions = {}
 ): AsyncGenerator<LogEntry> {
   const {
@@ -301,14 +276,29 @@ async function* readAllLogs(
   let count = 0;
   
   try {
-    // Read uncompressed logs
-    const files = await fs.readdir(dirPath);
-    const logFiles = files.filter(f => f.endsWith('.ndjson')).sort().reverse();
+    // Build where clause for database query
+    const whereClause: Record<string, unknown> = {
+      namespace: AI_LOG_NAMESPACE,
+    };
     
-    for (const file of logFiles) {
-      const filepath = path.join(dirPath, file);
+    if (since) {
+      whereClause.createdAt = { gte: since };
+    }
+    
+    // Fetch log batches from database
+    const batches = await prisma.cacheEntry.findMany({
+      where: whereClause,
+      orderBy: { createdAt: 'desc' },
+      take: 1000, // Max batches to process
+    });
+    
+    for (const batch of batches) {
+      const batchData = batch.value as unknown as LogBatch;
+      if (!batchData || batchData._type !== 'ai_log_batch' || !Array.isArray(batchData.entries)) {
+        continue;
+      }
       
-      for await (const entry of readLogFile(filepath)) {
+      for (const entry of batchData.entries) {
         // Apply filters
         if (category && entry.category !== category) continue;
         if (level && entry.level !== level) continue;
@@ -317,42 +307,15 @@ async function* readAllLogs(
         if (tags.length > 0 && !tags.some(tag => entry.tags?.includes(tag))) continue;
         
         yield entry;
+        stats.logsAnalyzed++;
         count++;
         
         if (limit && count >= limit) return;
       }
     }
-    
-    // Read compressed logs if not limited yet
-    if (!limit || count < limit) {
-      const compressedDir = path.join(dirPath, 'compressed');
-      try {
-        const compressedFiles = await fs.readdir(compressedDir);
-        const gzFiles = compressedFiles.filter(f => f.endsWith('.ndjson.gz')).sort().reverse();
-        
-        for (const file of gzFiles) {
-          const filepath = path.join(compressedDir, file);
-          
-          for await (const entry of readLogFile(filepath)) {
-            // Apply filters
-            if (category && entry.category !== category) continue;
-            if (level && entry.level !== level) continue;
-            if (since && new Date(entry.timestamp) < since) continue;
-            if (until && new Date(entry.timestamp) > until) continue;
-            if (tags.length > 0 && !tags.some(tag => entry.tags?.includes(tag))) continue;
-            
-            yield entry;
-            count++;
-            
-            if (limit && count >= limit) return;
-          }
-        }
-      } catch {
-        // Compressed directory might not exist yet
-      }
-    }
   } catch (error) {
-    console.error('[ai-log-analyzer] Failed to read logs:', error);
+    const err = ensureError(error);
+    console.error('[ai-log-analyzer] Failed to read logs from database:', err.message);
   }
 }
 
@@ -797,18 +760,16 @@ export async function generateInsights(): Promise<Insight[]> {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Persistence
+// Persistence (Database-First Architecture)
 // ─────────────────────────────────────────────────────────────────────────────
 
+const KNOWLEDGE_BASE_KEY = `${ANALYSIS_NAMESPACE}:knowledge-base`;
+
 /**
- * Save knowledge base to disk.
+ * Save knowledge base to database.
  */
 export async function saveKnowledgeBase(): Promise<void> {
   try {
-    await fs.mkdir(CONFIG.analysisDir, { recursive: true });
-    
-    const filepath = path.join(CONFIG.analysisDir, 'knowledge-base.json');
-    
     const serializable: SerializedKnowledgeBase = {
       errorPatterns: Array.from(knowledgeBase.errorPatterns.entries()),
       performanceBaselines: Array.from(knowledgeBase.performanceBaselines.entries()),
@@ -820,22 +781,44 @@ export async function saveKnowledgeBase(): Promise<void> {
       stats: { ...stats },
     };
     
-    await fs.writeFile(filepath, JSON.stringify(serializable, null, 2));
+    // Convert to JSON-safe format
+    const jsonValue = JSON.parse(JSON.stringify(serializable));
     
-    console.log('[ai-log-analyzer] Knowledge base saved');
+    await prisma.cacheEntry.upsert({
+      where: { key: KNOWLEDGE_BASE_KEY },
+      update: {
+        value: jsonValue,
+        updatedAt: new Date(),
+      },
+      create: {
+        key: KNOWLEDGE_BASE_KEY,
+        namespace: ANALYSIS_NAMESPACE,
+        value: jsonValue,
+      },
+    });
+    
+    console.log('[ai-log-analyzer] Knowledge base saved to database');
   } catch (error) {
-    console.error('[ai-log-analyzer] Failed to save knowledge base:', error);
+    const err = ensureError(error);
+    console.error('[ai-log-analyzer] Failed to save knowledge base:', err.message);
   }
 }
 
 /**
- * Load knowledge base from disk.
+ * Load knowledge base from database.
  */
 export async function loadKnowledgeBase(): Promise<void> {
   try {
-    const filepath = path.join(CONFIG.analysisDir, 'knowledge-base.json');
-    const data = await fs.readFile(filepath, 'utf8');
-    const parsed = JSON.parse(data) as SerializedKnowledgeBase;
+    const entry = await prisma.cacheEntry.findUnique({
+      where: { key: KNOWLEDGE_BASE_KEY },
+    });
+    
+    if (!entry) {
+      console.log('[ai-log-analyzer] Starting with fresh knowledge base');
+      return;
+    }
+    
+    const parsed = entry.value as unknown as SerializedKnowledgeBase;
     
     knowledgeBase.errorPatterns = new Map(parsed.errorPatterns);
     knowledgeBase.performanceBaselines = new Map(parsed.performanceBaselines);
@@ -847,8 +830,10 @@ export async function loadKnowledgeBase(): Promise<void> {
     
     Object.assign(stats, parsed.stats || {});
     
-    console.log('[ai-log-analyzer] Knowledge base loaded');
-  } catch {
+    console.log('[ai-log-analyzer] Knowledge base loaded from database');
+  } catch (error) {
+    const err = ensureError(error);
+    console.error('[ai-log-analyzer] Failed to load knowledge base:', err.message);
     console.log('[ai-log-analyzer] Starting with fresh knowledge base');
   }
 }

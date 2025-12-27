@@ -25,6 +25,18 @@ The scripts directory has been reorganized into domain-specific subdirectories, 
 | **data** | `data/cli.ts` | Data pipeline | dexpack, cache, fetch, validate, stats, build |
 | **ops** | `ops/cli.ts` | Operations | migrations, hotfix, archive, routers, tasks, clean |
 
+### Standalone Scripts (Root Level)
+
+| Script | Purpose | Usage |
+|--------|---------|-------|
+| `store-maintenance.sh` | Daily /Store cleanup | `bash scripts/store-maintenance.sh` |
+| `cleanup-store-heaps.sh` | Heap snapshot retention | `bash scripts/cleanup-store-heaps.sh` |
+| `verify-store-policy.sh` | DB-only policy check | `bash scripts/verify-store-policy.sh` |
+| `setup-ai-env.ps1` | AI environment setup | `pwsh scripts/setup-ai-env.ps1` |
+| `monitor-*.ps1` | Memory/disk monitoring | `pwsh scripts/monitor-memory-24h.ps1` |
+
+**Note**: Store maintenance scripts enforce the [/Store DB-Only Policy](../docs/architecture-bible/27-store-db-only-policy.md)
+
 ## Quick Reference
 
 ```bash

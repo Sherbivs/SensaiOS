@@ -1,6 +1,6 @@
 # Prompt.md
-Timestamp (UTC): 2025-12-27T00:05:00Z
-Revision: 3.9
+Timestamp (UTC): 2025-12-27T01:00:00Z
+Revision: 4.0
 
 **Cross-References**:
 - See `Patch.md` for contract rules (updated 2025-12-27T00:00:00Z Rev 1.75)
@@ -31,6 +31,7 @@ Revision: 3.9
 
 ## System Highlights
 - **Database:** Production uses unified Render-managed PostgreSQL (`PROD_DATABASE_URL`) for all operations. Optional workstation development via `DATABASE_ONPREMISE_DEV_PRIMARY` (offline fallback). Migrations use direct PostgreSQL mode via `RENDER_DB_EXTERNAL_URL`. See `operations-bible/02-database-operations.md` for complete URL selection logic.
+- **State Persistence (2025-12-27):** Security bot state migrated from /Store files to PostgreSQL `CacheEntry` table. Zero file writes for state persistence. Keys: `security-bot-state:current`, `security-bot-state:previous`, `security-bot-state:snapshot:{ts}`, `security-bot-state:backup-{n}`, `security-bot-state:role-archive`, `security-bot-state:baselines`.
 - **Workers & Scaling:** Dedicated outbox/cache/data-pipeline/security workers run under pooled env wiring; ENABLE_SECURITY_BOT + ENABLE_CONTINUOUS_SWEEP gate sweeps so only the security worker loops in production.
 - **Documentation:** Bible system is authoritative for all permanent documentation (architecture-bible/, operations-bible/, development-bible/). ops/ folder contains only routing infrastructure (NEXT.yaml, ROUTER files).
 - **Testing Posture:** Vitest suites (293/294 passing) cover ops, dm_home, daily, battle flows. Prisma smoke tests validate database connectivity.
@@ -66,15 +67,28 @@ Revision: 3.9
 
 ## Embedded PATCHSET Echo
 <!-- PATCHSET:ECHO BEGIN -->
-HEAD: UNCOMMITTED (DEX v2 signature export hotfix)
-Change: RESTORED DEX_V2_SIGNATURE EXPORT FOR DEXPACK V2 ACCESSORS
+HEAD: UNCOMMITTED (Database-First Architecture Migration)
+Change: SECURITY BOT STATE PERSISTENCE MIGRATED FROM /STORE TO POSTGRESQL
 
-TasklistDiff: ✅ True (DEX.V2.ACCESSORS.SIGNATURE marked DONE)
-Tests: Not run (not requested)
+Files Modified:
+- src/bot/state/persistence.ts — Full database migration (loadStateFromDb, saveStateToDb, snapshots, backups)
+- src/bot/state/roleArchive.ts — Database storage for role archive with HMAC
+- src/bot/state/securityBaselines.ts — Database storage for security baselines
+- src/bot/state/config.ts — @deprecated notices on file path constants
+- src/bot/state/index.ts — @deprecated notices on file exports
+- Agents.md — Database-First Architecture documentation
+- .github/copilot-instructions.md — Updated State Persistence section
+- Prompt.md — Rev 3.9→4.0 with State Persistence highlight
+
+Database Keys:
+- security-bot-state:current, :previous, :snapshot:{ts}, :backup-{n}, :role-archive, :baselines
+
+TasklistDiff: ⏳ Pending (Database-First Architecture task)
+Tests: Build passing (npm run build verified)
 ContractMode: ON (Patch Engine active)
 NextPointer: Main Tasks (3/3 READY): KERNEL.LOGGING.OUTPUT_PLUGINS, KERNEL.LOGGING.PII_SCRUBBING, KERNEL.LOGGING.CORRELATION_IDS | Quick Task: Available
 RoutersIntact: ✅ No routing changes required
-CanonicalDocs: ✅ Prompt.md Rev 3.8→3.9, Tasklist/NEXT updated
+CanonicalDocs: ✅ Prompt.md Rev 4.0, Agents.md updated
 <!-- PATCHSET:ECHO END -->
 
 ## AI Worker Prompt (copy/paste for Copilot/GPT)

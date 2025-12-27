@@ -26,7 +26,6 @@
 // LOGGER FIRST — Must be early import to capture initialization errors
 import { getLogger } from '../../shared/logging/index.js';
 const logger = getLogger();
-import { existsSync, readFileSync } from 'fs';
 import { ensureError } from '../../shared/utils/error-utils.js';
 // ─────────────────────────────────────────────────────────────────────────────
 // Constants
@@ -153,27 +152,34 @@ function calculateThreatActivityScore(botState) {
 }
 /**
  * Calculate archive health score (0-100)
+ * MIGRATION (2025-12-27): Reads from PostgreSQL instead of /Store
  */
-function calculateArchiveHealthScore(_botState) {
+async function calculateArchiveHealthScore(_botState) {
     let score = 0;
-    const archiveExists = existsSync('./Store/security-bot-state/role-archive.json');
-    if (archiveExists) {
-        score += 40;
-    }
-    if (archiveExists) {
-        try {
-            const archiveData = JSON.parse(readFileSync('./Store/security-bot-state/role-archive.json', 'utf8'));
-            if (archiveData.hmacSignature) {
+    try {
+        const { prisma } = await import('../../shared/prisma.js');
+        // Check if role archive exists in database
+        const archiveEntry = await prisma.cacheEntry.findUnique({
+            where: { key: 'security-bot-state:role-archive' },
+        });
+        if (archiveEntry) {
+            score += 40;
+            // Check for HMAC signature in the data
+            const archiveData = archiveEntry.value;
+            if (archiveData && archiveData.hmacSignature) {
                 score += 40;
             }
         }
-        catch {
-            // Corrupted archive = 0 points for integrity
+        // Check if backup exists in database  
+        const backupEntry = await prisma.cacheEntry.findUnique({
+            where: { key: 'security-bot-state:role-archive-backup' },
+        });
+        if (backupEntry) {
+            score += 20;
         }
     }
-    const backupExists = existsSync('./Store/security-bot-state/role-archive.backup.json');
-    if (backupExists) {
-        score += 20;
+    catch {
+        // Database unavailable = 0 score
     }
     return score;
 }
@@ -212,12 +218,12 @@ function calculateUptimeScore(botState) {
  * 4. Response Effectiveness (15%): Actions taken, success rate
  * 5. Uptime (10%): Bot availability, sweep consistency
  */
-export function calculateSecurityScore(botState) {
+export async function calculateSecurityScore(botState) {
     try {
         const components = {
             baselineQuality: calculateBaselineQualityScore(botState),
             threatActivity: calculateThreatActivityScore(botState),
-            archiveHealth: calculateArchiveHealthScore(botState),
+            archiveHealth: await calculateArchiveHealthScore(botState),
             responseEffectiveness: calculateResponseEffectivenessScore(botState),
             uptime: calculateUptimeScore(botState)
         };
@@ -324,8 +330,9 @@ export function analyzeThreatTrends(botState) {
  *
  * Analyzes current state and generates priority-sorted recommendations
  * for improving security posture.
+ * MIGRATION (2025-12-27): Now async, reads from PostgreSQL instead of /Store
  */
-export function generateRecommendations(botState, securityScore, threatTrends) {
+export async function generateRecommendations(botState, securityScore, threatTrends) {
     const recommendations = [];
     try {
         // Baseline Quality Recommendations
@@ -384,25 +391,39 @@ export function generateRecommendations(botState, securityScore, threatTrends) {
                 });
             }
         }
-        // Archive Health Recommendations
+        // Archive Health Recommendations (check database instead of /Store)
         if (securityScore.components.archiveHealth < 70) {
-            if (!existsSync('./Store/security-bot-state/role-archive.json')) {
-                recommendations.push({
-                    priority: 'critical',
-                    category: 'archive',
-                    title: 'Archive Missing',
-                    description: 'Role change archive not found. Cannot generate baselines or detect threats.',
-                    action: 'Check Store/security-bot-state/ directory permissions. Archive should be created automatically on first role change.'
+            try {
+                const { prisma } = await import('../../shared/prisma.js');
+                const archiveEntry = await prisma.cacheEntry.findUnique({
+                    where: { key: 'security-bot-state:role-archive' },
                 });
+                if (!archiveEntry) {
+                    recommendations.push({
+                        priority: 'critical',
+                        category: 'archive',
+                        title: 'Archive Missing',
+                        description: 'Role change archive not found in database. Cannot generate baselines or detect threats.',
+                        action: 'Archive should be created automatically on first role change. Check database connectivity.'
+                    });
+                }
+                else {
+                    const backupEntry = await prisma.cacheEntry.findUnique({
+                        where: { key: 'security-bot-state:role-archive-backup' },
+                    });
+                    if (!backupEntry) {
+                        recommendations.push({
+                            priority: 'medium',
+                            category: 'archive',
+                            title: 'Archive Backup Missing',
+                            description: 'No archive backup found in database. Risk of data loss if main archive becomes corrupted.',
+                            action: 'Trigger archive save to create backup entry in database.'
+                        });
+                    }
+                }
             }
-            else if (!existsSync('./Store/security-bot-state/role-archive.backup.json')) {
-                recommendations.push({
-                    priority: 'medium',
-                    category: 'archive',
-                    title: 'Archive Backup Missing',
-                    description: 'No archive backup found. Risk of data loss if main archive becomes corrupted.',
-                    action: 'Trigger archive save to create backup file, or manually copy role-archive.json to role-archive.backup.json.'
-                });
+            catch {
+                // Database unavailable - skip archive recommendations
             }
         }
         // Response Effectiveness Recommendations
@@ -462,12 +483,13 @@ export function generateRecommendations(botState, securityScore, threatTrends) {
  *
  * Combines security score, threat trends, and recommendations into a single
  * dashboard-ready summary.
+ * MIGRATION (2025-12-27): Now async to support database operations
  */
-export function getSecurityMetrics(botState) {
+export async function getSecurityMetrics(botState) {
     try {
-        const score = calculateSecurityScore(botState);
+        const score = await calculateSecurityScore(botState);
         const trends = analyzeThreatTrends(botState);
-        const recommendations = generateRecommendations(botState, score, trends);
+        const recommendations = await generateRecommendations(botState, score, trends);
         return {
             score,
             trends,

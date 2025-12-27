@@ -4,17 +4,13 @@
  * @module services/ai/ai-log-writer
  * 
  * Purpose: Create structured, machine-readable logs for AI analysis
- * Storage: /Store/ai-logs/ (persistent disk)
- * Format: Newline-delimited JSON (NDJSON) for streaming analysis
- * Rotation: Auto-rotate by size (10MB) and time (24 hours)
- * Compression: Auto-compress old logs to save space
+ * Storage: PostgreSQL CacheEntry table (Database-First Architecture 2025-12-27)
+ * Format: JSON structured entries in database
+ * Retention: Auto-cleanup entries older than 7 days
  * Features: Correlation IDs, stack traces, context capture, error codes
  */
 
-import fs from 'node:fs/promises';
-import { createReadStream, createWriteStream, WriteStream } from 'node:fs';
-import path from 'node:path';
-import { createGzip } from 'node:zlib';
+import { prisma } from '../../shared/prisma.js';
 import { getFilesafeTimestamp } from '../../shared/utils/index.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -170,10 +166,8 @@ export interface LogStats {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const CONFIG: LogConfig = {
-  // Storage paths
-  baseDir: process.env.IS_RENDER 
-    ? '/Store/ai-logs' 
-    : path.resolve(process.cwd(), 'Store/ai-logs'),
+  // Storage namespace (database)
+  baseDir: 'ai-logs', // Database namespace, not filesystem path
   
   // Log levels with priority
   levels: {
@@ -187,12 +181,12 @@ export const CONFIG: LogConfig = {
     FATAL: 7,    // Fatal errors (system shutdown, unrecoverable)
   },
   
-  // Rotation settings
+  // Retention settings (replaces rotation)
   rotation: {
-    maxSize: 10 * 1024 * 1024, // 10MB per file
-    maxAge: 24 * 60 * 60 * 1000, // 24 hours
-    maxFiles: 200, // Keep last 200 log files (48+ hours at high volume)
-    compressAfter: 60 * 60 * 1000, // Compress after 1 hour
+    maxSize: 10 * 1024 * 1024, // 10MB per batch (for stats)
+    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days retention
+    maxFiles: 200, // Max entries per batch flush
+    compressAfter: 60 * 60 * 1000, // N/A for database
   },
   
   // Categories for log organization
@@ -221,14 +215,14 @@ export const CONFIG: LogConfig = {
 // State Management
 // ─────────────────────────────────────────────────────────────────────────────
 
-let currentLogStream: WriteStream | null = null;
-let currentLogFile: string | null = null;
-let currentLogSize = 0;
-let currentLogStartTime = Date.now();
-let flushInterval: ReturnType<typeof setInterval> | null = null;
+// Database namespace for AI logs
+const AI_LOG_NAMESPACE = 'ai-logs';
+
+let flushIntervalHandle: ReturnType<typeof setInterval> | null = null;
 let isShuttingDown = false;
 const logBuffer: LogEntry[] = [];
 let correlationIdCounter = 0;
+let batchCounter = 0;
 
 // Statistics for self-monitoring
 const stats = {
@@ -332,173 +326,85 @@ function sanitize(value: unknown): unknown {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// File Management
+// Database Management (Database-First Architecture 2025-12-27)
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Ensure log directory exists.
+ * Generate batch key for database storage
  */
-async function ensureLogDirectory(): Promise<void> {
-  try {
-    await fs.mkdir(CONFIG.baseDir, { recursive: true });
-    await fs.mkdir(path.join(CONFIG.baseDir, 'compressed'), { recursive: true });
-  } catch (error) {
-    console.error('[ai-log-writer] Failed to create log directory:', error);
-    throw error;
-  }
-}
-
-/**
- * Generate log filename based on timestamp and category.
- */
-function generateLogFilename(category = 'general'): string {
+function generateBatchKey(category = 'general'): string {
   const timestamp = getFilesafeTimestamp();
-  return `${category}-${timestamp}.ndjson`;
+  return `ai-log:${category}:${timestamp}:${batchCounter++}`;
 }
 
 /**
- * Open new log file for writing.
+ * Write log entries batch to database
  */
-async function openLogFile(category = 'general'): Promise<void> {
-  // Close existing stream
-  if (currentLogStream) {
-    await closeLogFile();
-  }
+async function writeBatchToDatabase(entries: LogEntry[]): Promise<void> {
+  if (entries.length === 0) return;
   
-  const filename = generateLogFilename(category);
-  const filepath = path.join(CONFIG.baseDir, filename);
-  
-  currentLogFile = filepath;
-  currentLogStream = createWriteStream(filepath, { flags: 'a' });
-  currentLogSize = 0;
-  currentLogStartTime = Date.now();
-  
-  // Write metadata header
-  const metadata: LogFileMetadata = {
-    _type: 'log_file_metadata',
-    version: '1.0.0',
-    created: new Date().toISOString(),
-    category,
-    pid: process.pid,
-    hostname: process.env.RENDER_SERVICE_NAME || process.env.HOSTNAME || 'unknown',
-    nodeVersion: process.version,
-  };
-  
-  currentLogStream.write(JSON.stringify(metadata) + '\n');
-}
-
-/**
- * Close current log file.
- */
-async function closeLogFile(): Promise<void> {
-  if (!currentLogStream) return;
-  
-  return new Promise((resolve, reject) => {
-    const stream = currentLogStream!;
-    stream.end(() => {
-      currentLogStream = null;
-      currentLogFile = null;
-      resolve();
-    });
-    
-    // Timeout after 5 seconds
-    setTimeout(() => reject(new Error('Log file close timeout')), 5000);
-  });
-}
-
-/**
- * Check if log rotation is needed.
- */
-function needsRotation(): boolean {
-  // Rotate if file too large
-  if (currentLogSize >= CONFIG.rotation.maxSize) {
-    return true;
-  }
-  
-  // Rotate if file too old
-  const age = Date.now() - currentLogStartTime;
-  if (age >= CONFIG.rotation.maxAge) {
-    return true;
-  }
-  
-  return false;
-}
-
-/**
- * Rotate log files (close current, open new).
- */
-async function rotateLogFile(category = 'general'): Promise<void> {
-  await closeLogFile();
-  await openLogFile(category);
-  stats.rotationsPerformed++;
-}
-
-/**
- * Compress old log files.
- */
-async function compressOldLogs(): Promise<void> {
   try {
-    const files = await fs.readdir(CONFIG.baseDir);
-    const now = Date.now();
-    
-    for (const file of files) {
-      if (!file.endsWith('.ndjson')) continue;
-      if (currentLogFile && file === path.basename(currentLogFile)) continue; // Skip current file
-      
-      const filepath = path.join(CONFIG.baseDir, file);
-      const stat = await fs.stat(filepath);
-      const age = now - stat.mtimeMs;
-      
-      // Compress if older than threshold
-      if (age >= CONFIG.rotation.compressAfter) {
-        const compressedPath = path.join(CONFIG.baseDir, 'compressed', `${file}.gz`);
-        
-        await new Promise<void>((resolve, reject) => {
-          const readStream = createReadStream(filepath);
-          const writeStream = createWriteStream(compressedPath);
-          const gzip = createGzip();
-          
-          readStream.pipe(gzip).pipe(writeStream);
-          
-          writeStream.on('finish', resolve);
-          writeStream.on('error', reject);
-          readStream.on('error', reject);
-        });
-        
-        // Delete original after successful compression
-        await fs.unlink(filepath);
-        stats.compressionsPerformed++;
-      }
+    // Group entries by category for efficient storage
+    const byCategory = new Map<string, LogEntry[]>();
+    for (const entry of entries) {
+      const cat = entry.category || 'general';
+      if (!byCategory.has(cat)) byCategory.set(cat, []);
+      byCategory.get(cat)!.push(entry);
     }
+    
+    // Write each category batch
+    for (const [category, categoryEntries] of byCategory) {
+      const batchKey = generateBatchKey(category);
+      const batchData = {
+        _type: 'ai_log_batch',
+        version: '1.0.0',
+        created: new Date().toISOString(),
+        category,
+        pid: process.pid,
+        hostname: process.env.RENDER_SERVICE_NAME || process.env.HOSTNAME || 'unknown',
+        nodeVersion: process.version,
+        entryCount: categoryEntries.length,
+        entries: categoryEntries,
+      };
+      
+      const jsonData = JSON.stringify(batchData);
+      
+      await prisma.cacheEntry.create({
+        data: {
+          key: batchKey,
+          namespace: AI_LOG_NAMESPACE,
+          value: batchData as object,
+          sizeBytes: jsonData.length,
+          expiresAt: new Date(Date.now() + CONFIG.rotation.maxAge), // 7 days retention
+        },
+      });
+      
+      stats.logsWritten += categoryEntries.length;
+      stats.bytesWritten += jsonData.length;
+    }
+    
+    stats.flushesPerformed++;
   } catch (error) {
-    console.error('[ai-log-writer] Failed to compress old logs:', error);
+    stats.errorsEncountered++;
+    console.error('[ai-log-writer] Failed to write log batch to database:', error);
   }
 }
 
 /**
- * Clean up old compressed logs (keep only maxFiles).
+ * Clean up old log entries from database
  */
 async function cleanupOldLogs(): Promise<void> {
   try {
-    const compressedDir = path.join(CONFIG.baseDir, 'compressed');
-    const files = await fs.readdir(compressedDir);
+    const cutoff = new Date(Date.now() - CONFIG.rotation.maxAge);
+    const result = await prisma.cacheEntry.deleteMany({
+      where: {
+        namespace: AI_LOG_NAMESPACE,
+        createdAt: { lt: cutoff },
+      },
+    });
     
-    // Sort by modification time (oldest first)
-    const filesWithStats = await Promise.all(
-      files.map(async file => {
-        const filepath = path.join(compressedDir, file);
-        const stat = await fs.stat(filepath);
-        return { file, filepath, mtime: stat.mtimeMs };
-      })
-    );
-    
-    filesWithStats.sort((a, b) => a.mtime - b.mtime);
-    
-    // Delete oldest files if over limit
-    const toDelete = filesWithStats.slice(0, Math.max(0, filesWithStats.length - CONFIG.rotation.maxFiles));
-    
-    for (const { filepath } of toDelete) {
-      await fs.unlink(filepath);
+    if (result.count > 0) {
+      console.log(`[ai-log-writer] Cleaned up ${result.count} old log batches`);
     }
   } catch (error) {
     console.error('[ai-log-writer] Failed to cleanup old logs:', error);
@@ -510,56 +416,13 @@ async function cleanupOldLogs(): Promise<void> {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Write log entry to file.
- */
-async function writeLogEntry(entry: LogEntry): Promise<void> {
-  if (isShuttingDown) return;
-  
-  try {
-    // Ensure log file is open
-    if (!currentLogStream) {
-      await openLogFile(entry.category);
-    }
-    
-    // Check rotation
-    if (needsRotation()) {
-      await rotateLogFile(entry.category);
-    }
-    
-    // Serialize entry
-    const line = JSON.stringify(entry) + '\n';
-    const bytes = Buffer.byteLength(line);
-    
-    // Write to stream
-    const written = currentLogStream!.write(line);
-    
-    currentLogSize += bytes;
-    stats.logsWritten++;
-    stats.bytesWritten += bytes;
-    
-    // Handle backpressure
-    if (!written) {
-      await new Promise<void>(resolve => currentLogStream!.once('drain', resolve));
-    }
-  } catch (error) {
-    stats.errorsEncountered++;
-    console.error('[ai-log-writer] Failed to write log entry:', error);
-  }
-}
-
-/**
- * Flush buffered log entries to disk.
+ * Flush buffered log entries to database.
  */
 export async function flush(): Promise<void> {
   if (logBuffer.length === 0) return;
   
   const entries = logBuffer.splice(0, logBuffer.length);
-  
-  for (const entry of entries) {
-    await writeLogEntry(entry);
-  }
-  
-  stats.flushesPerformed++;
+  await writeBatchToDatabase(entries);
 }
 
 /**
@@ -716,28 +579,24 @@ export const fatal = (category: LogCategory, message: string, options?: LogOptio
   log('FATAL', category, message, options);
 
 /**
- * Initialize the AI log writer.
+ * Initialize the AI log writer (Database-First Architecture).
  */
 export async function initialize(): Promise<void> {
   try {
-    await ensureLogDirectory();
-    await openLogFile('general');
-    
     // Start auto-flush interval
     if (CONFIG.autoFlush) {
-      flushInterval = setInterval(() => {
+      flushIntervalHandle = setInterval(() => {
         flush().catch(err => console.error('[ai-log-writer] Auto-flush failed:', err));
       }, CONFIG.flushInterval);
       
       // Allow process to exit
-      if (flushInterval.unref) {
-        flushInterval.unref();
+      if (flushIntervalHandle.unref) {
+        flushIntervalHandle.unref();
       }
     }
     
-    // Start compression/cleanup tasks (every hour)
+    // Start cleanup task (every hour)
     const maintenanceInterval = setInterval(() => {
-      compressOldLogs().catch(err => console.error('[ai-log-writer] Compression failed:', err));
       cleanupOldLogs().catch(err => console.error('[ai-log-writer] Cleanup failed:', err));
     }, 60 * 60 * 1000);
     
@@ -746,15 +605,16 @@ export async function initialize(): Promise<void> {
     }
     
     // Log initialization
-    info(CONFIG.categories.SYSTEM, 'AI Log Writer initialized', {
+    info(CONFIG.categories.SYSTEM, 'AI Log Writer initialized (database-first)', {
       data: {
-        baseDir: CONFIG.baseDir,
+        namespace: AI_LOG_NAMESPACE,
         minLevel: CONFIG.minLevel,
         categories: Object.keys(CONFIG.categories).length,
+        storage: 'PostgreSQL',
       },
     });
     
-    console.log('[ai-log-writer] Initialized successfully');
+    console.log('[ai-log-writer] Initialized successfully (database-first)');
   } catch (err) {
     console.error('[ai-log-writer] Initialization failed:', err);
     throw err;
@@ -768,9 +628,9 @@ export async function shutdown(): Promise<void> {
   isShuttingDown = true;
   
   // Stop auto-flush
-  if (flushInterval) {
-    clearInterval(flushInterval);
-    flushInterval = null;
+  if (flushIntervalHandle) {
+    clearInterval(flushIntervalHandle);
+    flushIntervalHandle = null;
   }
   
   // Final flush
@@ -783,8 +643,6 @@ export async function shutdown(): Promise<void> {
         logsWritten: stats.logsWritten,
         bytesWritten: stats.bytesWritten,
         errorsEncountered: stats.errorsEncountered,
-        rotationsPerformed: stats.rotationsPerformed,
-        compressionsPerformed: stats.compressionsPerformed,
         flushesPerformed: stats.flushesPerformed,
         uptime: Math.floor((Date.now() - stats.startTime) / 1000),
       },
@@ -792,7 +650,6 @@ export async function shutdown(): Promise<void> {
   });
   
   await flush();
-  await closeLogFile();
   
   console.log('[ai-log-writer] Shutdown complete');
 }
@@ -804,8 +661,8 @@ export function getStats(): LogStats {
   return {
     ...stats,
     uptime: Math.floor((Date.now() - stats.startTime) / 1000),
-    currentLogFile,
-    currentLogSize,
+    currentLogFile: `db:${AI_LOG_NAMESPACE}`,
+    currentLogSize: stats.bytesWritten,
     bufferSize: logBuffer.length,
   };
 }

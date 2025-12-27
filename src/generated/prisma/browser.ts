@@ -299,3 +299,23 @@ export type AchievementUnlock = Prisma.AchievementUnlockModel
  * Weekly leaderboard snapshots for history and rewards
  */
 export type LeaderboardSnapshot = Prisma.LeaderboardSnapshotModel
+/**
+ * Model RuntimeMetric
+ * Runtime metrics (replaces /Store/restart-metrics.json)
+ */
+export type RuntimeMetric = Prisma.RuntimeMetricModel
+/**
+ * Model AlertQueue
+ * Alert queue (replaces /Store/alerts/)
+ */
+export type AlertQueue = Prisma.AlertQueueModel
+/**
+ * Model GuildConfig
+ * Guild configuration (replaces /Store/guild-member-timeout-config.json)
+ */
+export type GuildConfig = Prisma.GuildConfigModel
+/**
+ * Model CacheEntry
+ * Cache entries (replaces /Store/runtime-cache/, /Store/discord-cache/, /Store/pokemon-cache/)
+ */
+export type CacheEntry = Prisma.CacheEntryModel

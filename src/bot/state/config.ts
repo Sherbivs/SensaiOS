@@ -2,6 +2,10 @@
  * Security Bot State Configuration
  * Centralized configuration for state persistence module
  * @module bot/state/config
+ * 
+ * DATABASE-FIRST ARCHITECTURE (2025-12-27):
+ * File path constants removed. All persistence uses PostgreSQL via Prisma.
+ * See individual modules for database key constants.
  */
 
 import { getLogger } from '../../shared/logging/index.js';
@@ -16,16 +20,18 @@ export const IS_PRODUCTION = process.env.NODE_ENV === 'production' || !!process.
 export const IS_TEST = process.env.NODE_ENV === 'test' || process.env.VITEST === 'true';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Storage Paths
+// Storage Paths (DEPRECATED - Database-First Architecture)
+// These are kept for backwards compatibility but NO LONGER USED for persistence.
+// All state now stored in PostgreSQL via CacheEntry table.
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** Base storage directory (Render uses /Store, local uses ./Store) */
+/** @deprecated Use database keys instead - see persistence.ts */
 export const STORE_BASE = process.env.RENDER ? '/Store' : './Store';
 
-/** Security bot state directory */
+/** @deprecated Use CURRENT_STATE_KEY in persistence.ts */
 export const STATE_DIR = `${STORE_BASE}/security-bot-state`;
 
-/** Role archive directory */
+/** @deprecated Use ARCHIVE_KEY in roleArchive.ts */
 export const ARCHIVE_DIR = `${STATE_DIR}/role-archive`;
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -78,10 +84,10 @@ export const HMAC_ALGORITHM = 'sha256';
 /** Maximum number of role change events to keep in archive */
 export const MAX_ARCHIVE_SIZE = 500;
 
-/** Archive file path */
+/** @deprecated Use ARCHIVE_KEY in roleArchive.ts */
 export const ARCHIVE_FILE = `${ARCHIVE_DIR}/role-changes.json`;
 
-/** Backup file path */
+/** @deprecated Use BACKUP_KEY in roleArchive.ts */
 export const BACKUP_FILE = `${ARCHIVE_DIR}/role-changes.backup.json`;
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -98,17 +104,17 @@ export const SNAPSHOT_RETENTION_DAYS = 7;
 export const MAX_TIMELINE_EVENTS = 100;
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Export Summary
+// Export Summary (DEPRECATED paths kept for backwards compatibility)
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const stateConfig = {
   isProduction: IS_PRODUCTION,
   isTest: IS_TEST,
-  storeBase: STORE_BASE,
-  stateDir: STATE_DIR,
-  archiveDir: ARCHIVE_DIR,
-  archiveFile: ARCHIVE_FILE,
-  backupFile: BACKUP_FILE,
+  /** @deprecated */ storeBase: STORE_BASE,
+  /** @deprecated */ stateDir: STATE_DIR,
+  /** @deprecated */ archiveDir: ARCHIVE_DIR,
+  /** @deprecated */ archiveFile: ARCHIVE_FILE,
+  /** @deprecated */ backupFile: BACKUP_FILE,
   maxArchiveSize: MAX_ARCHIVE_SIZE,
   hmacAlgorithm: HMAC_ALGORITHM,
   autoSaveIntervalMs: AUTO_SAVE_INTERVAL_MS,

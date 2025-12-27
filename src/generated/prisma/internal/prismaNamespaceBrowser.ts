@@ -105,7 +105,11 @@ export const ModelName = {
   PlayerStats: 'PlayerStats',
   AchievementDef: 'AchievementDef',
   AchievementUnlock: 'AchievementUnlock',
-  LeaderboardSnapshot: 'LeaderboardSnapshot'
+  LeaderboardSnapshot: 'LeaderboardSnapshot',
+  RuntimeMetric: 'RuntimeMetric',
+  AlertQueue: 'AlertQueue',
+  GuildConfig: 'GuildConfig',
+  CacheEntry: 'CacheEntry'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -1006,6 +1010,65 @@ export const LeaderboardSnapshotScalarFieldEnum = {
 export type LeaderboardSnapshotScalarFieldEnum = (typeof LeaderboardSnapshotScalarFieldEnum)[keyof typeof LeaderboardSnapshotScalarFieldEnum]
 
 
+export const RuntimeMetricScalarFieldEnum = {
+  id: 'id',
+  metricType: 'metricType',
+  timestamp: 'timestamp',
+  trigger: 'trigger',
+  uptimeMs: 'uptimeMs',
+  errorMessage: 'errorMessage',
+  stackTrace: 'stackTrace',
+  metadata: 'metadata',
+  createdAt: 'createdAt'
+} as const
+
+export type RuntimeMetricScalarFieldEnum = (typeof RuntimeMetricScalarFieldEnum)[keyof typeof RuntimeMetricScalarFieldEnum]
+
+
+export const AlertQueueScalarFieldEnum = {
+  id: 'id',
+  alertId: 'alertId',
+  alertType: 'alertType',
+  level: 'level',
+  message: 'message',
+  source: 'source',
+  correlationId: 'correlationId',
+  payload: 'payload',
+  routedChannel: 'routedChannel',
+  routedDm: 'routedDm',
+  processed: 'processed',
+  processedAt: 'processedAt',
+  createdAt: 'createdAt'
+} as const
+
+export type AlertQueueScalarFieldEnum = (typeof AlertQueueScalarFieldEnum)[keyof typeof AlertQueueScalarFieldEnum]
+
+
+export const GuildConfigScalarFieldEnum = {
+  guildId: 'guildId',
+  configKey: 'configKey',
+  configValue: 'configValue',
+  updatedAt: 'updatedAt'
+} as const
+
+export type GuildConfigScalarFieldEnum = (typeof GuildConfigScalarFieldEnum)[keyof typeof GuildConfigScalarFieldEnum]
+
+
+export const CacheEntryScalarFieldEnum = {
+  key: 'key',
+  namespace: 'namespace',
+  value: 'value',
+  sizeBytes: 'sizeBytes',
+  accessCount: 'accessCount',
+  lastAccessedAt: 'lastAccessedAt',
+  expiresAt: 'expiresAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type CacheEntryScalarFieldEnum = (typeof CacheEntryScalarFieldEnum)[keyof typeof CacheEntryScalarFieldEnum]
+
+
 export const SortOrder = {
   asc: 'asc',
   desc: 'desc'
@@ -1613,4 +1676,44 @@ export const LeaderboardSnapshotOrderByRelevanceFieldEnum = {
 } as const
 
 export type LeaderboardSnapshotOrderByRelevanceFieldEnum = (typeof LeaderboardSnapshotOrderByRelevanceFieldEnum)[keyof typeof LeaderboardSnapshotOrderByRelevanceFieldEnum]
+
+
+export const RuntimeMetricOrderByRelevanceFieldEnum = {
+  id: 'id',
+  metricType: 'metricType',
+  trigger: 'trigger',
+  errorMessage: 'errorMessage',
+  stackTrace: 'stackTrace'
+} as const
+
+export type RuntimeMetricOrderByRelevanceFieldEnum = (typeof RuntimeMetricOrderByRelevanceFieldEnum)[keyof typeof RuntimeMetricOrderByRelevanceFieldEnum]
+
+
+export const AlertQueueOrderByRelevanceFieldEnum = {
+  id: 'id',
+  alertId: 'alertId',
+  alertType: 'alertType',
+  level: 'level',
+  message: 'message',
+  source: 'source',
+  correlationId: 'correlationId'
+} as const
+
+export type AlertQueueOrderByRelevanceFieldEnum = (typeof AlertQueueOrderByRelevanceFieldEnum)[keyof typeof AlertQueueOrderByRelevanceFieldEnum]
+
+
+export const GuildConfigOrderByRelevanceFieldEnum = {
+  guildId: 'guildId',
+  configKey: 'configKey'
+} as const
+
+export type GuildConfigOrderByRelevanceFieldEnum = (typeof GuildConfigOrderByRelevanceFieldEnum)[keyof typeof GuildConfigOrderByRelevanceFieldEnum]
+
+
+export const CacheEntryOrderByRelevanceFieldEnum = {
+  key: 'key',
+  namespace: 'namespace'
+} as const
+
+export type CacheEntryOrderByRelevanceFieldEnum = (typeof CacheEntryOrderByRelevanceFieldEnum)[keyof typeof CacheEntryOrderByRelevanceFieldEnum]
 

@@ -31,7 +31,7 @@ An agentic system that routes tasks to capable sub-agents, never gets stuck, and
 - ✅ **Memory Safety Audit Complete**: 13/13 runtime structures bounded, peak RAM ~300-350 MB (15-17% of 2 GB RAM limit, upgraded from Starter 512 MB on 2025-11-17)
 - ✅ **Resource Limits Clarification**: Clear distinction between RAM (2 GB volatile memory) and persistent disk (1 GB /Store volume) documented in `docs/RESOURCE-LIMITS-RAM-VS-DISK.md`
 - ✅ **Discord.js Cache Management (2025-11-17)**: Configured cache limits + sweeping to prevent unbounded growth (50-200 MB/day → 0 MB/day on idle bot)
-- ✅ **7-Day State Persistence**: Security bot maintains hourly metrics with full restart continuity (Store/security-bot-state/)
+- ✅ **Database-First State Persistence (2025-12-27)**: Security bot state migrated from /Store files to PostgreSQL. Zero file writes for state persistence.
 - ✅ **Event Bus Phase 2.4.3**: IntelligentLogger migration complete with correlation tracking and pattern caching
 - ✅ **Cache Management**: Discord.js automatic sweeping prevents 100+ MB memory leaks
 
@@ -397,9 +397,9 @@ console.log(`PROD: ${stats.prod.status} | LOCAL: ${stats.onPremiseDev.status}`);
 
 See `operations-bible/02-database-operations.md` for comprehensive database architecture documentation including `TripleDatabaseStats` type definitions, heartbeat tracking, workstation gameplay setup, and replication flows.
 
-## State Persistence (Security Bot)
+## State Persistence (Security Bot) — Database-First Architecture
 
-**As of 2025-11-06**, the security bot maintains operational state across restarts via JSON snapshots stored in `Store/security-bot-state/`.
+**As of 2025-12-27**, the security bot maintains operational state across restarts via PostgreSQL using the `CacheEntry` table. This replaced the previous file-based system (`Store/security-bot-state/`) to eliminate all /Store file writes.
 
 **Purpose:** Give the bot "memory" so it remembers operational history, displays cumulative statistics instead of resetting to zero, and can resume monitoring from where it left off.
 
@@ -411,17 +411,23 @@ See `operations-bible/02-database-operations.md` for comprehensive database arch
 - **Enhanced Restart DMs:** Show restart number, time since last restart, recent activity summary
 - **Admin Interface:** `/ops state` command displays full operational history
 
-**State Structure:**
+**Database Schema (CacheEntry table):**
 ```
-Store/security-bot-state/
-├── current.json          # Active runtime state
-├── previous.json         # Backup from last restart
-├── snapshots/           # Timestamped backups (7-day retention)
-└── schema.md            # JSON schema documentation
+Namespace: security-bot-state
+Keys:
+├── security-bot-state:current      # Active runtime state
+├── security-bot-state:previous     # Backup from last save
+├── security-bot-state:snapshot:{ts}# Timestamped snapshots (7-day retention)
+├── security-bot-state:backup-{n}   # Rotating backups (0, 1, 2)
+├── security-bot-state:role-archive # Role change archive with HMAC
+├── security-bot-state:role-archive-backup # Role archive backup
+└── security-bot-state:baselines    # Security baselines with HMAC
 ```
 
-**Implementation:**
-- `src/bot/state/persistence.js` — Core save/load/shutdown lifecycle with defensive directory creation
+**Implementation (Database-First):**
+- `src/bot/state/persistence.ts` — Core save/load/shutdown lifecycle using Prisma CacheEntry
+- `src/bot/state/roleArchive.ts` — Role change tracking with HMAC signatures (database storage)
+- `src/bot/state/securityBaselines.ts` — Security baseline generation (database storage)
 - `src/bot/state/stats.js` — Cumulative statistics tracking
 - `src/bot/state/timeline.js` — Activity timeline formatting
 - `src/bot/state/context.js` — Guild monitoring context restoration
@@ -433,27 +439,9 @@ Store/security-bot-state/
 - Admin: `/ops state` command in `src/bot/ops/admin.ts`
 - Telemetry: `src/utils/logger.js` reads `global.securityBotState` for comprehensive stats display
 
-**Persistent Disk Configuration (Render):**
-The `infinity-gauntlet-security` worker has a 1GB persistent disk mounted at `/Store` to ensure state files survive deployments:
-
-```yaml
-# render.yaml
-- type: worker
-  name: infinity-gauntlet-security
-  disks:
-    - name: security-state
-      mountPath: /Store
-      sizeGB: 1
-```
-
-State files persist at `/Store/security-bot-state/`:
-- `current.json` — Active runtime state
-- `previous.json` — Backup from last restart
-- `snapshots/*.json` — Timestamped backups (7-day retention)
-
 **Usage Patterns:**
 
-```javascript
+```typescript
 import { initializeState, saveState, recordSweep } from './state/persistence.js';
 import { getStatsSummary } from './state/stats.js';
 
@@ -478,9 +466,8 @@ process.on('SIGTERM', async () => {
 - Logger auto-refreshes security bot stats from `global.securityBotState` every 15 seconds
 - Restart DMs include: restart count, time since last restart, recent activity summary
 - `/ops state` command displays full operational history with cumulative metrics
-- Render logs show: status (online/initializing/n/a), guilds, last sweep time, assignments, failures
 
-See `docs/security-bot-state.md` and `Store/security-bot-state/schema.md` for comprehensive state persistence documentation including JSON schema, lifecycle, error handling, and troubleshooting.
+**Migration Note (2025-12-27):** The previous file-based system (`Store/security-bot-state/*.json`) has been replaced with database storage. File path constants in `config.ts` are marked `@deprecated`. No /Store file writes occur for state persistence.
 
 ## Database Replication Architecture (Phase 16)
 

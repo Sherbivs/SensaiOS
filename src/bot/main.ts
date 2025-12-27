@@ -68,6 +68,7 @@ import { installFatalErrorHandlers } from '../utils/fatalErrorGuard.js';
 import { log as baseLog, report } from '../shared/logging/index.js';
 import opsNotifier from '../utils/opsNotifier.js';
 import { resourceMonitor } from '../services/monitoring/resource-monitor.js';
+import { prisma } from '../shared/prisma.js';
 
 import { createDripAlertManager, DRIP_ALERT_SEVERITY, type DripAlertManager, type DescribeUserFunction } from './dripAlerts.js';
 import { buildRestartSummary } from './state/context.js';
@@ -245,114 +246,105 @@ const { CLI_SWEEP_WARNING_THRESHOLD_SECONDS, CONTINUOUS_SWEEP_IDLE_DELAY_MS, GUI
 
 // Auto-adjusting timeout for GuildMembersTimeout errors
 // Increases by 250ms each time a timeout occurs, persists across restarts
-// On Render with persistent disk mounted at /Store
-// Locally falls back to Store/ in project directory
-const TIMEOUT_CONFIG_FILE = process.env.RENDER
-  ? '/Store/guild-member-timeout-config.json'
-  : './Store/guild-member-timeout-config.json';
+// MIGRATION (2025-12-27): Moved from /Store to PostgreSQL CacheEntry table
+const TIMEOUT_CONFIG_KEY = 'guild-member-timeout-config';
 
-// Load timeout from persistent config
-function loadTimeoutConfig(): number {
+// Load timeout from database
+async function loadTimeoutConfig(): Promise<number> {
   try {
-    baseLog('info', `[timeout-config] Loading from: ${TIMEOUT_CONFIG_FILE}`);
+    baseLog('info', `[timeout-config] Loading from database: ${TIMEOUT_CONFIG_KEY}`);
     
-    if (fs.existsSync(TIMEOUT_CONFIG_FILE)) {
-      const data = fs.readFileSync(TIMEOUT_CONFIG_FILE, 'utf8');
-      const config = JSON.parse(data) as TimeoutConfig;
+    const entry = await prisma.cacheEntry.findUnique({
+      where: { key: TIMEOUT_CONFIG_KEY },
+    });
+    
+    if (entry) {
+      const config = entry.value as unknown as TimeoutConfig;
       if (config.timeoutMs && typeof config.timeoutMs === 'number') {
         const clamped = Math.max(MIN_TIMEOUT_MS, Math.min(MAX_TIMEOUT_MS, config.timeoutMs));
-        baseLog('info', `[timeout-config] Loaded from disk`, {
+        baseLog('info', `[timeout-config] Loaded from database`, {
           timeoutMs: clamped,
           adjustments: config.adjustments || 0,
           lastAdjusted: config.lastAdjusted || 'never',
           lastReason: config.reason || 'unknown',
-          file: TIMEOUT_CONFIG_FILE
         });
         return clamped;
       }
     } else {
-      baseLog('info', `[timeout-config] File does not exist, using default: ${DEFAULT_TIMEOUT_MS}ms`, {
-        file: TIMEOUT_CONFIG_FILE
-      });
+      baseLog('info', `[timeout-config] No database entry, using default: ${DEFAULT_TIMEOUT_MS}ms`);
     }
   } catch (err) {
-    baseLog('warn', '[timeout-config] Failed to load, using default', { 
+    baseLog('warn', '[timeout-config] Failed to load from database, using default', { 
       error: getErrorMessage(err),
-      file: TIMEOUT_CONFIG_FILE,
       default: DEFAULT_TIMEOUT_MS
     });
   }
   return DEFAULT_TIMEOUT_MS;
 }
 
-// Save timeout to persistent config
-function saveTimeoutConfig(timeoutMs: number, reason = 'manual'): void {
+// Save timeout to database
+async function saveTimeoutConfig(timeoutMs: number, reason = 'manual'): Promise<void> {
   try {
-    const dir = path.dirname(TIMEOUT_CONFIG_FILE);
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
-    }
-    
     let adjustments = 0;
-    try {
-      if (fs.existsSync(TIMEOUT_CONFIG_FILE)) {
-        const existing = JSON.parse(fs.readFileSync(TIMEOUT_CONFIG_FILE, 'utf8')) as TimeoutConfig;
-        adjustments = (existing.adjustments || 0) + 1;
-      }
-    } catch {
-      // Ignore history loading errors
-    }
+    let history: Array<{ timestamp: string; timeoutMs: number; reason: string }> = [];
     
-    const config: TimeoutConfig = {
-      timeoutMs,
-      adjustments,
-      lastAdjusted: new Date().toISOString(), // Keep ISO for config file
-      reason,
-      history: [],
-    };
-    
-    // Load history if exists
+    // Load existing config if any
     try {
-      if (fs.existsSync(TIMEOUT_CONFIG_FILE)) {
-        const existing = JSON.parse(fs.readFileSync(TIMEOUT_CONFIG_FILE, 'utf8')) as TimeoutConfig;
-        if (Array.isArray(existing.history)) {
-          config.history = existing.history.slice(-10); // Keep last 10
+      const existing = await prisma.cacheEntry.findUnique({
+        where: { key: TIMEOUT_CONFIG_KEY },
+      });
+      if (existing) {
+        const existingConfig = existing.value as unknown as TimeoutConfig;
+        adjustments = (existingConfig.adjustments || 0) + 1;
+        if (Array.isArray(existingConfig.history)) {
+          history = existingConfig.history.slice(-10); // Keep last 10
         }
       }
     } catch {
       // Ignore history loading errors
     }
     
-    config.history.push({
-      timestamp: new Date().toISOString(), // Keep ISO for config file
+    history.push({
+      timestamp: new Date().toISOString(),
       timeoutMs,
       reason,
     });
     
-    fs.writeFileSync(TIMEOUT_CONFIG_FILE, JSON.stringify(config, null, 2));
+    const config: TimeoutConfig = {
+      timeoutMs,
+      adjustments,
+      lastAdjusted: new Date().toISOString(),
+      reason,
+      history,
+    };
     
-    // Verify write succeeded
-    const verification = fs.readFileSync(TIMEOUT_CONFIG_FILE, 'utf8');
-    const verified = JSON.parse(verification) as TimeoutConfig;
+    await prisma.cacheEntry.upsert({
+      where: { key: TIMEOUT_CONFIG_KEY },
+      update: {
+        value: JSON.parse(JSON.stringify(config)),
+        updatedAt: new Date(),
+      },
+      create: {
+        key: TIMEOUT_CONFIG_KEY,
+        namespace: 'bot-config',
+        value: JSON.parse(JSON.stringify(config)),
+      },
+    });
     
-    baseLog('info', '[timeout-config] Saved', { 
+    baseLog('info', '[timeout-config] Saved to database', { 
       timeoutMs, 
       reason, 
       adjustments,
-      file: TIMEOUT_CONFIG_FILE,
-      verified: verified.timeoutMs === timeoutMs,
-      fileExists: fs.existsSync(TIMEOUT_CONFIG_FILE)
     });
   } catch (err) {
-    baseLog('error', '[timeout-config] Failed to save', { 
+    baseLog('error', '[timeout-config] Failed to save to database', { 
       error: getErrorMessage(err),
-      file: TIMEOUT_CONFIG_FILE,
       stack: ensureError(err).stack
     });
   }
 }
 
-// Auto-increment timeout on error
+// Auto-increment timeout on error (fire-and-forget save)
 function incrementTimeout(currentTimeout: number, reason = 'timeout_error'): number {
   const newTimeout = Math.min(MAX_TIMEOUT_MS, currentTimeout + TIMEOUT_INCREMENT_MS);
   if (newTimeout > currentTimeout) {
@@ -362,15 +354,31 @@ function incrementTimeout(currentTimeout: number, reason = 'timeout_error'): num
       increment: TIMEOUT_INCREMENT_MS, 
       reason 
     });
-    saveTimeoutConfig(newTimeout, reason);
+    // Fire-and-forget: don't block on database write
+    saveTimeoutConfig(newTimeout, reason).catch((err) => {
+      baseLog('error', '[timeout-config] Background save failed', { error: getErrorMessage(err) });
+    });
     return newTimeout;
   }
   baseLog('info', '[timeout-config] Already at maximum', { max: MAX_TIMEOUT_MS });
   return currentTimeout;
 }
 
-// Initialize timeout from config
-let GUILD_MEMBER_FETCH_CHUNK_TIMEOUT_MS = loadTimeoutConfig();
+// Initialize timeout from config (starts with default, loads async)
+let GUILD_MEMBER_FETCH_CHUNK_TIMEOUT_MS: number = DEFAULT_TIMEOUT_MS;
+
+// Async initialization of timeout config (runs immediately)
+void (async () => {
+  try {
+    GUILD_MEMBER_FETCH_CHUNK_TIMEOUT_MS = await loadTimeoutConfig();
+    baseLog('info', '[timeout-config] Loaded from database', { timeoutMs: GUILD_MEMBER_FETCH_CHUNK_TIMEOUT_MS });
+  } catch (err) {
+    baseLog('warn', '[timeout-config] Failed to load from database, using default', { 
+      default: DEFAULT_TIMEOUT_MS,
+      error: getErrorMessage(err) 
+    });
+  }
+})();
 
 const GUILD_MEMBER_FETCH_PAGE_LIMIT = 1_000;
 const GUILD_MEMBER_FETCH_MAX_PAGES = 200;
@@ -1608,13 +1616,13 @@ async function notifyServiceRestart(): Promise<void> {
       message += `\n• Permission changes detected: ${summary.totalPermissionChanges}`;
       message += `\n• Successful reverts: ${summary.successfulReverts}`;
       
-      // Add timeout configuration status
+      // Add timeout configuration status (from database)
       try {
-        const timeoutConfigPath = process.env.RENDER
-          ? '/Store/guild-member-timeout-config.json'
-          : './Store/guild-member-timeout-config.json';
-        if (fs.existsSync(timeoutConfigPath)) {
-          const timeoutConfig = JSON.parse(fs.readFileSync(timeoutConfigPath, 'utf8'));
+        const timeoutEntry = await prisma.cacheEntry.findUnique({
+          where: { key: TIMEOUT_CONFIG_KEY },
+        });
+        if (timeoutEntry) {
+          const timeoutConfig = timeoutEntry.value as unknown as TimeoutConfig;
           const timeoutSeconds = (timeoutConfig.timeoutMs / 1000).toFixed(1);
           message += `\n\n⚙️ **Configuration**`;
           message += `\n• Member fetch timeout: ${timeoutSeconds}s (${timeoutConfig.adjustments || 0} auto-adjustments)`;

@@ -2,28 +2,19 @@
  * Kernel Persistence — Unified Output and Storage Management
  * 
  * ═══════════════════════════════════════════════════════════════════════════
- * CENTRALIZES ALL KERNEL DATA PERSISTENCE
+ * DATABASE-FIRST ARCHITECTURE (2025-12-27)
  * ═══════════════════════════════════════════════════════════════════════════
  * 
- * This module provides:
- * - File-based persistence for crash recovery and offline analysis
- * - Structured JSON exports for AI/ML pipelines
- * - Database integration hooks for long-term storage
- * - Automatic periodic snapshots
- * - Graceful shutdown export
+ * All persistence now uses PostgreSQL via Prisma:
+ * - RuntimeMetric table — Snapshots, crash reports, metrics history
+ * - CacheEntry table — State exports, logs
  * 
- * Storage Locations:
- * - Store/kernel-logs/      — Real-time log files (kernel-{timestamp}.log)
- * - Store/kernel-snapshots/ — Periodic JSON snapshots
- * - Store/kernel-crashes/   — Crash reports and error dumps
- * - Store/kernel-exports/   — On-demand exports (full state)
- * - Store/kernel-metrics/   — Metrics history for trending
+ * NO FILE WRITES. All data stored in database for proper scaling.
  * 
  * @module kernel/persistence
  */
 
-import fs from 'node:fs';
-import path from 'node:path';
+import { prisma } from '../shared/prisma.js';
 import { kernel, getKernelUptime, exportKernelLogs } from './kernel-logger.js';
 import { exportErrorData, getErrorStats } from './kernel-error-detector.js';
 import { exportKernelState, getMetrics as _getMetrics } from './kernel-observer.js';
@@ -73,17 +64,15 @@ export interface DatabaseExportHook {
 }
 
 // ============================================================================
-// CONSTANTS
+// CONSTANTS — Database namespaces
 // ============================================================================
 
-const STORE_BASE = process.env.RENDER ? '/Store' : 'Store';
-
-const PATHS = {
-  logs: path.join(STORE_BASE, 'kernel-logs'),
-  snapshots: path.join(STORE_BASE, 'kernel-snapshots'),
-  crashes: path.join(STORE_BASE, 'kernel-crashes'),
-  exports: path.join(STORE_BASE, 'kernel-exports'),
-  metrics: path.join(STORE_BASE, 'kernel-metrics'),
+const NAMESPACES = {
+  snapshots: 'kernel-snapshots',
+  crashes: 'kernel-crashes',
+  exports: 'kernel-exports',
+  metrics: 'kernel-metrics',
+  logs: 'kernel-logs',
 } as const;
 
 const DEFAULT_CONFIG: PersistenceConfig = {
@@ -128,10 +117,7 @@ export function initializePersistence(customConfig?: Partial<PersistenceConfig>)
     return;
   }
   
-  kernel.boot('persistence', 'Initializing kernel persistence layer');
-  
-  // Create directories
-  ensureDirectories();
+  kernel.boot('persistence', 'Initializing kernel persistence layer (database-first)');
   
   // Start snapshot interval if configured
   if (config.snapshotIntervalMs > 0) {
@@ -142,25 +128,11 @@ export function initializePersistence(customConfig?: Partial<PersistenceConfig>)
   kernel.boot('persistence', 'Kernel persistence initialized', {
     snapshotIntervalMs: config.snapshotIntervalMs,
     retentionDays: config.retentionDays,
-    paths: PATHS,
+    storage: 'PostgreSQL (database-first)',
   });
 }
 
-/**
- * Ensure all storage directories exist
- */
-function ensureDirectories(): void {
-  for (const dir of Object.values(PATHS)) {
-    try {
-      if (!fs.existsSync(dir)) {
-        fs.mkdirSync(dir, { recursive: true });
-        kernel.debug('persistence', `Created directory: ${dir}`);
-      }
-    } catch (error) {
-      kernel.error('persistence', `Failed to create directory: ${dir}`, { error: String(error) });
-    }
-  }
-}
+// No directory operations needed — using database
 
 // ============================================================================
 // SNAPSHOT SCHEDULER
@@ -199,7 +171,7 @@ function stopSnapshotScheduler(): void {
 // ============================================================================
 
 /**
- * Save a kernel snapshot
+ * Save a kernel snapshot to database
  */
 export async function saveSnapshot(
   type: KernelSnapshot['type'] = 'MANUAL'
@@ -230,39 +202,81 @@ export async function saveSnapshot(
   const saveAll = type === 'SHUTDOWN' || type === 'CRASH' || type === 'MANUAL';
   
   try {
-    // Always save summary
-    const summaryPath = path.join(PATHS.snapshots, `${id}-summary.json`);
-    fs.writeFileSync(summaryPath, JSON.stringify(snapshot, null, 2));
-    snapshot.paths.full = summaryPath;
+    // Always save summary to RuntimeMetric
+    await prisma.runtimeMetric.create({
+      data: {
+        metricType: 'kernel-snapshot',
+        trigger: type,
+        uptimeMs,
+        metadata: snapshot as object,
+      },
+    });
+    snapshot.paths.full = `db:${NAMESPACES.snapshots}/${id}`;
     
     // Save logs (periodic/shutdown/crash)
     if (saveAll || type === 'PERIODIC') {
-      const logsPath = path.join(PATHS.snapshots, `${id}-logs.json`);
       const logs = exportKernelLogs();
-      fs.writeFileSync(logsPath, JSON.stringify(logs, null, 2));
-      snapshot.paths.logs = logsPath;
+      await prisma.cacheEntry.upsert({
+        where: { key: `${id}-logs` },
+        update: { value: logs as object, updatedAt: new Date() },
+        create: {
+          key: `${id}-logs`,
+          namespace: NAMESPACES.logs,
+          value: logs as object,
+          sizeBytes: JSON.stringify(logs).length,
+          expiresAt: new Date(Date.now() + config.retentionDays * 24 * 60 * 60 * 1000),
+        },
+      });
+      snapshot.paths.logs = `db:${NAMESPACES.logs}/${id}-logs`;
     }
     
     // Save errors (if any, or on shutdown/crash)
     const errorStats = getErrorStats();
     if (errorStats.totalErrors > 0 || type === 'SHUTDOWN' || type === 'CRASH') {
-      const errorsPath = path.join(PATHS.snapshots, `${id}-errors.json`);
       const errors = exportErrorData();
-      fs.writeFileSync(errorsPath, JSON.stringify(errors, null, 2));
-      snapshot.paths.errors = errorsPath;
+      await prisma.cacheEntry.upsert({
+        where: { key: `${id}-errors` },
+        update: { value: errors as object, updatedAt: new Date() },
+        create: {
+          key: `${id}-errors`,
+          namespace: NAMESPACES.snapshots,
+          value: errors as object,
+          sizeBytes: JSON.stringify(errors).length,
+          expiresAt: new Date(Date.now() + config.retentionDays * 24 * 60 * 60 * 1000),
+        },
+      });
+      snapshot.paths.errors = `db:${NAMESPACES.snapshots}/${id}-errors`;
     }
     
     // Save full state on shutdown/crash/manual
     if (saveAll) {
-      const statePath = path.join(PATHS.snapshots, `${id}-state.json`);
       const state = exportKernelState();
-      fs.writeFileSync(statePath, JSON.stringify(state, null, 2));
-      snapshot.paths.state = statePath;
+      await prisma.cacheEntry.upsert({
+        where: { key: `${id}-state` },
+        update: { value: state as object, updatedAt: new Date() },
+        create: {
+          key: `${id}-state`,
+          namespace: NAMESPACES.snapshots,
+          value: state as object,
+          sizeBytes: JSON.stringify(state).length,
+          expiresAt: new Date(Date.now() + config.retentionDays * 24 * 60 * 60 * 1000),
+        },
+      });
+      snapshot.paths.state = `db:${NAMESPACES.snapshots}/${id}-state`;
       
-      const metricsPath = path.join(PATHS.snapshots, `${id}-metrics.json`);
       const metrics = exportMetrics();
-      fs.writeFileSync(metricsPath, JSON.stringify(metrics, null, 2));
-      snapshot.paths.metrics = metricsPath;
+      await prisma.cacheEntry.upsert({
+        where: { key: `${id}-metrics` },
+        update: { value: metrics as object, updatedAt: new Date() },
+        create: {
+          key: `${id}-metrics`,
+          namespace: NAMESPACES.metrics,
+          value: metrics as object,
+          sizeBytes: JSON.stringify(metrics).length,
+          expiresAt: new Date(Date.now() + config.retentionDays * 24 * 60 * 60 * 1000),
+        },
+      });
+      snapshot.paths.metrics = `db:${NAMESPACES.metrics}/${id}-metrics`;
     }
     
     // Track snapshot
@@ -292,16 +306,13 @@ export async function saveSnapshot(
 }
 
 /**
- * Save crash report (synchronous for reliability)
+ * Save crash report to database (async, with console fallback)
  */
 export function saveCrashReport(reason: string, error?: Error): string {
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-  const filename = `crash-${timestamp}.json`;
-  const filepath = path.join(PATHS.crashes, filename);
+  const crashKey = `crash-${timestamp}`;
   
   try {
-    ensureDirectories();
-    
     const crashReport = {
       timestamp: new Date().toISOString(),
       uptimeMs: getKernelUptime(),
@@ -318,10 +329,21 @@ export function saveCrashReport(reason: string, error?: Error): string {
       metrics: exportMetrics(),
     };
     
-    fs.writeFileSync(filepath, JSON.stringify(crashReport, null, 2));
-    kernel.critical('persistence', `Crash report saved: ${filepath}`);
+    // Fire-and-forget database write (crash context, can't await)
+    prisma.runtimeMetric.create({
+      data: {
+        metricType: 'kernel-crash',
+        trigger: reason,
+        uptimeMs: getKernelUptime(),
+        metadata: crashReport as object,
+      },
+    }).catch((dbErr: Error) => {
+      // eslint-disable-next-line no-console
+      console.error('[KERNEL-PERSISTENCE] DB crash save failed:', dbErr.message);
+    });
     
-    return filepath;
+    kernel.critical('persistence', `Crash report queued: db:${NAMESPACES.crashes}/${crashKey}`);
+    return `db:${NAMESPACES.crashes}/${crashKey}`;
   } catch (writeError) {
     // eslint-disable-next-line no-console
     console.error('[KERNEL-PERSISTENCE] Failed to save crash report:', writeError);
@@ -334,18 +356,15 @@ export function saveCrashReport(reason: string, error?: Error): string {
 // ============================================================================
 
 /**
- * Export full kernel state to a file
+ * Export full kernel state to database
  */
-export function exportFullState(tag?: string): string {
+export async function exportFullState(tag?: string): Promise<string> {
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-  const filename = tag 
-    ? `export-${timestamp}-${tag}.json`
-    : `export-${timestamp}.json`;
-  const filepath = path.join(PATHS.exports, filename);
+  const exportKey = tag 
+    ? `export-${timestamp}-${tag}`
+    : `export-${timestamp}`;
   
   try {
-    ensureDirectories();
-    
     const fullExport = {
       exportedAt: new Date().toISOString(),
       tag: tag ?? null,
@@ -357,10 +376,20 @@ export function exportFullState(tag?: string): string {
       metrics: exportMetrics(),
     };
     
-    fs.writeFileSync(filepath, JSON.stringify(fullExport, null, 2));
-    kernel.info('persistence', `Full state exported: ${filepath}`);
+    await prisma.cacheEntry.upsert({
+      where: { key: exportKey },
+      update: { value: fullExport as object, updatedAt: new Date() },
+      create: {
+        key: exportKey,
+        namespace: NAMESPACES.exports,
+        value: fullExport as object,
+        sizeBytes: JSON.stringify(fullExport).length,
+        expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
+      },
+    });
     
-    return filepath;
+    kernel.info('persistence', `Full state exported: db:${NAMESPACES.exports}/${exportKey}`);
+    return `db:${NAMESPACES.exports}/${exportKey}`;
   } catch (error) {
     kernel.error('persistence', `Export failed: ${error}`);
     throw error;
@@ -368,16 +397,13 @@ export function exportFullState(tag?: string): string {
 }
 
 /**
- * Export metrics history to file
+ * Export metrics history to database
  */
-export function exportMetricsHistory(): string {
+export async function exportMetricsHistory(): Promise<string> {
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-  const filename = `metrics-${timestamp}.json`;
-  const filepath = path.join(PATHS.metrics, filename);
+  const metricsKey = `metrics-${timestamp}`;
   
   try {
-    ensureDirectories();
-    
     const metricsExport = {
       exportedAt: new Date().toISOString(),
       uptimeMs: getKernelUptime(),
@@ -386,10 +412,20 @@ export function exportMetricsHistory(): string {
       lastSnapshotTime: lastSnapshotTime ? new Date(lastSnapshotTime).toISOString() : null,
     };
     
-    fs.writeFileSync(filepath, JSON.stringify(metricsExport, null, 2));
-    kernel.info('persistence', `Metrics exported: ${filepath}`);
+    await prisma.cacheEntry.upsert({
+      where: { key: metricsKey },
+      update: { value: metricsExport as object, updatedAt: new Date() },
+      create: {
+        key: metricsKey,
+        namespace: NAMESPACES.metrics,
+        value: metricsExport as object,
+        sizeBytes: JSON.stringify(metricsExport).length,
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+      },
+    });
     
-    return filepath;
+    kernel.info('persistence', `Metrics exported: db:${NAMESPACES.metrics}/${metricsKey}`);
+    return `db:${NAMESPACES.metrics}/${metricsKey}`;
   } catch (error) {
     kernel.error('persistence', `Metrics export failed: ${error}`);
     throw error;
@@ -458,35 +494,37 @@ async function exportToDatabase(_triggerType: KernelSnapshot['type']): Promise<v
 // ============================================================================
 
 /**
- * Clean up old files based on retention policy
+ * Clean up old entries based on retention policy (database)
  */
-export function cleanupOldFiles(): { deleted: number; errors: number } {
-  const cutoffTime = Date.now() - (config.retentionDays * 24 * 60 * 60 * 1000);
+export async function cleanupOldFiles(): Promise<{ deleted: number; errors: number }> {
+  const cutoffTime = new Date(Date.now() - (config.retentionDays * 24 * 60 * 60 * 1000));
   let deleted = 0;
   let errors = 0;
   
-  kernel.info('persistence', `Cleaning up files older than ${config.retentionDays} days`);
+  kernel.info('persistence', `Cleaning up entries older than ${config.retentionDays} days`);
   
-  for (const dir of Object.values(PATHS)) {
-    try {
-      if (!fs.existsSync(dir)) continue;
-      
-      const files = fs.readdirSync(dir);
-      for (const file of files) {
-        const filepath = path.join(dir, file);
-        try {
-          const stats = fs.statSync(filepath);
-          if (stats.mtimeMs < cutoffTime) {
-            fs.unlinkSync(filepath);
-            deleted++;
-          }
-        } catch {
-          errors++;
-        }
-      }
-    } catch {
-      errors++;
-    }
+  try {
+    // Clean up old CacheEntry records for kernel namespaces
+    const result = await prisma.cacheEntry.deleteMany({
+      where: {
+        namespace: { in: Object.values(NAMESPACES) },
+        createdAt: { lt: cutoffTime },
+      },
+    });
+    deleted += result.count;
+    
+    // Clean up old RuntimeMetric records for kernel types
+    const metricsResult = await prisma.runtimeMetric.deleteMany({
+      where: {
+        metricType: { in: ['kernel-snapshot', 'kernel-crash'] },
+        createdAt: { lt: cutoffTime },
+      },
+    });
+    deleted += metricsResult.count;
+    
+  } catch (err) {
+    kernel.error('persistence', `Cleanup failed: ${err}`);
+    errors++;
   }
   
   kernel.info('persistence', `Cleanup complete: ${deleted} deleted, ${errors} errors`);
@@ -512,7 +550,7 @@ export function getPersistenceStats(): {
   snapshotCount: number;
   lastSnapshotTime: string | null;
   registeredHooks: number;
-  paths: typeof PATHS;
+  namespaces: typeof NAMESPACES;
   config: PersistenceConfig;
 } {
   return {
@@ -520,7 +558,7 @@ export function getPersistenceStats(): {
     snapshotCount,
     lastSnapshotTime: lastSnapshotTime ? new Date(lastSnapshotTime).toISOString() : null,
     registeredHooks: databaseHooks.length,
-    paths: PATHS,
+    namespaces: NAMESPACES,
     config,
   };
 }
@@ -554,66 +592,76 @@ export async function shutdownPersistence(): Promise<void> {
 // ============================================================================
 
 /**
- * Create a Prisma database hook
- * @param prisma - Prisma client instance
- * @param tableName - Table name for kernel data
+ * Create a Prisma database hook (primary persistence method)
+ * @param _prisma - Prisma client instance (unused, uses global)
+ * @param tableName - Namespace for kernel data
  */
 export function createPrismaHook(
-  prisma: unknown,
+  _prisma: unknown,
   options?: { tableName?: string; enabled?: boolean }
 ): DatabaseExportHook {
-  const tableName = options?.tableName ?? 'KernelLog';
+  const namespace = options?.tableName ?? 'kernel-prisma';
   
   return {
-    name: `prisma-${tableName}`,
+    name: `prisma-${namespace}`,
     enabled: options?.enabled ?? true,
     
     exportLogs: async (logs) => {
-      // Implementation would be:
-      // await prisma[tableName].createMany({ data: logs.entries.map(...) })
-      kernel.trace('persistence', `[prisma] Would export ${logs.entries.length} logs to ${tableName}`);
+      await prisma.cacheEntry.upsert({
+        where: { key: `${namespace}:logs` },
+        update: { value: logs as object, updatedAt: new Date() },
+        create: {
+          key: `${namespace}:logs`,
+          namespace,
+          value: logs as object,
+          sizeBytes: JSON.stringify(logs).length,
+        },
+      });
+      kernel.trace('persistence', `[prisma] Exported ${logs.entries.length} logs to ${namespace}`);
     },
     
     exportErrors: async (errors) => {
-      kernel.trace('persistence', `[prisma] Would export ${errors.errors.length} errors`);
+      await prisma.cacheEntry.upsert({
+        where: { key: `${namespace}:errors` },
+        update: { value: errors as object, updatedAt: new Date() },
+        create: {
+          key: `${namespace}:errors`,
+          namespace,
+          value: errors as object,
+          sizeBytes: JSON.stringify(errors).length,
+        },
+      });
+      kernel.trace('persistence', `[prisma] Exported ${errors.errors.length} errors`);
     },
     
-    exportState: async (_state) => {
-      kernel.trace('persistence', `[prisma] Would export state snapshot`);
+    exportState: async (state) => {
+      await prisma.cacheEntry.upsert({
+        where: { key: `${namespace}:state` },
+        update: { value: state as object, updatedAt: new Date() },
+        create: {
+          key: `${namespace}:state`,
+          namespace,
+          value: state as object,
+          sizeBytes: JSON.stringify(state).length,
+        },
+      });
+      kernel.trace('persistence', `[prisma] Exported state snapshot`);
     },
     
-    exportMetrics: async (_metrics) => {
-      kernel.trace('persistence', `[prisma] Would export metrics`);
+    exportMetrics: async (metrics) => {
+      await prisma.cacheEntry.upsert({
+        where: { key: `${namespace}:metrics` },
+        update: { value: metrics as object, updatedAt: new Date() },
+        create: {
+          key: `${namespace}:metrics`,
+          namespace,
+          value: metrics as object,
+          sizeBytes: JSON.stringify(metrics).length,
+        },
+      });
+      kernel.trace('persistence', `[prisma] Exported metrics`);
     },
   };
 }
 
-/**
- * Create a JSON file-based "database" hook (for development)
- */
-export function createFileDbHook(baseDir: string): DatabaseExportHook {
-  return {
-    name: 'file-db',
-    enabled: true,
-    
-    exportLogs: async (logs) => {
-      const filepath = path.join(baseDir, 'kernel-logs.json');
-      fs.writeFileSync(filepath, JSON.stringify(logs, null, 2));
-    },
-    
-    exportErrors: async (errors) => {
-      const filepath = path.join(baseDir, 'kernel-errors.json');
-      fs.writeFileSync(filepath, JSON.stringify(errors, null, 2));
-    },
-    
-    exportState: async (state) => {
-      const filepath = path.join(baseDir, 'kernel-state.json');
-      fs.writeFileSync(filepath, JSON.stringify(state, null, 2));
-    },
-    
-    exportMetrics: async (metrics) => {
-      const filepath = path.join(baseDir, 'kernel-metrics.json');
-      fs.writeFileSync(filepath, JSON.stringify(metrics, null, 2));
-    },
-  };
-}
+// createFileDbHook removed — Database-First Architecture (2025-12-27)

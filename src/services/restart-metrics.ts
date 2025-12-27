@@ -2,14 +2,16 @@
 import { getLogger } from "../shared/logging/index.js";
 const logger = getLogger();
 
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from "fs";
-import { dirname } from "path";
+import { prisma } from "../shared/prisma.js";
 
 /**
- * Restart Metrics - Persistent State Tracking
+ * Restart Metrics - Database-Backed State Tracking
  * 
  * Tracks service restart history, crash counts, and uptime metrics across restarts.
- * Persists to disk at /Store/restart-metrics.json for long-term observability.
+ * Persists to PostgreSQL `runtime_metrics` table for long-term observability.
+ * 
+ * MIGRATION (2025-12-27): Moved from /Store/restart-metrics.json to PostgreSQL
+ * Reference: docs/projects/STORE-WRITE-ELIMINATION.md
  * 
  * Purpose: Enable operators to identify reliability issues and track improvements.
  */
@@ -65,60 +67,225 @@ export interface CrashEvent {
 // Configuration
 // -----------------------------------------------------------------------------
 
-const STORAGE_PATH = process.env.NODE_ENV === "production"
-  ? "/Store/restart-metrics.json"
-  : "Store/restart-metrics.json";
-
 const RECENT_EVENTS_LIMIT = 50; // Rolling window size
 
 // -----------------------------------------------------------------------------
-// Initialization & Persistence
+// State
 // -----------------------------------------------------------------------------
 
 let metricsState: RestartMetrics | null = null;
 let currentBootTime: number = 0;
 
+// -----------------------------------------------------------------------------
+// Database Operations
+// -----------------------------------------------------------------------------
+
 /**
- * Load metrics from disk or initialize default state.
+ * Record a metric to the database (non-blocking)
+ */
+async function recordMetricToDb(
+  metricType: string,
+  trigger: string | null,
+  uptimeMs: number | null,
+  errorMessage: string | null = null,
+  stackTrace: string | null = null,
+  metadata: Record<string, unknown> | null = null
+): Promise<void> {
+  try {
+    await prisma.runtimeMetric.create({
+      data: {
+        metricType,
+        trigger,
+        uptimeMs: uptimeMs ? BigInt(uptimeMs) : null,
+        errorMessage,
+        stackTrace,
+        metadata: metadata ? (metadata as object) : undefined,
+      },
+    });
+  } catch (error) {
+    // Non-blocking - log and continue
+    logger.error('restart-metrics', 'db-write', 'Failed to write metric to database', { 
+      error: { name: 'DbWriteError', message: String(error) } 
+    });
+  }
+}
+
+/**
+ * Load historical metrics from database
+ */
+async function loadMetricsFromDb(): Promise<Partial<RestartMetrics>> {
+  try {
+    // Count totals
+    const [restartCount, crashCount] = await Promise.all([
+      prisma.runtimeMetric.count({ where: { metricType: 'restart' } }),
+      prisma.runtimeMetric.count({ where: { metricType: 'crash' } }),
+    ]);
+
+    // Get first and last boot
+    const [firstBoot, lastShutdown, lastCrash] = await Promise.all([
+      prisma.runtimeMetric.findFirst({
+        where: { metricType: 'restart' },
+        orderBy: { timestamp: 'asc' },
+      }),
+      prisma.runtimeMetric.findFirst({
+        where: { metricType: 'shutdown' },
+        orderBy: { timestamp: 'desc' },
+      }),
+      prisma.runtimeMetric.findFirst({
+        where: { metricType: 'crash' },
+        orderBy: { timestamp: 'desc' },
+      }),
+    ]);
+
+    // Calculate uptime stats from all shutdown/crash events
+    const uptimeRecords = await prisma.runtimeMetric.findMany({
+      where: { 
+        metricType: { in: ['shutdown', 'crash'] },
+        uptimeMs: { not: null },
+      },
+      select: { uptimeMs: true },
+    });
+
+    let totalUptimeMs = 0;
+    let longestUptimeMs = 0;
+    let shortestUptimeMs: number | null = null;
+
+    for (const record of uptimeRecords) {
+      if (record.uptimeMs) {
+        const ms = Number(record.uptimeMs);
+        totalUptimeMs += ms;
+        if (ms > longestUptimeMs) longestUptimeMs = ms;
+        if (shortestUptimeMs === null || ms < shortestUptimeMs) shortestUptimeMs = ms;
+      }
+    }
+
+    // Get recent events
+    const recentRestarts = await prisma.runtimeMetric.findMany({
+      where: { metricType: { in: ['restart', 'shutdown'] } },
+      orderBy: { timestamp: 'desc' },
+      take: RECENT_EVENTS_LIMIT,
+    });
+
+    const recentCrashes = await prisma.runtimeMetric.findMany({
+      where: { metricType: 'crash' },
+      orderBy: { timestamp: 'desc' },
+      take: RECENT_EVENTS_LIMIT,
+    });
+
+    return {
+      totalRestarts: restartCount + 1, // +1 for current boot
+      totalCrashes: crashCount,
+      firstBoot: firstBoot?.timestamp.toISOString() ?? new Date().toISOString(),
+      lastShutdown: lastShutdown?.timestamp.toISOString() ?? null,
+      lastShutdownTrigger: lastShutdown?.trigger ?? null,
+      lastShutdownUptimeMs: lastShutdown?.uptimeMs ? Number(lastShutdown.uptimeMs) : null,
+      lastCrash: lastCrash?.timestamp.toISOString() ?? null,
+      lastCrashError: lastCrash?.errorMessage ?? null,
+      lastCrashStack: lastCrash?.stackTrace ?? null,
+      totalUptimeMs,
+      longestUptimeMs,
+      shortestUptimeMs,
+      recentRestarts: recentRestarts.map(r => ({
+        timestamp: r.timestamp.toISOString(),
+        trigger: r.trigger ?? 'unknown',
+        uptimeMs: r.uptimeMs ? Number(r.uptimeMs) : 0,
+        graceful: r.metricType === 'shutdown',
+      })).reverse(),
+      recentCrashes: recentCrashes.map(r => ({
+        timestamp: r.timestamp.toISOString(),
+        error: r.errorMessage ?? 'Unknown error',
+        stack: r.stackTrace,
+        uptimeMs: r.uptimeMs ? Number(r.uptimeMs) : 0,
+      })).reverse(),
+    };
+  } catch (error) {
+    logger.error('restart-metrics', 'db-load', 'Failed to load metrics from database', {
+      error: { name: 'DbLoadError', message: String(error) }
+    });
+    return {};
+  }
+}
+
+// -----------------------------------------------------------------------------
+// Initialization
+// -----------------------------------------------------------------------------
+
+/**
+ * Load metrics from database or initialize default state.
  * Call this at boot before any other metrics operations.
+ */
+export async function initializeMetricsAsync(): Promise<RestartMetrics> {
+  if (metricsState) {
+    return metricsState;
+  }
+  
+  try {
+    const now = new Date().toISOString();
+    currentBootTime = Date.now();
+    
+    // Load historical data from database
+    const dbMetrics = await loadMetricsFromDb();
+    
+    // Merge with defaults
+    metricsState = {
+      totalRestarts: dbMetrics.totalRestarts ?? 1,
+      totalCrashes: dbMetrics.totalCrashes ?? 0,
+      firstBoot: dbMetrics.firstBoot ?? now,
+      lastBoot: now,
+      lastShutdown: dbMetrics.lastShutdown ?? null,
+      lastCrash: dbMetrics.lastCrash ?? null,
+      lastShutdownTrigger: dbMetrics.lastShutdownTrigger ?? null,
+      lastShutdownUptimeMs: dbMetrics.lastShutdownUptimeMs ?? null,
+      lastCrashError: dbMetrics.lastCrashError ?? null,
+      lastCrashStack: dbMetrics.lastCrashStack ?? null,
+      totalUptimeMs: dbMetrics.totalUptimeMs ?? 0,
+      longestUptimeMs: dbMetrics.longestUptimeMs ?? 0,
+      shortestUptimeMs: dbMetrics.shortestUptimeMs ?? null,
+      recentRestarts: dbMetrics.recentRestarts ?? [],
+      recentCrashes: dbMetrics.recentCrashes ?? [],
+    };
+    
+    // Record this boot to database (non-blocking)
+    recordMetricToDb('restart', 'boot', null, null, null, {
+      totalRestarts: metricsState.totalRestarts,
+    });
+    
+    logger.info('restart-metrics', 'load', `Loaded state: ${metricsState.totalRestarts} restarts, ${metricsState.totalCrashes} crashes (database-backed)`);
+  } catch (error) {
+    logger.error('restart-metrics', 'load', 'Failed to load state, using defaults', { 
+      error: { name: 'LoadError', message: String(error) } 
+    });
+    metricsState = createDefaultMetrics();
+    currentBootTime = Date.now();
+  }
+  
+  return metricsState!;
+}
+
+/**
+ * Synchronous initialization for backward compatibility.
+ * Uses cached state if available, otherwise creates defaults.
+ * @deprecated Use initializeMetricsAsync() for proper database loading
  */
 export function initializeMetrics(): RestartMetrics {
   if (metricsState) {
     return metricsState;
   }
   
-  try {
-    if (existsSync(STORAGE_PATH)) {
-      const content = readFileSync(STORAGE_PATH, "utf-8");
-      metricsState = JSON.parse(content);
-      
-      // Record this boot
-      metricsState!.totalRestarts += 1;
-      metricsState!.lastBoot = new Date().toISOString();
-      currentBootTime = Date.now();
-      
-      logger.info('restart-metrics', 'load', `Loaded state: ${metricsState!.totalRestarts} restarts, ${metricsState!.totalCrashes} crashes`);
-    } else {
-      // First boot - create default state
-      metricsState = createDefaultMetrics();
-      currentBootTime = Date.now();
-      
-      // Ensure directory exists
-      const dir = dirname(STORAGE_PATH);
-      if (!existsSync(dir)) {
-        mkdirSync(dir, { recursive: true });
-      }
-      
-      saveMetrics();
-      logger.info('restart-metrics', 'init', 'Initialized new state');
-    }
-  } catch (error) {
-    logger.error('restart-metrics', 'load', 'Failed to load state, using defaults', { error: { name: 'LoadError', message: String(error) } });
-    metricsState = createDefaultMetrics();
-    currentBootTime = Date.now();
-  }
+  // Create defaults - async load will update later
+  metricsState = createDefaultMetrics();
+  currentBootTime = Date.now();
   
-  return metricsState!; // Non-null after initialization
+  // Trigger async load in background
+  loadMetricsFromDb().then(dbMetrics => {
+    if (metricsState) {
+      Object.assign(metricsState, dbMetrics, { lastBoot: metricsState.lastBoot });
+    }
+  }).catch(() => {
+    // Ignore - defaults are fine
+  });
+  
+  return metricsState;
 }
 
 function createDefaultMetrics(): RestartMetrics {
@@ -143,26 +310,13 @@ function createDefaultMetrics(): RestartMetrics {
 }
 
 /**
- * Save metrics to disk (synchronous).
- * Called on shutdown and after significant events.
+ * Save metrics - now a no-op since we write directly to database.
+ * Kept for backward compatibility.
+ * @deprecated Database writes happen automatically
  */
 export function saveMetrics(): void {
-  if (!metricsState) {
-    logger.warn('restart-metrics', 'save', 'Cannot save - not initialized');
-    return;
-  }
-  
-  try {
-    // Ensure directory exists
-    const dir = dirname(STORAGE_PATH);
-    if (!existsSync(dir)) {
-      mkdirSync(dir, { recursive: true });
-    }
-    
-    writeFileSync(STORAGE_PATH, JSON.stringify(metricsState, null, 2), "utf-8");
-  } catch (error) {
-    logger.error('restart-metrics', 'save', 'Failed to save state', { error: { name: 'SaveError', message: String(error) } });
-  }
+  // No-op - database writes are done in event recording functions
+  // This function is kept for backward compatibility
 }
 
 // -----------------------------------------------------------------------------
@@ -182,7 +336,7 @@ export function recordShutdown(trigger: string): void {
   const uptimeMs = Date.now() - currentBootTime;
   const now = new Date().toISOString();
   
-  // Update state
+  // Update in-memory state
   metricsState.lastShutdown = now;
   metricsState.lastShutdownTrigger = trigger;
   metricsState.lastShutdownUptimeMs = uptimeMs;
@@ -209,7 +363,9 @@ export function recordShutdown(trigger: string): void {
     metricsState.recentRestarts = metricsState.recentRestarts.slice(-RECENT_EVENTS_LIMIT);
   }
   
-  saveMetrics();
+  // Write to database (fire and forget - shutdown can't wait)
+  recordMetricToDb('shutdown', trigger, uptimeMs);
+  
   logger.info('restart-metrics', 'record-shutdown', `Recorded shutdown: trigger=${trigger}, uptime=${formatUptime(uptimeMs)}`);
 }
 
@@ -229,7 +385,7 @@ export function recordCrash(error: Error | string, stack?: string): void {
   const errorMessage = error instanceof Error ? error.message : error;
   const errorStack = stack ?? (error instanceof Error ? error.stack : null) ?? null;
   
-  // Update state
+  // Update in-memory state
   metricsState.totalCrashes += 1;
   metricsState.lastCrash = now;
   metricsState.lastCrashError = errorMessage;
@@ -269,7 +425,9 @@ export function recordCrash(error: Error | string, stack?: string): void {
     metricsState.recentRestarts = metricsState.recentRestarts.slice(-RECENT_EVENTS_LIMIT);
   }
   
-  saveMetrics();
+  // Write to database (fire and forget)
+  recordMetricToDb('crash', 'crash', uptimeMs, errorMessage, errorStack);
+  
   logger.info('restart-metrics', 'record-crash', `Recorded crash: error="${errorMessage}", uptime=${formatUptime(uptimeMs)}`);
 }
 
@@ -329,6 +487,7 @@ export function getMetricsSummary(): string {
     `Total Restarts: ${metricsState.totalRestarts}`,
     `Total Crashes: ${metricsState.totalCrashes}`,
     `Crash Rate: ${crashRate.toFixed(2)}%`,
+    `Storage: PostgreSQL (database-first)`,
     ``,
     `First Boot: ${formatTimestamp(metricsState.firstBoot)}`,
     `Last Boot: ${formatTimestamp(metricsState.lastBoot)}`,
