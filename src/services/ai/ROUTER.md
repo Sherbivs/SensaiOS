@@ -1,22 +1,56 @@
 # ROUTER
-Title: AI Logging System Services
-Purpose: AI agent logging, analysis, and integration for development workflow automation.
+Title: AI Services (Logging, Analysis, Gateway)
+Purpose: AI logging, analysis, integrations, and ngrok AI Gateway for multi-provider LLM access.
 Owned Globs: src/services/ai/**
-Last Updated (UTC): 2025-11-16T00:00:00Z
+Last Updated (UTC): 2025-12-27T00:00:00Z
 
 Notes:
-- `ai-log-writer.js` (JavaScript) — Writes structured AI agent logs to filesystem (`logs/ai-agent/`). Captures agent actions, decisions, context, outcomes with timestamps. Integrates with GitHub Copilot and other AI tooling.
-- `ai-log-analyzer.js` (JavaScript) — Analyzes AI agent log patterns: identifies frequent actions, decision trees, success/failure rates. Generates insights for workflow optimization.
-- `ai-log-integrations.js` (JavaScript) — Integrations with external AI services and tooling. Handles authentication, API calls, data transformation for AI logging pipeline.
-- `index.ts` (26 lines) — Barrel exports with namespace exports (AILogging) for clean integration with TypeScript codebase.
-- **Note:** Core AI logging services are JavaScript (legacy), barrel export is TypeScript for consistency with rest of services/ layer.
+- `ai-log-writer.ts` — Writes structured AI agent logs to database (CacheEntry table). Captures agent actions, decisions, context, outcomes with timestamps.
+- `ai-log-analyzer.ts` — Analyzes AI agent log patterns: identifies frequent actions, decision trees, success/failure rates. Self-learning system with pattern detection.
+- `ai-log-integrations.ts` — Integrations with internal observability systems (ErrorTracker, Resource Monitor, Discord, Game Engine).
+- `ai-gateway.ts` — **NEW** ngrok AI Gateway integration: multi-provider LLM routing (OpenAI, Anthropic, Google, DeepSeek) with automatic failover, PII redaction, cost tracking.
+- `index.ts` — Barrel exports for all AI services.
+
+## ngrok AI Gateway (NEW 2025-12-27)
+
+Features:
+- OpenAI-compatible API via ngrok AI Gateway
+- Multi-provider failover (OpenAI → Anthropic → Google → DeepSeek)
+- API key rotation for rate limit avoidance
+- CEL-based model selection strategies
+- PII redaction before requests
+- Token usage and cost tracking
+
+Configuration:
+- `NGROK_AI_GATEWAY_URL` — Gateway endpoint (e.g., https://your-gateway.ngrok.app/v1)
+- `NGROK_AI_GATEWAY_KEY` — API key for authentication
+- `NGROK_AI_DEFAULT_MODEL` — Default model (default: gpt-4o-mini)
+
+Usage:
+```typescript
+import { aiGateway } from '../services/ai';
+
+// Error analysis
+const analysis = await aiGateway.analyzeError({ message: 'Error...', stack: '...' });
+
+// Log analysis
+const insights = await aiGateway.analyzeLogs({ logs: [...], focus: 'errors' });
+
+// Generic completion
+const response = await aiGateway.complete('Analyze this...');
+
+// Stats
+const stats = aiGateway.getStats();
+```
 
 Linked Routers:
-- logs/ROUTER.md — AI agent logs stored in `logs/ai-agent/` directory.
-- ops/KNOWLEDGE.yaml — AI agent learnings and workflow patterns captured from log analysis.
+- ops/ngrok-ai-gateway-config.yml — Gateway YAML configuration for ngrok dashboard
+- docs/observability/INDEX.md — Observability documentation
+- src/services/error-brain/ROUTER.md — Local error intelligence (integrates with AI Gateway insights)
 
 Areas:
-- `ai-log-writer.js` — Structured AI logging: writes agent actions, decisions, context to filesystem. Timestamp-based log rotation, JSON format for machine parsing.
-- `ai-log-analyzer.js` — Log pattern analysis: identifies frequent actions, decision trees, success/failure rates. Generates workflow optimization insights.
-- `ai-log-integrations.js` — External AI service integrations: authentication, API calls, data transformation for logging pipeline.
-- `index.ts` — Barrel export with namespace exports bridging JavaScript AI services to TypeScript codebase.
+- `ai-log-writer.ts` — Structured AI logging: writes agent actions, decisions, context to database. Database-first architecture (2025-12-27).
+- `ai-log-analyzer.ts` — Log pattern analysis: identifies frequent actions, decision trees, success/failure rates. Self-learning knowledge base.
+- `ai-log-integrations.ts` — Internal service integrations: ErrorTracker, Resource Monitor, Discord Client, Game Engine, Security Bot.
+- `ai-gateway.ts` — ngrok AI Gateway: OpenAI SDK → ngrok gateway → multi-provider routing with failover, PII redaction, cost tracking.
+- `index.ts` — Barrel export for all AI services.
