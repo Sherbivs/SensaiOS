@@ -5,6 +5,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 import { PrismaClient } from "../src/generated/prisma/client.js";
+import { scopedLogger } from "../src/observability/envelope/console.js";
 import { stripQuotes } from "../src/shared/utils/format-utils.js";
 import { getErrorMessage } from "../src/shared/utils/error-utils.js";
 
@@ -70,6 +71,8 @@ type AlertDispatcher = (payload: IntegrityAlertPayload) => Promise<void>;
 
 const ALERT_WEBHOOK_USERNAME = "Dex Auto-Sync";
 const ALERT_EMBED_COLOR = 0xf97316; // orange highlight
+
+const envelopeLog = scopedLogger("scripts.dev-prod-auto-sync");
 
 function sanitizeWebhook(urlString: string): string {
   try {
@@ -274,11 +277,9 @@ function logAlertConfiguration(config: SyncConfig): void {
 function log(message: string, context: Record<string, unknown> = {}): void {
   const payload = {
     timestamp: new Date().toISOString(),
-    message,
     ...context,
   };
-  // eslint-disable-next-line no-console
-  console.log(JSON.stringify(payload));
+  envelopeLog.info(message, message, payload);
 }
 
 function parseArgs(): SyncConfig {
@@ -890,7 +891,6 @@ async function main(): Promise<void> {
       message: "PROD_DATABASE_URL identical across environments - unified database mode, auto-sync disabled",
       databaseUrl: sanitizeWebhook(devDbUrl),
     });
-    console.log("✅ Unified architecture detected - all URLs point to same database. Auto-sync not needed.");
     return; // Exit gracefully - no sync required
   }
   

@@ -23,9 +23,10 @@
  */
 
 import { readFileSync, writeFileSync, existsSync, unlinkSync } from 'fs';
-import { join, dirname } from 'path';
+import { join, dirname, relative } from 'path';
 import { fileURLToPath } from 'url';
 import * as readline from 'readline';
+import { scopedLogger } from '../../src/observability/envelope/console.js';
 
 // Types
 interface RollbackData {
@@ -81,6 +82,17 @@ const MIGRATION_MARKER_FILE = join(STATE_DIR, '.migration-complete');
 const ROLLBACK_DATA_FILE = join(STATE_DIR, '.rollback-data.json');
 const ROLLBACK_COMPLETE_FILE = join(STATE_DIR, '.rollback-complete');
 
+const envelopeLog = scopedLogger('security.rollback-migration');
+
+function toRelativePath(filePath: string): string {
+  const relPath = relative(PROJECT_ROOT, filePath);
+  return relPath || filePath;
+}
+
+function formatError(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
 /**
  * Parse command line arguments
  */
@@ -106,20 +118,33 @@ function parseArgs(): RollbackOptions {
 function log(
   message: string,
   options: RollbackOptions,
-  level: 'info' | 'verbose' | 'error' | 'success' | 'warn' = 'info'
+  level: 'info' | 'verbose' | 'error' | 'success' | 'warn' = 'info',
+  context: Record<string, unknown> = {}
 ): void {
   if (level === 'verbose' && !options.verbose) return;
 
-  const prefix = {
-    info: '📋',
-    verbose: '   ',
-    error: '❌',
-    success: '✅',
-    warn: '⚠️',
-  }[level];
+  const baseContext = {
+    target: options.target,
+    dryRun: options.dryRun,
+  };
+  const payload = { ...baseContext, ...context };
 
-  // eslint-disable-next-line no-console
-  console.log(`${prefix} ${message}`);
+  switch (level) {
+    case 'verbose':
+      envelopeLog.debug('rollback', message, payload);
+      break;
+    case 'error':
+      envelopeLog.error('rollback', message, payload);
+      break;
+    case 'warn':
+      envelopeLog.warn('rollback', message, payload);
+      break;
+    case 'success':
+      envelopeLog.info('rollback', message, { ...payload, status: 'success' });
+      break;
+    default:
+      envelopeLog.info('rollback', message, payload);
+  }
 }
 
 /**
@@ -200,7 +225,9 @@ async function rollback(): Promise<void> {
 
   if (!rollbackData) {
     log('No rollback data found. Nothing to rollback.', options, 'warn');
-    log(`Expected file: ${ROLLBACK_DATA_FILE}`, options, 'info');
+    log('Expected rollback data file missing', options, 'info', {
+      relativePath: toRelativePath(ROLLBACK_DATA_FILE),
+    });
     // eslint-disable-next-line no-console
     console.log('\n');
     return;
@@ -317,8 +344,9 @@ async function rollback(): Promise<void> {
           log('  RoleChangeAudit model not available (schema not applied)', options, 'warn');
         }
       } catch (error) {
-        stats.errors.push(`Role audit deletion: ${error}`);
-        log(`  Role audit deletion failed: ${error}`, options, 'error');
+        const message = formatError(error);
+        stats.errors.push(`Role audit deletion: ${message}`);
+        log('Role audit deletion failed', options, 'error', { error: message });
       }
 
       // Delete baselines (if model exists)
@@ -339,8 +367,9 @@ async function rollback(): Promise<void> {
           log('  SecurityBaseline model not available (schema not applied)', options, 'warn');
         }
       } catch (error) {
-        stats.errors.push(`Baseline deletion: ${error}`);
-        log(`  Baseline deletion failed: ${error}`, options, 'error');
+        const message = formatError(error);
+        stats.errors.push(`Baseline deletion: ${message}`);
+        log('Baseline deletion failed', options, 'error', { error: message });
       }
 
       // Delete security events from migration (if model exists)
@@ -361,12 +390,14 @@ async function rollback(): Promise<void> {
           log('  SecurityEvent model not available (schema not applied)', options, 'warn');
         }
       } catch (error) {
-        stats.errors.push(`Event deletion: ${error}`);
-        log(`  Event deletion failed: ${error}`, options, 'error');
+        const message = formatError(error);
+        stats.errors.push(`Event deletion: ${message}`);
+        log('Event deletion failed', options, 'error', { error: message });
       }
     } catch (error) {
-      stats.errors.push(`Database connection: ${error}`);
-      log(`Database connection failed: ${error}`, options, 'error');
+      const message = formatError(error);
+      stats.errors.push(`Database connection: ${message}`);
+      log('Database connection failed', options, 'error', { error: message });
     }
   }
 
@@ -392,8 +423,9 @@ async function rollback(): Promise<void> {
         unlinkSync(MIGRATION_MARKER_FILE);
         log('Migration marker removed', options, 'success');
       } catch (error) {
-        stats.errors.push(`Marker removal: ${error}`);
-        log(`Failed to remove marker: ${error}`, options, 'error');
+        const message = formatError(error);
+        stats.errors.push(`Marker removal: ${message}`);
+        log('Failed to remove marker', options, 'error', { error: message });
       }
     }
 
@@ -403,8 +435,9 @@ async function rollback(): Promise<void> {
         unlinkSync(ROLLBACK_DATA_FILE);
         log('Rollback data removed', options, 'success');
       } catch (error) {
-        stats.errors.push(`Rollback data removal: ${error}`);
-        log(`Failed to remove rollback data: ${error}`, options, 'error');
+        const message = formatError(error);
+        stats.errors.push(`Rollback data removal: ${message}`);
+        log('Failed to remove rollback data', options, 'error', { error: message });
       }
     }
 
@@ -480,6 +513,9 @@ async function rollback(): Promise<void> {
 
 // Run rollback
 rollback().catch((error) => {
+  envelopeLog.error('rollback', 'Rollback failed with error', {
+    error: formatError(error),
+  });
   // eslint-disable-next-line no-console
   console.error('❌ Rollback failed with error:', error);
   process.exit(1);

@@ -4,6 +4,10 @@ import path from "node:path";
 import process from "node:process";
 import { execFile, spawn } from "node:child_process";
 import * as dotenv from "dotenv";
+import { scopedLogger } from '../../src/observability/envelope/console.js';
+
+/** Scoped logger for ONPREMISE-DEV-EXPERIMENT bootstrap operations */
+const log = scopedLogger('ops.bootstrap-experiment');
 
 /**
  * Bootstrap ONPREMISE-DEV-EXPERIMENT Database Script
@@ -515,6 +519,13 @@ async function main(): Promise<void> {
   const paths = buildPaths(options);
   const binaries = findPgBinaries();
 
+  log.info('bootstrap', 'Starting experimental database bootstrap', {
+    port: options.port,
+    source: options.source,
+    storeRoot: options.storeRoot,
+    skipStart: options.skipStart,
+  });
+
   console.log("Configuration:");
   console.log(`  Port: ${options.port}`);
   console.log(`  Source: ${options.source}`);
@@ -564,6 +575,10 @@ async function main(): Promise<void> {
       }
 
       console.log("\n✅ Experimental database bootstrap complete!");
+      log.info('complete', 'Experimental database bootstrap complete', {
+        port: options.port,
+        source: options.source,
+      });
       console.log("\nNext steps:");
       console.log("  1. Add to secrets/Infinity-Gauntlet.env:");
       console.log(
@@ -578,17 +593,21 @@ async function main(): Promise<void> {
       console.log("  4. Sync from primary local when needed:");
       console.log("     npm run ops:sync-onpremise-experiment --from local");
     } else {
+      log.info('complete', 'Experimental cluster initialized (not started)', { port: options.port });
       console.log("\n✅ Experimental cluster initialized (not started)");
       console.log("\nTo start cluster:");
       console.log(`  npm run ops:start-onpremise-experiment`);
     }
   } catch (err) {
-    console.error(`\n❌ Bootstrap failed: ${(err as Error).message}`);
+    const message = (err as Error).message;
+    log.error('bootstrap', 'Bootstrap failed', { error: message, source: options.source });
+    console.error(`\n❌ Bootstrap failed: ${message}`);
     process.exit(1);
   }
 }
 
 main().catch((err) => {
+  log.error('bootstrap', 'Unhandled error', { error: String(err) });
   console.error(`Unhandled error: ${err}`);
   process.exit(1);
 });

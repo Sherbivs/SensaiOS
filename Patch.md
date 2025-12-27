@@ -137,40 +137,28 @@ Stay disciplined. The repository must always exit a run with a READY pointer, a 
 # _Patch Clipboard Scratch Area (leave empty when not in use)_
 # 
 <<<PATCHSET START>>>
-Header: [Task OBS.ENVELOPE.MIGRATION.FIXUP] Restore stdout/stderr output for envelope migration
+Header: [Task OBS.ENVELOPE.SCRIPTS.PHASE2_4] Complete scripts envelope evaluation (Phase 2.4)
 
 FILES:
-- src/index.ts: log status dedupe and kernel shutdown errors via process stdout/stderr.
-- src/kernel/kernel-logger.ts: remove envelope dependency and write pre-boot output to process streams.
-- src/kernel/kernel-hooks.ts: write kernel hook errors to stderr without envelope dependency.
-- src/kernel/kernel-persistence.ts: write crash persistence failures to stderr.
-- src/kernel/kernel-output-plugins.ts: output console plugin logs via process streams.
-- src/kernel/kernel-error-detector.ts: write persistence failures to stderr.
-- src/shared/logger.ts: restore formatted stdout/stderr fallback output for DB-first logger and legacy log facade.
-- src/shared/log.ts: restore JSON line output via stdout while avoiding console.* usage.
-- src/utils/fatalErrorGuard.ts: write fallback fatal errors to stderr.
-- src/utils/logger.ts: restore dashboard/stats stdout output and remove envelope logger usage.
-- src/bot/security/services/security-logger.ts: write structured security logs to stdout/stderr.
-- src/cli/ai-log-query.ts: restore CLI stdout/stderr output helpers.
-- dist/index.js: rebuild compiled output.
-- dist/cli/ai-log-query.js: rebuild compiled output.
-- dist/utils/logger.js: rebuild compiled output.
-- dist/utils/fatalErrorGuard.js: rebuild compiled output.
-- dist/shared/logger.js: rebuild compiled output.
-- dist/shared/log.js: rebuild compiled output.
-- dist/bot/security/services/security-logger.js: rebuild compiled output.
-- Tasklist.md: record envelope migration fixup completion.
-- ops/NEXT.yaml: update quick task pointer and timestamp.
-- Prompt.md: refresh timestamp and PATCHSET echo with completion report.
+- scripts/seed-dex.ts: add scopedLogger and audit start/complete/error while keeping user-facing progress output.
+- scripts/dex/seed-reference.ts: add scopedLogger and audit start/complete/error while preserving CLI output.
+- scripts/dex/backfill-species.ts: add scopedLogger and log audit points plus permission fallback events while keeping operator-facing output.
+- scripts/register-commands.ts: add scopedLogger and audit registration start/complete/errors without changing console UX.
+- scripts/build-dexpack.ts: add scopedLogger and audit build start/complete/error while preserving formatted console output.
+- docs/projects/PHASE-2.4-SCRIPTS-EVALUATION.md: mark Phase 2.4 decisions and completion status.
+- docs/projects/SCRIPTS-ENVELOPE-MIGRATION.md: record Phase 2.4 migrated/skip lists and completion date.
+- Tasklist.md: add OBS.ENVELOPE.SCRIPTS.PHASE2_4 entry with completion notes.
+- ops/NEXT.yaml: set quick_task to OBS.ENVELOPE.SCRIPTS.PHASE2_4 and refresh timestamps/notes.
+- Prompt.md: update timestamp/revision, Last Repo Changes, and PATCHSET echo with Phase 2.4 completion status and testing note.
 
 TASKLIST UPDATE:
-- OBS.ENVELOPE.MIGRATION.FIXUP marked DONE.
+- OBS.ENVELOPE.SCRIPTS.PHASE2_4 marked DONE.
 
 Commit Message:
-[Task OBS.ENVELOPE.MIGRATION.FIXUP] Restore stdout/stderr output for envelope migration
-Why: Preserve human-readable dashboard/CLI output and kernel dependency boundaries.
-Changes: Route outputs to process streams instead of envelope logger where required and update meta tracking; rebuild dist artifacts.
-Testing: npm run build; npm test -- tests/observability/envelope.spec.ts
+[Task OBS.ENVELOPE.SCRIPTS.PHASE2_4] Complete scripts envelope evaluation Phase 2.4
+Why: Add audit logging for key scripts while documenting which tools remain console-driven.
+Changes: Added scopedLogger audit points to selected scripts, documented Phase 2.4 decisions, and refreshed meta tracking.
+Testing: Not run (scripts require local data/env; no targeted automated suite).
 <<<PATCHSET END>>>
 
 <<<PROPOSED PATCHSET START>>>

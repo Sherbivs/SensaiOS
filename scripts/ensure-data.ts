@@ -1,5 +1,4 @@
 #!/usr/bin/env tsx
-/* eslint-disable no-console */
 /**
  * ensure-data.ts - Data orchestration script for bot startup
  *
@@ -21,8 +20,10 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { execSync } from 'node:child_process';
+import { scopedLogger } from '../src/observability/envelope/console.js';
 
 const ROOT: string = process.cwd();
+const log = scopedLogger('scripts.ensure-data');
 
 function has(rel: string): boolean {
   return fs.existsSync(path.join(ROOT, rel));
@@ -61,7 +62,9 @@ function copyBootstrap(): boolean {
   }
 
   if (copied) {
-    console.warn('ensure-data: using bundled bootstrap snapshot.');
+    log.warn('bootstrap', 'Using bundled bootstrap snapshot', {
+      source: 'data/bootstrap'
+    });
   }
   return copied;
 }
@@ -71,7 +74,9 @@ function main(): void {
   const needMoves = !has('dist/data/moves.min.json');
 
   if (needDex || needMoves) {
-    console.log('ensure-data: snapshot missing -> attempting fetch:snapshot…');
+    log.info('snapshot', 'Snapshot missing; attempting fetch', {
+      command: 'npm run fetch:snapshot'
+    });
     let fetched = false;
 
     try {
@@ -79,15 +84,19 @@ function main(): void {
       fetched = has('dist/data/dex.min.json') && has('dist/data/moves.min.json');
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : String(e);
-      console.warn('ensure-data: fetch:snapshot failed or not configured:', message);
+      log.warn('snapshot', 'fetch:snapshot failed or not configured', { error: message });
     }
 
     if (!fetched) {
-      console.log('ensure-data: trying local build via build-data…');
+      log.info('snapshot', 'Trying local build via build-data', {
+        command: 'npx tsx scripts/build-data.ts'
+      });
       try {
         run('npx tsx scripts/build-data.ts');
       } catch {
-        console.warn('ensure-data: build-data failed (likely no PokeAPI dataset available).');
+        log.warn('snapshot', 'build-data failed (likely no PokeAPI dataset available)', {
+          command: 'npx tsx scripts/build-data.ts'
+        });
       }
     }
 
@@ -101,7 +110,10 @@ function main(): void {
       // Silent fail - asset manifest is optional
     }
   } else {
-    console.log('ensure-data: snapshot present.');
+    log.info('snapshot', 'Snapshot present', {
+      dex: 'dist/data/dex.min.json',
+      moves: 'dist/data/moves.min.json'
+    });
   }
 
   // Always run preflight at the end to fail fast if something is truly wrong.

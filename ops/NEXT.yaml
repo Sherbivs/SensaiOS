@@ -60,15 +60,18 @@ main_tasks:
 
 # Quick/hot task slot (1 concurrent quick task allowed)
 quick_task:
-  id: OBS.ENVELOPE.MIGRATION.FIXUP
-  title: "Restore stdout/stderr output for envelope migration"
+  id: OBS.ENVELOPE.SCRIPTS.PHASE2_4
+  title: "Complete scripts envelope evaluation (Phase 2.4)"
   status: DONE
-  effort: "1h"
+  effort: "2h"
   files_hint:
-    - src/utils/logger.ts
-    - src/shared/logger.ts
-    - src/kernel/kernel-logger.ts
-    - src/cli/ai-log-query.ts
+    - scripts/seed-dex.ts
+    - scripts/dex/seed-reference.ts
+    - scripts/dex/backfill-species.ts
+    - scripts/register-commands.ts
+    - scripts/build-dexpack.ts
+    - docs/projects/PHASE-2.4-SCRIPTS-EVALUATION.md
+    - docs/projects/SCRIPTS-ENVELOPE-MIGRATION.md
     - Prompt.md
 
 # Legacy fields (maintained for backward compatibility)
@@ -79,7 +82,7 @@ files_hint:
   - src/kernel/boot-kernel.ts
 
 queue: []
-timestamp_utc: 2025-12-27T17:25:41Z
+timestamp_utc: 2025-12-27T20:55:59Z
 router_version: 2
-last_notes_read_utc: 2025-12-27T17:25:41Z
-note: "Envelope migration fixup complete. Sprint 2 output plugin tasks remain READY."
+last_notes_read_utc: 2025-12-27T20:55:59Z
+note: "Scripts envelope migration Phase 2.4 complete. Sprint 2 output plugin tasks remain READY."

@@ -1,5 +1,4 @@
 #!/usr/bin/env tsx
-/* eslint-disable no-console */
 /**
  * build-assets-manifest.ts - Generate asset manifest for Pokemon sprites
  *
@@ -24,6 +23,9 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
+import { scopedLogger } from '../src/observability/envelope/console.js';
+
+const log = scopedLogger('scripts.build-assets-manifest');
 
 const ROOT: string = process.cwd();
 const DIST_DIR: string = path.join(ROOT, 'dist');
@@ -139,9 +141,10 @@ function main(): void {
   const outDir = path.join(DIST_DIR, 'assets');
   ensureDir(outDir);
   fs.writeFileSync(path.join(outDir, 'manifest.json'), JSON.stringify(manifest, null, 2), 'utf8');
-  console.log(
-    `✅ Assets manifest wrote ${Object.keys(manifest.sprites).length} entries → dist/assets/manifest.json`
-  );
+  log.info('build', 'Assets manifest built', {
+    entries: Object.keys(manifest.sprites).length,
+    output: 'dist/assets/manifest.json'
+  });
 }
 
 main();

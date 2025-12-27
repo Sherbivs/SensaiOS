@@ -4,6 +4,9 @@ import path from "node:path";
 import process from "node:process";
 import { execFile, spawn } from "node:child_process";
 import * as dotenv from "dotenv";
+import { scopedLogger } from '../../src/observability/envelope/console.js';
+
+const log = scopedLogger('ops.sync-experiment');
 
 /**
  * Sync Experimental Database Script
@@ -184,9 +187,7 @@ function locatePgBinDirectory(): string | undefined {
     const shareFound = shareCandidates.some((sharePath) => fs.existsSync(sharePath) && fs.statSync(sharePath).isDirectory());
 
     if (!shareFound) {
-      console.warn(
-        `[sync-experiment] Skipping Postgres bin directory without share/: ${normalized}`,
-      );
+      log.warn('pg-binaries', 'Skipping Postgres bin directory without share/', { path: normalized });
       continue;
     }
 
@@ -227,7 +228,7 @@ function resolvePgBinaries(): PgBinaries {
 
 function runCommand(command: string, args: string[], label: string): Promise<void> {
   return new Promise((resolve, reject) => {
-    console.log(`[sync-experiment] ${label}: ${command} ${args.join(" ")}`);
+    log.debug('run-command', label, { command, args: args.join(' ') });
     const child = spawn(command, args, { stdio: "inherit" });
     child.on("error", (error) => {
       reject(error);
@@ -452,8 +453,8 @@ async function getRowCounts(binaries: PgBinaries): Promise<Record<string, number
 }
 
 async function main(): Promise<void> {
-  console.log("[sync-experiment] Sync Experimental Database");
-  console.log("[sync-experiment] ============================\n");
+  console.log("🔄 Sync Experimental Database");
+  console.log("============================\n");
 
   loadEnvironment();
 
@@ -462,13 +463,15 @@ async function main(): Promise<void> {
   const binaries = resolvePgBinaries();
   const paths = resolvePaths(options.storeRoot);
 
-  console.log(`[sync-experiment] Source: ${options.from.toUpperCase()}`);
-  console.log(`[sync-experiment] Store: ${paths.dbRoot}\n`);
+  log.info('config', 'Starting sync', { source: options.from, store: paths.dbRoot });
+  console.log(`Source: ${options.from.toUpperCase()}`);
+  console.log(`Store: ${paths.dbRoot}\n`);
 
   // Validate experimental cluster exists
   if (!fs.existsSync(paths.clusterDir)) {
-    console.error("[sync-experiment] Experimental cluster not initialized.");
-    console.error("[sync-experiment] Run: npm run ops:bootstrap-onpremise-experiment");
+    log.error('validate', 'Experimental cluster not initialized', { clusterDir: paths.clusterDir });
+    console.error("❌ Experimental cluster not initialized.");
+    console.error("   Run: npm run ops:bootstrap-onpremise-experiment");
     process.exit(1);
   }
 
@@ -476,14 +479,16 @@ async function main(): Promise<void> {
     const sourceUrl = resolveSourceUrl(options.from);
     const sourceName = options.from.toUpperCase();
     
-    console.log(`[sync-experiment] Syncing from ${sourceName} (${maskConnectionString(sourceUrl)})...`);
+    log.info('sync', 'Starting sync from source', { source: sourceName });
+    console.log(`📦 Syncing from ${sourceName} (${maskConnectionString(sourceUrl)})...`);
 
     // Step 1: Stop cluster
     await stopCluster(binaries, paths);
 
     // Step 2: Create snapshot
     const snapshotFile = await createSnapshot(binaries, sourceUrl, paths);
-    console.log(`[sync-experiment] Created snapshot from ${sourceName}`);
+    log.info('snapshot', 'Created snapshot', { source: sourceName, file: snapshotFile });
+    console.log(`✅ Created snapshot from ${sourceName}`);
 
     // Step 3: Start cluster
     if (!options.skipRestart) {
@@ -491,9 +496,11 @@ async function main(): Promise<void> {
     }
 
     // Step 4: Restore snapshot
-    console.log("[sync-experiment] Restoring snapshot to experimental database...");
+    log.info('restore', 'Restoring snapshot to experimental database');
+    console.log("📥 Restoring snapshot to experimental database...");
     await restoreSnapshot(binaries, snapshotFile);
-    console.log("[sync-experiment] Snapshot restored");
+    log.info('restore', 'Snapshot restored');
+    console.log("✅ Snapshot restored");
 
     // Step 5: Clean up old snapshots
     await pruneSnapshots(paths, 2);
@@ -502,22 +509,25 @@ async function main(): Promise<void> {
     await writeMetadata(paths, options.from, sourceUrl);
 
     // Step 7: Get row counts
-    console.log("\n[sync-experiment] Database Summary:");
+    console.log("\n📊 Database Summary:");
     const counts = await getRowCounts(binaries);
     for (const [table, count] of Object.entries(counts)) {
       console.log(`  ${table}: ${count} rows`);
     }
 
-    console.log("\n[sync-experiment] Sync complete!");
-    console.log(`[sync-experiment] Experimental database synchronized from ${sourceName}`);
-    console.log("[sync-experiment] Ready for migration testing");
+    log.info('complete', 'Sync complete', { source: sourceName });
+    console.log("\n✅ Sync complete!");
+    console.log(`   Experimental database synchronized from ${sourceName}`);
+    console.log("   Ready for migration testing");
   } catch (err) {
-    console.error(`\n[sync-experiment] Sync failed: ${(err as Error).message}`);
+    log.error('sync', 'Sync failed', { error: (err as Error).message, stack: (err as Error).stack });
+    console.error(`\n❌ Sync failed: ${(err as Error).message}`);
     process.exit(1);
   }
 }
 
 main().catch((err) => {
-  console.error(`[sync-experiment] Unhandled error: ${err}`);
+  log.error('unhandled', 'Unhandled error', { error: String(err) });
+  console.error(`❌ Unhandled error: ${err}`);
   process.exit(1);
 });

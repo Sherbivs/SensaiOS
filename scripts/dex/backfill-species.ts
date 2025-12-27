@@ -5,6 +5,7 @@ import pg from "pg";
 import { seedDex } from "./seed_reference.js";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
+import { scopedLogger } from "../../src/observability/envelope/console.js";
 
 function createPrismaClient(): PrismaClient {
   const databaseUrl = process.env.PROD_DATABASE_URL || process.env.DATABASE_URL;
@@ -18,6 +19,8 @@ function createPrismaClient(): PrismaClient {
 
 const prisma = createPrismaClient();
 const __filename = fileURLToPath(import.meta.url);
+
+const log = scopedLogger("scripts.dex.backfill-species");
 
 type CliOptions = {
   dryRun: boolean;
@@ -78,6 +81,9 @@ async function refreshSpeciesSheet() {
       throw error;
     }
 
+    log.warn("backfill", "REFRESH MATERIALIZED VIEW denied; retrying helper", {
+      error: error instanceof Error ? error.message : String(error),
+    });
     console.warn("REFRESH MATERIALIZED VIEW denied (42501); retrying via public.refresh_species_sheet() helper.");
     await prisma.$executeRawUnsafe("SELECT public.refresh_species_sheet();");
   }
@@ -85,6 +91,10 @@ async function refreshSpeciesSheet() {
 
 async function main() {
   const options = parseArgs();
+  log.info("backfill", "Starting species backfill", {
+    dryRun: options.dryRun,
+    seedMissing: options.seedMissing,
+  });
 
   const [pokemonInstances, encounters] = await Promise.all([
     prisma.pokemonInstance.count(),
@@ -96,17 +106,26 @@ async function main() {
 
   const missingBefore = await collectMissingSpeciesIds();
   if (missingBefore.size === 0) {
+    log.info("backfill", "No missing species references found", {
+      pokemonInstances,
+      encounters,
+    });
     console.log("All rows already reference seeded species. Nothing to backfill.");
     if (!options.dryRun) {
       await refreshSpeciesSheet();
       console.log("✅ Species references validated and materialized view refreshed.");
+      log.info("backfill", "Species references validated and view refreshed");
     }
     return;
   }
 
+  log.warn("backfill", "Missing species references detected", {
+    missingCount: missingBefore.size,
+  });
   console.log(`Found ${missingBefore.size} species IDs missing from the reference tables: ${[...missingBefore].join(", ")}`);
 
   if (options.dryRun) {
+    log.info("backfill", "Dry run enabled; exiting without changes");
     console.log("Dry run enabled. Exiting without changes.");
     process.exitCode = 1;
     return;
@@ -117,6 +136,9 @@ async function main() {
   }
 
   console.log("Seeding missing species from bootstrap data…");
+  log.info("backfill", "Seeding missing species from bootstrap data", {
+    missingCount: missingBefore.size,
+  });
   await seedDex({ onlySpeciesIds: [...missingBefore] });
 
   const missingAfter = await collectMissingSpeciesIds();
@@ -126,6 +148,9 @@ async function main() {
 
   await refreshSpeciesSheet();
   console.log("✅ Species backfill complete. All references now point at seeded species.");
+  log.info("backfill", "Species backfill complete", {
+    missingResolved: missingBefore.size,
+  });
 }
 
 const isDirectExecution = process.argv[1] ? path.resolve(process.argv[1]) === __filename : false;
@@ -133,6 +158,10 @@ const isDirectExecution = process.argv[1] ? path.resolve(process.argv[1]) === __
 if (isDirectExecution) {
   main()
     .catch((error) => {
+      log.error("backfill", "Dex species backfill failed", {
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+      });
       console.error("Dex species backfill failed:", error);
       process.exitCode = 1;
     })

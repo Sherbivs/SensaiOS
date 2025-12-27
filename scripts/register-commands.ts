@@ -25,6 +25,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { REST, Routes } from 'discord.js';
 import type { RESTPostAPIChatInputApplicationCommandsJSONBody } from 'discord.js';
+import { scopedLogger } from '../src/observability/envelope/console.js';
 
 // Token resolution with fallback chain
 const DISCORD_TOKEN: string | undefined =
@@ -37,7 +38,13 @@ const DISCORD_TOKEN: string | undefined =
 const DISCORD_CLIENT_ID: string | undefined = process.env.DISCORD_CLIENT_ID;
 const DISCORD_GUILD_ID: string | undefined = process.env.DISCORD_GUILD_ID;
 
+const log = scopedLogger('scripts.register-commands');
+
 if (!DISCORD_TOKEN || !DISCORD_CLIENT_ID) {
+  log.error('register', 'Missing Discord credentials', {
+    hasToken: Boolean(DISCORD_TOKEN),
+    hasClientId: Boolean(DISCORD_CLIENT_ID),
+  });
   console.error('❌ Missing DISCORD_TOKEN (or SECURITY_BOT_TOKEN/BOT_TOKEN) or DISCORD_CLIENT_ID');
   process.exit(1);
 }
@@ -60,6 +67,9 @@ interface CommandModule {
 async function readCommandJSON(): Promise<RESTPostAPIChatInputApplicationCommandsJSONBody[]> {
   const dir = path.join(process.cwd(), 'src', 'commands');
   if (!fs.existsSync(dir)) {
+    log.warn('register', 'Commands directory not found', {
+      path: path.relative(process.cwd(), dir) || 'src/commands',
+    });
     console.warn('⚠️  Commands directory not found:', dir);
     return [];
   }
@@ -79,6 +89,7 @@ async function readCommandJSON(): Promise<RESTPostAPIChatInputApplicationCommand
       }
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : String(e);
+      log.warn('register', 'Skipped command module', { file, error: message });
       console.warn(`⚠️  [register-commands] Skipped ${file}:`, message);
     }
   }
@@ -92,11 +103,18 @@ async function main(): Promise<void> {
   const commands = await readCommandJSON();
 
   if (commands.length === 0) {
+    log.info('register', 'No commands found to register', {
+      path: 'src/commands',
+    });
     console.log('📭 No commands found in src/commands');
     process.exit(0);
   }
 
   console.log(`📋 Found ${commands.length} command(s) to register`);
+  log.info('register', 'Registering commands', {
+    count: commands.length,
+    target: DISCORD_GUILD_ID ? 'guild' : 'global',
+  });
 
   const rest = new REST({ version: '10' }).setToken(DISCORD_TOKEN!);
 
@@ -106,14 +124,26 @@ async function main(): Promise<void> {
       const route = Routes.applicationGuildCommands(DISCORD_CLIENT_ID!, DISCORD_GUILD_ID);
       await rest.put(route, { body: commands });
       console.log(`✅ Registered ${commands.length} guild command(s)`);
+      log.info('register', 'Registered guild commands', {
+        count: commands.length,
+        guildId: DISCORD_GUILD_ID,
+      });
     } else {
       console.log('🌐 Target: Global (all guilds)');
       const route = Routes.applicationCommands(DISCORD_CLIENT_ID!);
       await rest.put(route, { body: commands });
       console.log(`✅ Registered ${commands.length} global command(s)`);
       console.log('⏳ Note: Global command propagation can take up to an hour');
+      log.info('register', 'Registered global commands', {
+        count: commands.length,
+      });
     }
   } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : String(e);
+    log.error('register', 'Failed to register commands', {
+      error: message,
+      stack: e instanceof Error ? e.stack : undefined,
+    });
     console.error('❌ Failed to register commands:', e);
     process.exit(1);
   }

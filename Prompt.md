@@ -1,6 +1,6 @@
 # Prompt.md
-Timestamp (UTC): 2025-12-27T17:25:41Z
-Revision: 4.2
+Timestamp (UTC): 2025-12-27T20:55:59Z
+Revision: 4.5
 
 **Cross-References**:
 - See `Patch.md` for contract rules (updated 2025-12-27T00:00:00Z Rev 1.75)
@@ -20,6 +20,10 @@ Revision: 4.2
 3. Review the PATCHSET echo in Patch.md for context on outstanding risks.
 4. If router manifests (ops/ROUTER.yaml, ops/ROUTER_INDEX.yaml, masterroutetable.md) diverge from working intent, regenerate via `npm run docs:update-routers` before editing.
 5. When Git remote validation or CI guards fail locally, stop and request human assistance rather than proceeding.
+
+## Last Repo Changes
+- Added envelope audit logging to Phase 2.4 scripts (seed-dex, dex seed/reference/backfill, register-commands, build-dexpack) while preserving CLI output.
+- Completed Phase 2.4 evaluation docs and updated SCRIPTS-ENVELOPE-MIGRATION tracker plus Tasklist/NEXT/Prompt metadata.
 
 - **NEXT Pointer:** Multi-task queue system (3 main + 1 quick/hot task allowed)
   - **Main Tasks (3/3 READY):**
@@ -67,42 +71,12 @@ Revision: 4.2
 
 ## Embedded PATCHSET Echo
 <!-- PATCHSET:ECHO BEGIN -->
-HEAD: pending-local (Envelope Migration FIXUP)
-Change: Restore stdout/stderr output for dashboards/CLI and kernel fallbacks while preserving no-console policy.
-
-## 📊 Envelope Migration Progress
-
-**Session Date:** 2025-12-27
-**Total Files Migrated:** 82 of ~82
-**Console Calls Converted:** ~1,083 of ~1,083
-
-### Files Completed This Session:
-- `src/index.ts`
-- `src/kernel/kernel-logger.ts`
-- `src/kernel/kernel-hooks.ts`
-- `src/kernel/kernel-persistence.ts`
-- `src/kernel/kernel-output-plugins.ts`
-- `src/kernel/kernel-error-detector.ts`
-- `src/shared/logger.ts`
-- `src/shared/log.ts`
-- `src/utils/fatalErrorGuard.ts`
-- `src/utils/logger.ts`
-- `src/bot/security/services/security-logger.ts`
-- `src/cli/ai-log-query.ts`
-
-### Remaining Console References:
-- Envelope bridge internals (src/observability/envelope/console.ts)
-- Documentation/examples only
-
-### Build Status: ✅ Passing (with DEV URL warnings)
-### Test Status: ✅ 37/37 envelope tests passing
-
-TasklistDiff: true
-Tests: npm run build ✅ | npm test -- tests/observability/envelope.spec.ts ✅
-ContractMode: ON (Patch Engine active)
-NextPointer: Main Tasks (3/3 READY) | Quick Task: Envelope Migration Fixup Complete
-RoutersIntact: ✅ No routing changes required
-CanonicalDocs: ✅ envelope-migration.instructions.md referenced
+HEAD: pending-local (Scripts Envelope Migration Phase 2.4)
+Change: Added audit logging to selected scripts (seed/register/build) and documented Phase 2.4 migrate/skip decisions.
+TasklistDiff: true.
+Tests: Not run (scripts require local data/env; no targeted automated suite).
+Contracts: ON (Patch Engine active).
+NextPointer: Main tasks remain KERNEL.LOGGING.OUTPUT_PLUGINS/KERNEL.LOGGING.PII_SCRUBBING/KERNEL.LOGGING.CORRELATION_IDS because Sprint 2 work is still READY; quick task OBS.ENVELOPE.SCRIPTS.PHASE2_4 completed.
 <!-- PATCHSET:ECHO END -->
 
 ## AI Worker Prompt (copy/paste for Copilot/GPT)

@@ -3,6 +3,7 @@ import path from "node:path";
 import process from "node:process";
 import { setTimeout as sleep } from "node:timers/promises";
 import * as dotenv from "dotenv";
+import { scopedLogger } from "../src/observability/envelope/console.js";
 import { initializeConnection, getProdDb } from "../src/shared/pg-connection.js";
 import {
   findAllTypes,
@@ -92,6 +93,8 @@ type TypeChartRow = { atkTypeId: number; defTypeId: number; mult: number };
 const API_BASE = "https://pokeapi.co/api/v2";
 const DEFAULT_CONCURRENCY = Number.parseInt(process.env.POKEAPI_SEED_CONCURRENCY ?? "4", 10);
 const MAX_FETCH_ATTEMPTS = 5;
+
+const log = scopedLogger("scripts.seed-dex");
 
 const METHOD_MAP: Record<string, LearnsetEntry["method"] | undefined> = {
   "level-up": "level",
@@ -506,6 +509,7 @@ async function main(): Promise<void> {
 
   console.log("🔄 Preparing Pokédex seeding (dryRun=%s)…", dryRun);
   const concurrency = Math.max(1, DEFAULT_CONCURRENCY);
+  log.info("seed", "Starting dex seed", { dryRun, concurrency });
 
   const [typeMap, versionOrder] = await Promise.all([loadTypeMap(), fetchVersionOrder()]);
   console.log("✅ Loaded type map (%d types) and version ordering.", typeMap.size);
@@ -539,6 +543,11 @@ async function main(): Promise<void> {
   console.log("✅ Built type effectiveness chart (%d rows).", typeChart.length);
 
   if (dryRun) {
+    log.info("seed", "Dry run complete; skipping database writes", {
+      speciesCount: species.length,
+      moveCount: moves.length,
+      abilityCount: abilities.length,
+    });
     console.log("Dry-run complete — skipping database writes.");
     return;
   }
@@ -567,6 +576,7 @@ async function main(): Promise<void> {
   >;
   const skippedMoves = moves.length - validMoves.length;
   if (skippedMoves > 0) {
+    log.warn("seed", "Skipping moves with unknown types", { skippedMoves });
     console.warn("⚠️  Skipping %d moves with unknown types.", skippedMoves);
   }
 
@@ -712,10 +722,21 @@ async function main(): Promise<void> {
   console.log("   Moves: %d", moveCount);
   console.log("   Abilities: %d", abilityCount);
   console.log("   Learnset rows: %d", learnsetCount);
+  log.info("seed", "Dex seeding complete", {
+    speciesCount,
+    moveCount,
+    abilityCount,
+    learnsetCount,
+  });
 }
 
 main()
   .catch((error) => {
+    const message = error instanceof Error ? error.message : String(error);
+    log.error("seed", "Dex seeding failed", {
+      error: message,
+      stack: error instanceof Error ? error.stack : undefined,
+    });
     console.error("❌ Dex seeding failed:", error);
     process.exitCode = 1;
   })

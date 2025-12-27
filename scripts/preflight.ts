@@ -1,5 +1,4 @@
 #!/usr/bin/env tsx
-/* eslint-disable no-console */
 /**
  * preflight.ts - Pre-flight validation for bot startup
  *
@@ -21,8 +20,10 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
+import { scopedLogger } from '../src/observability/envelope/console.js';
 
 const ROOT: string = process.cwd();
+const log = scopedLogger('scripts.preflight');
 
 const REQUIRED_FILES: readonly string[] = [
   'dist/data/dex.min.json',
@@ -51,9 +52,10 @@ function copyFallback(relTarget: string): boolean {
   const dest = path.join(ROOT, relTarget);
   fs.mkdirSync(path.dirname(dest), { recursive: true });
   fs.copyFileSync(src, dest);
-  console.warn(
-    `⚠️  Preflight: Missing ${relTarget}; bootstrapped fallback from ${fallback}.`
-  );
+  log.warn('fallback', 'Missing build artifact; bootstrapped fallback', {
+    target: relTarget,
+    fallback,
+  });
   return true;
 }
 
@@ -75,7 +77,7 @@ function ensureOptionalFallbacks(): void {
  * Exit with error message
  */
 function fail(msg: string): never {
-  console.error('❌ Preflight:', msg);
+  log.error('preflight', 'Preflight failed', { error: msg });
   process.exit(1);
 }
 
@@ -105,10 +107,10 @@ function main(): void {
       .toLowerCase();
 
     if (allowMissing === '1' || allowMissing === 'true' || allowMissing === 'yes') {
-      console.warn(
-        '⚠️  Preflight warning: Missing build artifacts but proceeding due to DISABLE_SNAPSHOT_PRECHECK/SNAPSHOT_OPTIONAL.'
-      );
-      console.warn('   Missing:', missingFiles.join(', '));
+      log.warn('missing-artifacts', 'Missing build artifacts but proceeding due to override', {
+        missing: missingFiles,
+        override: 'DISABLE_SNAPSHOT_PRECHECK/SNAPSHOT_OPTIONAL',
+      });
     } else {
       fail(
         `Missing build artifacts: ${missingFiles.join(
@@ -120,7 +122,7 @@ function main(): void {
 
   ensureOptionalFallbacks();
 
-  console.log('✅ Preflight OK');
+  log.info('preflight', 'Preflight OK');
 }
 
 main();

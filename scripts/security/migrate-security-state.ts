@@ -28,9 +28,10 @@
 /* eslint-disable no-console */
 
 import { readFileSync, writeFileSync, existsSync, readdirSync } from 'fs';
-import { join, dirname } from 'path';
+import { join, dirname, relative } from 'path';
 import { fileURLToPath } from 'url';
 import { createHash, createHmac } from 'crypto';
+import { scopedLogger } from '../../src/observability/envelope/console.js';
 
 // Types for JSON source files
 interface JsonRoleChange {
@@ -162,9 +163,20 @@ const SNAPSHOTS_DIR = join(STATE_DIR, 'snapshots');
 const MIGRATION_MARKER_FILE = join(STATE_DIR, '.migration-complete');
 const ROLLBACK_DATA_FILE = join(STATE_DIR, '.rollback-data.json');
 
+const envelopeLog = scopedLogger('security.migrate-state');
+
 // HMAC key for checksum (should match services)
 const CHECKSUM_KEY =
   process.env.SECURITY_CHECKSUM_KEY || 'security-migration-default-key';
+
+function toRelativePath(filePath: string): string {
+  const relPath = relative(PROJECT_ROOT, filePath);
+  return relPath || filePath;
+}
+
+function formatError(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
 
 /**
  * Generate HMAC-SHA256 checksum for data
@@ -216,15 +228,29 @@ function log(
 ): void {
   if (level === 'verbose' && !options.verbose) return;
 
-  const prefix = {
-    info: '📋',
-    verbose: '   ',
-    error: '❌',
-    success: '✅',
-    warn: '⚠️',
-  }[level];
+  const context = {
+    target: options.target,
+    dryRun: options.dryRun,
+    batchSize: options.batchSize,
+    verify: options.verify,
+  };
 
-  console.log(`${prefix} ${message}`);
+  switch (level) {
+    case 'verbose':
+      envelopeLog.debug('migration', message, context);
+      break;
+    case 'error':
+      envelopeLog.error('migration', message, context);
+      break;
+    case 'warn':
+      envelopeLog.warn('migration', message, context);
+      break;
+    case 'success':
+      envelopeLog.info('migration', message, { ...context, status: 'success' });
+      break;
+    default:
+      envelopeLog.info('migration', message, context);
+  }
 }
 
 /**
@@ -233,7 +259,9 @@ function log(
 function loadRoleChanges(): JsonRoleChange[] {
   const filePath = join(ROLE_ARCHIVE_DIR, 'role-changes.json');
   if (!existsSync(filePath)) {
-    console.warn(`⚠️  Role changes file not found: ${filePath}`);
+    envelopeLog.warn('filesystem', 'Role changes file not found', {
+      relativePath: toRelativePath(filePath),
+    });
     return [];
   }
 
@@ -242,7 +270,10 @@ function loadRoleChanges(): JsonRoleChange[] {
     const data: JsonRoleChangesFile = JSON.parse(content);
     return data.changes || [];
   } catch (error) {
-    console.error(`❌ Failed to parse role changes: ${error}`);
+    envelopeLog.error('filesystem', 'Failed to parse role changes', {
+      relativePath: toRelativePath(filePath),
+      error: formatError(error),
+    });
     return [];
   }
 }
@@ -253,7 +284,9 @@ function loadRoleChanges(): JsonRoleChange[] {
 function loadBaselines(): { baseline: JsonBaseline; guildId: string } | null {
   const filePath = join(STATE_DIR, 'baselines.json');
   if (!existsSync(filePath)) {
-    console.warn(`⚠️  Baselines file not found: ${filePath}`);
+    envelopeLog.warn('filesystem', 'Baselines file not found', {
+      relativePath: toRelativePath(filePath),
+    });
     return null;
   }
 
@@ -268,7 +301,10 @@ function loadBaselines(): { baseline: JsonBaseline; guildId: string } | null {
       guildId: 'global', // Placeholder - will be expanded per guild
     };
   } catch (error) {
-    console.error(`❌ Failed to parse baselines: ${error}`);
+    envelopeLog.error('filesystem', 'Failed to parse baselines', {
+      relativePath: toRelativePath(filePath),
+      error: formatError(error),
+    });
     return null;
   }
 }
@@ -278,7 +314,9 @@ function loadBaselines(): { baseline: JsonBaseline; guildId: string } | null {
  */
 function loadSnapshots(): JsonSnapshot[] {
   if (!existsSync(SNAPSHOTS_DIR)) {
-    console.warn(`⚠️  Snapshots directory not found: ${SNAPSHOTS_DIR}`);
+    envelopeLog.warn('filesystem', 'Snapshots directory not found', {
+      relativePath: toRelativePath(SNAPSHOTS_DIR),
+    });
     return [];
   }
 
@@ -291,7 +329,10 @@ function loadSnapshots(): JsonSnapshot[] {
       const snapshot: JsonSnapshot = JSON.parse(content);
       snapshots.push(snapshot);
     } catch (error) {
-      console.warn(`⚠️  Failed to parse snapshot ${file}: ${error}`);
+      envelopeLog.warn('filesystem', 'Failed to parse snapshot', {
+        relativePath: toRelativePath(join(SNAPSHOTS_DIR, file)),
+        error: formatError(error),
+      });
     }
   }
 
@@ -887,6 +928,9 @@ async function migrate(): Promise<void> {
 
 // Run migration
 migrate().catch((error) => {
+  envelopeLog.error('migration', 'Migration failed with error', {
+    error: formatError(error),
+  });
   console.error('❌ Migration failed with error:', error);
   process.exit(1);
 });

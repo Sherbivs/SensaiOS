@@ -1,7 +1,16 @@
 # Tasklist
-Last Updated (UTC): 2025-12-27T17:25:41Z
-Revision: 2.117
+Last Updated (UTC): 2025-12-27T20:55:59Z
+Revision: 2.120
 <!-- # TASKLIST UPDATE -->
+
+**Recent Activity (2025-12-27T20:55Z):**
+- ✅ **Scripts Envelope Migration Phase 2.4** — Evaluated remaining scripts, added audit logging to seed/register/build scripts, and documented skip list.
+
+**Recent Activity (2025-12-27T18:23Z):**
+- ✅ **Scripts Envelope Migration Phase 2.2** — Migrated security migration/rollback scripts to scopedLogger while preserving operator-facing console output; docs updated.
+
+**Recent Activity (2025-12-27T18:06Z):**
+- ✅ **Scripts Envelope Migration Phase 2.1** — Migrated quick-win scripts (build-data, build-assets-manifest, preflight, ensure-data, dev-prod-auto-sync) to scopedLogger and updated docs.
 
 **Recent Activity (2025-12-27T17:25Z):**
 - ✅ **Envelope Migration Fixup** — Restored dashboard/CLI/stdout output via process streams while preserving no-console policy and kernel dependency boundaries; build + envelope tests passing.
@@ -243,6 +252,45 @@ Each task has:
     - Envelope tests pass (tests/observability/envelope.spec.ts)
     - Prompt.md updated with completion report
   notes: Uses process.stdout/stderr writes for human-readable output while avoiding console.* calls.
+
+- id: OBS.ENVELOPE.SCRIPTS.PHASE2_1
+  title: Migrate scripts envelope logging (Phase 2.1 quick wins)
+  status: DONE
+  depends_on: [OBS.ENVELOPE.MIGRATION.COMPLETE]
+  priority: P2-MEDIUM
+  effort: 1h
+  acceptance_criteria:
+    - Replace console.* with scopedLogger in scripts/build-data.ts, scripts/build-assets-manifest.ts, scripts/preflight.ts, scripts/ensure-data.ts, scripts/dev-prod-auto-sync.ts
+    - Remove eslint-disable no-console in those files
+    - Update docs/projects/SCRIPTS-ENVELOPE-MIGRATION.md Phase 2.1 status
+    - Prompt.md updated with completion report
+  notes: Quick-win phase for scripts envelope migration complete; tests not run (scripts require local data/env).
+
+- id: OBS.ENVELOPE.SCRIPTS.PHASE2_2
+  title: Migrate scripts envelope logging (Phase 2.2 security scripts)
+  status: DONE
+  depends_on: [OBS.ENVELOPE.MIGRATION.COMPLETE]
+  priority: P2-MEDIUM
+  effort: 1.5h
+  acceptance_criteria:
+    - Replace internal console.* with scopedLogger in scripts/security/migrate-security-state.ts and scripts/security/rollback-security-migration.ts
+    - Preserve operator-facing console output for progress, prompts, and summaries
+    - Update docs/projects/SECURITY-SCRIPTS-ENVELOPE-MIGRATION.md and docs/projects/SCRIPTS-ENVELOPE-MIGRATION.md Phase 2.2 status
+    - Prompt.md updated with completion report
+  notes: Security migration/rollback scripts now use envelope logs for internal steps; tests not run (scripts require local data/env).
+
+- id: OBS.ENVELOPE.SCRIPTS.PHASE2_4
+  title: Complete scripts envelope evaluation (Phase 2.4)
+  status: DONE
+  depends_on: [OBS.ENVELOPE.MIGRATION.COMPLETE]
+  priority: P2-MEDIUM
+  effort: 2h
+  acceptance_criteria:
+    - Evaluate remaining scripts for migrate vs skip decisions
+    - Add audit logging to selected scripts without changing operator-facing console output
+    - Update docs/projects/PHASE-2.4-SCRIPTS-EVALUATION.md and docs/projects/SCRIPTS-ENVELOPE-MIGRATION.md with final decisions
+    - Prompt.md updated with completion report
+  notes: Added envelope audit logs to seed/register/build scripts; documented skip list; tests not run (scripts require local data/env).
 
 - id: OBS.ENVELOPE.MIGRATION.COMPLETE
   title: Complete envelope console migration

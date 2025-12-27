@@ -5,6 +5,9 @@ import process from "node:process";
 import { execFile, spawn } from "node:child_process";
 import * as dotenv from "dotenv";
 import { extractDatabaseName } from "../../src/shared/utils/url-utils.js";
+import { scopedLogger } from '../../src/observability/envelope/console.js';
+
+const log = scopedLogger('ops.bootstrap-onpremise-dev');
 
 interface ParsedOptions {
   port?: number;
@@ -150,7 +153,8 @@ function loadEnvironment(): void {
   }
 
   if (!loaded) {
-    console.warn("[onpremise-dev] No environment file loaded. Set IG_ENV_FILE or DOTENV_CONFIG_PATH before running this helper.");
+    log.warn('env', 'No environment file loaded', { hint: 'Set IG_ENV_FILE or DOTENV_CONFIG_PATH' });
+    console.warn("⚠️  No environment file loaded. Set IG_ENV_FILE or DOTENV_CONFIG_PATH before running this helper.");
   }
 }
 
@@ -278,7 +282,7 @@ function execFileAsync(command: string, args: string[]): Promise<{ stdout: strin
 
 function runCommand(command: string, args: string[], label: string): Promise<void> {
   return new Promise((resolve, reject) => {
-    console.log(`[onpremise-dev] ${label}: ${command} ${args.join(" ")}`);
+    log.debug('run-command', label, { command, args: args.join(' ') });
     const child = spawn(command, args, { stdio: "inherit" });
     child.on("error", (error) => {
       reject(error);
@@ -461,16 +465,20 @@ async function main(): Promise<void> {
   const binaries = resolvePgBinaries();
   const paths = buildPaths(options.storeRoot);
 
+  log.info('bootstrap', 'Starting bootstrap', { port: options.port, storeRoot: options.storeRoot });
+
   await ensureDirectories(paths);
   const clusterInitialized = await initializeCluster(binaries, paths);
   if (clusterInitialized) {
-    console.log(`[onpremise-dev] Initialized new Postgres cluster at ${paths.clusterDir}`);
+    log.info('cluster', 'Initialized new Postgres cluster', { clusterDir: paths.clusterDir });
+    console.log(`✅ Initialized new Postgres cluster at ${paths.clusterDir}`);
   }
 
   if (!options.skipStart) {
     const started = await startCluster(binaries, paths, options.port);
     if (started) {
-      console.log(`[onpremise-dev] Started local Postgres on port ${options.port}`);
+      log.info('cluster', 'Started local Postgres', { port: options.port });
+      console.log(`✅ Started local Postgres on port ${options.port}`);
     }
   } else if (!(await clusterRunning(binaries, paths))) {
     throw new Error("Local Postgres is not running. Remove --skip-start or start the cluster manually before syncing.");
@@ -487,9 +495,10 @@ async function main(): Promise<void> {
 
   if (options.skipSync) {
     await writeMetadata(paths, localUrl, sourceUrl, "");
-    console.log(`[onpremise-dev] Local fallback ready on ${localUrl} (sync skipped).`);
-    console.log(`[onpremise-dev] Set DATABASE_ONPREMISE_DEV_PRIMARY=${localUrl} or DATABASE_LOCAL_URL_FILE=${paths.connectionFile}`);
-    console.log(`[onpremise-dev] (Legacy: DATABASE_LOCAL_URL is deprecated, use DATABASE_ONPREMISE_DEV_PRIMARY)`);
+    log.info('complete', 'Local fallback ready (sync skipped)', { localUrl });
+    console.log(`✅ Local fallback ready on ${localUrl} (sync skipped).`);
+    console.log(`   Set DATABASE_ONPREMISE_DEV_PRIMARY=${localUrl}`);
+    console.log(`   (Legacy: DATABASE_LOCAL_URL is deprecated, use DATABASE_ONPREMISE_DEV_PRIMARY)`);
     return;
   }
 
@@ -498,14 +507,16 @@ async function main(): Promise<void> {
   await pruneSnapshots(paths, options.retention);
   await writeMetadata(paths, localUrl, sourceUrl, snapshotFile);
 
-  console.log(`[onpremise-dev] Local fallback synchronized from ${maskConnectionString(sourceUrl)}.`);
-  console.log(`[onpremise-dev] Connection string written to ${path.relative(process.cwd(), paths.connectionFile)}`);
-  console.log(`[onpremise-dev] Set DATABASE_ONPREMISE_DEV_PRIMARY=${localUrl} or point DATABASE_LOCAL_URL_FILE to that path.`);
-  console.log(`[onpremise-dev] (Legacy: DATABASE_LOCAL_URL is deprecated, use DATABASE_ONPREMISE_DEV_PRIMARY)`);
+  log.info('complete', 'Local fallback synchronized', { source: maskConnectionString(sourceUrl), localUrl });
+  console.log(`✅ Local fallback synchronized from ${maskConnectionString(sourceUrl)}.`);
+  console.log(`   Connection string written to ${path.relative(process.cwd(), paths.connectionFile)}`);
+  console.log(`   Set DATABASE_ONPREMISE_DEV_PRIMARY=${localUrl}`);
+  console.log(`   (Legacy: DATABASE_LOCAL_URL is deprecated, use DATABASE_ONPREMISE_DEV_PRIMARY)`);
 }
 
 void main().catch((error) => {
   const message = error instanceof Error ? error.message : String(error);
-  console.error(`[onpremise-dev] bootstrap failed: ${message}`);
+  log.error('bootstrap', 'Bootstrap failed', { error: message });
+  console.error(`❌ Bootstrap failed: ${message}`);
   process.exitCode = 1;
 });

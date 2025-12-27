@@ -5,11 +5,14 @@ import pg from "pg";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { scopedLogger } from "../../src/observability/envelope/console.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const ROOT = path.resolve(__dirname, "..", "..");
 const DATA_DIR = path.join(ROOT, "data");
+
+const log = scopedLogger("scripts.dex.seed-reference");
 
 const TYPE_ORDER = [
   "normal",
@@ -437,11 +440,17 @@ export async function seedDex(options: SeedOptions = {}) {
   const movesRaw = await loadJSON<Record<string, MoveEntry>>(path.join("bootstrap", "moves.min.json"));
 
   const requestedIds = options.onlySpeciesIds?.length ? new Set(options.onlySpeciesIds) : null;
+  log.info("seed", "Starting dex reference seed", {
+    requestedIds: requestedIds ? requestedIds.size : 0,
+  });
   const dex = requestedIds
     ? dexAll.filter((entry) => requestedIds.has(entry.id))
     : dexAll;
 
   if (!dex.length) {
+    log.info("seed", "No dex entries matched the requested filter", {
+      requestedIds: requestedIds ? requestedIds.size : 0,
+    });
     console.log("No dex entries matched the requested filter. Nothing to seed.");
     return;
   }
@@ -493,6 +502,12 @@ export async function seedDex(options: SeedOptions = {}) {
   await createManyChunked(prisma.speciesLearnset, filteredLearnset, 500);
 
   console.log("✅ Dex reference seeding complete.");
+  log.info("seed", "Dex reference seeding complete", {
+    types: typeRecords.length,
+    abilities: abilityRecords.length,
+    moves: moveRecords.length,
+    species: species.length,
+  });
   } finally {
     await prisma.$disconnect().catch(() => undefined);
   }
@@ -506,6 +521,11 @@ const isDirectExecution = process.argv[1] ? path.resolve(process.argv[1]) === __
 
 if (isDirectExecution) {
   main().catch((error) => {
+    const message = error instanceof Error ? error.message : String(error);
+    log.error("seed", "Dex reference seeding failed", {
+      error: message,
+      stack: error instanceof Error ? error.stack : undefined,
+    });
     console.error("Dex seeding failed:", error);
     process.exitCode = 1;
   });

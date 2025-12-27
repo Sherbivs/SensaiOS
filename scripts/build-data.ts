@@ -1,5 +1,4 @@
 #!/usr/bin/env tsx
-/* eslint-disable no-console */
 /**
  * build-data.ts - Build Pokemon data from PokeAPI cache
  *
@@ -22,8 +21,9 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-// Import from compiled TypeScript (ESM)
-import { formatStatus } from '../src/utils/output-formatter.js';
+import { scopedLogger } from '../src/observability/envelope/console.js';
+
+const log = scopedLogger('scripts.build-data');
 
 const ROOT: string = process.cwd();
 // Point this to your cached PokeAPI clone if different:
@@ -251,7 +251,10 @@ function matchups(types: string[], chart: TypeChart): Record<string, number> {
 
 function build(): void {
   const latest = pickLatestVersionGroup();
-  console.log(formatStatus(`Using latest version group: ${latest.name} (#${latest.id})`, 'info'));
+  log.info('version-group', 'Using latest version group', {
+    name: latest.name,
+    id: latest.id
+  });
 
   const movesIndex = gatherMoves();
   if (!movesIndex.tackle) {
@@ -306,9 +309,11 @@ function build(): void {
     'utf8'
   );
 
-  console.log(
-    formatStatus(`Built ${dex.length} Pokémon and ${Object.keys(movesIndex).length} moves → dist/data/*.json`, 'success')
-  );
+  log.info('build', 'Built dex and moves data', {
+    pokemonCount: dex.length,
+    moveCount: Object.keys(movesIndex).length,
+    output: 'dist/data/*.json'
+  });
 }
 
 // Run if executed directly
