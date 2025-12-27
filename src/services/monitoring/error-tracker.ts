@@ -305,6 +305,35 @@ export function detectCategory(error: Error, context: ErrorContext): ErrorCatego
 
 export class ErrorTracker {
   /**
+   * In-memory stats for synchronous health checks.
+   * Updated on each captureError call.
+   */
+  private _stats = {
+    totalErrors: 0,
+    queueSize: 0,
+    lastCaptureTime: 0,
+  };
+
+  /**
+   * Get synchronous stats for health checks.
+   * Returns in-memory counters (non-blocking).
+   * 
+   * Used by: errorTrackerHealthCheck in service-factories.ts
+   */
+  getStats(): { totalErrors: number; queueSize: number; lastCaptureTime: number } {
+    return { ...this._stats };
+  }
+
+  /**
+   * Stop error stream (graceful shutdown).
+   * Clears any pending timers/listeners.
+   */
+  stopErrorStream(): void {
+    // Currently a no-op - ErrorTracker doesn't use background timers
+    // Reserved for future background processing features
+  }
+
+  /**
    * Capture an error and persist to database
    * Automatically deduplicates by fingerprint
    * 
@@ -320,6 +349,10 @@ export class ErrorTracker {
    * @returns errorId of created or updated ErrorLog entry
    */
   async captureError(error: Error, context: ErrorContext = {}): Promise<string> {
+    // Update in-memory stats for health checks (synchronous, immediate)
+    this._stats.totalErrors++;
+    this._stats.lastCaptureTime = Date.now();
+
     // IMMEDIATE console output for live visibility (before any async operations)
     const timestamp = toEasternLogFormat();
     
