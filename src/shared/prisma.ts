@@ -245,8 +245,8 @@ function createClient(candidate: DatabaseCandidate, nodeEnv: string): PrismaClie
     // Connection pool limits (prevents exhaustion under load)
     max: 20,                          // Maximum connections in pool (Render: 103 max, leave headroom)
     min: 2,                           // Minimum idle connections
-    idleTimeoutMillis: 30_000,        // Close idle connections after 30s
-    connectionTimeoutMillis: 10_000,  // Fail fast if can't connect in 10s
+    idleTimeoutMillis: 300_000,       // Close idle connections after 5 minutes (was 30s - too aggressive for migrations)
+    connectionTimeoutMillis: 30_000,  // Allow 30s to establish connection (was 10s - too short for cold starts)
     // Query timeout (prevents runaway queries from blocking workers)
     statement_timeout: 60_000,        // Kill queries after 60s
     // OPTIMIZATION: Keep connections alive to avoid TCP reconnection overhead
@@ -254,6 +254,10 @@ function createClient(candidate: DatabaseCandidate, nodeEnv: string): PrismaClie
     keepAliveInitialDelayMillis: 10_000,  // Start keepalive probes after 10s idle
     // OPTIMIZATION: Allow prepare to cache query plans (faster repeated queries)
     allowExitOnIdle: false,           // Keep pool alive even when idle (for worker longevity)
+    // SSL configuration (CRITICAL FIX 2025-12-27): Render requires SSL
+    ssl: {
+      rejectUnauthorized: false,      // Render uses self-signed certificates
+    },
   });
   
   // Pool event listeners for observability

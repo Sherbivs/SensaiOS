@@ -46,9 +46,9 @@ Archive & Pending:
 - pending-validation/ — Projects awaiting AI integrity validation
 
 Integration Points:
-- **Architecture Bible** (`docs/architecture-bible/`) — 22 sections, 105+ pages authoritative system design
+- **Architecture Bible** (`docs/architecture-bible/`) — 27 sections, 110+ pages authoritative system design
 - **Operations Bible** (`docs/operations-bible/`) — 13 sections + 9 guides, 75+ pages authoritative operations procedures
-- **Development Bible** (`docs/development-bible/`) — 9 sections authoritative development workflows
+- **Development Bible** (`docs/development-bible/`) — 10 sections authoritative development workflows
 - **Agents.md** § "Documentation System & Bible Integrity" — Workflow documentation
 - **copilot-instructions.md** § "Documentation System" — AI assistant guidance
 

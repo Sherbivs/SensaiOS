@@ -3,12 +3,12 @@ Timestamp (UTC): 2025-12-27T00:05:00Z
 Revision: 3.9
 
 **Cross-References**:
-- See `Patch.md` for contract rules (updated 2025-11-07T22:00:00Z Rev 1.72)
+- See `Patch.md` for contract rules (updated 2025-12-27T00:00:00Z Rev 1.75)
 - See `Tasklist.md` for backlog and active tasks
 - See `ops/NEXT.yaml` for current task pointer
-- See `docs/architecture-bible/INDEX.md` for architecture documentation (22 sections)
+- See `docs/architecture-bible/INDEX.md` for architecture documentation (27 sections)
 - See `docs/operations-bible/INDEX.md` for operational procedures (13 sections + 9 guides)
-- See `docs/development-bible/INDEX.md` for development workflows (9 sections)
+- See `docs/development-bible/INDEX.md` for development workflows (10 sections)
 
 ## Purpose & Scope
 - Canonical brief for automation: captures current mission, guardrails, and truth sources so every run starts aligned.

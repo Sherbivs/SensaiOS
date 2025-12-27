@@ -1,5 +1,7 @@
 # Section 7: Security Bot
 
+**Last Updated**: 2025-12-27 | **Status**: Production | **Phase 1 PostgreSQL Migration**: ✅ Complete
+
 [← Back to INDEX](INDEX.md) | [← Previous: Error System](06-error-system.md) | [Next: Router System →](08-router-system.md)
 
 ---
@@ -82,7 +84,7 @@ interface SecurityBotState {
 **Initialization Flow**:
 
 ```typescript
-// src/worker/security-bot-worker.ts
+// Entry point: security-bot.ts → src/bot/main.js
 import { SecurityBotState } from "./security-bot-state.js";
 
 async function initializeSecurityBot() {
@@ -158,7 +160,7 @@ setInterval(() => {
 **API**:
 
 ```typescript
-// src/worker/security-bot-state.ts
+// State management via src/bot/state/persistence.js
 export class SecurityBotState {
   static async load(): Promise<State | null>;
   static async save(): Promise<void>;
@@ -278,7 +280,7 @@ All operations resumed normally.
 **Implementation**:
 
 ```typescript
-// src/worker/security-bot-worker.ts
+// Entry point: security-bot.ts → src/bot/main.js → src/bot/state/
 import { SecurityBotState } from "./security-bot-state.js";
 import { sendAdminDMs } from "./security-bot-notifications.js";
 

@@ -1,5 +1,7 @@
 # Section 3: Debugging Guides
 
+**Last Updated**: 2025-12-27 | **Status**: Production
+
 [← Back to INDEX](INDEX.md) | [← Previous: Testing Patterns](02-testing-patterns.md) | [Next: Performance →](04-performance.md)
 
 ---
@@ -19,30 +21,26 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Debug Main Bot",
-      "type": "node",
-      "request": "launch",
-      "runtimeArgs": ["--loader", "tsx"],
-      "program": "${workspaceFolder}/src/index.ts",
-      "console": "integratedTerminal",
-      "envFile": "${workspaceFolder}/secrets/Infinity-Gauntlet.env",
-      "skipFiles": ["<node_internals>/**", "**/node_modules/**"]
-    },
-    {
-      "name": "Debug Tests",
-      "type": "node",
-      "request": "launch",
-      "runtimeArgs": ["--loader", "tsx", "--test"],
-      "program": "${workspaceFolder}/node_modules/vitest/vitest.mjs",
-      "args": ["run", "${file}"],
-      "console": "integratedTerminal"
-    },
-    {
-      "name": "Attach to Process",
+      "name": "Docker: Attach to Bot",
       "type": "node",
       "request": "attach",
       "port": 9229,
-      "skipFiles": ["<node_internals>/**"]
+      "address": "localhost",
+      "localRoot": "${workspaceFolder}",
+      "remoteRoot": "/app",
+      "skipFiles": ["<node_internals>/**"],
+      "restart": true
+    },
+    {
+      "name": "Local: Start Bot (Dev)",
+      "type": "node",
+      "request": "launch",
+      "program": "${workspaceFolder}/src/index.ts",
+      "preLaunchTask": "npm: build:ts",
+      "outFiles": ["${workspaceFolder}/dist/**/*.js"],
+      "skipFiles": ["<node_internals>/**"],
+      "envFile": "${workspaceFolder}/.env",
+      "console": "integratedTerminal"
     }
   ]
 }

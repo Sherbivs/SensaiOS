@@ -1,9 +1,8 @@
-# 24 — Fishing System Design
+# Section 24: Fishing System Design
 
-**Title:** Fishing Mechanic & Water-Type Encounters  
+**Last Updated**: 2025-12-27 | **Design Date**: 2025-12-26 | **Status**: 🟡 DESIGN COMPLETE
+
 **Purpose:** Complete design specification for the fishing mini-game  
-**Last Updated (UTC):** 2025-12-26T00:00:00Z  
-**Status:** 🟡 DESIGN COMPLETE — Ready for implementation  
 **Revision:** 1.0 — Initial design panel discussion
 
 ---

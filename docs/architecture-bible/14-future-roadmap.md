@@ -1,5 +1,7 @@
 # Section 14: Future Roadmap
 
+**Last Updated**: 2025-12-27 | **Status**: Planning
+
 [← Back to INDEX](INDEX.md) | [← Previous: Performance](13-performance.md)
 
 ---

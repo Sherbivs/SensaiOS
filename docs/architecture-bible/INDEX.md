@@ -1,11 +1,11 @@
 # ARCHITECTURE BIBLE — INDEX
 
 **Centralized System Architecture Documentation**  
-**Created:** 2025-11-16 | **Last Updated:** 2025-12-26 | **Status:** PRODUCTION
+**Created:** 2025-11-16 | **Last Updated:** 2025-12-27 | **Status:** PRODUCTION
 
 ## Purpose
 
-Single source of truth for Infinity Gauntlet architectural design, component relationships, safety guarantees, and technical decisions. Originally consolidated from 37 source documents, now organized into 26 focused sections for maintainability.
+Single source of truth for Infinity Gauntlet architectural design, component relationships, safety guarantees, and technical decisions. Originally consolidated from 37 source documents, now organized into 27 focused sections for maintainability.
 
 ---
 
@@ -39,6 +39,7 @@ Single source of truth for Infinity Gauntlet architectural design, component rel
 | **24. Fishing System** | [24-fishing-system.md](24-fishing-system.md) | Fishing mini-game, rod progression, water-type encounters |
 | **25. Trading System** | [25-trading-system.md](25-trading-system.md) | Player-to-player trading, scam prevention, trade evolution |
 | **26. Leaderboards & Achievements** | [26-leaderboards-achievements.md](26-leaderboards-achievements.md) | Competitive rankings, achievement system, rewards |
+| **27. /Store DB-Only Policy** | [27-store-db-only-policy.md](27-store-db-only-policy.md) | Persistent storage policy, heap migration, state consolidation |
 
 ### Supplementary Documents
 | File | Purpose |
@@ -89,8 +90,9 @@ Single source of truth for Infinity Gauntlet architectural design, component rel
 |------|-------|---------|
 | 2025-11-16 | Initial Creation | 14 sections consolidated from 37 source documents |
 | 2025-11-21 | Architecture Pivot | Added Private Channel Architecture (DM → Guild Channels) |
-| 2025-12-18 | Reorganization | Renumbered to 22 sections, removed duplicates, updated for Prisma 7 |
+| 2025-12-18 | Reorganization | Expanded to 22 sections, removed duplicates, updated for Prisma 7 |
 | 2025-12-26 | Feature Expansion | Added Fishing (24), Trading (25), Leaderboards & Achievements (26) |
+| 2025-12-27 | Storage Policy | Added /Store DB-Only Policy (27), **27 sections complete**, date standardization |
 
 ---
 

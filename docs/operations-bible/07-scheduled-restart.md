@@ -1,4 +1,8 @@
-# Scheduled Service Restart - Setup Instructions
+# Section 7: Scheduled Service Restart — Setup Instructions
+
+**Last Updated**: 2025-12-27 | **Status**: Production
+
+---
 
 ## Overview
 GitHub Actions workflow that restarts the Render service every 12 hours via Render API.

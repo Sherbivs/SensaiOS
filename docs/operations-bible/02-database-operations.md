@@ -571,6 +571,51 @@ TypeError: Cannot read properties of undefined (reading 'cause')
    - Run `npm ci && npm run prebuild` locally
    - Deploy to Render and verify startup
 
+### SSL Configuration (CRITICAL for Render)
+
+**🚨 REQUIRED:** Render PostgreSQL requires SSL connections. When using Prisma 7 with driver adapters (`@prisma/adapter-pg`), you MUST explicitly configure SSL in pg.Pool.
+
+**Problem:** Without SSL config, you'll see:
+- `P1017: DriverAdapterError: ConnectionClosed`
+- `Error: read ECONNRESET`
+- ALL database operations fail
+
+**Solution:**
+
+```typescript
+import pg from 'pg';
+import { PrismaPg } from '@prisma/adapter-pg';
+import { PrismaClient } from '@prisma/client';
+
+const pool = new pg.Pool({
+  connectionString: process.env.PROD_DATABASE_URL,
+  max: 20,
+  
+  // ✅ REQUIRED for Render PostgreSQL
+  ssl: {
+    rejectUnauthorized: false,  // Render uses self-signed certs
+  },
+});
+
+const adapter = new PrismaPg(pool);
+const prisma = new PrismaClient({ adapter });
+```
+
+**Why This Is Necessary:**
+- Prisma 6 handled SSL automatically via connection string parsing
+- Prisma 7 delegates connection management to pg.Pool
+- pg.Pool ignores `?sslmode=require` in connection string
+- Must configure SSL explicitly in Pool constructor
+
+**Production Validation:**
+```typescript
+// Test that SSL is working
+const result = await prisma.$queryRaw`SELECT 1 as test;`;
+console.log('✅ SSL connection working:', result);
+```
+
+**Complete Reference:** See `docs/troubleshooting/PRISMA7-SSL-RENDER.md` for comprehensive troubleshooting guide and diagnosis steps.
+
 ---
 
 ## 2.10 Schema Architecture

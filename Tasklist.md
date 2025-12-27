@@ -1,7 +1,14 @@
 # Tasklist
-Last Updated (UTC): 2025-12-27T00:05:00Z
-Revision: 2.114
+Last Updated (UTC): 2025-12-27T03:35:00Z
+Revision: 2.115
 <!-- # TASKLIST UPDATE -->
+
+**Recent Activity (2025-12-27T03:35Z):**
+- 📜 **NEW POLICY: /Store DB-Only Architecture** — All data in /Store must be in SQLite databases
+  - Created `docs/architecture-bible/19-store-db-only-policy.md` (policy document)
+  - Current violations: 83 files (163 MB heapsnapshots, 71 JSON, 3 logs)
+  - Target: Only `.db` and `.db.bak` files allowed
+  - 5 migration tasks created (STORE.HEAP_MIGRATION, STORE.SECURITY_STATE, etc.)
 
 **Recent Activity (2025-12-27T00:05Z):**
 - 🛠️ **DEX v2 Signature Export Fix** — Added missing `DEX_V2_SIGNATURE` export to generated accessors for dexpack v2 runtime boot.
@@ -118,6 +125,89 @@ Each task has:
 
 ---
 
+## /Store DB-Only Migration (NEW)
+
+**Policy Document:** `docs/architecture-bible/19-store-db-only-policy.md`  
+**Goal:** All persistent data in SQLite databases, no loose files  
+**Current Violations:** 83 files (~168 MB)
+
+| Phase | Focus | Effort | Status |
+|-------|-------|--------|--------|
+| Phase 1 | Heap snapshot migration | 3h | PROPOSED |
+| Phase 2 | Security bot state | 2h | PROPOSED |
+| Phase 3 | Kernel logs | 1h | PROPOSED |
+| Phase 4 | Config consolidation | 1h | PROPOSED |
+| Phase 5 | Cleanup & enforcement | 30m | PROPOSED |
+
+---
+
+- id: STORE.HEAP_MIGRATION
+  title: Migrate heap snapshots to engine-write.db
+  status: PROPOSED
+  depends_on: []
+  priority: P1-HIGH
+  effort: 3h
+  acceptance_criteria:
+    - Create heap_snapshots table in engine-write.db
+    - Parse existing .heapsnapshot files on startup
+    - Extract key metrics (heap size, top allocators)
+    - Insert summary into DB, delete raw file
+    - New snapshots: parse immediately, never write raw
+  notes: Frees 163 MB disk space. Highest priority.
+
+- id: STORE.SECURITY_STATE
+  title: Migrate security bot state to engine-write.db
+  status: PROPOSED
+  depends_on: []
+  priority: P1-HIGH
+  effort: 2h
+  acceptance_criteria:
+    - Create security_bot_state table in engine-write.db
+    - Migrate current.json, backup-*.json, snapshots/*.json
+    - Update persistence.js to use SQLite
+    - Delete JSON files after successful migration
+  notes: 71 JSON files → single table.
+
+- id: STORE.KERNEL_LOGS
+  title: Migrate kernel logs to PostgreSQL
+  status: PROPOSED
+  depends_on: [KERNEL.LOGGING.DATABASE_OUTPUT]
+  priority: P2-MEDIUM
+  effort: 1h
+  acceptance_criteria:
+    - Redirect kernel file logs to log_entries table
+    - Keep local file as emergency fallback only
+    - Auto-cleanup file logs after DB insert confirmed
+  notes: Uses existing log_entries table.
+
+- id: STORE.CONFIG_CONSOLIDATE
+  title: Consolidate JSON configs to runtime_config table
+  status: PROPOSED
+  depends_on: []
+  priority: P2-MEDIUM
+  effort: 1h
+  acceptance_criteria:
+    - Create runtime_config table in engine-write.db
+    - Migrate cooldowns.json, restart-metrics.json, guild-member-timeout-config.json
+    - Update config loaders to use SQLite
+    - Delete JSON files after migration
+  notes: Removes 3 loose JSON files.
+
+- id: STORE.CLEANUP_ENFORCE
+  title: Add /Store policy enforcement guard
+  status: PROPOSED
+  depends_on: [STORE.HEAP_MIGRATION, STORE.SECURITY_STATE, STORE.CONFIG_CONSOLIDATE]
+  priority: P2-MEDIUM
+  effort: 30m
+  acceptance_criteria:
+    - Create scripts/guard_store_policy.ts
+    - Fail if non-.db files exist in /Store
+    - Add to CI pipeline
+    - Runtime warning on startup for violations
+  notes: Final enforcement task.
+
+---
+
 ## Kernel-First Logging Initiative (ACTIVE)
 
 **Sprint Structure:** 4 sprints, ~2 weeks total  
@@ -133,6 +223,20 @@ Each task has:
 ---
 
 ## 🔥 Quick/Hotfix Tasks
+
+- id: DOCS.BIBLE.ERROR_HANDLER_PATHS
+  title: Fix error handler path references in Development Bible
+  status: READY
+  depends_on: []
+  priority: P2-MEDIUM
+  effort: 15m
+  acceptance_criteria:
+    - Update docs/development-bible/05-error-handling.md
+    - Fix paths: src/bot/bot-error-handler.ts → src/bot/error-handler.ts
+    - Fix class names: DiscordBotErrorHandler → BotErrorHandler
+    - Remove references to non-existent src/core/engine-error-handler.ts
+    - Keep src/workers/worker-error-handler.ts (correct path)
+  notes: Found during Bible validation session (33/50 sections validated, 98% accuracy)
 
 - id: DEX.V2.ACCESSORS.SIGNATURE
   title: Export DEX_V2_SIGNATURE in generated accessors

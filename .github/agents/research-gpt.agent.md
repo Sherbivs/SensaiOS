@@ -312,7 +312,7 @@ This terminology schema is **STRICTLY ENFORCED** throughout the entire codebase.
 - **Bible drift causes production failures** — Keep documentation synchronized
 
 #### Navigation Guidelines for Documentation
-- **Architecture Bible**: `docs/architecture-bible/INDEX.md` — 22 sections covering complete system design
+- **Architecture Bible**: `docs/architecture-bible/INDEX.md` — 27 sections covering complete system design
 - **Operations Bible**: `docs/operations-bible/INDEX.md` — 13 sections + 9 guides covering deployment and monitoring
 - **Development Bible**: `docs/development-bible/INDEX.md` — 10 sections covering local setup, testing, profiling, database onboarding, dead code analysis
 - **Dead Code Analysis Bible**: `docs/development-bible/10-dead-code-analysis.md` — AI-driven code cleanup methodology:

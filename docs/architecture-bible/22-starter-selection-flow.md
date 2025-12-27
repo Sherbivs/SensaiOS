@@ -1,8 +1,10 @@
-# Game Flow: Starter Selection & Onboarding
+# Section 22: Starter Selection & Onboarding Flow
 
-> **Architecture Bible Section:** Player Onboarding Flow  
-> **Status:** Implemented (December 2025)  
-> **Location:** `src/bot/homestead/open-starter-selection.ts`, `src/core/starter-validation.ts`
+**Last Updated**: 2025-12-27 | **Status**: ✅ Implemented (2025-12-XX)
+
+**Location:** `src/bot/homestead/open-starter-selection.ts`, `src/core/starter-validation.ts`
+
+---
 
 ## Overview
 

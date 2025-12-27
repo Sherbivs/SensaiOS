@@ -370,17 +370,35 @@ process.on("SIGTERM", async () => {
 // src/db/prisma.ts
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../generated/prisma/client";
+import pg from "pg";
 
-// Adapter uses the connection string at runtime
-const adapter = new PrismaPg({
+// CRITICAL (2025-12-27): Create pg.Pool with explicit SSL configuration
+// Render PostgreSQL REQUIRES SSL - without this, connections fail with ECONNRESET/P1017
+const pool = new pg.Pool({
   connectionString: process.env.DATABASE_URL!,
+  max: 20,                          // Maximum connections in pool
+  min: 2,                           // Minimum idle connections
+  idleTimeoutMillis: 300_000,       // 5 minutes (allow long-running migrations)
+  connectionTimeoutMillis: 30_000,  // 30 seconds (handle cold starts)
+  statement_timeout: 60_000,        // Kill queries after 60s
+  keepAlive: true,
+  keepAliveInitialDelayMillis: 10_000,
+  allowExitOnIdle: false,
+  // SSL configuration (REQUIRED for Render PostgreSQL)
+  ssl: {
+    rejectUnauthorized: false,      // Render uses self-signed certificates
+  },
 });
+
+// Pass pool to adapter (pool handles connection lifecycle)
+const adapter = new PrismaPg(pool);
 
 export const prisma = new PrismaClient({ adapter });
 
 // Graceful shutdown
 process.on("SIGTERM", async () => {
-  await prisma.$disconnect();
+  await pool.end();                 // Close pool first
+  await prisma.$disconnect();       // Then disconnect Prisma
 });
 ```
 
@@ -486,11 +504,163 @@ Prisma also maintains a PgBouncer setup page that covers when/why to use special
 
 **Important:** Prisma Migrate should use direct connections, not PgBouncer, because migrations need consistent transaction state.
 
+### 6.5 SSL Configuration (CRITICAL for Render PostgreSQL)
+
+**As of 2025-12-27, this is a MANDATORY requirement for Render deployments.**
+
+#### The Problem
+
+Render PostgreSQL **requires SSL connections**. Without explicit SSL configuration in `pg.Pool`, connections fail with:
+- `Error: read ECONNRESET` (pg driver level)
+- `P1017: DriverAdapterError: ConnectionClosed` (Prisma level)
+
+This affects:
+- ✅ Production deployments on Render
+- ✅ Local development connecting to Render databases
+- ❌ Local PostgreSQL (SSL optional)
+
+#### The Solution
+
+**Always configure SSL when creating `pg.Pool` for Prisma adapter:**
+
+```typescript
+import pg from "pg";
+import { PrismaPg } from "@prisma/adapter-pg";
+
+const pool = new pg.Pool({
+  connectionString: process.env.PROD_DATABASE_URL,
+  max: 20,
+  min: 2,
+  idleTimeoutMillis: 300_000,       // 5 minutes (migrations need time)
+  connectionTimeoutMillis: 30_000,  // 30 seconds (cold starts)
+  keepAlive: true,
+  allowExitOnIdle: false,
+  // SSL configuration (REQUIRED for Render)
+  ssl: {
+    rejectUnauthorized: false,      // Render uses self-signed certs
+  },
+});
+
+const adapter = new PrismaPg(pool);
+const prisma = new PrismaClient({ adapter });
+```
+
+#### Why `rejectUnauthorized: false`?
+
+Render PostgreSQL uses **self-signed certificates**. Setting `rejectUnauthorized: false` allows:
+- ✅ Connections to Render databases
+- ✅ Development/staging environments with self-signed certs
+- ⚠️ **Security Note**: This is safe for Render's managed PostgreSQL but validate certificates in production if using custom databases
+
+#### Troubleshooting SSL Issues
+
+**Symptom:** Connections fail immediately with `ECONNRESET` or `P1017`
+
+**Diagnosis:**
+```bash
+# Test raw pg.Pool connection (bypasses Prisma)
+npx tsx scripts/test-pool-behavior.ts
+```
+
+**If test fails without SSL config:**
+- Add `ssl: { rejectUnauthorized: false }` to pool configuration
+- Regenerate Prisma client: `npx prisma generate`
+- Restart application
+
+**If test succeeds but Prisma still fails:**
+- Check `engineType = "library"` in schema.prisma
+- Verify pool is passed to `PrismaPg()` constructor (not connection string)
+- Ensure `prisma.config.ts` uses correct database URL
+
+#### Production Validation
+
+**Before deploying SSL changes:**
+1. Test locally against Render database
+2. Verify simple queries work: `await prisma.user.count()`
+3. Test migrations: `npx prisma migrate deploy`
+4. Test long-running operations (5+ minutes)
+5. Check pool event logs for errors
+
+**Expected behavior with correct SSL config:**
+- ✅ Connections establish in <1 second
+- ✅ Queries execute without P1017 errors
+- ✅ Pool reuses connections (totalCount stable)
+- ✅ Migrations complete without timeouts
+
 ---
 
 ## 7) Common Prisma 7 Production Failure Modes (and Exact Fixes)
 
-### Error A: `The datasource property 'url' is no longer supported in schema files`
+### Error A: `P1017: DriverAdapterError: ConnectionClosed` or `Error: read ECONNRESET`
+
+**Discovered:** 2025-12-27 (Infinity-Gauntlet Security State Migration)
+
+**Symptoms:**
+- All database operations fail immediately
+- Error appears on both simple queries (`count()`) and writes (`create()`)
+- Affects production (Render) but not local PostgreSQL
+- Pool events show no `connect` events, immediate failures
+
+**Cause:** Missing SSL configuration in `pg.Pool` when connecting to Render PostgreSQL.
+
+Render PostgreSQL **requires SSL connections**. Without explicit `ssl` configuration, the pg driver attempts unencrypted connection → SSL handshake failure → connection reset.
+
+**CRITICAL FIX (Required for Render):**
+
+```typescript
+import pg from "pg";
+import { PrismaPg } from "@prisma/adapter-pg";
+
+const pool = new pg.Pool({
+  connectionString: process.env.PROD_DATABASE_URL,
+  // ... other pool settings ...
+  
+  // SSL configuration (REQUIRED for Render PostgreSQL)
+  ssl: {
+    rejectUnauthorized: false,  // Render uses self-signed certificates
+  },
+});
+
+const adapter = new PrismaPg(pool);
+const prisma = new PrismaClient({ adapter });
+```
+
+**Why This Wasn't Obvious:**
+1. Prisma 6 handled SSL automatically via connection string parsing
+2. Prisma 7 with driver adapters delegates SSL to the pg.Pool configuration
+3. No explicit error message stating "SSL required"
+4. Connection string includes `?sslmode=require` but pg.Pool ignores query params
+
+**Verification Test:**
+```bash
+# Test raw pg.Pool without Prisma (isolates SSL issue)
+npx tsx scripts/test-pool-behavior.ts
+```
+
+**Expected Output (SSL Working):**
+```
+✅ Pool: new client connected
+📥 Pool: client acquired from pool
+  ✅ Result: 500 rows
+  📊 Pool: totalCount=1, idleCount=1, waitingCount=0
+```
+
+**Root Cause Timeline:**
+- 2025-12-27 03:30 UTC: Migration script fails with P1017 on all queries
+- Initial hypothesis: Pool timeout settings too aggressive (idleTimeoutMillis: 30s)
+- Changed timeouts: 30s → 300s, 10s → 30s → **No effect**
+- Created isolation test: Raw pg.Pool (no Prisma) → **Same failure** (ECONNRESET)
+- Added SSL config → **Instant fix** ✅
+- Diagnosis time: ~45 minutes (would have been 5 minutes with proper documentation)
+
+**Related Issues:**
+- Applies to ALL Render PostgreSQL connections via driver adapters
+- Local PostgreSQL works without SSL (optional)
+- PgBouncer connections also require SSL configuration
+
+---
+
+### Error B: `The datasource property 'url' is no longer supported in schema files`
 
 **Cause:** Prisma 7 rejects `url = env("DATABASE_URL")` in `schema.prisma`.
 
@@ -498,7 +668,7 @@ Prisma also maintains a PgBouncer setup page that covers when/why to use special
 1. Remove `url = ...` from datasource block in `schema.prisma` ([Prisma Upgrade Guide][5])
 2. Put the URL in `prisma.config.ts` under `datasource.url` ([Prisma Docs][1])
 
-### Error B: `Using engine type "client" requires either "adapter" or "accelerateUrl"`
+### Error C: `Using engine type "client" requires either "adapter" or "accelerateUrl"`
 
 **Cause:** You're using the "client engine" path without providing adapter/accelerateUrl. This happens because Prisma 7 changed the default `engineType` from `"library"` to `"client"`.
 
@@ -520,7 +690,7 @@ const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL! });
 export const prisma = new PrismaClient({ adapter });
 ```
 
-### Error C: `An output path is required for the prisma-client generator`
+### Error D: `An output path is required for the prisma-client generator`
 
 **Cause:** Prisma 7's `prisma-client` generator (not `prisma-client-js`) requires `output`. ([Prisma Docs][20])
 
@@ -528,7 +698,7 @@ export const prisma = new PrismaClient({ adapter });
 
 **Alternative:** Use `prisma-client-js` with `engineType = "library"` (no output required).
 
-### Error D: `Cannot find module '../generated/prisma/client'`
+### Error E: `Cannot find module '../generated/prisma/client'`
 
 **Cause:** Generated client missing at runtime (build pipeline didn't run `prisma generate`, or output path mismatch).
 
@@ -538,13 +708,13 @@ export const prisma = new PrismaClient({ adapter });
 3. Confirm Docker image includes generated folder (copy it into final stage)
 4. Check that TypeScript/build process includes generated files
 
-### Error E: `migrate dev` Fails in Docker/CI ("Non-interactive")
+### Error F: `migrate dev` Fails in Docker/CI ("Non-interactive")
 
 **Cause:** Prisma warns `migrate dev` is not supported in non-interactive environments. ([Prisma Docs][7])
 
 **Fix:** Use `prisma migrate deploy` (apply existing migrations only).
 
-### Error F: `datasources` Option Removed / Unknown Property
+### Error G: `datasources` Option Removed / Unknown Property
 
 **Cause:** Prisma 7 removed the `datasources` option from PrismaClient constructor.
 
@@ -562,7 +732,7 @@ const client = new PrismaClient({
 - Adapter constructor (driver adapters) - explicit
 - `prisma.config.ts` (CLI operations)
 
-### Error G: Type Errors After Migration
+### Error H: Type Errors After Migration
 
 **Cause:** Generated types are stale or imports point to wrong location.
 

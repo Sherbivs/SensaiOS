@@ -1,5 +1,7 @@
 # Section 5: Logging Architecture
 
+**Last Updated**: 2025-12-27 | **Status**: Production
+
 [← Back to INDEX](INDEX.md) | [Next: Error System →](06-error-system.md)
 
 ---
@@ -449,7 +451,7 @@ node src/cli/ai-log-query.js stats
 
 **Integration Points** (11 total):
 
-1. **Error Tracking System** (`src/services/error-tracker.ts`) — All tracked errors with context (ERROR level, error category, error-tracker tags)
+1. **Error Tracking System** (`src/services/monitoring/error-tracker.ts`) — All tracked errors with context (ERROR level, error category, error-tracker tags)
 
 2. **Console Logging** (`src/shared/log.ts`) — All log.info/warn/error calls with structured metadata (INFO/WARN/ERROR levels, based on context, console-logger tags)
 

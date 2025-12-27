@@ -1,5 +1,7 @@
 # Section 7: Utilities
 
+**Last Updated**: 2025-12-27 | **Status**: Production
+
 [← Back to INDEX](INDEX.md) | [← Previous: Console Tooling](06-console-tooling.md)
 
 ---

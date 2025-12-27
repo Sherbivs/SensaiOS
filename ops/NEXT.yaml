@@ -60,11 +60,13 @@ main_tasks:
 
 # Quick/hot task slot (1 concurrent quick task allowed)
 quick_task:
-  id: NONE
-  title: "Available for hotfixes"
-  status: NONE
-  effort: "N/A"
-  files_hint: []
+  id: ARCH.STORE_DB_ONLY_POLICY
+  title: "Define /Store DB-only architecture policy"
+  status: DONE
+  effort: "1h"
+  files_hint:
+    - docs/architecture-bible/27-store-db-only-policy.md
+    - Tasklist.md
 
 # Legacy fields (maintained for backward compatibility)
 next_task_id: KERNEL.LOGGING.OUTPUT_PLUGINS

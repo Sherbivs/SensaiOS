@@ -1,5 +1,7 @@
 # Section 10: Discord Bot
 
+**Last Updated**: 2025-12-27 | **Status**: Production | **Homestead Migration**: ✅ Complete (2025-11-21)
+
 [← Back to INDEX](INDEX.md) | [← Previous: Game Engine](09-game-engine.md) | [Next: Safety Guarantees →](11-safety-guarantees.md)
 
 ---

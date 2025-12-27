@@ -338,8 +338,8 @@ function transformRoleChange(
     changeType: change.type,
     roleId: change.roleId,
     roleName: change.roleName,
-    executorId: null, // Not tracked in legacy format
-    executorTag: null,
+    executorId: "SYSTEM", // Not tracked in legacy format - use placeholder
+    executorTag: "SYSTEM#0000", // Not tracked in legacy format - use placeholder
     executorRoles: [],
     authorized: true, // Legacy changes assumed authorized
     authReason: 'Legacy migration - pre-database',
@@ -348,10 +348,7 @@ function transformRoleChange(
     revertedBy: null,
     origin: change.origin,
     metadata: change.metadata || {},
-    previousHash: previousHash,
-    timestamp: timestamp,
     createdAt: timestamp,
-    updatedAt: timestamp,
   };
 
   // Generate checksum for data integrity
@@ -360,26 +357,16 @@ function transformRoleChange(
     memberId: data.memberId,
     changeType: data.changeType,
     roleId: data.roleId,
-    timestamp: data.timestamp.toISOString(),
+    timestamp: timestamp.toISOString(),
   });
   const checksum = generateChecksum(checksumData);
-  const signature = generateChecksum(checksumData + CHECKSUM_KEY);
-
-  // Generate hash for chain
-  const hashData = JSON.stringify({
-    ...data,
-    checksum,
-    previousHash,
-  });
-  const hash = generateHash(hashData);
 
   return {
     data: {
       ...data,
       checksum,
-      signature,
     },
-    hash,
+    hash: generateHash(JSON.stringify({ ...data, checksum })), // For chain tracking outside DB
   };
 }
 
@@ -410,20 +397,14 @@ function transformBaseline(
     guildId,
     guildName,
     averageChangesPerHour: baseline.averageChangesPerHour,
-    standardDeviation: 0, // Not tracked in legacy format
+    averageChangesPerDay: baseline.averageChangesPerHour * 24, // Estimate from hourly rate
     peakActivityHours: peakActivityHours,
-    quietActivityHours: [],
-    averageDailyMembers: 0,
-    uniqueExecutors: 0,
-    mostActiveRoles: [],
+    rapidChangeThreshold: Math.ceil(baseline.averageChangesPerHour * 3), // 3x average = rapid
+    maxChangesPerMember: 50, // Conservative default limit
+    expectedOrigins: [], // No origin tracking in legacy format
     confidenceLevel: baseline.confidenceLevel,
     dataPointCount: baseline.dataPointCount,
-    sampleStartDate: computedAt,
-    sampleEndDate: computedAt,
     computedAt: computedAt,
-    checksum,
-    validUntil: new Date(computedAt.getTime() + 7 * 24 * 60 * 60 * 1000), // 7 days
-    createdAt: now,
     updatedAt: now,
   };
 }

@@ -429,6 +429,10 @@ export const ModelName = {
   EventHistory: 'EventHistory',
   MemberRoleHistory: 'MemberRoleHistory',
   SecurityEvent: 'SecurityEvent',
+  RoleChangeAudit: 'RoleChangeAudit',
+  ThreatDetection: 'ThreatDetection',
+  SecurityBaseline: 'SecurityBaseline',
+  PermissionSnapshot: 'PermissionSnapshot',
   WorkerMetrics: 'WorkerMetrics',
   TradeLog: 'TradeLog',
   PlayerStats: 'PlayerStats',
@@ -450,7 +454,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "tenant" | "trainer" | "dexPack" | "trainerSettings" | "type" | "ability" | "item" | "move" | "species" | "speciesType" | "speciesAbility" | "speciesLearnset" | "evolutionStep" | "typeChart" | "nameVariant" | "user" | "homesteadChannel" | "discordGuild" | "discordMember" | "pokemonInstance" | "party" | "partySlot" | "inventory" | "encounter" | "battle" | "cooldown" | "busMessage" | "busIdemToken" | "auditLog" | "dbVersion" | "dbSyncState" | "logEntry" | "errorLog" | "errorAlert" | "errorKnowledge" | "errorResolution" | "errorDependency" | "errorCodeContext" | "battleAnalytics" | "consoleOutput" | "dataPoolSyncStatus" | "discordRole" | "eventHistory" | "memberRoleHistory" | "securityEvent" | "workerMetrics" | "tradeLog" | "playerStats" | "achievementDef" | "achievementUnlock" | "leaderboardSnapshot"
+    modelProps: "tenant" | "trainer" | "dexPack" | "trainerSettings" | "type" | "ability" | "item" | "move" | "species" | "speciesType" | "speciesAbility" | "speciesLearnset" | "evolutionStep" | "typeChart" | "nameVariant" | "user" | "homesteadChannel" | "discordGuild" | "discordMember" | "pokemonInstance" | "party" | "partySlot" | "inventory" | "encounter" | "battle" | "cooldown" | "busMessage" | "busIdemToken" | "auditLog" | "dbVersion" | "dbSyncState" | "logEntry" | "errorLog" | "errorAlert" | "errorKnowledge" | "errorResolution" | "errorDependency" | "errorCodeContext" | "battleAnalytics" | "consoleOutput" | "dataPoolSyncStatus" | "discordRole" | "eventHistory" | "memberRoleHistory" | "securityEvent" | "roleChangeAudit" | "threatDetection" | "securityBaseline" | "permissionSnapshot" | "workerMetrics" | "tradeLog" | "playerStats" | "achievementDef" | "achievementUnlock" | "leaderboardSnapshot"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -3784,6 +3788,302 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         }
       }
     }
+    RoleChangeAudit: {
+      payload: Prisma.$RoleChangeAuditPayload<ExtArgs>
+      fields: Prisma.RoleChangeAuditFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.RoleChangeAuditFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$RoleChangeAuditPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.RoleChangeAuditFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$RoleChangeAuditPayload>
+        }
+        findFirst: {
+          args: Prisma.RoleChangeAuditFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$RoleChangeAuditPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.RoleChangeAuditFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$RoleChangeAuditPayload>
+        }
+        findMany: {
+          args: Prisma.RoleChangeAuditFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$RoleChangeAuditPayload>[]
+        }
+        create: {
+          args: Prisma.RoleChangeAuditCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$RoleChangeAuditPayload>
+        }
+        createMany: {
+          args: Prisma.RoleChangeAuditCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.RoleChangeAuditCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$RoleChangeAuditPayload>[]
+        }
+        delete: {
+          args: Prisma.RoleChangeAuditDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$RoleChangeAuditPayload>
+        }
+        update: {
+          args: Prisma.RoleChangeAuditUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$RoleChangeAuditPayload>
+        }
+        deleteMany: {
+          args: Prisma.RoleChangeAuditDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.RoleChangeAuditUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.RoleChangeAuditUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$RoleChangeAuditPayload>[]
+        }
+        upsert: {
+          args: Prisma.RoleChangeAuditUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$RoleChangeAuditPayload>
+        }
+        aggregate: {
+          args: Prisma.RoleChangeAuditAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateRoleChangeAudit>
+        }
+        groupBy: {
+          args: Prisma.RoleChangeAuditGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.RoleChangeAuditGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.RoleChangeAuditCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.RoleChangeAuditCountAggregateOutputType> | number
+        }
+      }
+    }
+    ThreatDetection: {
+      payload: Prisma.$ThreatDetectionPayload<ExtArgs>
+      fields: Prisma.ThreatDetectionFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.ThreatDetectionFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ThreatDetectionPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.ThreatDetectionFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ThreatDetectionPayload>
+        }
+        findFirst: {
+          args: Prisma.ThreatDetectionFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ThreatDetectionPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.ThreatDetectionFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ThreatDetectionPayload>
+        }
+        findMany: {
+          args: Prisma.ThreatDetectionFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ThreatDetectionPayload>[]
+        }
+        create: {
+          args: Prisma.ThreatDetectionCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ThreatDetectionPayload>
+        }
+        createMany: {
+          args: Prisma.ThreatDetectionCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.ThreatDetectionCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ThreatDetectionPayload>[]
+        }
+        delete: {
+          args: Prisma.ThreatDetectionDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ThreatDetectionPayload>
+        }
+        update: {
+          args: Prisma.ThreatDetectionUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ThreatDetectionPayload>
+        }
+        deleteMany: {
+          args: Prisma.ThreatDetectionDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.ThreatDetectionUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.ThreatDetectionUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ThreatDetectionPayload>[]
+        }
+        upsert: {
+          args: Prisma.ThreatDetectionUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ThreatDetectionPayload>
+        }
+        aggregate: {
+          args: Prisma.ThreatDetectionAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateThreatDetection>
+        }
+        groupBy: {
+          args: Prisma.ThreatDetectionGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.ThreatDetectionGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.ThreatDetectionCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.ThreatDetectionCountAggregateOutputType> | number
+        }
+      }
+    }
+    SecurityBaseline: {
+      payload: Prisma.$SecurityBaselinePayload<ExtArgs>
+      fields: Prisma.SecurityBaselineFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.SecurityBaselineFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$SecurityBaselinePayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.SecurityBaselineFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$SecurityBaselinePayload>
+        }
+        findFirst: {
+          args: Prisma.SecurityBaselineFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$SecurityBaselinePayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.SecurityBaselineFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$SecurityBaselinePayload>
+        }
+        findMany: {
+          args: Prisma.SecurityBaselineFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$SecurityBaselinePayload>[]
+        }
+        create: {
+          args: Prisma.SecurityBaselineCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$SecurityBaselinePayload>
+        }
+        createMany: {
+          args: Prisma.SecurityBaselineCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.SecurityBaselineCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$SecurityBaselinePayload>[]
+        }
+        delete: {
+          args: Prisma.SecurityBaselineDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$SecurityBaselinePayload>
+        }
+        update: {
+          args: Prisma.SecurityBaselineUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$SecurityBaselinePayload>
+        }
+        deleteMany: {
+          args: Prisma.SecurityBaselineDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.SecurityBaselineUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.SecurityBaselineUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$SecurityBaselinePayload>[]
+        }
+        upsert: {
+          args: Prisma.SecurityBaselineUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$SecurityBaselinePayload>
+        }
+        aggregate: {
+          args: Prisma.SecurityBaselineAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateSecurityBaseline>
+        }
+        groupBy: {
+          args: Prisma.SecurityBaselineGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.SecurityBaselineGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.SecurityBaselineCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.SecurityBaselineCountAggregateOutputType> | number
+        }
+      }
+    }
+    PermissionSnapshot: {
+      payload: Prisma.$PermissionSnapshotPayload<ExtArgs>
+      fields: Prisma.PermissionSnapshotFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.PermissionSnapshotFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PermissionSnapshotPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.PermissionSnapshotFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PermissionSnapshotPayload>
+        }
+        findFirst: {
+          args: Prisma.PermissionSnapshotFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PermissionSnapshotPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.PermissionSnapshotFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PermissionSnapshotPayload>
+        }
+        findMany: {
+          args: Prisma.PermissionSnapshotFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PermissionSnapshotPayload>[]
+        }
+        create: {
+          args: Prisma.PermissionSnapshotCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PermissionSnapshotPayload>
+        }
+        createMany: {
+          args: Prisma.PermissionSnapshotCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.PermissionSnapshotCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PermissionSnapshotPayload>[]
+        }
+        delete: {
+          args: Prisma.PermissionSnapshotDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PermissionSnapshotPayload>
+        }
+        update: {
+          args: Prisma.PermissionSnapshotUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PermissionSnapshotPayload>
+        }
+        deleteMany: {
+          args: Prisma.PermissionSnapshotDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.PermissionSnapshotUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.PermissionSnapshotUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PermissionSnapshotPayload>[]
+        }
+        upsert: {
+          args: Prisma.PermissionSnapshotUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PermissionSnapshotPayload>
+        }
+        aggregate: {
+          args: Prisma.PermissionSnapshotAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregatePermissionSnapshot>
+        }
+        groupBy: {
+          args: Prisma.PermissionSnapshotGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.PermissionSnapshotGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.PermissionSnapshotCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.PermissionSnapshotCountAggregateOutputType> | number
+        }
+      }
+    }
     WorkerMetrics: {
       payload: Prisma.$WorkerMetricsPayload<ExtArgs>
       fields: Prisma.WorkerMetricsFieldRefs
@@ -4945,6 +5245,97 @@ export const SecurityEventScalarFieldEnum = {
 export type SecurityEventScalarFieldEnum = (typeof SecurityEventScalarFieldEnum)[keyof typeof SecurityEventScalarFieldEnum]
 
 
+export const RoleChangeAuditScalarFieldEnum = {
+  id: 'id',
+  guildId: 'guildId',
+  guildName: 'guildName',
+  memberId: 'memberId',
+  memberTag: 'memberTag',
+  changeType: 'changeType',
+  roleId: 'roleId',
+  roleName: 'roleName',
+  rolePosition: 'rolePosition',
+  executorId: 'executorId',
+  executorTag: 'executorTag',
+  executorRoles: 'executorRoles',
+  authorized: 'authorized',
+  authReason: 'authReason',
+  reverted: 'reverted',
+  revertedAt: 'revertedAt',
+  revertedBy: 'revertedBy',
+  revertReason: 'revertReason',
+  origin: 'origin',
+  checksum: 'checksum',
+  metadata: 'metadata',
+  createdAt: 'createdAt'
+} as const
+
+export type RoleChangeAuditScalarFieldEnum = (typeof RoleChangeAuditScalarFieldEnum)[keyof typeof RoleChangeAuditScalarFieldEnum]
+
+
+export const ThreatDetectionScalarFieldEnum = {
+  id: 'id',
+  threatType: 'threatType',
+  severity: 'severity',
+  confidence: 'confidence',
+  guildId: 'guildId',
+  guildName: 'guildName',
+  description: 'description',
+  evidence: 'evidence',
+  triggeringEntryId: 'triggeringEntryId',
+  mitreAttack: 'mitreAttack',
+  mitreTactic: 'mitreTactic',
+  recommendedAction: 'recommendedAction',
+  autoMitigated: 'autoMitigated',
+  mitigationAction: 'mitigationAction',
+  resolved: 'resolved',
+  resolvedBy: 'resolvedBy',
+  resolvedAt: 'resolvedAt',
+  resolutionNotes: 'resolutionNotes',
+  falsePositive: 'falsePositive',
+  createdAt: 'createdAt'
+} as const
+
+export type ThreatDetectionScalarFieldEnum = (typeof ThreatDetectionScalarFieldEnum)[keyof typeof ThreatDetectionScalarFieldEnum]
+
+
+export const SecurityBaselineScalarFieldEnum = {
+  id: 'id',
+  guildId: 'guildId',
+  guildName: 'guildName',
+  averageChangesPerHour: 'averageChangesPerHour',
+  averageChangesPerDay: 'averageChangesPerDay',
+  peakActivityHours: 'peakActivityHours',
+  rapidChangeThreshold: 'rapidChangeThreshold',
+  maxChangesPerMember: 'maxChangesPerMember',
+  expectedOrigins: 'expectedOrigins',
+  confidenceLevel: 'confidenceLevel',
+  dataPointCount: 'dataPointCount',
+  computedAt: 'computedAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type SecurityBaselineScalarFieldEnum = (typeof SecurityBaselineScalarFieldEnum)[keyof typeof SecurityBaselineScalarFieldEnum]
+
+
+export const PermissionSnapshotScalarFieldEnum = {
+  id: 'id',
+  guildId: 'guildId',
+  guildName: 'guildName',
+  roleId: 'roleId',
+  roleName: 'roleName',
+  permissions: 'permissions',
+  position: 'position',
+  color: 'color',
+  hoist: 'hoist',
+  mentionable: 'mentionable',
+  signature: 'signature',
+  capturedAt: 'capturedAt'
+} as const
+
+export type PermissionSnapshotScalarFieldEnum = (typeof PermissionSnapshotScalarFieldEnum)[keyof typeof PermissionSnapshotScalarFieldEnum]
+
+
 export const WorkerMetricsScalarFieldEnum = {
   id: 'id',
   timestamp: 'timestamp',
@@ -5548,6 +5939,65 @@ export const SecurityEventOrderByRelevanceFieldEnum = {
 export type SecurityEventOrderByRelevanceFieldEnum = (typeof SecurityEventOrderByRelevanceFieldEnum)[keyof typeof SecurityEventOrderByRelevanceFieldEnum]
 
 
+export const RoleChangeAuditOrderByRelevanceFieldEnum = {
+  guildId: 'guildId',
+  guildName: 'guildName',
+  memberId: 'memberId',
+  memberTag: 'memberTag',
+  changeType: 'changeType',
+  roleId: 'roleId',
+  roleName: 'roleName',
+  executorId: 'executorId',
+  executorTag: 'executorTag',
+  executorRoles: 'executorRoles',
+  authReason: 'authReason',
+  revertedBy: 'revertedBy',
+  revertReason: 'revertReason',
+  origin: 'origin',
+  checksum: 'checksum'
+} as const
+
+export type RoleChangeAuditOrderByRelevanceFieldEnum = (typeof RoleChangeAuditOrderByRelevanceFieldEnum)[keyof typeof RoleChangeAuditOrderByRelevanceFieldEnum]
+
+
+export const ThreatDetectionOrderByRelevanceFieldEnum = {
+  threatType: 'threatType',
+  severity: 'severity',
+  guildId: 'guildId',
+  guildName: 'guildName',
+  description: 'description',
+  mitreAttack: 'mitreAttack',
+  mitreTactic: 'mitreTactic',
+  recommendedAction: 'recommendedAction',
+  mitigationAction: 'mitigationAction',
+  resolvedBy: 'resolvedBy',
+  resolutionNotes: 'resolutionNotes'
+} as const
+
+export type ThreatDetectionOrderByRelevanceFieldEnum = (typeof ThreatDetectionOrderByRelevanceFieldEnum)[keyof typeof ThreatDetectionOrderByRelevanceFieldEnum]
+
+
+export const SecurityBaselineOrderByRelevanceFieldEnum = {
+  guildId: 'guildId',
+  guildName: 'guildName',
+  expectedOrigins: 'expectedOrigins'
+} as const
+
+export type SecurityBaselineOrderByRelevanceFieldEnum = (typeof SecurityBaselineOrderByRelevanceFieldEnum)[keyof typeof SecurityBaselineOrderByRelevanceFieldEnum]
+
+
+export const PermissionSnapshotOrderByRelevanceFieldEnum = {
+  guildId: 'guildId',
+  guildName: 'guildName',
+  roleId: 'roleId',
+  roleName: 'roleName',
+  permissions: 'permissions',
+  signature: 'signature'
+} as const
+
+export type PermissionSnapshotOrderByRelevanceFieldEnum = (typeof PermissionSnapshotOrderByRelevanceFieldEnum)[keyof typeof PermissionSnapshotOrderByRelevanceFieldEnum]
+
+
 export const WorkerMetricsOrderByRelevanceFieldEnum = {
   workerId: 'workerId',
   workerName: 'workerName',
@@ -5914,6 +6364,10 @@ export type GlobalOmitConfig = {
   eventHistory?: Prisma.EventHistoryOmit
   memberRoleHistory?: Prisma.MemberRoleHistoryOmit
   securityEvent?: Prisma.SecurityEventOmit
+  roleChangeAudit?: Prisma.RoleChangeAuditOmit
+  threatDetection?: Prisma.ThreatDetectionOmit
+  securityBaseline?: Prisma.SecurityBaselineOmit
+  permissionSnapshot?: Prisma.PermissionSnapshotOmit
   workerMetrics?: Prisma.WorkerMetricsOmit
   tradeLog?: Prisma.TradeLogOmit
   playerStats?: Prisma.PlayerStatsOmit

@@ -183,7 +183,7 @@ pokemon-infinity-gauntlet/
 ├── docs/                                 # Documentation (Bible System)
 │   ├── INDEX.md                         # Documentation index
 │   ├── ROUTER.md                        # Docs router
-│   ├── architecture-bible/              # System design (22 sections)
+│   ├── architecture-bible/              # System design (27 sections)
 │   │   ├── INDEX.md
 │   │   └── *.md
 │   ├── operations-bible/                # Runbooks (13 sections + 9 guides)

@@ -377,7 +377,7 @@ Meta-only changes still need clear "Why" statements.
 - Normalizes to `data/**` JSON shards
 - Builds dexpack assets in `assets/` (committed for runtime)
 
-### Workers (`src/worker/**`)
+### Workers (`src/workers/**`)
 Run as separate Render services:
 - **Outbox:** Drains Event Bus messages
 - **Cache:** Refreshes Pokémon cache hourly
@@ -433,7 +433,7 @@ Domain-specific handlers in every layer:
 - `src/bot/bot-error-handler.ts` — Discord API errors, rate limits, timeouts
 - `src/core/engine-error-handler.ts` — Battle/encounter engine errors
 - `src/workers/worker-error-handler.ts` — Background job failures
-- All handlers integrate with ErrorTracker (`src/services/error-tracker.ts`)
+- All handlers integrate with ErrorTracker (`src/services/monitoring/error-tracker.ts`)
 
 ### Stuckness Detection
 Agent considered stuck if:
@@ -521,9 +521,9 @@ Areas:
 
 ### Core Documentation
 - **Architecture:** `README.md` → comprehensive system overview
-- **Architecture Bible:** `docs/architecture-bible/INDEX.md` → 22 sections (system design, database, workers, game engine, etc.)
+- **Architecture Bible:** `docs/architecture-bible/INDEX.md` → 27 sections (system design, database, workers, game engine, etc.)
 - **Operations Bible:** `docs/operations-bible/INDEX.md` → 13 sections + 9 guides (service matrix, deployment, monitoring, database operations)
-- **Development Bible:** `docs/development-bible/INDEX.md` → 9 sections (local setup, testing, debugging, profiling, database onboarding)
+- **Development Bible:** `docs/development-bible/INDEX.md` → 10 sections (local setup, testing, debugging, profiling, database onboarding, dead code analysis)
 
 ### Authoritative Comprehensive Guides (Task 12 Series)
 - **Worker Troubleshooting:** `docs/operations-bible/worker-troubleshooting-comprehensive.md` (22 pages) → ALL worker failure scenarios, recovery procedures

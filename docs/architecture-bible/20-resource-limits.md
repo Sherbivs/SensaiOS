@@ -1,6 +1,7 @@
-# Resource Limits: RAM vs Persistent Disk
+# Section 20: Resource Limits — RAM vs Persistent Disk
 
-**Last Updated:** 2025-11-21  
+**Last Updated**: 2025-12-27 | **Audit Date**: 2025-11-21 | **Status**: Production
+
 **Service:** Infinity-Gauntlet (srv-d3snk2ndiees73cn709g)  
 **Purpose:** Clearly distinguish between RAM (memory) and /Store (persistent disk) limits
 

@@ -250,7 +250,7 @@ Update parent folder README.md with phase entries:
 ## 🎯 Bible Structure (Integration Targets)
 
 ### Architecture Bible (`docs/architecture-bible/`)
-**Authoritative system design documentation** — 22 sections, 105+ pages
+**Authoritative system design documentation** — 27 sections, 110+ pages
 - `01-overview.md` — System architecture overview
 - `02-database-architecture.md` — Database design, replication, connections
 - `03-worker-architecture.md` — Worker topology, scaling roadmap
@@ -294,7 +294,7 @@ Update parent folder README.md with phase entries:
 - `ops-commands-reference-comprehensive.md` — **28 pages /ops commands**
 
 ### Development Bible (`docs/development-bible/`)
-**Authoritative development procedures** — 9 sections
+**Authoritative development procedures** — 10 sections
 - `01-local-setup.md` — Workstation setup
 - `02-local-development.md` — Development workflows
 - `03-testing.md` — Testing strategies

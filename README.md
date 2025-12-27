@@ -9,9 +9,9 @@ live-service economy powered by workers and data pipelines.
 **Cross-References**:
 - See `AGENTS.md` for comprehensive operations guide, database setup, worker architecture
 - See `OPERATIONS.md` for service matrix, deployment procedures, monitoring
-- See `docs/architecture-bible/` for authoritative system design (22 sections)
+- See `docs/architecture-bible/` for authoritative system design (27 sections)
 - See `docs/operations-bible/` for deployment and operations (13 sections + 9 guides)
-- See `docs/development-bible/` for development workflows (9 sections)
+- See `docs/development-bible/` for development workflows (10 sections)
 - See `ops/PRODUCTION-DEPLOYMENT-CHECKLIST.md` for deployment readiness validation
 
 ## Current Status & Goals
@@ -23,7 +23,7 @@ live-service economy powered by workers and data pipelines.
 - ✅ **Homestead Architecture**: Private guild channels replace DMs (migration complete)
 - ✅ **Unified Render PostgreSQL**: Single managed database for all services
 - ✅ **Worker architecture**: Comprehensive scaling roadmap (see `docs/architecture-bible/03-worker-architecture.md`)
-- ✅ **Bible System**: 22 architecture + 22 operations + 9 development sections
+- ✅ **Bible System**: 27 architecture + 13 operations + 10 development sections
 
 **See `ops/REPO-OPTIMIZATION-REPORT.md` for comprehensive Phase 9 achievements.**
 
@@ -47,7 +47,7 @@ The project ships a PBSL scaffold under `src/core/pbsl/**` that implements seede
 
 ## Key Capabilities
 
-- **Homestead Channels:** `/home`, heal, starter selection, party/box management, player profile—all in private guild channels (`homestead-{username}`) via `src/bot/homestead/**`. Better moderation, audit trail, no DM delivery failures.
+- **Homestead Channels:** `/home`, heal, starter selection, party/box management, player profile—all in private guild channels (`homestead-{username}`) via `src/bot/homestead/**` (16 files). Better moderation, audit trail, no DM delivery failures.
 - **Wild Encounters:** `/walk` spawns public `#wilds` threads while homestead controls handle throws, swaps, and escapes via `src/bot/wilds/**` plus `src/core/encounter/**` mechanics.
 - **Arena Battles:** `/battle challenge` coordinates arena threads, homestead menus, and announcer summaries; Discord orchestration lives in `src/bot/battle/**`, while resolution flows through `src/core/battle/**`.
 - **Admin Operations:** `/ops` exposes cooldown reset tools, `/ops stats` filtering (limit/after/participant), and `/ops cache` for hit/miss metrics plus optional cleanup so staff validate health without direct DB access.
@@ -58,26 +58,27 @@ The project ships a PBSL scaffold under `src/core/pbsl/**` that implements seede
 
 ```
 docs/
-├── architecture-bible/    # 22 sections (system design, database, workers, game engine, etc.)
+├── architecture-bible/    # 27 sections (system design, database, workers, game engine, security, game design)
 │   └── INDEX.md          # Navigation hub
 ├── operations-bible/      # 13 sections + 9 comprehensive guides (deployment, monitoring, database)
 │   └── INDEX.md          # Navigation hub
-└── development-bible/     # 9 sections (local setup, testing, debugging, profiling, database onboarding)
+└── development-bible/     # 10 sections (local setup, testing, debugging, profiling, database onboarding, dead code analysis)
     └── INDEX.md          # Navigation hub
 ```
 
 **Quick Reference:**
-- **[Architecture Bible](docs/architecture-bible/INDEX.md)** — 22 sections: system design, database architecture, workers, game engine
+- **[Architecture Bible](docs/architecture-bible/INDEX.md)** — 27 sections: system design, database, workers, game engine, security bot, game design, trading, leaderboards
 - **[Operations Bible](docs/operations-bible/INDEX.md)** — 13 sections + 9 guides: deployment, monitoring, database operations
-- **[Development Bible](docs/development-bible/INDEX.md)** — 9 sections: local setup, testing, debugging, profiling, database onboarding
+- **[Development Bible](docs/development-bible/INDEX.md)** — 10 sections: local setup, testing, debugging, profiling, database onboarding, dead code analysis
 
 ## Repository Layout
 
 ```
 ├─ src/                    # TypeScript source (bot, core engines, data pipeline)
 │  ├─ bot/                 # Discord interactions (homestead, wilds, arena, ops, alerts)
-│  │  └─ homestead/        # Private guild channel gameplay (ACTIVE)
+│  │  └─ homestead/        # Private guild channel gameplay (16 files)
 │  ├─ core/                # Deterministic battle + encounter logic
+│  ├─ workers/             # Background workers (17 files: engine-workers, heap-pruner, etc.)
 │  ├─ data_pipeline/       # Fetch + normalize PokéAPI payloads
 │  ├─ shared/              # Config, logging, Prisma helpers, shared utils
 │  └─ index.ts             # Boot entry (Discord + Prisma wiring)

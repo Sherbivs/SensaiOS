@@ -1,9 +1,8 @@
-# 25 — Trading System Design
+# Section 25: Trading System Design
 
-**Title:** Player-to-Player Pokémon Trading  
+**Last Updated**: 2025-12-27 | **Design Date**: 2025-12-26 | **Status**: 🟡 DESIGN COMPLETE
+
 **Purpose:** Complete design specification for the trading mechanic  
-**Last Updated (UTC):** 2025-12-26T00:00:00Z  
-**Status:** 🟡 DESIGN COMPLETE — Ready for implementation  
 **Revision:** 1.0 — Initial design panel discussion
 
 ---

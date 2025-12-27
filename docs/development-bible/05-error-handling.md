@@ -1,5 +1,7 @@
 # Section 5: Error Handling
 
+**Last Updated**: 2025-12-27 | **Status**: Production
+
 [← Back to INDEX](INDEX.md) | [← Previous: Performance](04-performance.md) | [Next: Console Tooling →](06-console-tooling.md)
 
 ---
@@ -26,7 +28,7 @@
    - Catches: Background job failures, async message delivery errors
    - Action: Job retry with exponential backoff, DLQ for permanent failures
 
-**Integration:** All handlers feed into `ErrorTracker` (`src/services/error-tracker.ts`) for centralized aggregation.
+**Integration:** All handlers feed into `ErrorTracker` (`src/services/monitoring/error-tracker.ts`) for centralized aggregation.
 
 ### Discord Bot Error Handler
 

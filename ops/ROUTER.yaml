@@ -52,7 +52,7 @@ categories:
     - docs/**
   error_monitoring:
     services:
-      - src/services/error-tracker.ts
+      - src/services/monitoring/error-tracker.ts
       - src/services/error-learning.ts
       - src/services/error-alerting.ts
       - src/services/error-recovery.ts

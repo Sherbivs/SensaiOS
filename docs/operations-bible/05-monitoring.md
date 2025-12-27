@@ -1,5 +1,7 @@
 # Section 5: Monitoring
 
+**Last Updated**: 2025-12-27 | **Status**: Production
+
 [← Back to INDEX](INDEX.md) | [← Previous: Environment Management](04-environment-management.md)
 
 ---
@@ -96,7 +98,7 @@ async function executeOpsErrorCommand(interaction, filter, type) {
 
 **Error Recording:**
 ```typescript
-// src/services/error-tracker.ts
+// src/services/monitoring/error-tracker.ts
 import { ErrorTracker } from './error-tracker.js';
 
 try {

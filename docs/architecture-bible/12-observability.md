@@ -1,5 +1,7 @@
 # Section 12: Observability
 
+**Last Updated**: 2025-12-27 | **Status**: Production
+
 [← Back to INDEX](INDEX.md) | [← Previous: Safety Guarantees](11-safety-guarantees.md) | [Next: Performance →](13-performance.md)
 
 ---

@@ -96,6 +96,10 @@ export const ModelName = {
   EventHistory: 'EventHistory',
   MemberRoleHistory: 'MemberRoleHistory',
   SecurityEvent: 'SecurityEvent',
+  RoleChangeAudit: 'RoleChangeAudit',
+  ThreatDetection: 'ThreatDetection',
+  SecurityBaseline: 'SecurityBaseline',
+  PermissionSnapshot: 'PermissionSnapshot',
   WorkerMetrics: 'WorkerMetrics',
   TradeLog: 'TradeLog',
   PlayerStats: 'PlayerStats',
@@ -798,6 +802,97 @@ export const SecurityEventScalarFieldEnum = {
 export type SecurityEventScalarFieldEnum = (typeof SecurityEventScalarFieldEnum)[keyof typeof SecurityEventScalarFieldEnum]
 
 
+export const RoleChangeAuditScalarFieldEnum = {
+  id: 'id',
+  guildId: 'guildId',
+  guildName: 'guildName',
+  memberId: 'memberId',
+  memberTag: 'memberTag',
+  changeType: 'changeType',
+  roleId: 'roleId',
+  roleName: 'roleName',
+  rolePosition: 'rolePosition',
+  executorId: 'executorId',
+  executorTag: 'executorTag',
+  executorRoles: 'executorRoles',
+  authorized: 'authorized',
+  authReason: 'authReason',
+  reverted: 'reverted',
+  revertedAt: 'revertedAt',
+  revertedBy: 'revertedBy',
+  revertReason: 'revertReason',
+  origin: 'origin',
+  checksum: 'checksum',
+  metadata: 'metadata',
+  createdAt: 'createdAt'
+} as const
+
+export type RoleChangeAuditScalarFieldEnum = (typeof RoleChangeAuditScalarFieldEnum)[keyof typeof RoleChangeAuditScalarFieldEnum]
+
+
+export const ThreatDetectionScalarFieldEnum = {
+  id: 'id',
+  threatType: 'threatType',
+  severity: 'severity',
+  confidence: 'confidence',
+  guildId: 'guildId',
+  guildName: 'guildName',
+  description: 'description',
+  evidence: 'evidence',
+  triggeringEntryId: 'triggeringEntryId',
+  mitreAttack: 'mitreAttack',
+  mitreTactic: 'mitreTactic',
+  recommendedAction: 'recommendedAction',
+  autoMitigated: 'autoMitigated',
+  mitigationAction: 'mitigationAction',
+  resolved: 'resolved',
+  resolvedBy: 'resolvedBy',
+  resolvedAt: 'resolvedAt',
+  resolutionNotes: 'resolutionNotes',
+  falsePositive: 'falsePositive',
+  createdAt: 'createdAt'
+} as const
+
+export type ThreatDetectionScalarFieldEnum = (typeof ThreatDetectionScalarFieldEnum)[keyof typeof ThreatDetectionScalarFieldEnum]
+
+
+export const SecurityBaselineScalarFieldEnum = {
+  id: 'id',
+  guildId: 'guildId',
+  guildName: 'guildName',
+  averageChangesPerHour: 'averageChangesPerHour',
+  averageChangesPerDay: 'averageChangesPerDay',
+  peakActivityHours: 'peakActivityHours',
+  rapidChangeThreshold: 'rapidChangeThreshold',
+  maxChangesPerMember: 'maxChangesPerMember',
+  expectedOrigins: 'expectedOrigins',
+  confidenceLevel: 'confidenceLevel',
+  dataPointCount: 'dataPointCount',
+  computedAt: 'computedAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type SecurityBaselineScalarFieldEnum = (typeof SecurityBaselineScalarFieldEnum)[keyof typeof SecurityBaselineScalarFieldEnum]
+
+
+export const PermissionSnapshotScalarFieldEnum = {
+  id: 'id',
+  guildId: 'guildId',
+  guildName: 'guildName',
+  roleId: 'roleId',
+  roleName: 'roleName',
+  permissions: 'permissions',
+  position: 'position',
+  color: 'color',
+  hoist: 'hoist',
+  mentionable: 'mentionable',
+  signature: 'signature',
+  capturedAt: 'capturedAt'
+} as const
+
+export type PermissionSnapshotScalarFieldEnum = (typeof PermissionSnapshotScalarFieldEnum)[keyof typeof PermissionSnapshotScalarFieldEnum]
+
+
 export const WorkerMetricsScalarFieldEnum = {
   id: 'id',
   timestamp: 'timestamp',
@@ -1399,6 +1494,65 @@ export const SecurityEventOrderByRelevanceFieldEnum = {
 } as const
 
 export type SecurityEventOrderByRelevanceFieldEnum = (typeof SecurityEventOrderByRelevanceFieldEnum)[keyof typeof SecurityEventOrderByRelevanceFieldEnum]
+
+
+export const RoleChangeAuditOrderByRelevanceFieldEnum = {
+  guildId: 'guildId',
+  guildName: 'guildName',
+  memberId: 'memberId',
+  memberTag: 'memberTag',
+  changeType: 'changeType',
+  roleId: 'roleId',
+  roleName: 'roleName',
+  executorId: 'executorId',
+  executorTag: 'executorTag',
+  executorRoles: 'executorRoles',
+  authReason: 'authReason',
+  revertedBy: 'revertedBy',
+  revertReason: 'revertReason',
+  origin: 'origin',
+  checksum: 'checksum'
+} as const
+
+export type RoleChangeAuditOrderByRelevanceFieldEnum = (typeof RoleChangeAuditOrderByRelevanceFieldEnum)[keyof typeof RoleChangeAuditOrderByRelevanceFieldEnum]
+
+
+export const ThreatDetectionOrderByRelevanceFieldEnum = {
+  threatType: 'threatType',
+  severity: 'severity',
+  guildId: 'guildId',
+  guildName: 'guildName',
+  description: 'description',
+  mitreAttack: 'mitreAttack',
+  mitreTactic: 'mitreTactic',
+  recommendedAction: 'recommendedAction',
+  mitigationAction: 'mitigationAction',
+  resolvedBy: 'resolvedBy',
+  resolutionNotes: 'resolutionNotes'
+} as const
+
+export type ThreatDetectionOrderByRelevanceFieldEnum = (typeof ThreatDetectionOrderByRelevanceFieldEnum)[keyof typeof ThreatDetectionOrderByRelevanceFieldEnum]
+
+
+export const SecurityBaselineOrderByRelevanceFieldEnum = {
+  guildId: 'guildId',
+  guildName: 'guildName',
+  expectedOrigins: 'expectedOrigins'
+} as const
+
+export type SecurityBaselineOrderByRelevanceFieldEnum = (typeof SecurityBaselineOrderByRelevanceFieldEnum)[keyof typeof SecurityBaselineOrderByRelevanceFieldEnum]
+
+
+export const PermissionSnapshotOrderByRelevanceFieldEnum = {
+  guildId: 'guildId',
+  guildName: 'guildName',
+  roleId: 'roleId',
+  roleName: 'roleName',
+  permissions: 'permissions',
+  signature: 'signature'
+} as const
+
+export type PermissionSnapshotOrderByRelevanceFieldEnum = (typeof PermissionSnapshotOrderByRelevanceFieldEnum)[keyof typeof PermissionSnapshotOrderByRelevanceFieldEnum]
 
 
 export const WorkerMetricsOrderByRelevanceFieldEnum = {

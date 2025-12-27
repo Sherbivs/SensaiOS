@@ -154,9 +154,9 @@ Before marking any task complete, verify ALL of these:
 - ops/NEXT.yaml — Current task pointer
 
 **Bible System (AUTHORITATIVE):**
-- Architecture Bible — docs/architecture-bible/INDEX.md (22 sections)
+- Architecture Bible — docs/architecture-bible/INDEX.md (27 sections)
 - Operations Bible — docs/operations-bible/INDEX.md (13 sections + 9 guides)
-- Development Bible — docs/development-bible/INDEX.md (9 sections)
+- Development Bible — docs/development-bible/INDEX.md (10 sections)
 
 **Comprehensive Guides (Task 12 Series):**
 - worker-troubleshooting-comprehensive.md (22 pages)

@@ -1,5 +1,7 @@
 # Section 6: Error System
 
+**Last Updated**: 2025-12-27 | **Status**: Production
+
 [← Back to INDEX](INDEX.md) | [← Previous: Logging Architecture](05-logging-architecture.md) | [Next: Security Bot →](07-security-bot.md)
 
 ---
@@ -251,10 +253,10 @@ prisma.$use(async (params, next) => {
 
 **ErrorTracker Phase 1 Implementation** — Comprehensive error management with AI-optimized structured logging.
 
-**Component**: `src/services/error-tracker.ts`
+**Component**: `src/services/monitoring/error-tracker.ts`
 
 **Files Created** (6 files, 120+ lines):
-- `src/services/error-tracker.ts` — Core tracker implementation
+- `src/services/monitoring/error-tracker.ts` — Core tracker implementation
 - `src/services/error-tracker.spec.ts` — Vitest test suite
 - `src/types/error-tracker-types.ts` — TypeScript interfaces
 - `src/utils/error-fingerprint.ts` — Error deduplication
@@ -392,7 +394,7 @@ Application Error → ErrorTracker.track() → [Disk Storage | Log Buffer] → C
 **Integration Point**:
 
 ```typescript
-// src/services/error-tracker.ts
+// src/services/monitoring/error-tracker.ts
 import { log } from "../shared/log.js";
 
 export class ErrorTracker {

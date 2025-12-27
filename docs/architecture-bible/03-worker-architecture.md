@@ -1,5 +1,7 @@
 # Section 3: Worker Architecture
 
+**Last Updated**: 2025-12-27 | **Status**: Production
+
 [← Back to INDEX](INDEX.md) | [← Previous: Database Architecture](02-database-architecture.md) | [Next: Event Bus →](04-event-bus.md)
 
 ---

@@ -1,5 +1,7 @@
 # Section 11: Safety Guarantees
 
+**Last Updated**: 2025-12-27 | **Status**: Production
+
 [← Back to INDEX](INDEX.md) | [← Previous: Discord Bot](10-discord-bot.md) | [Next: Observability →](12-observability.md)
 
 ---

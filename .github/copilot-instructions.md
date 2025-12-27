@@ -170,10 +170,11 @@ Meta-only changes still need clear "Why" statements.
 
 ### Discord Bot Layer (`src/bot/**`)
 - **Entry:** `src/bot/index.ts` (client bootstrap + command routing)
-- **Homestead Channels:** `src/bot/homestead/**` (private guild channel gameplay) — **ACTIVE**
+- **Homestead Channels:** `src/bot/homestead/**` (private guild channel gameplay, 16 files)
 - **Battles:** `src/bot/battle/**` (move/switch/forfeit handlers)
 - **Wilds:** `src/bot/wilds/**` (walk, catch, throw, escape)
 - **Admin:** `src/bot/ops/admin.ts` (`/ops` commands with filters)
+- **Error Handler:** `src/bot/error-handler.ts` (Discord API errors, rate limits, class: `BotErrorHandler`)
 
 **HOMESTEAD MIGRATION COMPLETE (2025-06-15):** All gameplay moved from DMs to private guild channels (homestead-{username}). `src/bot/dm/` directory DELETED. See `docs/architecture-bible/18-private-channel-architecture.md`.
 
@@ -187,12 +188,15 @@ Meta-only changes still need clear "Why" statements.
 - Normalizes to `data/**` JSON shards
 - Builds dexpack assets in `assets/` (committed for runtime)
 
-### Workers (`src/worker/**`)
-Run as separate Render services:
+### Workers (`src/workers/**`)
+Run as separate Render services (17 files total):
 - **Outbox:** Drains Event Bus messages
 - **Cache:** Refreshes Pokémon cache hourly
 - **Data Pipeline:** Rebuilds reference data
 - **Security:** Role sweeps with 7-day state persistence
+- **Error Handler:** `worker-error-handler.ts` (Background job failures, class: `WorkerErrorHandler`)
+- **Engine Workers:** `engine-workers.ts` (4 workers: cache refresh, buffer flush, read-db sync, write-db validator)
+- **Heap Pruner:** `heap-pruner.ts` (Heap snapshot cleanup)
 
 ## Production & Render
 
@@ -271,7 +275,7 @@ Domain-specific handlers in every layer:
 - `src/bot/bot-error-handler.ts` — Discord API errors, rate limits, timeouts
 - `src/core/engine-error-handler.ts` — Battle/encounter engine errors
 - `src/workers/worker-error-handler.ts` — Background job failures
-- All handlers integrate with ErrorTracker (`src/services/error-tracker.ts`)
+- All handlers integrate with ErrorTracker (`src/services/monitoring/error-tracker.ts`)
 
 ### Stuckness Detection
 Agent considered stuck if:
@@ -358,7 +362,7 @@ Areas:
 ## Quick Reference Links
 
 - **Architecture:** `README.md` → comprehensive system overview
-- **Architecture Bible:** `docs/architecture-bible/INDEX.md` → 22 sections (system design, database, workers, game engine, etc.)
+- **Architecture Bible:** `docs/architecture-bible/INDEX.md` → 27 sections (system design, database, workers, game engine, etc.)
 - **Operations Bible:** `docs/operations-bible/INDEX.md` → 13 sections + 9 guides (service matrix, deployment, monitoring, database operations)
 - **Development Bible:** `docs/development-bible/INDEX.md` → 10 sections (local setup, testing, debugging, profiling, database onboarding, dead code analysis)
 - **Dead Code Analysis:** `docs/development-bible/10-dead-code-analysis.md` → AI-driven code cleanup methodology:

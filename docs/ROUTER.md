@@ -14,9 +14,9 @@ Notes:
 - **Historical Archive**: Detailed reports, migration records, optimization analyses preserved in docs/archive/.
 
 Directory Structure (CURRENT):
-- **architecture-bible/** — System architecture Bible (22 sections + INDEX)
+- **architecture-bible/** — System architecture Bible (27 sections + INDEX)
 - **operations-bible/** — Operations & deployment Bible (13 sections + 9 comprehensive guides + INDEX)
-- **development-bible/** — Development practices Bible (9 sections + INDEX)
+- **development-bible/** — Development practices Bible (10 sections + INDEX)
 - **prisma-7-bible.md** — Comprehensive AI agent playbook (1000+ lines): emergency triage, migration guide, 7 failure modes, golden configs [🔴 CRITICAL]
 - **archive/** — Obsolete technical documentation (Accelerate-era files)
 
@@ -29,7 +29,7 @@ Directory Structure (CURRENT):
 ## Bible Navigation
 
 ### Architecture Bible (architecture-bible/)
-**22 sections** — System architecture, infrastructure, technical design, and project history.
+**27 sections** — System architecture, infrastructure, technical design, and project history.
 
 | Section | File | Coverage |
 |---------|------|----------|
@@ -56,6 +56,11 @@ Directory Structure (CURRENT):
 | **20** | 20-resource-limits.md | Memory/disk resource management |
 | **21** | 21-engine-cache.md | Engine cache layer |
 | **22** | 22-starter-selection-flow.md | Starter Pokémon selection |
+| **23** | 23-game-design-bible.md | Button-first UI, living game model, engagement systems |
+| **24** | 24-fishing-system.md | Fishing mini-game, rod progression, water-type encounters |
+| **25** | 25-trading-system.md | Player-to-player trading, scam prevention, trade evolution |
+| **26** | 26-leaderboards-achievements.md | Competitive rankings, achievement system, rewards |
+| **27** | 27-store-db-only-policy.md | Persistent storage policy, heap migration, state consolidation |
 
 ### Operations Bible (operations-bible/)
 **13 sections + 9 comprehensive guides** — Day-to-day operations, deployment, monitoring.
@@ -84,7 +89,7 @@ Directory Structure (CURRENT):
 - And 6 additional specialized guides
 
 ### Development Bible (development-bible/)
-**9 sections** — Development workflows, testing, debugging, and implementation guides.
+**10 sections** — Development workflows, testing, debugging, and implementation guides.
 
 | Section | File | Coverage |
 |---------|------|----------|
@@ -98,6 +103,7 @@ Directory Structure (CURRENT):
 | **07** | 07-utilities.md | DateTime helpers, admin patterns |
 | **08** | 08-profiling.md | Heap snapshots, memory profiling |
 | **09** | 09-database-onboarding.md | Repository pattern, transactions |
+| **10** | 10-dead-code-analysis.md | AI-driven code cleanup, CFG/PDG analysis, safe deletion |
 
 ---
 

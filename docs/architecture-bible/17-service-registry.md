@@ -1,5 +1,7 @@
 # Section 17: Service Registry Architecture
 
+**Last Updated**: 2025-12-27 | **Status**: Production
+
 [← Back to INDEX](INDEX.md) | [← Previous: Boot Sequence](16-boot-sequence.md)
 
 ---

@@ -1,6 +1,6 @@
 # OPERATIONS — Pokémon Infinity Gauntlet
 
-_Last updated: 2025-11-21T12:30:00Z (UTC) — Rev: 1.7_
+_Last updated: 2025-12-27T00:00:00Z (UTC) — Rev: 1.8_
 
 **Purpose**: Service matrix, rollout checklist, observability, incident recovery for production deployment.
 

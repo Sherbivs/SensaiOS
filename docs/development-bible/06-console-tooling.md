@@ -1,5 +1,7 @@
 # Section 6: Console Tooling
 
+**Last Updated**: 2025-12-27 | **Status**: Production
+
 [← Back to INDEX](INDEX.md) | [← Previous: Error Handling](05-error-handling.md) | [Next: Utilities →](07-utilities.md)
 
 ---

@@ -250,6 +250,26 @@ export type MemberRoleHistory = Prisma.MemberRoleHistoryModel
  */
 export type SecurityEvent = Prisma.SecurityEventModel
 /**
+ * Model RoleChangeAudit
+ * Role change audit trail — detailed tracking of every role modification
+ */
+export type RoleChangeAudit = Prisma.RoleChangeAuditModel
+/**
+ * Model ThreatDetection
+ * Threat detection history — forensics and incident response
+ */
+export type ThreatDetection = Prisma.ThreatDetectionModel
+/**
+ * Model SecurityBaseline
+ * Security baselines — per-guild behavioral patterns
+ */
+export type SecurityBaseline = Prisma.SecurityBaselineModel
+/**
+ * Model PermissionSnapshot
+ * Permission snapshots — point-in-time role permission capture
+ */
+export type PermissionSnapshot = Prisma.PermissionSnapshotModel
+/**
  * Model WorkerMetrics
  * 
  */

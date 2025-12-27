@@ -966,6 +966,163 @@ model SecurityEvent {
   @@map("security_events")
 }
 
+/// Role change audit trail — detailed tracking of every role modification
+model RoleChangeAudit {
+  id              BigInt   @id @default(autoincrement())
+  
+  // Guild context
+  guildId         String   @map("guild_id")
+  guildName       String   @map("guild_name")
+  
+  // Target member
+  memberId        String   @map("member_id")
+  memberTag       String   @map("member_tag")
+  
+  // Change details
+  changeType      String   @map("change_type") // addition, removal
+  roleId          String   @map("role_id")
+  roleName        String   @map("role_name")
+  rolePosition    Int?     @map("role_position") // Role hierarchy position at time of change
+  
+  // Executor context
+  executorId      String   @map("executor_id")
+  executorTag     String   @map("executor_tag")
+  executorRoles   String[] @map("executor_roles") // Executor's roles at time of action
+  
+  // Authorization
+  authorized      Boolean  // Was this change authorized?
+  authReason      String?  @map("auth_reason") // Why authorized/unauthorized
+  
+  // Reversion tracking
+  reverted        Boolean  @default(false)
+  revertedAt      DateTime? @map("reverted_at") @db.Timestamptz(6)
+  revertedBy      String?  @map("reverted_by")
+  revertReason    String?  @map("revert_reason")
+  
+  // Source tracking
+  origin          String   // sweep, member-join, admin-manual, security-bot-revert, role-reaction
+  
+  // Integrity
+  checksum        String
+  
+  // Metadata
+  metadata        Json?
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([guildId, createdAt(sort: Desc)], map: "idx_role_change_audit_guild_time")
+  @@index([memberId, createdAt(sort: Desc)], map: "idx_role_change_audit_member_time")
+  @@index([executorId, createdAt(sort: Desc)], map: "idx_role_change_audit_executor_time")
+  @@index([authorized, createdAt(sort: Desc)], map: "idx_role_change_audit_authorized")
+  @@index([reverted], map: "idx_role_change_audit_reverted")
+  @@map("role_change_audit")
+}
+
+/// Threat detection history — forensics and incident response
+model ThreatDetection {
+  id                BigInt   @id @default(autoincrement())
+  
+  // Threat classification
+  threatType        String   @map("threat_type") // rapid_role_changes, unusual_origin, mass_role_removal, off_hours_activity, single_member_anomaly
+  severity          String   // CRITICAL, HIGH, MEDIUM
+  confidence        Float    // 0.0 - 1.0 confidence score
+  
+  // Context
+  guildId           String   @map("guild_id")
+  guildName         String   @map("guild_name")
+  
+  // Details
+  description       String
+  evidence          Json     // Detailed evidence for forensics
+  triggeringEntryId BigInt?  @map("triggering_entry_id") // ID of RoleChangeAudit that triggered detection
+  
+  // MITRE ATT&CK mapping
+  mitreAttack       String?  @map("mitre_attack") // T1098.003, T1078, T1531, etc.
+  mitreTactic       String?  @map("mitre_tactic") // Persistence, Privilege Escalation, etc.
+  
+  // Recommended response
+  recommendedAction String   @map("recommended_action")
+  autoMitigated     Boolean  @default(false) @map("auto_mitigated")
+  mitigationAction  String?  @map("mitigation_action") // What automatic action was taken
+  
+  // Resolution tracking
+  resolved          Boolean  @default(false)
+  resolvedBy        String?  @map("resolved_by")
+  resolvedAt        DateTime? @map("resolved_at") @db.Timestamptz(6)
+  resolutionNotes   String?  @map("resolution_notes")
+  falsePositive     Boolean  @default(false) @map("false_positive")
+  
+  // Timestamps
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([threatType, createdAt(sort: Desc)], map: "idx_threat_detections_type_time")
+  @@index([guildId, createdAt(sort: Desc)], map: "idx_threat_detections_guild_time")
+  @@index([severity, createdAt(sort: Desc)], map: "idx_threat_detections_severity_time")
+  @@index([resolved], map: "idx_threat_detections_resolved")
+  @@index([falsePositive], map: "idx_threat_detections_false_positive")
+  @@map("threat_detections")
+}
+
+/// Security baselines — per-guild behavioral patterns
+model SecurityBaseline {
+  id                      BigInt   @id @default(autoincrement())
+  
+  // Guild identification
+  guildId                 String   @unique @map("guild_id")
+  guildName               String   @map("guild_name")
+  
+  // Activity metrics
+  averageChangesPerHour   Float    @map("average_changes_per_hour")
+  averageChangesPerDay    Float    @map("average_changes_per_day")
+  peakActivityHours       Int[]    @map("peak_activity_hours") // Array of hours (0-23) with high activity
+  
+  // Thresholds
+  rapidChangeThreshold    Int      @map("rapid_change_threshold") // Changes/minute that triggers alert
+  maxChangesPerMember     Int      @map("max_changes_per_member") // Per-member limit per hour
+  
+  // Expected patterns
+  expectedOrigins         String[] @map("expected_origins") // Whitelist of normal change origins
+  
+  // Confidence
+  confidenceLevel         Float    @map("confidence_level") // 0.0 - 1.0 based on data quantity
+  dataPointCount          Int      @map("data_point_count") // Number of entries used for computation
+  
+  // Timestamps
+  computedAt              DateTime @map("computed_at") @db.Timestamptz(6) // When baseline was last computed
+  updatedAt               DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([guildId], map: "idx_security_baselines_guild")
+  @@map("security_baselines")
+}
+
+/// Permission snapshots — point-in-time role permission capture
+model PermissionSnapshot {
+  id            BigInt   @id @default(autoincrement())
+  
+  // Role identification
+  guildId       String   @map("guild_id")
+  guildName     String   @map("guild_name")
+  roleId        String   @map("role_id")
+  roleName      String   @map("role_name")
+  
+  // Permission state
+  permissions   String[] // Array of Discord permission flags
+  position      Int      // Role hierarchy position
+  color         Int?     // Role color (for display)
+  hoist         Boolean  // Whether role is displayed separately
+  mentionable   Boolean  // Whether role can be mentioned
+  
+  // Integrity
+  signature     String   // HMAC signature of permissions array
+  
+  // Timestamp
+  capturedAt    DateTime @default(now()) @map("captured_at") @db.Timestamptz(6)
+
+  @@index([guildId, roleId], map: "idx_permission_snapshots_guild_role")
+  @@index([capturedAt(sort: Desc)], map: "idx_permission_snapshots_time")
+  @@unique([guildId, roleId, capturedAt], map: "unq_permission_snapshots_guild_role_time")
+  @@map("permission_snapshots")
+}
+
 model WorkerMetrics {
   id                   BigInt   @default(autoincrement())
   timestamp            DateTime @default(now()) @db.Timestamptz(6)
