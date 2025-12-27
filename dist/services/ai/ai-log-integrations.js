@@ -1,4 +1,3 @@
-/* eslint-disable no-console */
 /**
  * AI Log System Integrations
  * @module services/ai/ai-log-integrations
@@ -17,6 +16,9 @@
  */
 import * as aiLogger from './ai-log-writer.js';
 import { ensureError } from "../../shared/utils/error-utils.js";
+import { scopedLogger } from '../../observability/envelope/console.js';
+/** Scoped logger for AI log integrations */
+const log = scopedLogger('ai-log-integrations');
 // ─────────────────────────────────────────────────────────────────────────────
 // Configuration
 // ─────────────────────────────────────────────────────────────────────────────
@@ -54,7 +56,7 @@ export function integrateErrorTracker(errorTracker) {
             return result;
         };
     }
-    console.log('[ai-log-integrations] Error Tracker integrated');
+    log.info('integrate', 'Error Tracker integrated');
 }
 // ─────────────────────────────────────────────────────────────────────────────
 // Console Logger Integration
@@ -101,7 +103,7 @@ export function integrateConsoleLogger(logger) {
             });
         };
     }
-    console.log('[ai-log-integrations] Console Logger integrated');
+    log.info('integrate', 'Console Logger integrated');
 }
 // ─────────────────────────────────────────────────────────────────────────────
 // Resource Monitor Integration
@@ -133,7 +135,7 @@ export function integrateResourceMonitor(resourceMonitor) {
             return result;
         };
     }
-    console.log('[ai-log-integrations] Resource Monitor integrated');
+    log.info('integrate', 'Resource Monitor integrated');
 }
 // ─────────────────────────────────────────────────────────────────────────────
 // Database Integration
@@ -147,7 +149,7 @@ export function integrateResourceMonitor(resourceMonitor) {
  */
 export function integratePrisma(prisma) {
     if (!prisma) {
-        console.log('[ai-log-integrations] Prisma integration skipped (no client provided)');
+        log.info('integrate', 'Prisma integration skipped (no client provided)');
         return;
     }
     try {
@@ -160,15 +162,15 @@ export function integratePrisma(prisma) {
             },
             tags: ['prisma', 'database', 'integration'],
         });
-        console.log('[ai-log-integrations] Prisma integrated (connection events only)');
-        console.log('[ai-log-integrations] Note: Query-level logging requires $extends() refactor');
+        log.info('integrate', 'Prisma integrated (connection events only)');
+        log.info('integrate', 'Query-level logging requires $extends() refactor');
     }
     catch (error) {
         aiLogger.error(CONFIG.categories.DATABASE, 'Failed to integrate Prisma', {
             error: ensureError(error),
             tags: ['prisma', 'integration-error'],
         });
-        console.error('[ai-log-integrations] Prisma integration failed:', error);
+        log.error('integrate', 'Prisma integration failed', { error: String(error) });
     }
 }
 // ─────────────────────────────────────────────────────────────────────────────
@@ -225,7 +227,7 @@ export function integrateDiscordClient(client) {
             tags: ['discord', 'reconnect'],
         });
     });
-    console.log('[ai-log-integrations] Discord Client integrated');
+    log.info('integrate', 'Discord Client integrated');
 }
 // ─────────────────────────────────────────────────────────────────────────────
 // Game Engine Integration
@@ -473,7 +475,7 @@ export function integrateResourceManager(resourceManager) {
             return result;
         };
     }
-    console.log('[ai-log-integrations] Resource Manager integrated');
+    log.info('integrate', 'Resource Manager integrated');
 }
 // ─────────────────────────────────────────────────────────────────────────────
 // Database Connection Monitoring
@@ -512,7 +514,7 @@ export function integrateDatabaseMonitor(connectionMonitor) {
             });
         }
     }, 60 * 1000); // Every minute
-    console.log('[ai-log-integrations] Database Monitor integrated');
+    log.info('integrate', 'Database Monitor integrated');
 }
 // ─────────────────────────────────────────────────────────────────────────────
 // Worker Process Integration
@@ -574,7 +576,7 @@ export function integrateWorkerProcess(workerConfig = {}) {
             tags: ['worker', 'metrics', workerName, 'performance'],
         });
     }, 5 * 60 * 1000); // Every 5 minutes
-    console.log(`[ai-log-integrations] Worker process integrated: ${workerName}`);
+    log.info('integrate', 'Worker process integrated', { workerName });
 }
 // ─────────────────────────────────────────────────────────────────────────────
 // Auto-Integration
@@ -602,7 +604,7 @@ export async function integrateAll(services = {}) {
         integrateDiscordClient(discordClient);
     if (workerConfig)
         integrateWorkerProcess(workerConfig);
-    console.log('[ai-log-integrations] All integrations complete');
+    log.info('integrate', 'All integrations complete');
 }
 // ─────────────────────────────────────────────────────────────────────────────
 // Default Export

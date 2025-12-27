@@ -1,4 +1,3 @@
-/* eslint-disable no-console */
 /**
  * AI Log Analyzer - Self-Learning System
  * @module services/ai/ai-log-analyzer
@@ -15,6 +14,9 @@
  */
 import { prisma } from '../../shared/prisma.js';
 import { ensureError } from '../../shared/utils/error-utils.js';
+import { scopedLogger } from '../../observability/envelope/console.js';
+/** Scoped logger for AI log analyzer */
+const log = scopedLogger('ai-log-analyzer');
 // ─────────────────────────────────────────────────────────────────────────────
 // Configuration
 // ─────────────────────────────────────────────────────────────────────────────
@@ -109,7 +111,7 @@ async function* readAllLogs(_namespace = CONFIG.baseDir, options = {}) {
     }
     catch (error) {
         const err = ensureError(error);
-        console.error('[ai-log-analyzer] Failed to read logs from database:', err.message);
+        log.error('read-logs', 'Failed to read logs from database', { error: err.message });
     }
 }
 // ─────────────────────────────────────────────────────────────────────────────
@@ -486,11 +488,11 @@ export async function saveKnowledgeBase() {
                 value: jsonValue,
             },
         });
-        console.log('[ai-log-analyzer] Knowledge base saved to database');
+        log.info('knowledge-base', 'Knowledge base saved to database');
     }
     catch (error) {
         const err = ensureError(error);
-        console.error('[ai-log-analyzer] Failed to save knowledge base:', err.message);
+        log.error('knowledge-base', 'Failed to save knowledge base', { error: err.message });
     }
 }
 /**
@@ -502,7 +504,7 @@ export async function loadKnowledgeBase() {
             where: { key: KNOWLEDGE_BASE_KEY },
         });
         if (!entry) {
-            console.log('[ai-log-analyzer] Starting with fresh knowledge base');
+            log.info('knowledge-base', 'Starting with fresh knowledge base');
             return;
         }
         const parsed = entry.value;
@@ -514,12 +516,12 @@ export async function loadKnowledgeBase() {
         knowledgeBase.insights = parsed.insights || [];
         knowledgeBase.lastUpdate = parsed.lastUpdate;
         Object.assign(stats, parsed.stats || {});
-        console.log('[ai-log-analyzer] Knowledge base loaded from database');
+        log.info('knowledge-base', 'Knowledge base loaded from database');
     }
     catch (error) {
         const err = ensureError(error);
-        console.error('[ai-log-analyzer] Failed to load knowledge base:', err.message);
-        console.log('[ai-log-analyzer] Starting with fresh knowledge base');
+        log.error('knowledge-base', 'Failed to load knowledge base', { error: err.message });
+        log.info('knowledge-base', 'Starting with fresh knowledge base');
     }
 }
 // ─────────────────────────────────────────────────────────────────────────────
@@ -529,7 +531,7 @@ export async function loadKnowledgeBase() {
  * Run full analysis pipeline.
  */
 export async function analyze(options = {}) {
-    console.log('[ai-log-analyzer] Starting analysis...');
+    log.info('analyze', 'Starting analysis...');
     const results = {
         errorPatterns: await detectErrorPatterns(options),
         performancePatterns: await detectPerformancePatterns(options),
@@ -542,7 +544,7 @@ export async function analyze(options = {}) {
         await saveKnowledgeBase();
         stats.learningUpdates++;
     }
-    console.log('[ai-log-analyzer] Analysis complete');
+    log.info('analyze', 'Analysis complete');
     return results;
 }
 /**
@@ -572,14 +574,14 @@ export function getKnowledgeSummary() {
  */
 export async function initialize() {
     await loadKnowledgeBase();
-    console.log('[ai-log-analyzer] Initialized');
+    log.info('lifecycle', 'Initialized');
 }
 /**
  * Shutdown analyzer.
  */
 export async function shutdown() {
     await saveKnowledgeBase();
-    console.log('[ai-log-analyzer] Shutdown complete');
+    log.info('lifecycle', 'Shutdown complete');
 }
 // ─────────────────────────────────────────────────────────────────────────────
 // Default Export

@@ -40,8 +40,8 @@ import {
   type TraceEnvelope,
   type AlertEnvelope,
   type OutputEnvelope,
-  type LogLevel,
-  type AlertSeverity,
+  type LogLevelType,
+  type AlertSeverityType,
   type EnvelopeSource as _EnvelopeSource,
   type EnvelopeCorrelation,
   type EnvelopeContext,
@@ -174,7 +174,7 @@ export interface CreateEnvelopeOptions<T = unknown> {
  */
 function createBaseEnvelope<T>(
   kind: typeof ObservationKind[keyof typeof ObservationKind],
-  level: LogLevel,
+  level: LogLevelType,
   component: string,
   operation: string,
   message: string,
@@ -226,7 +226,7 @@ function createBaseEnvelope<T>(
  * createLog('error', 'bot', 'command', 'Command failed', { error: err }, { metrics: { durationMs: 100 } });
  */
 export function createLog<T = unknown>(
-  level: LogLevel,
+  level: LogLevelType,
   component: string,
   operation: string,
   message: string,
@@ -389,7 +389,7 @@ export function createTrace<T = unknown>(
  * createAlert('critical', 'database', 'health-check', 'Database connection lost', { host: 'db.example.com' });
  */
 export function createAlert<T = unknown>(
-  severity: AlertSeverity,
+  severity: AlertSeverityType,
   component: string,
   operation: string,
   message: string,
@@ -397,7 +397,7 @@ export function createAlert<T = unknown>(
   options?: Omit<CreateEnvelopeOptions<T>, 'data'>
 ): AlertEnvelope<T> {
   // Map alert severity to log level
-  const levelMap: Record<AlertSeverity, LogLevel> = {
+  const levelMap: Record<AlertSeverityType, LogLevelType> = {
     [AlertSeverityEnum.LOW]: LogLevelEnum.INFO,
     [AlertSeverityEnum.MEDIUM]: LogLevelEnum.WARN,
     [AlertSeverityEnum.HIGH]: LogLevelEnum.ERROR,

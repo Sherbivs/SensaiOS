@@ -302,10 +302,10 @@ export interface UniversalEnvelope<T = unknown> {
   // ─── CLASSIFICATION ───────────────────────────────────────────────────────
   
   /** Type of observation */
-  kind: ObservationKind;
+  kind: ObservationKindType;
   
   /** Severity level */
-  level: LogLevel;
+  level: LogLevelType;
   
   // ─── SOURCE ───────────────────────────────────────────────────────────────
   
@@ -386,7 +386,7 @@ export interface TraceEnvelope<T = unknown> extends UniversalEnvelope<T> {
 export interface AlertEnvelope<T = unknown> extends UniversalEnvelope<T> {
   kind: typeof ObservationKind.ALERT;
   /** Alert-specific severity */
-  alertSeverity: AlertSeverity;
+  alertSeverity: AlertSeverityType;
   /** Has this alert been acknowledged? */
   acknowledged?: boolean;
   /** When was it acknowledged? */
@@ -586,7 +586,7 @@ export function toLogObservation(envelope: UniversalEnvelope, uptimeMs: number):
 /**
  * Normalize various level strings to our canonical LogLevel
  */
-function normalizeLevel(level: string): LogLevel {
+function normalizeLevel(level: string): LogLevelType {
   const normalized = level.toLowerCase();
   switch (normalized) {
     case 'debug':

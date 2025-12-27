@@ -17,7 +17,7 @@
 
 import { createLog } from './factory.js';
 import { serialize, type OutputFormat, type SerializeOptions } from './serializer.js';
-import { LogLevel, type LogEnvelope } from './types.js';
+import { LogLevel, type LogEnvelope, type LogLevelType } from './types.js';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // CONFIGURATION
@@ -189,7 +189,7 @@ export function createMigrationConsole(config?: Partial<MigrationConsoleConfig>)
     output(serialize(envelope, serializeOpts));
   };
 
-  const createMethod = (level: LogLevel) => {
+  const createMethod = (level: LogLevelType) => {
     return (...args: unknown[]) => {
       if (!cfg.enabled) {
         // Fall back to original console

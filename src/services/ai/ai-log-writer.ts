@@ -1,4 +1,3 @@
-/* eslint-disable no-console */
 /**
  * AI-Optimized Hard Logging System
  * @module services/ai/ai-log-writer
@@ -10,8 +9,12 @@
  * Features: Correlation IDs, stack traces, context capture, error codes
  */
 
+import { scopedLogger } from '../../observability/envelope/console.js';
 import { prisma } from '../../shared/prisma.js';
 import { getFilesafeTimestamp } from '../../shared/utils/index.js';
+
+/** Scoped logger for AI log writer */
+const consoleLog = scopedLogger('ai-log-writer');
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -386,7 +389,7 @@ async function writeBatchToDatabase(entries: LogEntry[]): Promise<void> {
     stats.flushesPerformed++;
   } catch (error) {
     stats.errorsEncountered++;
-    console.error('[ai-log-writer] Failed to write log batch to database:', error);
+    consoleLog.error('flush', 'Failed to write log batch to database', { error: String(error) });
   }
 }
 
@@ -404,10 +407,10 @@ async function cleanupOldLogs(): Promise<void> {
     });
     
     if (result.count > 0) {
-      console.log(`[ai-log-writer] Cleaned up ${result.count} old log batches`);
+      consoleLog.info('cleanup', 'Cleaned up old log batches', { count: result.count });
     }
   } catch (error) {
-    console.error('[ai-log-writer] Failed to cleanup old logs:', error);
+    consoleLog.error('cleanup', 'Failed to cleanup old logs', { error: String(error) });
   }
 }
 
@@ -545,7 +548,7 @@ export function log(
   
   // Auto-flush if buffer too large
   if (logBuffer.length >= 100) {
-    flush().catch(err => console.error('[ai-log-writer] Flush failed:', err));
+    flush().catch(err => consoleLog.error('autoFlush', 'Flush failed', { error: String(err) }));
   }
   
   return entry.correlationId;
@@ -586,7 +589,7 @@ export async function initialize(): Promise<void> {
     // Start auto-flush interval
     if (CONFIG.autoFlush) {
       flushIntervalHandle = setInterval(() => {
-        flush().catch(err => console.error('[ai-log-writer] Auto-flush failed:', err));
+        flush().catch(err => consoleLog.error('autoFlush', 'Auto-flush failed', { error: String(err) }));
       }, CONFIG.flushInterval);
       
       // Allow process to exit
@@ -597,7 +600,7 @@ export async function initialize(): Promise<void> {
     
     // Start cleanup task (every hour)
     const maintenanceInterval = setInterval(() => {
-      cleanupOldLogs().catch(err => console.error('[ai-log-writer] Cleanup failed:', err));
+      cleanupOldLogs().catch(err => consoleLog.error('maintenance', 'Cleanup failed', { error: String(err) }));
     }, 60 * 60 * 1000);
     
     if (maintenanceInterval.unref) {
@@ -614,9 +617,9 @@ export async function initialize(): Promise<void> {
       },
     });
     
-    console.log('[ai-log-writer] Initialized successfully (database-first)');
+    consoleLog.info('init', 'Initialized successfully (database-first)');
   } catch (err) {
-    console.error('[ai-log-writer] Initialization failed:', err);
+    consoleLog.error('init', 'Initialization failed', { error: String(err) });
     throw err;
   }
 }
@@ -651,7 +654,7 @@ export async function shutdown(): Promise<void> {
   
   await flush();
   
-  console.log('[ai-log-writer] Shutdown complete');
+  consoleLog.info('shutdown', 'Shutdown complete');
 }
 
 /**

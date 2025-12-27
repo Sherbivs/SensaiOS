@@ -43,6 +43,10 @@
 
 import crypto from 'crypto';
 import { getErrorMessage } from '../../../shared/utils/error-utils.js';
+import { scopedLogger } from '../../../observability/envelope/console.js';
+
+/** Scoped logger for column encryption debug output */
+const encryptLog = scopedLogger('column-encryption');
 
 // ============================================================================
 // Types
@@ -709,8 +713,7 @@ export class ColumnEncryptionService {
    */
   private log(message: string, data?: Record<string, unknown>): void {
     if (this.debug) {
-      // eslint-disable-next-line no-console
-      console.log(`[ColumnEncryption] ${message}`, data ?? '');
+      encryptLog.debug('encrypt', message, data);
     }
   }
 }

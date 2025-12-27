@@ -1,4 +1,3 @@
-/* eslint-disable no-console */
 /**
  * AI Log Analyzer - Self-Learning System
  * @module services/ai/ai-log-analyzer
@@ -17,6 +16,10 @@
 import { prisma } from '../../shared/prisma.js';
 import type { LogEntry, LogLevel } from './ai-log-writer.js';
 import { ensureError } from '../../shared/utils/error-utils.js';
+import { scopedLogger } from '../../observability/envelope/console.js';
+
+/** Scoped logger for AI log analyzer */
+const log = scopedLogger('ai-log-analyzer');
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -315,7 +318,7 @@ async function* readAllLogs(
     }
   } catch (error) {
     const err = ensureError(error);
-    console.error('[ai-log-analyzer] Failed to read logs from database:', err.message);
+    log.error('read-logs', 'Failed to read logs from database', { error: err.message });
   }
 }
 
@@ -797,10 +800,10 @@ export async function saveKnowledgeBase(): Promise<void> {
       },
     });
     
-    console.log('[ai-log-analyzer] Knowledge base saved to database');
+    log.info('knowledge-base', 'Knowledge base saved to database');
   } catch (error) {
     const err = ensureError(error);
-    console.error('[ai-log-analyzer] Failed to save knowledge base:', err.message);
+    log.error('knowledge-base', 'Failed to save knowledge base', { error: err.message });
   }
 }
 
@@ -814,7 +817,7 @@ export async function loadKnowledgeBase(): Promise<void> {
     });
     
     if (!entry) {
-      console.log('[ai-log-analyzer] Starting with fresh knowledge base');
+      log.info('knowledge-base', 'Starting with fresh knowledge base');
       return;
     }
     
@@ -830,11 +833,11 @@ export async function loadKnowledgeBase(): Promise<void> {
     
     Object.assign(stats, parsed.stats || {});
     
-    console.log('[ai-log-analyzer] Knowledge base loaded from database');
+    log.info('knowledge-base', 'Knowledge base loaded from database');
   } catch (error) {
     const err = ensureError(error);
-    console.error('[ai-log-analyzer] Failed to load knowledge base:', err.message);
-    console.log('[ai-log-analyzer] Starting with fresh knowledge base');
+    log.error('knowledge-base', 'Failed to load knowledge base', { error: err.message });
+    log.info('knowledge-base', 'Starting with fresh knowledge base');
   }
 }
 
@@ -846,7 +849,7 @@ export async function loadKnowledgeBase(): Promise<void> {
  * Run full analysis pipeline.
  */
 export async function analyze(options: { since?: Date } = {}): Promise<AnalysisResults> {
-  console.log('[ai-log-analyzer] Starting analysis...');
+  log.info('analyze', 'Starting analysis...');
   
   const results: AnalysisResults = {
     errorPatterns: await detectErrorPatterns(options),
@@ -862,7 +865,7 @@ export async function analyze(options: { since?: Date } = {}): Promise<AnalysisR
     stats.learningUpdates++;
   }
   
-  console.log('[ai-log-analyzer] Analysis complete');
+  log.info('analyze', 'Analysis complete');
   
   return results;
 }
@@ -896,7 +899,7 @@ export function getKnowledgeSummary(): KnowledgeSummary {
  */
 export async function initialize(): Promise<void> {
   await loadKnowledgeBase();
-  console.log('[ai-log-analyzer] Initialized');
+  log.info('lifecycle', 'Initialized');
 }
 
 /**
@@ -904,7 +907,7 @@ export async function initialize(): Promise<void> {
  */
 export async function shutdown(): Promise<void> {
   await saveKnowledgeBase();
-  console.log('[ai-log-analyzer] Shutdown complete');
+  log.info('lifecycle', 'Shutdown complete');
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

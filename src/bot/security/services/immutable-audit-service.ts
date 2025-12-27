@@ -50,6 +50,10 @@
 
 import crypto from 'crypto';
 import { timingSafeHexCompare } from '../../../shared/crypto/timing-safe.js';
+import { scopedLogger } from '../../../observability/envelope/console.js';
+
+/** Scoped logger for immutable audit debug output */
+const auditLog = scopedLogger('immutable-audit');
 
 // ============================================================================
 // Types
@@ -763,8 +767,7 @@ export class ImmutableAuditService {
    */
   private log(message: string, data?: Record<string, unknown>): void {
     if (this.debug) {
-      // eslint-disable-next-line no-console
-      console.log(`[ImmutableAudit] ${message}`, data ?? '');
+      auditLog.debug('audit', message, data);
     }
   }
 }
