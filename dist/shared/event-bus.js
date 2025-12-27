@@ -18,9 +18,9 @@
  *
  * @module shared/event-bus
  */
-/* eslint-disable no-console */
 // KERNEL FIRST — Must be first import to monitor other system initialization
 import { createEventBusHook } from '../kernel/kernel-hooks.js';
+import { scopedLogger } from '../observability/envelope/console.js';
 import { randomUUID } from 'crypto';
 import { getErrorMessage } from './utils/error-utils.js';
 import { lokiTransport } from './logging/loki-transport.js';
@@ -48,11 +48,11 @@ function getKernelHook() {
         return null;
     }
 }
-// NOTE: Event Bus uses console.log for internal logging to avoid circular dependency
-// with logger.js during early initialization. The intelligent-logger subscribes to
-// Event Bus during its constructor, which would trigger log() calls before LOG_LABEL
-// is initialized, causing "Cannot access before initialization" errors.
-// HOWEVER, errors are forwarded directly to Loki for observability.
+// NOTE: Event Bus now uses envelope system for internal logging (safe - no Event Bus dependency).
+// The envelope system outputs directly to stdout/Loki without circular dependencies.
+// Errors are also forwarded directly to Loki for observability.
+/** Scoped logger for Event Bus - outputs directly without circular dependency */
+const log = scopedLogger('event-bus');
 /**
  * Forward a log entry directly to Loki (bypasses logger to avoid circular dep)
  */
@@ -281,7 +281,7 @@ class Subscription {
                     correlationId: event.correlationId,
                     error: getErrorMessage(error),
                 };
-                console.error('[EventBus] Handler error:', errorContext);
+                log.error('handler', 'Handler error', errorContext);
                 // Forward to Loki for observability
                 forwardToLoki('error', 'Handler error', errorContext);
             }
@@ -421,7 +421,7 @@ export class EventBus {
                 droppedSubscribers: backpressureCount,
                 totalSubscribers: matchingSubscriptions.length,
             };
-            console.warn('[EventBus] Backpressure detected:', backpressureContext);
+            log.warn('backpressure', 'Backpressure detected', backpressureContext);
             // Forward to Loki for observability
             forwardToLoki('warn', 'Backpressure detected', backpressureContext);
         }
@@ -433,7 +433,7 @@ export class EventBus {
     subscribe(pattern, handler, options = {}) {
         const subscription = new Subscription(pattern, handler, options);
         this.subscriptions.set(subscription.id, subscription);
-        console.info('[EventBus] Subscription added:', {
+        log.info('subscribe', 'Subscription added', {
             subscriptionId: subscription.id,
             pattern,
             priority: subscription.priority,
@@ -448,7 +448,7 @@ export class EventBus {
     unsubscribe(subscriptionId) {
         const removed = this.subscriptions.delete(subscriptionId);
         if (removed) {
-            console.info('[EventBus] Subscription removed:', {
+            log.info('unsubscribe', 'Subscription removed', {
                 subscriptionId,
                 totalSubscriptions: this.subscriptions.size,
             });
@@ -464,7 +464,7 @@ export class EventBus {
             // Remove all subscriptions
             const count = this.subscriptions.size;
             this.subscriptions.clear();
-            console.info('[EventBus] All subscriptions removed', { count });
+            log.info('unsubscribeAll', 'All subscriptions removed', { count });
             return count;
         }
         // Remove matching subscriptions
@@ -476,7 +476,7 @@ export class EventBus {
             }
         }
         if (count > 0) {
-            console.info('[EventBus] Pattern subscriptions removed:', {
+            log.info('unsubscribePattern', 'Pattern subscriptions removed', {
                 pattern,
                 count,
                 totalSubscriptions: this.subscriptions.size,
@@ -549,7 +549,7 @@ export class EventBus {
      * Graceful shutdown - drain all subscriptions
      */
     async shutdown() {
-        console.info('[EventBus] Shutting down', {
+        log.info('shutdown', 'Shutting down', {
             subscriptions: this.subscriptions.size,
             queuedEvents: Array.from(this.subscriptions.values())
                 .reduce((sum, sub) => sum + sub.getInfo().queueSize, 0),
@@ -561,6 +561,6 @@ export class EventBus {
         this.subscriptions.clear();
         // Clear replay buffer
         this.replayBuffer.clear();
-        console.info('[EventBus] Shutdown complete');
+        log.info('shutdown', 'Shutdown complete');
     }
 }

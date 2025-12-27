@@ -6,8 +6,7 @@
  * Supports batching, retry logic, sampling, and graceful degradation.
  */
 
-/* eslint-disable no-console */
-
+import { scopedLogger } from '../../observability/envelope/console.js';
 import { shouldEmitLog, getSamplingStats } from './log-sampler.js';
 
 interface LokiLogEntry {
@@ -28,6 +27,9 @@ interface LokiStream {
 interface LokiPushPayload {
   streams: LokiStream[];
 }
+
+/** Scoped logger for Loki transport */
+const log = scopedLogger('loki-transport');
 
 class LokiTransport {
   private endpoint: string;
@@ -62,8 +64,7 @@ class LokiTransport {
     if (this.enabled) {
       this.startBatchTimer();
       const authStatus = Object.keys(this.authHeaders).length > 0 ? ' (with auth)' : '';
-      const compressionStatus = this.useCompression ? ', compression enabled' : '';
-      console.log(`[Loki] Transport initialized: ${this.endpoint}${authStatus}${compressionStatus}`);
+      log.info('init', 'Transport initialized', { endpoint: this.endpoint, auth: authStatus !== '', compression: this.useCompression });
     }
   }
 
@@ -104,7 +105,7 @@ class LokiTransport {
       // Flush priority immediately if it has entries
       if (this.priorityBatch.length >= 10) {
         this.flushPriority().catch((err) => {
-          console.error('[Loki] Priority flush error:', err.message);
+          log.error('flushPriority', 'Priority flush error', { error: err.message });
         });
       }
     } else {
@@ -124,7 +125,7 @@ class LokiTransport {
 
     if (shouldFlush) {
       this.flush().catch((err) => {
-        console.error('[Loki] Flush error:', err.message);
+        log.error('flush', 'Flush error', { error: err.message });
       });
     }
   }
@@ -227,10 +228,7 @@ class LokiTransport {
       const shouldLog = this.stats.totalFailed === entries.length || this.stats.totalFailed % 60 === 0;
       if (shouldLog) {
         const errorMsg = err instanceof Error ? err.message : String(err);
-        const suppressInfo = this.stats.totalFailed > entries.length 
-          ? ` (${this.stats.totalFailed} total failures, logging suppressed)` 
-          : '';
-        console.error('[Loki] Failed to send logs:', errorMsg + suppressInfo);
+        log.error('send', 'Failed to send logs', { error: errorMsg, totalFailed: this.stats.totalFailed, suppressed: this.stats.totalFailed > entries.length });
       }
       
       // Re-add entries to batch for retry (up to batch size limit)
@@ -311,7 +309,7 @@ class LokiTransport {
   private startBatchTimer(): void {
     this.timer = setInterval(() => {
       this.flush().catch((err) => {
-        console.error('[Loki] Timer flush error:', err.message);
+        log.error('timerFlush', 'Timer flush error', { error: err.message });
       });
     }, this.flushInterval);
   }
@@ -344,15 +342,15 @@ class LokiTransport {
     const samplingStats = getSamplingStats();
     if (samplingStats.totalEvents > 0) {
       const reduction = ((samplingStats.sampledOut / samplingStats.totalEvents) * 100).toFixed(1);
-      console.log(`[Loki] Final sampling stats: ${samplingStats.sampledIn} kept, ${samplingStats.sampledOut} dropped (${reduction}% reduction)`);
+      log.info('shutdown', 'Final sampling stats', { sampledIn: samplingStats.sampledIn, sampledOut: samplingStats.sampledOut, reduction: `${reduction}%` });
     }
 
     // Log transport stats
     const stats = this.getStats();
-    console.log(`[Loki] Transport stats: ${stats.totalPushed} pushed, ${stats.totalFailed} failed, ${stats.batchesSent} batches, compression=${(stats.compressionRatio * 100).toFixed(0)}%`);
+    log.info('shutdown', 'Transport stats', { pushed: stats.totalPushed, failed: stats.totalFailed, batches: stats.batchesSent, compressionRatio: `${(stats.compressionRatio * 100).toFixed(0)}%` });
 
     await this.flush();
-    console.log('[Loki] Transport shutdown complete');
+    log.info('shutdown', 'Transport shutdown complete');
   }
 }
 

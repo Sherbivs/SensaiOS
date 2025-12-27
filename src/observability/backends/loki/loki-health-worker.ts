@@ -10,10 +10,13 @@
  * @module observability/backends/loki/loki-health-worker
  * @since 2025-12-20
  */
-/* eslint-disable no-console */
 
+import { scopedLogger } from '../../envelope/console.js';
 import type { LokiCircuitBreaker } from './loki-circuit-breaker.js';
 import type { LokiHttpTransport } from './loki-http-transport.js';
+
+/** Scoped logger for Loki health worker */
+const log = scopedLogger('loki-health-worker');
 
 // ============================================================================
 // Health Worker Class
@@ -61,7 +64,7 @@ export class LokiHealthWorker {
 
     this.running = true;
     this.intervalId = setInterval(() => this.tick(), this.intervalMs);
-    console.info(`[LokiHealthWorker] Started (interval: ${this.intervalMs}ms)`);
+    log.info('start', 'Started', { intervalMs: this.intervalMs });
   }
 
   /**
@@ -73,7 +76,7 @@ export class LokiHealthWorker {
       this.intervalId = null;
     }
     this.running = false;
-    console.info('[LokiHealthWorker] Stopped');
+    log.info('stop', 'Stopped');
   }
 
   // --------------------------------------------------------------------------
@@ -95,12 +98,12 @@ export class LokiHealthWorker {
       if (healthy) {
         // If circuit is open and Loki is healthy, record success to trigger HALF_OPEN
         if (this.circuitBreaker.isOpen()) {
-          console.info('[LokiHealthWorker] Loki healthy, circuit may recover');
+          log.info('healthCheck', 'Loki healthy, circuit may recover');
         }
       }
     } catch (error) {
       this.lastHealthy = false;
-      console.warn('[LokiHealthWorker] Health check failed:', error);
+      log.warn('healthCheck', 'Health check failed', { error });
     }
   }
 

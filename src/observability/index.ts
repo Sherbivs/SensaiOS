@@ -19,10 +19,13 @@
  * @module observability
  * @since 2025-12-20
  */
-/* eslint-disable no-console */
 
+import { scopedLogger } from './envelope/console.js';
 import { observabilityHub, isHubEnabled } from './hub/index.js';
 import { lokiBackend } from './backends/loki/index.js';
+
+/** Scoped logger for Observability Suite */
+const log = scopedLogger('observability-suite');
 
 // ============================================================================
 // Suite Lifecycle
@@ -38,11 +41,11 @@ import { lokiBackend } from './backends/loki/index.js';
  */
 export async function startObservabilitySuite(): Promise<void> {
   if (!isHubEnabled()) {
-    console.info('[ObservabilitySuite] Disabled via OBSERVABILITY_HUB_ENABLED=false');
+    log.info('start', 'Disabled via OBSERVABILITY_HUB_ENABLED=false');
     return;
   }
 
-  console.info('[ObservabilitySuite] Starting...');
+  log.info('start', 'Starting...');
 
   // Register backends with hub
   observabilityHub.register(lokiBackend);
@@ -50,7 +53,7 @@ export async function startObservabilitySuite(): Promise<void> {
   // Start hub (starts backends, subscribes to Event Bus)
   await observabilityHub.start();
 
-  console.info('[ObservabilitySuite] Started successfully');
+  log.info('start', 'Started successfully');
 }
 
 /**
@@ -61,9 +64,9 @@ export async function startObservabilitySuite(): Promise<void> {
  * Call this in shutdown handler (SIGTERM/SIGINT).
  */
 export async function stopObservabilitySuite(): Promise<void> {
-  console.info('[ObservabilitySuite] Stopping...');
+  log.info('stop', 'Stopping...');
   await observabilityHub.stop();
-  console.info('[ObservabilitySuite] Stopped');
+  log.info('stop', 'Stopped');
 }
 
 // ============================================================================

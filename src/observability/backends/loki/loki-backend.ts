@@ -9,13 +9,14 @@
  * @module observability/backends/loki/loki-backend
  * @since 2025-12-20
  */
-/* eslint-disable no-console */
 
 // KERNEL FIRST — Must be first import to monitor other system initialization
 import {
   createObservabilityHook,
   type ObservabilityHook,
 } from '../../../kernel/kernel-hooks.js';
+
+import { scopedLogger } from '../../envelope/console.js';
 
 import type {
   IObservabilityBackend,
@@ -49,6 +50,9 @@ function getLokiKernelHook(): ObservabilityHook | null {
   }
   return kernelHook;
 }
+
+/** Scoped logger for Loki backend */
+const log = scopedLogger('loki-backend');
 
 // ============================================================================
 // Loki Backend Class
@@ -136,14 +140,14 @@ export class LokiBackend implements IObservabilityBackend {
   async start(): Promise<void> {
     // Check master switch
     if (!isLokiEnabled()) {
-      console.info('[LokiBackend] Disabled via LOKI_ENABLED=false');
+      log.info('start', 'Disabled via LOKI_ENABLED=false');
       this.enabled = false;
       return;
     }
 
     // Check endpoint configuration
     if (!hasLokiEndpoint()) {
-      console.warn('[LokiBackend] No LOKI_ENDPOINT configured, disabling');
+      log.warn('start', 'No LOKI_ENDPOINT configured, disabling');
       this.enabled = false;
       return;
     }
@@ -176,7 +180,7 @@ export class LokiBackend implements IObservabilityBackend {
     this.flushWorker.start();
     this.healthWorker.start();
 
-    console.info(`[LokiBackend] Started (endpoint: ${LOKI_CONFIG.endpoint})`);
+    log.info('start', 'Started', { endpoint: LOKI_CONFIG.endpoint });
     
     // Report lifecycle to kernel
     try {
@@ -207,7 +211,7 @@ export class LokiBackend implements IObservabilityBackend {
       await this.flushWorker.emergencyFlush();
     }
 
-    console.info('[LokiBackend] Stopped');
+    log.info('stop', 'Stopped');
     
     // Report lifecycle to kernel
     try {

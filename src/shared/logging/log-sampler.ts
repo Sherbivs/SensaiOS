@@ -12,7 +12,10 @@
  * - Deterministic sampling based on message hash
  */
 
-/* eslint-disable no-console */
+import { scopedLogger } from '../../observability/envelope/console.js';
+
+/** Scoped logger for log sampler */
+const log = scopedLogger('log-sampler');
 
 /**
  * Log levels that should NEVER be sampled (always kept)
@@ -92,7 +95,7 @@ class LogSampler {
     };
 
     if (this.config.enabled) {
-      console.log(`[LogSampler] Initialized: defaultRate=${this.config.defaultRate}, highVolumeRate=${this.config.highVolumeRate}`);
+      log.info('init', 'Sampler initialized', { defaultRate: this.config.defaultRate, highVolumeRate: this.config.highVolumeRate });
     }
   }
 
@@ -200,7 +203,7 @@ class LogSampler {
       ? ((this.stats.sampledOut / this.stats.totalEvents) * 100).toFixed(1)
       : '0';
 
-    console.log(`[LogSampler] Stats: total=${this.stats.totalEvents}, kept=${this.stats.sampledIn}, dropped=${this.stats.sampledOut}, reduction=${reduction}%`);
+    log.info('stats', 'Sampling statistics', { total: this.stats.totalEvents, kept: this.stats.sampledIn, dropped: this.stats.sampledOut, reduction: `${reduction}%` });
   }
 
   /**
@@ -227,7 +230,7 @@ class LogSampler {
    */
   configure(config: Partial<SamplerConfig>): void {
     Object.assign(this.config, config);
-    console.log(`[LogSampler] Reconfigured:`, this.config);
+    log.info('configure', 'Sampler reconfigured', this.config);
   }
 
   /**

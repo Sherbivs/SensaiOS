@@ -19,7 +19,6 @@
  * @module observability/hub/observability-hub
  * @since 2025-12-20
  */
-/* eslint-disable no-console */
 
 // KERNEL FIRST — Must be first import to monitor other system initialization
 import {
@@ -36,8 +35,12 @@ import type {
   IObservabilityBackend,
   HubStatus,
 } from './observability-types.js';
+import { scopedLogger } from '../envelope/console.js';
 
 // ==================== KERNEL INTEGRATION ====================
+
+/** Scoped logger for ObservabilityHub */
+const log = scopedLogger('observability-hub');
 
 /** Lazy-initialized kernel hook for observability hub */
 let kernelHook: ObservabilityHook | null = null;
@@ -110,10 +113,10 @@ export class ObservabilityHub {
    */
   register(backend: IObservabilityBackend): void {
     if (this.backends.has(backend.name)) {
-      console.warn(`[ObservabilityHub] Backend '${backend.name}' already registered, replacing`);
+      log.warn('register', `Backend '${backend.name}' already registered, replacing`, { backend: backend.name });
     }
     this.backends.set(backend.name, backend);
-    console.info(`[ObservabilityHub] Backend registered: ${backend.name}`);
+    log.info('register', `Backend registered: ${backend.name}`, { backend: backend.name });
     
     // Report to kernel
     try {
@@ -131,7 +134,7 @@ export class ObservabilityHub {
   unregister(name: string): boolean {
     const removed = this.backends.delete(name);
     if (removed) {
-      console.info(`[ObservabilityHub] Backend unregistered: ${name}`);
+      log.info('unregister', `Backend unregistered: ${name}`, { backend: name });
       
       // Report to kernel
       try {
@@ -162,24 +165,24 @@ export class ObservabilityHub {
    */
   async start(): Promise<void> {
     if (!OBSERVABILITY_CONFIG.enabled) {
-      console.info('[ObservabilityHub] Disabled via OBSERVABILITY_HUB_ENABLED=false');
+      log.info('start', 'Disabled via OBSERVABILITY_HUB_ENABLED=false');
       return;
     }
 
     if (this.running) {
-      console.warn('[ObservabilityHub] Already running');
+      log.warn('start', 'Already running');
       return;
     }
 
-    console.info('[ObservabilityHub] Starting...');
+    log.info('start', 'Starting...');
 
     // Start all backends
     for (const [name, backend] of this.backends) {
       try {
         await backend.start();
-        console.info(`[ObservabilityHub] Backend started: ${name}`);
+        log.info('start', `Backend started: ${name}`, { backend: name });
       } catch (error) {
-        console.error(`[ObservabilityHub] Failed to start backend '${name}':`, error);
+        log.error('start', `Failed to start backend '${name}'`, { backend: name, error });
         forwardToLoki('error', `Failed to start backend '${name}'`, { backendName: name, error: String(error) });
         // Continue — don't let one backend failure prevent others
       }
@@ -189,15 +192,15 @@ export class ObservabilityHub {
     try {
       const eventBus = EventBus.getInstance();
       this.subscriptionId = eventBus.subscribe('**', (event) => this.handleEvent(event));
-      console.info('[ObservabilityHub] Subscribed to Event Bus (pattern: **)');
+      log.info('start', 'Subscribed to Event Bus', { pattern: '**' });
     } catch (error) {
-      console.error('[ObservabilityHub] Failed to subscribe to Event Bus:', error);
+      log.error('start', 'Failed to subscribe to Event Bus', { error });
       forwardToLoki('error', 'Failed to subscribe to Event Bus', { error: String(error) });
       // Continue without Event Bus — direct ingestion still works
     }
 
     this.running = true;
-    console.info('[ObservabilityHub] Started successfully');
+    log.info('start', 'Started successfully', { backendCount: this.backends.size });
     
     // Report lifecycle to kernel
     try {
@@ -218,7 +221,7 @@ export class ObservabilityHub {
       return;
     }
 
-    console.info('[ObservabilityHub] Stopping...');
+    log.info('stop', 'Stopping...', { eventBusCount: this.eventBusCount, directIngestCount: this.directIngestCount });
 
     // Unsubscribe from Event Bus
     if (this.subscriptionId) {
@@ -226,9 +229,9 @@ export class ObservabilityHub {
         const eventBus = EventBus.getInstance();
         eventBus.unsubscribe(this.subscriptionId);
         this.subscriptionId = null;
-        console.info('[ObservabilityHub] Unsubscribed from Event Bus');
+        log.info('stop', 'Unsubscribed from Event Bus');
       } catch (error) {
-        console.error('[ObservabilityHub] Error unsubscribing from Event Bus:', error);
+        log.error('stop', 'Error unsubscribing from Event Bus', { error });
         forwardToLoki('error', 'Error unsubscribing from Event Bus', { error: String(error) });
       }
     }
@@ -237,15 +240,15 @@ export class ObservabilityHub {
     for (const [name, backend] of this.backends) {
       try {
         await backend.stop();
-        console.info(`[ObservabilityHub] Backend stopped: ${name}`);
+        log.info('stop', `Backend stopped: ${name}`, { backend: name });
       } catch (error) {
-        console.error(`[ObservabilityHub] Error stopping backend '${name}':`, error);
+        log.error('stop', `Error stopping backend '${name}'`, { backend: name, error });
         forwardToLoki('error', `Error stopping backend '${name}'`, { backendName: name, error: String(error) });
       }
     }
 
     this.running = false;
-    console.info('[ObservabilityHub] Stopped');
+    log.info('stop', 'Stopped');
     
     // Report lifecycle to kernel
     try {
@@ -286,7 +289,7 @@ export class ObservabilityHub {
       }
     } catch (error) {
       // Silently drop — never propagate to Event Bus
-      console.error('[ObservabilityHub] Error handling event:', error);
+      log.error('handleEvent', 'Error handling event', { error });
       forwardToLoki('error', 'Error handling event', { error: String(error) });
     }
   }
@@ -324,7 +327,7 @@ export class ObservabilityHub {
       }
     } catch (error) {
       // Silently drop — never propagate errors
-      console.error('[ObservabilityHub] Error ingesting event:', error);
+      log.error('ingest', 'Error ingesting event', { topic, source, error });
       forwardToLoki('error', 'Error ingesting event', { topic, source, error: String(error) });
     }
   }
@@ -341,7 +344,7 @@ export class ObservabilityHub {
         backend.receive(event);
       } catch (error) {
         // Isolate backend errors — don't let one backend affect others
-        console.error(`[ObservabilityHub] Backend '${backend.name}' error:`, error);
+        log.error('fanOut', `Backend '${backend.name}' error`, { backend: backend.name, error });
         forwardToLoki('error', `Backend '${backend.name}' error`, { backendName: backend.name, error: String(error) });
       }
     }

@@ -67,28 +67,60 @@ Revision: 4.0
 
 ## Embedded PATCHSET Echo
 <!-- PATCHSET:ECHO BEGIN -->
-HEAD: UNCOMMITTED (Database-First Architecture Migration)
-Change: SECURITY BOT STATE PERSISTENCE MIGRATED FROM /STORE TO POSTGRESQL
+HEAD: UNCOMMITTED (Envelope System Migration — Phase 5)
+Change: CONSOLE.* MIGRATION TO ENVELOPE LOGGING SYSTEM — IN PROGRESS
 
-Files Modified:
-- src/bot/state/persistence.ts — Full database migration (loadStateFromDb, saveStateToDb, snapshots, backups)
-- src/bot/state/roleArchive.ts — Database storage for role archive with HMAC
-- src/bot/state/securityBaselines.ts — Database storage for security baselines
-- src/bot/state/config.ts — @deprecated notices on file path constants
-- src/bot/state/index.ts — @deprecated notices on file exports
-- Agents.md — Database-First Architecture documentation
-- .github/copilot-instructions.md — Updated State Persistence section
-- Prompt.md — Rev 3.9→4.0 with State Persistence highlight
+## 📊 Envelope Migration Progress
 
-Database Keys:
-- security-bot-state:current, :previous, :snapshot:{ts}, :backup-{n}, :role-archive, :baselines
+**Session Date:** 2025-12-27
+**Total Files Migrated:** 8 of ~82
+**Console Calls Converted:** ~60 of ~1,083
 
-TasklistDiff: ⏳ Pending (Database-First Architecture task)
-Tests: Build passing (npm run build verified)
+### Envelope System Created (Phase 1-4):
+- `src/observability/envelope/types.ts` — Universal envelope types (~616 lines)
+- `src/observability/envelope/factory.ts` — Creation functions (~479 lines)
+- `src/observability/envelope/serializer.ts` — 5 output formats (~420 lines)
+- `src/observability/envelope/console.ts` — scopedLogger() bridge (~290 lines)
+- `src/observability/envelope/query.ts` — Query DSL (~520 lines)
+- `src/observability/envelope/migrate.ts` — Migration helpers (~320 lines)
+- `scripts/logq.ts` — CLI query tool (~290 lines)
+- `scripts/migrate-console.ts` — Migration scanner (~220 lines)
+- `tests/observability/envelope.spec.ts` — 37/37 tests passing (~430 lines)
+
+### Files Migrated (Phase 5):
+1. ✅ `src/observability/hub/observability-hub.ts` — 20 calls
+2. ✅ `src/shared/event-bus.ts` — 9 calls (circular dependency resolved!)
+3. ✅ `src/observability/backends/loki/loki-backend.ts` — 4 calls
+4. ✅ `src/observability/backends/loki/loki-flush-worker.ts` — 6 calls
+5. ✅ `src/observability/backends/loki/loki-health-worker.ts` — 5 calls
+6. ✅ `src/observability/index.ts` — 5 calls
+7. ✅ `src/shared/logging/loki-transport.ts` — 8 calls
+8. ✅ `src/shared/logging/log-sampler.ts` — 3 calls
+
+### Next Priority Queue:
+1. `src/utils/logger.ts` — 17 calls (CRITICAL: main logger)
+2. `src/shared/logging/ai-log-*.ts` — AI log modules
+3. `src/bot/**/*.ts` — Bot layer
+4. `src/core/**/*.ts` — Game engines
+5. `src/services/**/*.ts` — Services
+6. `src/workers/**/*.ts` — Workers
+
+### AI Agent Instructions:
+📖 **READ FIRST:** `.github/instructions/envelope-migration.instructions.md`
+- Complete step-by-step migration guide
+- Pattern templates for all conversion types
+- Verification protocols
+- Failure recovery procedures
+
+### Build Status: ✅ Passing
+### Test Status: ✅ 37/37 envelope tests passing
+
+TasklistDiff: ⏳ Envelope migration task (Quick Task slot)
+Tests: npm run build ✅ | npm test -- envelope.spec.ts ✅
 ContractMode: ON (Patch Engine active)
-NextPointer: Main Tasks (3/3 READY): KERNEL.LOGGING.OUTPUT_PLUGINS, KERNEL.LOGGING.PII_SCRUBBING, KERNEL.LOGGING.CORRELATION_IDS | Quick Task: Available
+NextPointer: Main Tasks (3/3 READY) | Quick Task: Envelope Migration Active
 RoutersIntact: ✅ No routing changes required
-CanonicalDocs: ✅ Prompt.md Rev 4.0, Agents.md updated
+CanonicalDocs: ✅ envelope-migration.instructions.md created
 <!-- PATCHSET:ECHO END -->
 
 ## AI Worker Prompt (copy/paste for Copilot/GPT)

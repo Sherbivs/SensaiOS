@@ -11,11 +11,14 @@
  * @module observability/backends/loki/loki-flush-worker
  * @since 2025-12-20
  */
-/* eslint-disable no-console */
 
+import { scopedLogger } from '../../envelope/console.js';
 import type { LokiQueue } from './loki-queue.js';
 import type { LokiCircuitBreaker } from './loki-circuit-breaker.js';
 import type { LokiHttpTransport } from './loki-http-transport.js';
+
+/** Scoped logger for Loki flush worker */
+const log = scopedLogger('loki-flush-worker');
 
 // ============================================================================
 // Flush Worker Class
@@ -65,7 +68,7 @@ export class LokiFlushWorker {
 
     this.running = true;
     this.intervalId = setInterval(() => this.tick(), this.intervalMs);
-    console.info(`[LokiFlushWorker] Started (interval: ${this.intervalMs}ms, batch: ${this.batchSize})`);
+    log.info('start', 'Started', { intervalMs: this.intervalMs, batchSize: this.batchSize });
   }
 
   /**
@@ -77,7 +80,7 @@ export class LokiFlushWorker {
       this.intervalId = null;
     }
     this.running = false;
-    console.info('[LokiFlushWorker] Stopped');
+    log.info('stop', 'Stopped');
   }
 
   // --------------------------------------------------------------------------
@@ -114,7 +117,7 @@ export class LokiFlushWorker {
     } catch (error) {
       this.circuitBreaker.recordFailure();
       this.lastError = error instanceof Error ? error : new Error(String(error));
-      console.error('[LokiFlushWorker] Push failed:', this.lastError.message);
+      log.error('push', 'Push failed', { error: this.lastError.message });
 
       // Note: entries are lost on failure (by design — no retry/requeue)
       // This is acceptable for observability data
@@ -132,16 +135,16 @@ export class LokiFlushWorker {
   async emergencyFlush(): Promise<void> {
     if (this.queue.isEmpty()) return;
 
-    console.info('[LokiFlushWorker] Emergency flush starting...');
+    log.info('emergencyFlush', 'Emergency flush starting...');
 
     const entries = this.queue.drainAll();
     if (entries.length === 0) return;
 
     try {
       await this.transport.push(entries);
-      console.info(`[LokiFlushWorker] Emergency flush complete: ${entries.length} entries`);
+      log.info('emergencyFlush', 'Emergency flush complete', { entries: entries.length });
     } catch (error) {
-      console.error('[LokiFlushWorker] Emergency flush failed:', error);
+      log.error('emergencyFlush', 'Emergency flush failed', { error });
     }
   }
 
