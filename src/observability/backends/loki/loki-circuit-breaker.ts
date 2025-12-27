@@ -14,6 +14,9 @@
  */
 
 import type { CircuitState, CircuitBreakerStats } from './loki-types.js';
+import { scopedLogger } from '../../envelope/console.js';
+
+const log = scopedLogger('loki.circuit-breaker');
 
 // ============================================================================
 // Circuit Breaker Class
@@ -156,8 +159,10 @@ export class LokiCircuitBreaker {
     // Only log CLOSED transitions (recovery success) to reduce noise
     // OPEN/HALF_OPEN transitions are noisy when Loki is down and add no value
     if (newState === 'CLOSED' || (oldState === 'HALF_OPEN' && newState === 'OPEN')) {
-      // eslint-disable-next-line no-console
-      console.info(`[LokiCircuitBreaker] ${oldState} → ${newState}`);
+      log.info('transition', 'Loki circuit breaker state transition', {
+        from: oldState,
+        to: newState,
+      });
     }
   }
 

@@ -54,6 +54,10 @@ import type {
   SystemHealth as _SystemHealth,
   KernelStateExport as _KernelStateExport,
 } from './kernel-types.js';
+const writeHookError = (message: string, error: unknown): void => {
+  const details = error instanceof Error ? `${error.name}: ${error.message}` : String(error);
+  process.stderr.write(`${message} ${details}\n`);
+};
 
 // ============================================================================
 // HOOK FACADE — Safe wrappers that catch errors
@@ -70,8 +74,7 @@ function safe<T extends (...args: any[]) => any>(fn: T): T {
       return fn(...args);
     } catch (error) {
       // Log to console as fallback (kernel logger might be broken)
-      // eslint-disable-next-line no-console
-      console.error('[KERNEL HOOK ERROR]', error);
+      writeHookError('[KERNEL HOOK ERROR]', error);
       return undefined;
     }
   }) as T;

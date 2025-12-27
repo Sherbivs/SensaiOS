@@ -137,23 +137,40 @@ Stay disciplined. The repository must always exit a run with a READY pointer, a 
 # _Patch Clipboard Scratch Area (leave empty when not in use)_
 # 
 <<<PATCHSET START>>>
-Header: [Task DEX.V2.ACCESSORS.SIGNATURE] Restore DEX v2 signature export for runtime boot
+Header: [Task OBS.ENVELOPE.MIGRATION.FIXUP] Restore stdout/stderr output for envelope migration
 
 FILES:
-- src/dex/v2/accessors.js: add DEX_V2_SIGNATURE export to match loader expectations.
-- dist/dex/v2/accessors.js: align dist accessor export with source.
-- Tasklist.md: record DEX v2 signature hotfix completion.
-- ops/NEXT.yaml: refresh timestamp and note after hotfix completion.
-- Prompt.md: update timestamp, NEXT pointer, and PATCHSET echo.
+- src/index.ts: log status dedupe and kernel shutdown errors via process stdout/stderr.
+- src/kernel/kernel-logger.ts: remove envelope dependency and write pre-boot output to process streams.
+- src/kernel/kernel-hooks.ts: write kernel hook errors to stderr without envelope dependency.
+- src/kernel/kernel-persistence.ts: write crash persistence failures to stderr.
+- src/kernel/kernel-output-plugins.ts: output console plugin logs via process streams.
+- src/kernel/kernel-error-detector.ts: write persistence failures to stderr.
+- src/shared/logger.ts: restore formatted stdout/stderr fallback output for DB-first logger and legacy log facade.
+- src/shared/log.ts: restore JSON line output via stdout while avoiding console.* usage.
+- src/utils/fatalErrorGuard.ts: write fallback fatal errors to stderr.
+- src/utils/logger.ts: restore dashboard/stats stdout output and remove envelope logger usage.
+- src/bot/security/services/security-logger.ts: write structured security logs to stdout/stderr.
+- src/cli/ai-log-query.ts: restore CLI stdout/stderr output helpers.
+- dist/index.js: rebuild compiled output.
+- dist/cli/ai-log-query.js: rebuild compiled output.
+- dist/utils/logger.js: rebuild compiled output.
+- dist/utils/fatalErrorGuard.js: rebuild compiled output.
+- dist/shared/logger.js: rebuild compiled output.
+- dist/shared/log.js: rebuild compiled output.
+- dist/bot/security/services/security-logger.js: rebuild compiled output.
+- Tasklist.md: record envelope migration fixup completion.
+- ops/NEXT.yaml: update quick task pointer and timestamp.
+- Prompt.md: refresh timestamp and PATCHSET echo with completion report.
 
 TASKLIST UPDATE:
-- DEX.V2.ACCESSORS.SIGNATURE marked DONE.
+- OBS.ENVELOPE.MIGRATION.FIXUP marked DONE.
 
 Commit Message:
-[Task DEX.V2.ACCESSORS.SIGNATURE] Restore DEX v2 signature export
-Why: Render boot failed because accessors.js omitted DEX_V2_SIGNATURE.
-Changes: Add signature export to generated accessors (src + dist) and update meta tracking.
-Testing: Not run (not requested).
+[Task OBS.ENVELOPE.MIGRATION.FIXUP] Restore stdout/stderr output for envelope migration
+Why: Preserve human-readable dashboard/CLI output and kernel dependency boundaries.
+Changes: Route outputs to process streams instead of envelope logger where required and update meta tracking; rebuild dist artifacts.
+Testing: npm run build; npm test -- tests/observability/envelope.spec.ts
 <<<PATCHSET END>>>
 
 <<<PROPOSED PATCHSET START>>>

@@ -28,6 +28,10 @@
 import crypto from 'node:crypto';
 import { kernel, klog } from './kernel-logger.js';
 import { prisma } from '../shared/prisma.js';
+const writeErrorDetectorMessage = (message: string, error: unknown): void => {
+  const details = error instanceof Error ? `${error.name}: ${error.message}` : String(error);
+  process.stderr.write(`${message} ${details}\n`);
+};
 
 // ============================================================================
 // TYPES
@@ -414,8 +418,7 @@ function persistCrashReport(): void {
   }).then(() => {
     kernel.critical('kernel-error', `Crash report saved: ${key}`);
   }).catch((error) => {
-    // eslint-disable-next-line no-console
-    console.error('[KERNEL-ERROR] Failed to persist crash report:', error);
+    writeErrorDetectorMessage('[KERNEL-ERROR] Failed to persist crash report:', error);
   });
 }
 
@@ -608,8 +611,7 @@ export function shutdownErrorDetector(): void {
     }).then(() => {
       kernel.info('kernel-error', `Error report saved: ${key}`);
     }).catch((error) => {
-      // eslint-disable-next-line no-console
-      console.error('[KERNEL-ERROR] Failed to persist error report:', error);
+      writeErrorDetectorMessage('[KERNEL-ERROR] Failed to persist error report:', error);
     });
   }
 }

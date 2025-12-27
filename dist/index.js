@@ -47,6 +47,12 @@ import { startAutoRefresh as startLoggerAutoRefresh } from "./shared/logging/ind
 import { onPrismaHeartbeat, startPrismaHeartbeat, fireProdHeartbeatEvent, getPrismaTransport, getDatabaseStats, } from "./shared/prisma.js";
 import cliStatus from "./utils/cliStatus.js";
 const log = getLogger();
+const writeStdout = (line) => {
+    process.stdout.write(`${line}\n`);
+};
+const writeStderr = (line) => {
+    process.stderr.write(`${line}\n`);
+};
 import { validateEngineDbConfig } from "./config/engine-db-config.js";
 import { startEngineWorkers, stopEngineWorkers } from "./workers/engine-workers.js";
 import { startHeapPruner, stopHeapPruner, getHeapPrunerStatus } from "./workers/heap-pruner.js";
@@ -707,9 +713,10 @@ function shouldLogStatusLine(statusKey) {
     }
     // Outside window, allow and reset
     if (cached.count > 1) {
-        // Log suppression summary if we suppressed multiple (using console.log to avoid logger dependency)
-        // eslint-disable-next-line no-console
-        console.log(`[Status Dedup] Suppressed ${cached.count - 1} duplicate status lines in ${(elapsed / 1000).toFixed(1)}s`);
+        // Log suppression summary if we suppressed multiple (avoid logger dependency)
+        const suppressedCount = cached.count - 1;
+        const elapsedSeconds = Number((elapsed / 1000).toFixed(1));
+        writeStdout(`[Status Dedup] Suppressed ${suppressedCount} duplicate status lines in ${elapsedSeconds}s`);
     }
     statusLineCache.set(statusKey, { lastLogged: now, count: 1 });
     return true;
@@ -1101,9 +1108,8 @@ async function gracefulShutdown(signal) {
         kernel.info('index', 'Kernel shutdown complete, final log buffer flush next');
     }
     catch (error) {
-        // Use console directly since kernel may be in error state
-        // eslint-disable-next-line no-console
-        console.error('[KERNEL] Shutdown error:', error);
+        const err = ensureError(error);
+        writeStderr(`[KERNEL] Shutdown error: ${err.name}: ${err.message}`);
     }
     // Flush and destroy log buffer before exit
     destroyLogBuffer();

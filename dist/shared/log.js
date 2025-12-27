@@ -98,6 +98,9 @@ const jsonEnabled = logFormat === "json" ||
     logFormat === "both" ||
     (logFormat === "auto" && (!cliEnabled || !cliLogImpl));
 const cliDebugMode = config.nodeEnv !== "production";
+const writeStdout = (line) => {
+    process.stdout.write(`${line}\n`);
+};
 /**
  * Emit a log entry - checks if buffering is enabled first
  */
@@ -140,14 +143,14 @@ function emitImmediate(level, msg, err, meta) {
         }
     }
     if (jsonEnabled) {
-        const line = JSON.stringify(record);
+        const output = () => {
+            writeStdout(JSON.stringify(record));
+        };
         if (interruptConsoleOutput) {
-            interruptConsoleOutput(() => {
-                console.log(line);
-            });
+            interruptConsoleOutput(output);
         }
         else {
-            console.log(line);
+            output();
         }
     }
 }

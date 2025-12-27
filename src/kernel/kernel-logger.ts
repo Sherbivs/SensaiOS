@@ -31,6 +31,14 @@
  * @module kernel/kernel-logger
  */
 
+const writeStdout = (line: string): void => {
+  process.stdout.write(`${line}\n`);
+};
+
+const writeStderr = (line: string): void => {
+  process.stderr.write(`${line}\n`);
+};
+
 // NOTE: File system imports removed - Database-First Architecture (2025-12-27)
 // Ring buffer + console is sufficient for pre-boot logging
 // File persistence replaced with database export after boot
@@ -182,19 +190,15 @@ function outputToConsole(entry: KernelLogEntry, isPreBoot: boolean): void {
   const coloredLine = colorize(entry.level, line);
   
   if (entry.level === 'KERNEL' || entry.level === 'CRITICAL' || entry.level === 'ERROR') {
-    // eslint-disable-next-line no-console
-    console.error(coloredLine);
+    writeStderr(coloredLine);
   } else if (entry.level === 'WARN') {
-    // eslint-disable-next-line no-console
-    console.warn(coloredLine);
+    writeStderr(coloredLine);
   } else if (entry.level === 'DEBUG' || entry.level === 'TRACE') {
     if (process.env.KERNEL_VERBOSE === 'true') {
-      // eslint-disable-next-line no-console
-      console.debug(coloredLine);
+      writeStdout(coloredLine);
     }
   } else {
-    // eslint-disable-next-line no-console
-    console.log(coloredLine);
+    writeStdout(coloredLine);
   }
 }
 

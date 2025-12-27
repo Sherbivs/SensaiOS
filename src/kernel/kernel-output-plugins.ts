@@ -28,6 +28,13 @@
  */
 
 import type { KernelLogEntry, KernelLogLevel } from './kernel-logger.js';
+const writePluginStdout = (line: string): void => {
+  process.stdout.write(`${line}\n`);
+};
+
+const writePluginStderr = (line: string): void => {
+  process.stderr.write(`${line}\n`);
+};
 
 // ============================================================================
 // TYPES
@@ -489,14 +496,11 @@ export function createConsolePlugin(options: {
     write(entry: KernelLogEntry): void {
       const line = `[${entry.level}] [${entry.component}] ${entry.message}`;
       if (entry.level === 'ERROR' || entry.level === 'CRITICAL') {
-        // eslint-disable-next-line no-console
-        console.error(line);
+        writePluginStderr(line);
       } else if (entry.level === 'WARN') {
-        // eslint-disable-next-line no-console
-        console.warn(line);
+        writePluginStderr(line);
       } else {
-        // eslint-disable-next-line no-console
-        console.log(line);
+        writePluginStdout(line);
       }
       entriesProcessed++;
       lastWriteTime = new Date().toISOString();
