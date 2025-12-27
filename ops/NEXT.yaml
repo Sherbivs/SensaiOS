@@ -74,7 +74,7 @@ files_hint:
   - src/kernel/boot-kernel.ts
 
 queue: []
-timestamp_utc: 2025-12-26T05:40:00Z
+timestamp_utc: 2025-12-27T00:05:00Z
 router_version: 2
-last_notes_read_utc: 2025-12-26T05:40:00Z
-note: "SPRINT 1 COMPLETE (2025-12-26): PREBOOT_QUEUE, TEST_UTILS, BOT_ENTRY all done. 32 kernel tests passing. Ready for Sprint 2: Output Plugin Architecture."
+last_notes_read_utc: 2025-12-27T00:05:00Z
+note: "DEX v2 signature export hotfix complete. Sprint 2 output plugin tasks remain READY."

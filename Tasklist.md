@@ -1,7 +1,10 @@
 # Tasklist
-Last Updated (UTC): 2025-12-26T05:40:00Z
-Revision: 2.113
+Last Updated (UTC): 2025-12-27T00:05:00Z
+Revision: 2.114
 <!-- # TASKLIST UPDATE -->
+
+**Recent Activity (2025-12-27T00:05Z):**
+- 🛠️ **DEX v2 Signature Export Fix** — Added missing `DEX_V2_SIGNATURE` export to generated accessors for dexpack v2 runtime boot.
 
 **Recent Activity (2025-12-26T05:40Z):**
 - ✅ **SPRINT 1 COMPLETE** — Kernel-First Logging Initiative foundation complete
@@ -126,6 +129,22 @@ Each task has:
 | Sprint 2 | Output plugins (architecture, PII scrubbing, correlation) | ~10h | PLANNED |
 | Sprint 3 | External outputs (Loki, Discord, PostgreSQL, battles) | ~10h | PLANNED |
 | Sprint 4 | Migration & hardening (codebase migration, GDPR, docs) | ~16h | PLANNED |
+
+---
+
+## 🔥 Quick/Hotfix Tasks
+
+- id: DEX.V2.ACCESSORS.SIGNATURE
+  title: Export DEX_V2_SIGNATURE in generated accessors
+  status: DONE
+  depends_on: []
+  priority: P0-CRITICAL
+  effort: 0.5h
+  acceptance_criteria:
+    - Add DEX_V2_SIGNATURE export to src/dex/v2/accessors.js
+    - Keep dist/dex/v2/accessors.js aligned for runtime boot
+    - Restore dexpack v2 loader import compatibility
+  notes: Fixes Render boot crash: missing DEX_V2_SIGNATURE export.
 
 ---
 
@@ -2636,5 +2655,3 @@ Each task has:
     - Integrate with metrics dashboard (cache hit rates, query performance)
     - Update task status DB.NORTHSTAR.SERVICES IN_PROGRESS → DONE after observability integration complete
     - Proceed to DB.NORTHSTAR.MONITORING (performance monitoring commands: /ops events stats, /ops profile cache, /ops leaderboard refresh)
-
-

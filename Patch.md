@@ -137,7 +137,23 @@ Stay disciplined. The repository must always exit a run with a READY pointer, a 
 # _Patch Clipboard Scratch Area (leave empty when not in use)_
 # 
 <<<PATCHSET START>>>
+Header: [Task DEX.V2.ACCESSORS.SIGNATURE] Restore DEX v2 signature export for runtime boot
 
+FILES:
+- src/dex/v2/accessors.js: add DEX_V2_SIGNATURE export to match loader expectations.
+- dist/dex/v2/accessors.js: align dist accessor export with source.
+- Tasklist.md: record DEX v2 signature hotfix completion.
+- ops/NEXT.yaml: refresh timestamp and note after hotfix completion.
+- Prompt.md: update timestamp, NEXT pointer, and PATCHSET echo.
+
+TASKLIST UPDATE:
+- DEX.V2.ACCESSORS.SIGNATURE marked DONE.
+
+Commit Message:
+[Task DEX.V2.ACCESSORS.SIGNATURE] Restore DEX v2 signature export
+Why: Render boot failed because accessors.js omitted DEX_V2_SIGNATURE.
+Changes: Add signature export to generated accessors (src + dist) and update meta tracking.
+Testing: Not run (not requested).
 <<<PATCHSET END>>>
 
 <<<PROPOSED PATCHSET START>>>
