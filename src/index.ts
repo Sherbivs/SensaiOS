@@ -813,6 +813,57 @@ type SecurityBotModule = {
   client?: Client;
 };
 
+// ============================================================================
+// Status Line Deduplication Cache
+// ============================================================================
+
+// Cache to prevent identical status lines from logging repeatedly
+const statusLineCache = new Map<string, { lastLogged: number; count: number }>();
+const STATUS_LINE_DEDUPE_WINDOW_MS = 30_000; // 30 seconds
+
+/**
+ * Check if a status line should be logged based on deduplication rules.
+ * Returns true if the line should be logged, false if it's a duplicate within the time window.
+ */
+function shouldLogStatusLine(statusKey: string): boolean {
+  const now = Date.now();
+  const cached = statusLineCache.get(statusKey);
+  
+  if (!cached) {
+    // First time seeing this status line, allow it
+    statusLineCache.set(statusKey, { lastLogged: now, count: 1 });
+    return true;
+  }
+  
+  const elapsed = now - cached.lastLogged;
+  
+  if (elapsed < STATUS_LINE_DEDUPE_WINDOW_MS) {
+    // Within deduplication window, suppress
+    cached.count++;
+    return false;
+  }
+  
+  // Outside window, allow and reset
+  if (cached.count > 1) {
+    // Log suppression summary if we suppressed multiple (using console.log to avoid logger dependency)
+    // eslint-disable-next-line no-console
+    console.log(`[Status Dedup] Suppressed ${cached.count - 1} duplicate status lines in ${(elapsed / 1000).toFixed(1)}s`);
+  }
+  
+  statusLineCache.set(statusKey, { lastLogged: now, count: 1 });
+  return true;
+}
+
+// Clean up old entries from cache every 5 minutes
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, value] of statusLineCache.entries()) {
+    if (now - value.lastLogged > STATUS_LINE_DEDUPE_WINDOW_MS * 2) {
+      statusLineCache.delete(key);
+    }
+  }
+}, 5 * 60 * 1000).unref();
+
 async function bootSecurityBot(): Promise<Client | null> {
   updateSecuritySection(null, "connecting");
   try {

@@ -222,8 +222,16 @@ class LokiTransport {
       // Emit failure metric
       this.emitMetric('error', entries.length);
       
-      // Graceful degradation - log to console but don't crash
-      console.error('[Loki] Failed to send logs:', err instanceof Error ? err.message : String(err));
+      // Graceful degradation - only log first failure or every 60th failure to reduce noise
+      // When Loki is down (404), we don't need to spam console every 5 seconds
+      const shouldLog = this.stats.totalFailed === entries.length || this.stats.totalFailed % 60 === 0;
+      if (shouldLog) {
+        const errorMsg = err instanceof Error ? err.message : String(err);
+        const suppressInfo = this.stats.totalFailed > entries.length 
+          ? ` (${this.stats.totalFailed} total failures, logging suppressed)` 
+          : '';
+        console.error('[Loki] Failed to send logs:', errorMsg + suppressInfo);
+      }
       
       // Re-add entries to batch for retry (up to batch size limit)
       this.batch = [...entries.slice(-this.batchSize), ...this.batch].slice(0, this.batchSize);

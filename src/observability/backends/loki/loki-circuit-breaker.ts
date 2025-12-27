@@ -153,8 +153,12 @@ export class LokiCircuitBreaker {
       this.openedAt = null;
     }
 
-    // eslint-disable-next-line no-console
-    console.info(`[LokiCircuitBreaker] ${oldState} → ${newState}`);
+    // Only log CLOSED transitions (recovery success) to reduce noise
+    // OPEN/HALF_OPEN transitions are noisy when Loki is down and add no value
+    if (newState === 'CLOSED' || (oldState === 'HALF_OPEN' && newState === 'OPEN')) {
+      // eslint-disable-next-line no-console
+      console.info(`[LokiCircuitBreaker] ${oldState} → ${newState}`);
+    }
   }
 
   // --------------------------------------------------------------------------

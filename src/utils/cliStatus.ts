@@ -20,6 +20,53 @@ import { formatDuration, formatTimestamp } from '../shared/utils/index.js';
 import { TIME_CONSTANTS } from '../shared/constants.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Status Line Deduplication (addresses production log pollution)
+// ─────────────────────────────────────────────────────────────────────────────
+
+const STATUS_LINE_DEDUPE_WINDOW_MS = 30_000; // 30 seconds
+const statusLineCache = new Map<string, { lastLogged: number; count: number }>();
+
+/**
+ * Check if a status line should be logged based on deduplication window.
+ * Prevents identical status lines from repeating within 30 seconds.
+ */
+function shouldLogStatusLine(statusKey: string): boolean {
+  const now = Date.now();
+  const cached = statusLineCache.get(statusKey);
+  
+  if (!cached) {
+    statusLineCache.set(statusKey, { lastLogged: now, count: 1 });
+    return true;
+  }
+  
+  const elapsed = now - cached.lastLogged;
+  if (elapsed < STATUS_LINE_DEDUPE_WINDOW_MS) {
+    cached.count++;
+    return false;
+  }
+  
+  // Log suppression summary if duplicates were blocked
+  if (cached.count > 1) {
+    const line = `${toEasternLogFormat()} [Status Dedup] Suppressed ${cached.count - 1} duplicate status lines over ${Math.floor(elapsed / 1000)}s${os.EOL}`;
+    process.stdout.write(line);
+  }
+  
+  statusLineCache.set(statusKey, { lastLogged: now, count: 1 });
+  return true;
+}
+
+// Cleanup stale cache entries every 5 minutes to prevent memory leak
+setInterval(() => {
+  const now = Date.now();
+  const staleThreshold = STATUS_LINE_DEDUPE_WINDOW_MS * 2; // 60 seconds
+  for (const [key, entry] of statusLineCache.entries()) {
+    if (now - entry.lastLogged > staleThreshold) {
+      statusLineCache.delete(key);
+    }
+  }
+}, 5 * 60 * 1000).unref();
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Types
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -612,9 +659,12 @@ function render(): void {
       if (QUIET_SIMPLE_MODE) {
         const summary = buildQuietSummary();
         if (summary && summary !== lastSimpleRender) {
-          const line = `${toEasternLogFormat()} ${summary}${os.EOL}`;
-          process.stdout.write(line);
-          lastSimpleRender = summary;
+          // Apply deduplication to prevent identical status lines within 30s
+          if (shouldLogStatusLine(summary)) {
+            const line = `${toEasternLogFormat()} ${summary}${os.EOL}`;
+            process.stdout.write(line);
+            lastSimpleRender = summary;
+          }
         }
         _lastOutputWasDot = false;
         return;
