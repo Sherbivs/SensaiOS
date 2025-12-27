@@ -19,6 +19,10 @@ import { kernel, getKernelUptime, exportKernelLogs } from './kernel-logger.js';
 import { exportErrorData, getErrorStats } from './kernel-error-detector.js';
 import { exportKernelState, getMetrics as _getMetrics } from './kernel-observer.js';
 import { exportMetrics, getDashboard } from './kernel-metrics.js';
+const writePersistenceError = (message: string, error: unknown): void => {
+  const details = error instanceof Error ? `${error.name}: ${error.message}` : String(error);
+  process.stderr.write(`${message} ${details}\n`);
+};
 
 // ============================================================================
 // TYPES
@@ -338,15 +342,13 @@ export function saveCrashReport(reason: string, error?: Error): string {
         metadata: crashReport as object,
       },
     }).catch((dbErr: Error) => {
-      // eslint-disable-next-line no-console
-      console.error('[KERNEL-PERSISTENCE] DB crash save failed:', dbErr.message);
+      writePersistenceError('[KERNEL-PERSISTENCE] DB crash save failed:', dbErr);
     });
     
     kernel.critical('persistence', `Crash report queued: db:${NAMESPACES.crashes}/${crashKey}`);
     return `db:${NAMESPACES.crashes}/${crashKey}`;
   } catch (writeError) {
-    // eslint-disable-next-line no-console
-    console.error('[KERNEL-PERSISTENCE] Failed to save crash report:', writeError);
+    writePersistenceError('[KERNEL-PERSISTENCE] Failed to save crash report:', writeError);
     return '';
   }
 }

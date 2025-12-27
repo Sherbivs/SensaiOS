@@ -23,6 +23,14 @@ import {
 } from '../shared/logging/console-renderer.js';
 import { lokiTransport } from '../shared/logging/loki-transport.js';
 
+const writeStdout = (line: string): void => {
+  process.stdout.write(`${line}\n`);
+};
+
+const writeStderr = (line: string): void => {
+  process.stderr.write(`${line}\n`);
+};
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Loki Integration (Forward console output to Loki)
 // ─────────────────────────────────────────────────────────────────────────────
@@ -326,8 +334,7 @@ async function initializeDatabaseStatsProvider(): Promise<void> {
     if (typeof prismaModule.getDatabaseStats === 'function') {
       getDatabaseStats = prismaModule.getDatabaseStats as DatabaseStatsProvider;
       databaseStatsProvider = 'prisma';
-      // eslint-disable-next-line no-console
-      console.info('[logger] Database stats provider: Prisma (primary)');
+      log('info', 'Database stats provider selected', { provider: 'prisma' });
       return;
     }
   } catch {
@@ -339,16 +346,14 @@ async function initializeDatabaseStatsProvider(): Promise<void> {
     if (typeof pgModule.getDatabaseStats === 'function') {
       getDatabaseStats = pgModule.getDatabaseStats;
       databaseStatsProvider = 'pg-connection';
-      // eslint-disable-next-line no-console
-      console.info('[logger] Database stats provider: pg-connection (fallback)');
+      log('info', 'Database stats provider selected', { provider: 'pg-connection' });
       return;
     }
   } catch {
     // pg-connection not available
   }
   
-  // eslint-disable-next-line no-console
-  console.warn('[logger] Database stats unavailable - both Prisma and pg-connection failed to load');
+  log('warn', 'Database stats unavailable - both Prisma and pg-connection failed to load');
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -615,8 +620,9 @@ async function collectDatabaseStats(): Promise<DatabaseStats> {
       },
     };
   } catch (error) {
-    // eslint-disable-next-line no-console
-    console.warn('[logger] Error collecting database stats:', (error as Error).message);
+    log('warn', 'Error collecting database stats', {
+      error: { message: (error as Error).message },
+    });
     
     getErrorTracker()
       .then(tracker => {
@@ -627,8 +633,9 @@ async function collectDatabaseStats(): Promise<DatabaseStats> {
             category: 'DATABASE',
             severity: 'MEDIUM',
           }).catch(trackErr => {
-            // eslint-disable-next-line no-console
-            console.warn('[logger] Failed to track database stats error:', (trackErr as Error).message);
+            log('warn', 'Failed to track database stats error', {
+              error: { message: (trackErr as Error).message },
+            });
           });
         }
       })
@@ -960,8 +967,7 @@ function printInfinityConsole(): void {
     },
   };
 
-  // eslint-disable-next-line no-console
-  console.log('\n' + renderDashboard(config));
+  writeStdout(`\n${renderDashboard(config)}`);
   
   // Forward comprehensive dashboard metrics to Loki
   forwardToLoki('info', 'Dashboard rendered', {
@@ -1199,8 +1205,7 @@ async function printStats(): Promise<void> {
   lines.push('─────────────────────────────────────────────────────────────────────────');
   lines.push('');
   
-  // eslint-disable-next-line no-console
-  console.log(lines.join('\n'));
+  writeStdout(lines.join('\n'));
 }
 
 async function getFormattedStats(): Promise<string> {
@@ -1264,10 +1269,10 @@ async function getFormattedStats(): Promise<string> {
 
 function log(level: LogLevel | string, message: string, context?: Record<string, unknown>): void {
   const label = LOG_LABEL[level] || LOG_LABEL.info;
-  
-  // eslint-disable-next-line no-console
-  console.log(`[${label}] ${message}`);
-  
+
+  const writeLine = level === 'error' || level === 'warn' ? writeStderr : writeStdout;
+  writeLine(`[${label}] ${message}`);
+
   // Forward to Loki
   forwardToLoki(level === 'detail' ? 'debug' : level, message, context);
   
@@ -1275,8 +1280,7 @@ function log(level: LogLevel | string, message: string, context?: Record<string,
     const keys = Object.keys(context);
     if (keys.length > 0) {
       for (const key of keys) {
-        // eslint-disable-next-line no-console
-        console.log(`  ${key}: ${JSON.stringify(context[key])}`);
+        writeLine(`  ${key}: ${JSON.stringify(context[key])}`);
       }
     }
   }
@@ -1284,8 +1288,7 @@ function log(level: LogLevel | string, message: string, context?: Record<string,
   const now = Date.now();
   if (now - lastLogTime >= REFRESH_INTERVAL_MS) {
     printStats().catch(err => {
-      // eslint-disable-next-line no-console
-      console.warn('[logger] Stats print failed:', (err as Error).message);
+      writeStderr(`[logger] Stats print failed: ${(err as Error).message}`);
     });
     lastLogTime = now;
   }
@@ -1300,12 +1303,10 @@ log.detail = (message: string, context?: Record<string, unknown>): void => log('
 
 function report(title: string, meta: Record<string, unknown> = {}, level: LogLevel | string = 'info'): void {
   const label = LOG_LABEL[level] || LOG_LABEL.info;
-  
-  // eslint-disable-next-line no-console
-  console.log('');
-  // eslint-disable-next-line no-console
-  console.log(`[${label}] ═══ ${title} ═══`);
-  
+
+  writeStdout('');
+  writeStdout(`[${label}] ═══ ${title} ═══`);
+
   // Forward to Loki
   forwardToLoki(level, title, meta);
   
@@ -1313,20 +1314,17 @@ function report(title: string, meta: Record<string, unknown> = {}, level: LogLev
     const entries = Object.entries(meta);
     if (entries.length > 0) {
       for (const [key, value] of entries) {
-        // eslint-disable-next-line no-console
-        console.log(`  ${key}: ${value}`);
+        writeStdout(`  ${key}: ${value}`);
       }
     }
   }
-  
-  // eslint-disable-next-line no-console
-  console.log('');
+
+  writeStdout('');
   
   const now = Date.now();
   if (now - lastLogTime >= REFRESH_INTERVAL_MS) {
     printStats().catch(err => {
-      // eslint-disable-next-line no-console
-      console.warn('[logger] Stats print failed:', (err as Error).message);
+      writeStderr(`[logger] Stats print failed: ${(err as Error).message}`);
     });
     lastLogTime = now;
   }
@@ -1342,14 +1340,12 @@ function startAutoRefresh(): void {
   refreshStats()
     .then(() => printStats())
     .catch(err => {
-      // eslint-disable-next-line no-console
-      console.warn('[logger] Initial stats failed:', (err as Error).message);
+      writeStderr(`[logger] Initial stats failed: ${(err as Error).message}`);
     });
   
   logIntervalHandle = setInterval(() => {
     printStats().catch(err => {
-      // eslint-disable-next-line no-console
-      console.warn('[logger] Stats refresh failed:', (err as Error).message);
+      writeStderr(`[logger] Stats refresh failed: ${(err as Error).message}`);
     });
   }, REFRESH_INTERVAL_MS);
   

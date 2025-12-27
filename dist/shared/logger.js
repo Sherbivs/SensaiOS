@@ -1,4 +1,3 @@
-/* eslint-disable no-console */
 /**
  * Standardized Logger — DB-First Logging System
  *
@@ -41,6 +40,12 @@
 import { createLoggerHook } from '../kernel/kernel-hooks.js';
 import { getCurrentCorrelationId, getParentCorrelationId } from '../kernel/correlation.js';
 import { lokiTransport } from './logging/loki-transport.js';
+const writeStdout = (line) => {
+    process.stdout.write(`${line}\n`);
+};
+const writeStderr = (line) => {
+    process.stderr.write(`${line}\n`);
+};
 // ═══════════════════════════════════════════════════════════════════════════
 // Kernel Integration — Reports UP to observation layer
 // ═══════════════════════════════════════════════════════════════════════════
@@ -186,7 +191,8 @@ class StandardizedLogger {
         // This is the PRIMARY destination - database is source of truth
         this.sendToDatabase(entry).catch(err => {
             // DB write failed - ALWAYS fallback to console (safety)
-            console.error('[Logger] Database write failed, falling back to console:', err);
+            const fallbackError = err instanceof Error ? `${err.name}: ${err.message}` : String(err);
+            writeStderr(`[Logger] Database write failed, falling back to console: ${fallbackError}`);
             this.logToConsole(entry);
         });
         // Console output logic:
@@ -292,20 +298,16 @@ class StandardizedLogger {
         if (entry.durationMs !== undefined)
             contextParts.push(`dur=${entry.durationMs}ms`);
         const contextStr = contextParts.length > 0 ? ` (${contextParts.join(', ')})` : '';
-        const logFn = entry.level === 'error' ? console.error :
-            entry.level === 'warn' ? console.warn :
-                console.log;
-        logFn(`${prefix} ${entry.message}${contextStr}`);
-        // Print error details if present
+        const writeLine = entry.level === 'error' || entry.level === 'warn' ? writeStderr : writeStdout;
+        writeLine(`${prefix} ${entry.message}${contextStr}`);
         if (entry.errorName) {
-            logFn(`  Error: ${entry.errorName}: ${entry.errorMessage}`);
+            writeLine(`  Error: ${entry.errorName}: ${entry.errorMessage}`);
             if (entry.errorStack) {
-                logFn(`  Stack: ${entry.errorStack}`);
+                writeLine(`  Stack: ${entry.errorStack}`);
             }
         }
-        // Print metadata if present
         if (entry.metadata && Object.keys(entry.metadata).length > 0) {
-            logFn(`  Metadata:`, entry.metadata);
+            writeLine(`  Metadata: ${JSON.stringify(entry.metadata)}`);
         }
     }
 }
@@ -419,12 +421,12 @@ const LOG_LABEL = {
  */
 function logLegacy(level, message, context) {
     const label = LOG_LABEL[level] || LOG_LABEL.info;
-    console.log(`[${label}] ${message}`);
+    writeStdout(`[${label}] ${message}`);
     if (context && typeof context === 'object') {
         const keys = Object.keys(context);
         if (keys.length > 0) {
             for (const key of keys) {
-                console.log(`  ${key}: ${JSON.stringify(context[key])}`);
+                writeStdout(`  ${key}: ${JSON.stringify(context[key])}`);
             }
         }
     }

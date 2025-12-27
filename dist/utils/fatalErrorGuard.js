@@ -7,6 +7,10 @@
  */
 import util from 'node:util';
 import { lokiTransport } from '../shared/logging/loki-transport.js';
+const writeFatalError = (message, context) => {
+    const payload = context ? ` ${JSON.stringify(context)}` : '';
+    process.stderr.write(`${message}${payload}\n`);
+};
 // ─────────────────────────────────────────────────────────────────────────────
 // State
 // ─────────────────────────────────────────────────────────────────────────────
@@ -64,8 +68,7 @@ export function installFatalErrorHandlers(options = {}) {
     const logFn = typeof log === 'function'
         ? log
         : (_level, message, context) => {
-            // eslint-disable-next-line no-console
-            console.error(message, context);
+            writeFatalError(message, context);
             // Also forward to Loki for observability
             try {
                 lokiTransport.push({

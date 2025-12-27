@@ -49,6 +49,12 @@
  * @since 2025-01-XX
  */
 import crypto from 'crypto';
+const writeStdout = (line) => {
+    process.stdout.write(`${line}\n`);
+};
+const writeStderr = (line) => {
+    process.stderr.write(`${line}\n`);
+};
 // ============================================================================
 // Types
 // ============================================================================
@@ -111,16 +117,13 @@ export class ConsoleLogOutput {
             : JSON.stringify(entry);
         // Use appropriate console method based on severity
         if (entry.severityNumber >= LogLevel.ERROR) {
-            // eslint-disable-next-line no-console
-            console.error(output);
+            writeStderr(output);
         }
         else if (entry.severityNumber >= LogLevel.WARN) {
-            // eslint-disable-next-line no-console
-            console.warn(output);
+            writeStderr(output);
         }
         else {
-            // eslint-disable-next-line no-console
-            console.log(output);
+            writeStdout(output);
         }
     }
 }

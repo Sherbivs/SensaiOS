@@ -14,6 +14,12 @@ import { resourceMonitor } from '../services/monitoring/resource-monitor.js';
 import { formatBytes, formatUptime, extractDatabaseName } from '../shared/utils/index.js';
 import { renderDashboard, } from '../shared/logging/console-renderer.js';
 import { lokiTransport } from '../shared/logging/loki-transport.js';
+const writeStdout = (line) => {
+    process.stdout.write(`${line}\n`);
+};
+const writeStderr = (line) => {
+    process.stderr.write(`${line}\n`);
+};
 // ─────────────────────────────────────────────────────────────────────────────
 // Loki Integration (Forward console output to Loki)
 // ─────────────────────────────────────────────────────────────────────────────
@@ -133,8 +139,7 @@ async function initializeDatabaseStatsProvider() {
         if (typeof prismaModule.getDatabaseStats === 'function') {
             getDatabaseStats = prismaModule.getDatabaseStats;
             databaseStatsProvider = 'prisma';
-            // eslint-disable-next-line no-console
-            console.info('[logger] Database stats provider: Prisma (primary)');
+            log('info', 'Database stats provider selected', { provider: 'prisma' });
             return;
         }
     }
@@ -146,16 +151,14 @@ async function initializeDatabaseStatsProvider() {
         if (typeof pgModule.getDatabaseStats === 'function') {
             getDatabaseStats = pgModule.getDatabaseStats;
             databaseStatsProvider = 'pg-connection';
-            // eslint-disable-next-line no-console
-            console.info('[logger] Database stats provider: pg-connection (fallback)');
+            log('info', 'Database stats provider selected', { provider: 'pg-connection' });
             return;
         }
     }
     catch {
         // pg-connection not available
     }
-    // eslint-disable-next-line no-console
-    console.warn('[logger] Database stats unavailable - both Prisma and pg-connection failed to load');
+    log('warn', 'Database stats unavailable - both Prisma and pg-connection failed to load');
 }
 // ─────────────────────────────────────────────────────────────────────────────
 // Service Detection
@@ -401,8 +404,9 @@ async function collectDatabaseStats() {
         };
     }
     catch (error) {
-        // eslint-disable-next-line no-console
-        console.warn('[logger] Error collecting database stats:', error.message);
+        log('warn', 'Error collecting database stats', {
+            error: { message: error.message },
+        });
         getErrorTracker()
             .then(tracker => {
             if (tracker) {
@@ -412,8 +416,9 @@ async function collectDatabaseStats() {
                     category: 'DATABASE',
                     severity: 'MEDIUM',
                 }).catch(trackErr => {
-                    // eslint-disable-next-line no-console
-                    console.warn('[logger] Failed to track database stats error:', trackErr.message);
+                    log('warn', 'Failed to track database stats error', {
+                        error: { message: trackErr.message },
+                    });
                 });
             }
         })
@@ -721,8 +726,7 @@ function printInfinityConsole() {
             cpu: cpuPercent, // Live CPU usage (calculated from process.cpuUsage() delta)
         },
     };
-    // eslint-disable-next-line no-console
-    console.log('\n' + renderDashboard(config));
+    writeStdout(`\n${renderDashboard(config)}`);
     // Forward comprehensive dashboard metrics to Loki
     forwardToLoki('info', 'Dashboard rendered', {
         // Database status
@@ -893,8 +897,7 @@ async function printStats() {
     }
     lines.push('─────────────────────────────────────────────────────────────────────────');
     lines.push('');
-    // eslint-disable-next-line no-console
-    console.log(lines.join('\n'));
+    writeStdout(lines.join('\n'));
 }
 async function getFormattedStats() {
     await refreshStats();
@@ -926,24 +929,22 @@ async function getFormattedStats() {
 // ─────────────────────────────────────────────────────────────────────────────
 function log(level, message, context) {
     const label = LOG_LABEL[level] || LOG_LABEL.info;
-    // eslint-disable-next-line no-console
-    console.log(`[${label}] ${message}`);
+    const writeLine = level === 'error' || level === 'warn' ? writeStderr : writeStdout;
+    writeLine(`[${label}] ${message}`);
     // Forward to Loki
     forwardToLoki(level === 'detail' ? 'debug' : level, message, context);
     if (context && typeof context === 'object') {
         const keys = Object.keys(context);
         if (keys.length > 0) {
             for (const key of keys) {
-                // eslint-disable-next-line no-console
-                console.log(`  ${key}: ${JSON.stringify(context[key])}`);
+                writeLine(`  ${key}: ${JSON.stringify(context[key])}`);
             }
         }
     }
     const now = Date.now();
     if (now - lastLogTime >= REFRESH_INTERVAL_MS) {
         printStats().catch(err => {
-            // eslint-disable-next-line no-console
-            console.warn('[logger] Stats print failed:', err.message);
+            writeStderr(`[logger] Stats print failed: ${err.message}`);
         });
         lastLogTime = now;
     }
@@ -956,28 +957,23 @@ log.success = (message, context) => log('success', message, context);
 log.detail = (message, context) => log('detail', message, context);
 function report(title, meta = {}, level = 'info') {
     const label = LOG_LABEL[level] || LOG_LABEL.info;
-    // eslint-disable-next-line no-console
-    console.log('');
-    // eslint-disable-next-line no-console
-    console.log(`[${label}] ═══ ${title} ═══`);
+    writeStdout('');
+    writeStdout(`[${label}] ═══ ${title} ═══`);
     // Forward to Loki
     forwardToLoki(level, title, meta);
     if (meta && typeof meta === 'object') {
         const entries = Object.entries(meta);
         if (entries.length > 0) {
             for (const [key, value] of entries) {
-                // eslint-disable-next-line no-console
-                console.log(`  ${key}: ${value}`);
+                writeStdout(`  ${key}: ${value}`);
             }
         }
     }
-    // eslint-disable-next-line no-console
-    console.log('');
+    writeStdout('');
     const now = Date.now();
     if (now - lastLogTime >= REFRESH_INTERVAL_MS) {
         printStats().catch(err => {
-            // eslint-disable-next-line no-console
-            console.warn('[logger] Stats print failed:', err.message);
+            writeStderr(`[logger] Stats print failed: ${err.message}`);
         });
         lastLogTime = now;
     }
@@ -991,13 +987,11 @@ function startAutoRefresh() {
     refreshStats()
         .then(() => printStats())
         .catch(err => {
-        // eslint-disable-next-line no-console
-        console.warn('[logger] Initial stats failed:', err.message);
+        writeStderr(`[logger] Initial stats failed: ${err.message}`);
     });
     logIntervalHandle = setInterval(() => {
         printStats().catch(err => {
-            // eslint-disable-next-line no-console
-            console.warn('[logger] Stats refresh failed:', err.message);
+            writeStderr(`[logger] Stats refresh failed: ${err.message}`);
         });
     }, REFRESH_INTERVAL_MS);
     if (logIntervalHandle.unref) {

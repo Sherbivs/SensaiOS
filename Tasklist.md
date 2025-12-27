@@ -1,7 +1,13 @@
 # Tasklist
-Last Updated (UTC): 2025-12-27T03:35:00Z
-Revision: 2.115
+Last Updated (UTC): 2025-12-27T17:25:41Z
+Revision: 2.117
 <!-- # TASKLIST UPDATE -->
+
+**Recent Activity (2025-12-27T17:25Z):**
+- ✅ **Envelope Migration Fixup** — Restored dashboard/CLI/stdout output via process streams while preserving no-console policy and kernel dependency boundaries; build + envelope tests passing.
+
+**Recent Activity (2025-12-27T17:12Z):**
+- ✅ **Envelope Migration Complete** — Migrated remaining console output to the envelope logger, removed no-console disables, updated kernel/shared/utils/security/CLI outputs, build + envelope tests passing.
 
 **Recent Activity (2025-12-27T03:35Z):**
 - 📜 **NEW POLICY: /Store DB-Only Architecture** — All data in /Store must be in SQLite databases
@@ -223,6 +229,34 @@ Each task has:
 ---
 
 ## 🔥 Quick/Hotfix Tasks
+
+- id: OBS.ENVELOPE.MIGRATION.FIXUP
+  title: Restore stdout/stderr output for envelope migration
+  status: DONE
+  depends_on: [OBS.ENVELOPE.MIGRATION.COMPLETE]
+  priority: P1-HIGH
+  effort: 1h
+  acceptance_criteria:
+    - Preserve dashboard/CLI/stdout output without console.* usage
+    - Keep kernel preboot modules dependency-light (no envelope imports)
+    - Build passes (npm run build)
+    - Envelope tests pass (tests/observability/envelope.spec.ts)
+    - Prompt.md updated with completion report
+  notes: Uses process.stdout/stderr writes for human-readable output while avoiding console.* calls.
+
+- id: OBS.ENVELOPE.MIGRATION.COMPLETE
+  title: Complete envelope console migration
+  status: DONE
+  depends_on: []
+  priority: P1-HIGH
+  effort: 4h
+  acceptance_criteria:
+    - Replace remaining console.* output with envelope logging across runtime modules
+    - Remove eslint-disable no-console comments
+    - Build passes (npm run build)
+    - Envelope tests pass (tests/observability/envelope.spec.ts)
+    - Prompt.md updated with completion report
+  notes: Migration finished; remaining console references are examples or inside the envelope console bridge.
 
 - id: DOCS.BIBLE.ERROR_HANDLER_PATHS
   title: Fix error handler path references in Development Bible

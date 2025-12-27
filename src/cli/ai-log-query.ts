@@ -1,11 +1,24 @@
 #!/usr/bin/env node
 
-/* eslint-disable no-console */
 import { program } from "commander";
 import * as aiLogAnalyzer from "../services/ai/ai-log-analyzer.js";
 import * as aiLogWriter from "../services/ai/ai-log-writer.js";
 import { truncate } from "../shared/utils/index.js";
 import chalk from "chalk";
+
+const formatOutputPart = (part: unknown): string => {
+  if (typeof part === "string") return part;
+  if (part instanceof Error) return part.message;
+  return JSON.stringify(part);
+};
+
+const writeLine = (...parts: unknown[]): void => {
+  process.stdout.write(`${parts.map(formatOutputPart).join(" ")}\n`);
+};
+
+const writeError = (...parts: unknown[]): void => {
+  process.stderr.write(`${parts.map(formatOutputPart).join(" ")}\n`);
+};
 
 // ============================================================================
 // AI LOG QUERY CLI
@@ -333,59 +346,59 @@ program
         count++;
 
         if (options.json) {
-          console.log(JSON.stringify(entry));
+          writeLine(JSON.stringify(entry));
         } else if (options.compact) {
-          console.log(
+          writeLine(
             `${formatTime(entry.timestamp)} ` +
               `${colorizeLevel(entry.level)} ` +
               `${colorizeCategory(entry.category)} ` +
               `${truncate(entry.message, 60, "...")}`
           );
         } else {
-          console.log("");
-          console.log(chalk.gray("─".repeat(80)));
-          console.log(
+          writeLine("");
+          writeLine(chalk.gray("─".repeat(80)));
+          writeLine(
             `${formatTime(entry.timestamp)} ` +
               `${colorizeLevel(entry.level)} ` +
               `${colorizeCategory(entry.category)}`
           );
-          console.log(chalk.white.bold(entry.message));
+          writeLine(chalk.white.bold(entry.message));
 
           if (entry.context?.file) {
-            console.log(
+            writeLine(
               chalk.gray(`  at ${entry.context.file}:${entry.context.line} in ${entry.context.function}`)
             );
           }
 
           if (entry.error) {
-            console.log(chalk.red(`  Error: ${entry.error.name}: ${entry.error.message}`));
+            writeLine(chalk.red(`  Error: ${entry.error.name}: ${entry.error.message}`));
           }
 
           if (entry.data && Object.keys(entry.data).length > 0) {
-            console.log(chalk.gray("  Data:"));
+            writeLine(chalk.gray("  Data:"));
             for (const [key, value] of Object.entries(entry.data)) {
               const val = typeof value === "object" ? JSON.stringify(value) : value;
-              console.log(chalk.gray(`    ${key}: ${truncate(String(val), 60, "...")}`));
+              writeLine(chalk.gray(`    ${key}: ${truncate(String(val), 60, "...")}`));
             }
           }
 
           if (entry.tags && entry.tags.length > 0) {
-            console.log(chalk.gray(`  Tags: ${entry.tags.join(", ")}`));
+            writeLine(chalk.gray(`  Tags: ${entry.tags.join(", ")}`));
           }
 
-          console.log(chalk.gray(`  Correlation ID: ${entry.correlationId}`));
+          writeLine(chalk.gray(`  Correlation ID: ${entry.correlationId}`));
         }
       }
 
       if (!options.json) {
-        console.log("");
-        console.log(chalk.gray(`Total: ${count} entries`));
+        writeLine("");
+        writeLine(chalk.gray(`Total: ${count} entries`));
       }
 
       await aiLogAnalyzer.shutdown();
       process.exit(0);
     } catch (error) {
-      console.error(chalk.red("Query failed:"), (error as Error).message);
+      writeError(chalk.red("Query failed:"), (error as Error).message);
       process.exit(1);
     }
   });
@@ -406,58 +419,58 @@ program
       // Parse since time
       const since = options.since ? parseRelativeTime(options.since) : undefined;
 
-      console.log(chalk.cyan("Running analysis..."));
+      writeLine(chalk.cyan("Running analysis..."));
 
       const results = (await aiLogAnalyzer.analyze({ since })) as AnalysisResults;
 
       if (options.json) {
-        console.log(JSON.stringify(results, null, 2));
+        writeLine(JSON.stringify(results, null, 2));
       } else {
-        console.log("");
-        console.log(chalk.green.bold("═══ ANALYSIS RESULTS ═══"));
-        console.log("");
+        writeLine("");
+        writeLine(chalk.green.bold("═══ ANALYSIS RESULTS ═══"));
+        writeLine("");
 
         // Error Patterns
-        console.log(chalk.yellow.bold(`Error Patterns: ${results.errorPatterns.length}`));
+        writeLine(chalk.yellow.bold(`Error Patterns: ${results.errorPatterns.length}`));
         for (const pattern of results.errorPatterns.slice(0, 5)) {
-          console.log(`  ${chalk.red("●")} ${pattern.errorName} (x${pattern.count})`);
-          console.log(chalk.gray(`    ${truncate(pattern.pattern, 70, "...")}`));
-          console.log(chalk.gray(`    Files: ${pattern.files.slice(0, 2).join(", ")}`));
+          writeLine(`  ${chalk.red("●")} ${pattern.errorName} (x${pattern.count})`);
+          writeLine(chalk.gray(`    ${truncate(pattern.pattern, 70, "...")}`));
+          writeLine(chalk.gray(`    Files: ${pattern.files.slice(0, 2).join(", ")}`));
         }
-        console.log("");
+        writeLine("");
 
         // Performance Patterns
-        console.log(chalk.yellow.bold(`Performance Patterns: ${results.performancePatterns.length}`));
+        writeLine(chalk.yellow.bold(`Performance Patterns: ${results.performancePatterns.length}`));
         for (const pattern of results.performancePatterns.slice(0, 5)) {
-          console.log(`  ${chalk.blue("●")} ${pattern.operation}`);
-          console.log(
+          writeLine(`  ${chalk.blue("●")} ${pattern.operation}`);
+          writeLine(
             chalk.gray(
               `    Avg: ${formatDuration(pattern.avg)} | P95: ${formatDuration(pattern.p95)} | Max: ${formatDuration(pattern.max)}`
             )
           );
         }
-        console.log("");
+        writeLine("");
 
         // Correlations
-        console.log(chalk.yellow.bold(`Correlations: ${results.correlations.length}`));
+        writeLine(chalk.yellow.bold(`Correlations: ${results.correlations.length}`));
         for (const corr of results.correlations.slice(0, 5)) {
-          console.log(`  ${chalk.cyan("●")} ${corr.event1} → ${corr.event2} (x${corr.count})`);
-          console.log(chalk.gray(`    Avg time delta: ${formatDuration(corr.avgTimeDelta)}`));
+          writeLine(`  ${chalk.cyan("●")} ${corr.event1} → ${corr.event2} (x${corr.count})`);
+          writeLine(chalk.gray(`    Avg time delta: ${formatDuration(corr.avgTimeDelta)}`));
         }
-        console.log("");
+        writeLine("");
 
         // Anomalies
-        console.log(chalk.yellow.bold(`Anomalies: ${results.anomalies.length}`));
+        writeLine(chalk.yellow.bold(`Anomalies: ${results.anomalies.length}`));
         for (const anomaly of results.anomalies.slice(0, 5)) {
-          console.log(
+          writeLine(
             `  ${chalk.red("●")} ${anomaly.level} logs spike: ${anomaly.count} (baseline: ${anomaly.baseline.toFixed(0)})`
           );
-          console.log(chalk.gray(`    Deviation: ${anomaly.deviation.toFixed(1)}σ`));
+          writeLine(chalk.gray(`    Deviation: ${anomaly.deviation.toFixed(1)}σ`));
         }
-        console.log("");
+        writeLine("");
 
         // Insights
-        console.log(chalk.yellow.bold(`Insights: ${results.insights.length}`));
+        writeLine(chalk.yellow.bold(`Insights: ${results.insights.length}`));
         for (const insight of results.insights.slice(0, 10)) {
           const icon: Record<string, string> = {
             recurring_error: "❌",
@@ -466,20 +479,20 @@ program
             anomaly: "📊",
           };
 
-          console.log(`  ${icon[insight.type] || "●"} [${insight.severity.toUpperCase()}] ${insight.title}`);
-          console.log(chalk.gray(`    ${insight.description}`));
-          console.log(chalk.cyan(`    → ${insight.recommendation}`));
-          console.log("");
+          writeLine(`  ${icon[insight.type] || "●"} [${insight.severity.toUpperCase()}] ${insight.title}`);
+          writeLine(chalk.gray(`    ${insight.description}`));
+          writeLine(chalk.cyan(`    → ${insight.recommendation}`));
+          writeLine("");
         }
 
         // Stats
-        console.log(chalk.gray(`Stats: ${results.stats.logsAnalyzed} logs analyzed`));
+        writeLine(chalk.gray(`Stats: ${results.stats.logsAnalyzed} logs analyzed`));
       }
 
       await aiLogAnalyzer.shutdown();
       process.exit(0);
     } catch (error) {
-      console.error(chalk.red("Analysis failed:"), (error as Error).message);
+      writeError(chalk.red("Analysis failed:"), (error as Error).message);
       process.exit(1);
     }
   });
@@ -499,27 +512,27 @@ program
       const patterns = (await aiLogAnalyzer.detectErrorPatterns()) as ErrorPattern[];
 
       if (options.json) {
-        console.log(JSON.stringify(patterns, null, 2));
+        writeLine(JSON.stringify(patterns, null, 2));
       } else {
-        console.log("");
-        console.log(chalk.green.bold(`═══ ERROR PATTERNS (${patterns.length}) ═══`));
-        console.log("");
+        writeLine("");
+        writeLine(chalk.green.bold(`═══ ERROR PATTERNS (${patterns.length}) ═══`));
+        writeLine("");
 
         for (const pattern of patterns) {
-          console.log(chalk.red(`● ${pattern.errorName}`));
-          console.log(chalk.gray(`  Pattern: ${truncate(pattern.pattern, 70, "...")}`));
-          console.log(chalk.gray(`  Occurrences: ${pattern.count}`));
-          console.log(chalk.gray(`  First seen: ${formatTime(pattern.firstSeen)}`));
-          console.log(chalk.gray(`  Last seen: ${formatTime(pattern.lastSeen)}`));
-          console.log(chalk.gray(`  Files: ${pattern.files.join(", ")}`));
-          console.log("");
+          writeLine(chalk.red(`● ${pattern.errorName}`));
+          writeLine(chalk.gray(`  Pattern: ${truncate(pattern.pattern, 70, "...")}`));
+          writeLine(chalk.gray(`  Occurrences: ${pattern.count}`));
+          writeLine(chalk.gray(`  First seen: ${formatTime(pattern.firstSeen)}`));
+          writeLine(chalk.gray(`  Last seen: ${formatTime(pattern.lastSeen)}`));
+          writeLine(chalk.gray(`  Files: ${pattern.files.join(", ")}`));
+          writeLine("");
         }
       }
 
       await aiLogAnalyzer.shutdown();
       process.exit(0);
     } catch (error) {
-      console.error(chalk.red("Failed:"), (error as Error).message);
+      writeError(chalk.red("Failed:"), (error as Error).message);
       process.exit(1);
     }
   });
@@ -539,29 +552,29 @@ program
       const patterns = (await aiLogAnalyzer.detectPerformancePatterns()) as PerformancePattern[];
 
       if (options.json) {
-        console.log(JSON.stringify(patterns, null, 2));
+        writeLine(JSON.stringify(patterns, null, 2));
       } else {
-        console.log("");
-        console.log(chalk.green.bold(`═══ PERFORMANCE BASELINES (${patterns.length}) ═══`));
-        console.log("");
+        writeLine("");
+        writeLine(chalk.green.bold(`═══ PERFORMANCE BASELINES (${patterns.length}) ═══`));
+        writeLine("");
 
         for (const pattern of patterns) {
-          console.log(chalk.blue(`● ${pattern.operation}`));
-          console.log(chalk.gray(`  Count: ${pattern.count}`));
-          console.log(chalk.gray(`  Avg: ${formatDuration(pattern.avg)}`));
-          console.log(chalk.gray(`  P95: ${formatDuration(pattern.p95)}`));
-          console.log(chalk.gray(`  Min: ${formatDuration(pattern.min)} | Max: ${formatDuration(pattern.max)}`));
+          writeLine(chalk.blue(`● ${pattern.operation}`));
+          writeLine(chalk.gray(`  Count: ${pattern.count}`));
+          writeLine(chalk.gray(`  Avg: ${formatDuration(pattern.avg)}`));
+          writeLine(chalk.gray(`  P95: ${formatDuration(pattern.p95)}`));
+          writeLine(chalk.gray(`  Min: ${formatDuration(pattern.min)} | Max: ${formatDuration(pattern.max)}`));
           if (pattern.files && pattern.files.length > 0) {
-            console.log(chalk.gray(`  Files: ${pattern.files.join(", ")}`));
+            writeLine(chalk.gray(`  Files: ${pattern.files.join(", ")}`));
           }
-          console.log("");
+          writeLine("");
         }
       }
 
       await aiLogAnalyzer.shutdown();
       process.exit(0);
     } catch (error) {
-      console.error(chalk.red("Failed:"), (error as Error).message);
+      writeError(chalk.red("Failed:"), (error as Error).message);
       process.exit(1);
     }
   });
@@ -581,11 +594,11 @@ program
       const insights = (await aiLogAnalyzer.generateInsights()) as Insight[];
 
       if (options.json) {
-        console.log(JSON.stringify(insights, null, 2));
+        writeLine(JSON.stringify(insights, null, 2));
       } else {
-        console.log("");
-        console.log(chalk.green.bold(`═══ AI INSIGHTS (${insights.length}) ═══`));
-        console.log("");
+        writeLine("");
+        writeLine(chalk.green.bold(`═══ AI INSIGHTS (${insights.length}) ═══`));
+        writeLine("");
 
         for (const insight of insights) {
           let severityColor: typeof chalk.red;
@@ -597,22 +610,22 @@ program
             severityColor = chalk.green;
           }
 
-          console.log(severityColor.bold(`[${insight.severity.toUpperCase()}] ${insight.title}`));
-          console.log(chalk.gray(`  ${insight.description}`));
-          console.log(chalk.cyan(`  → Recommendation: ${insight.recommendation}`));
+          writeLine(severityColor.bold(`[${insight.severity.toUpperCase()}] ${insight.title}`));
+          writeLine(chalk.gray(`  ${insight.description}`));
+          writeLine(chalk.cyan(`  → Recommendation: ${insight.recommendation}`));
 
           if (insight.affectedFiles && insight.affectedFiles.length > 0) {
-            console.log(chalk.gray(`  Affected files: ${insight.affectedFiles.join(", ")}`));
+            writeLine(chalk.gray(`  Affected files: ${insight.affectedFiles.join(", ")}`));
           }
 
-          console.log("");
+          writeLine("");
         }
       }
 
       await aiLogAnalyzer.shutdown();
       process.exit(0);
     } catch (error) {
-      console.error(chalk.red("Failed:"), (error as Error).message);
+      writeError(chalk.red("Failed:"), (error as Error).message);
       process.exit(1);
     }
   });
@@ -642,42 +655,42 @@ program
       }
 
       if (options.json) {
-        console.log(JSON.stringify(stats, null, 2));
+        writeLine(JSON.stringify(stats, null, 2));
       } else {
-        console.log("");
-        console.log(chalk.green.bold("═══ AI LOG SYSTEM STATS ═══"));
-        console.log("");
+        writeLine("");
+        writeLine(chalk.green.bold("═══ AI LOG SYSTEM STATS ═══"));
+        writeLine("");
 
         if (stats.writer) {
-          console.log(chalk.yellow.bold("Writer:"));
-          console.log(chalk.gray(`  Logs written: ${stats.writer.logsWritten}`));
-          console.log(chalk.gray(`  Bytes written: ${(stats.writer.bytesWritten / 1024 / 1024).toFixed(2)} MB`));
-          console.log(chalk.gray(`  Errors: ${stats.writer.errorsEncountered}`));
-          console.log(chalk.gray(`  Rotations: ${stats.writer.rotationsPerformed}`));
-          console.log(chalk.gray(`  Compressions: ${stats.writer.compressionsPerformed}`));
-          console.log(chalk.gray(`  Flushes: ${stats.writer.flushesPerformed}`));
-          console.log(chalk.gray(`  Uptime: ${stats.writer.uptime}s`));
-          console.log(chalk.gray(`  Current file: ${stats.writer.currentLogFile || "none"}`));
-          console.log(chalk.gray(`  Buffer size: ${stats.writer.bufferSize} entries`));
-          console.log("");
+          writeLine(chalk.yellow.bold("Writer:"));
+          writeLine(chalk.gray(`  Logs written: ${stats.writer.logsWritten}`));
+          writeLine(chalk.gray(`  Bytes written: ${(stats.writer.bytesWritten / 1024 / 1024).toFixed(2)} MB`));
+          writeLine(chalk.gray(`  Errors: ${stats.writer.errorsEncountered}`));
+          writeLine(chalk.gray(`  Rotations: ${stats.writer.rotationsPerformed}`));
+          writeLine(chalk.gray(`  Compressions: ${stats.writer.compressionsPerformed}`));
+          writeLine(chalk.gray(`  Flushes: ${stats.writer.flushesPerformed}`));
+          writeLine(chalk.gray(`  Uptime: ${stats.writer.uptime}s`));
+          writeLine(chalk.gray(`  Current file: ${stats.writer.currentLogFile || "none"}`));
+          writeLine(chalk.gray(`  Buffer size: ${stats.writer.bufferSize} entries`));
+          writeLine("");
         }
 
         if (stats.analyzer) {
-          console.log(chalk.yellow.bold("Analyzer:"));
-          console.log(chalk.gray(`  Logs analyzed: ${stats.analyzer.stats.logsAnalyzed}`));
-          console.log(chalk.gray(`  Error patterns: ${stats.analyzer.errorPatterns}`));
-          console.log(chalk.gray(`  Performance baselines: ${stats.analyzer.performanceBaselines}`));
-          console.log(chalk.gray(`  Correlations: ${stats.analyzer.correlations}`));
-          console.log(chalk.gray(`  Anomalies: ${stats.analyzer.anomalies}`));
-          console.log(chalk.gray(`  Insights: ${stats.analyzer.insights}`));
-          console.log(chalk.gray(`  Last update: ${formatTime(stats.analyzer.lastUpdate)}`));
-          console.log("");
+          writeLine(chalk.yellow.bold("Analyzer:"));
+          writeLine(chalk.gray(`  Logs analyzed: ${stats.analyzer.stats.logsAnalyzed}`));
+          writeLine(chalk.gray(`  Error patterns: ${stats.analyzer.errorPatterns}`));
+          writeLine(chalk.gray(`  Performance baselines: ${stats.analyzer.performanceBaselines}`));
+          writeLine(chalk.gray(`  Correlations: ${stats.analyzer.correlations}`));
+          writeLine(chalk.gray(`  Anomalies: ${stats.analyzer.anomalies}`));
+          writeLine(chalk.gray(`  Insights: ${stats.analyzer.insights}`));
+          writeLine(chalk.gray(`  Last update: ${formatTime(stats.analyzer.lastUpdate)}`));
+          writeLine("");
         }
       }
 
       process.exit(0);
     } catch (error) {
-      console.error(chalk.red("Failed:"), (error as Error).message);
+      writeError(chalk.red("Failed:"), (error as Error).message);
       process.exit(1);
     }
   });
