@@ -266,39 +266,47 @@ async function diagnoseDatabase(): Promise<DiagnosticResult[]> {
 async function diagnoseSecurityBot(): Promise<DiagnosticResult[]> {
   const results: DiagnosticResult[] = [];
   
-  const stateFile = 'Store/security-bot-state/current.json';
+  // Database-First Architecture (2025-12-27): Query state from database
+  const stateKey = 'security-bot-state:current';
   
-  if (!await exists(stateFile)) {
-    results.push({
-      name: 'Security Bot State',
-      status: 'skip',
-      message: 'State file not found (bot may not have run)',
-    });
-    return results;
-  }
-
   try {
-    const state = await readJson(stateFile) as {
-      stats?: { totalUptime?: number; sweepsCompleted?: number };
-      lastSave?: string;
+    // Use dynamic import to avoid circular dependencies
+    const { prisma } = await import('../../src/shared/prisma.js');
+    
+    const entry = await prisma.cacheEntry.findUnique({
+      where: { key: stateKey },
+    });
+    
+    if (!entry) {
+      results.push({
+        name: 'Security Bot State',
+        status: 'skip',
+        message: 'State not found in database (bot may not have run)',
+      });
+      return results;
+    }
+    
+    const state = entry.value as {
+      cumulative?: { sweepCount?: number };
+      metadata?: { lastSaved?: string };
     };
     
     results.push({
       name: 'Security Bot State',
       status: 'pass',
-      message: 'State file exists',
+      message: 'State entry exists in database',
     });
 
-    if (state.stats) {
+    if (state.cumulative) {
       results.push({
         name: 'Sweeps Completed',
         status: 'pass',
-        message: (state.stats.sweepsCompleted || 0).toString(),
+        message: (state.cumulative.sweepCount || 0).toString(),
       });
     }
 
-    if (state.lastSave) {
-      const lastSave = new Date(state.lastSave);
+    if (state.metadata?.lastSaved) {
+      const lastSave = new Date(state.metadata.lastSaved);
       const ageMs = Date.now() - lastSave.getTime();
       const ageHours = Math.round(ageMs / 1000 / 60 / 60);
       
@@ -308,11 +316,12 @@ async function diagnoseSecurityBot(): Promise<DiagnosticResult[]> {
         message: ageHours < 24 ? `${ageHours}h ago` : `${ageHours}h ago (stale)`,
       });
     }
-  } catch {
+  } catch (err) {
+    const error = err as Error;
     results.push({
       name: 'Security Bot State',
       status: 'fail',
-      message: 'Failed to parse state file',
+      message: `Failed to query database: ${error.message}`,
     });
   }
 
