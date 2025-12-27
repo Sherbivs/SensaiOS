@@ -31,6 +31,12 @@ vi.mock('../../../src/config/env.js', () => ({
 
 vi.mock('../../../src/shared/logging/index.js', () => ({
   log: vi.fn(),
+  getLogger: vi.fn(() => ({
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    debug: vi.fn(),
+  })),
 }));
 
 describe('Error Brain DB Verification', () => {

@@ -252,3 +252,11 @@ export async function handleBattleChallengeButton(
     // Homestead dispatch is best effort; log improvements in future work.
   }
 }
+
+// Test-only exports
+export const __testing = {
+  buildChallengePrompt,
+  parseCustomId,
+  decodeMetadata,
+  encodeMetadata,
+};
