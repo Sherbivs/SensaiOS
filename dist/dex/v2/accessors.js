@@ -4,6 +4,7 @@ import fs from "node:fs/promises";
 
 export const DEX_V2_MANIFEST_HASH = "f840e427f83b819e2c251ad267d714797d23a34b88b0c2f1c61eafe03aef5b00";
 export const DEX_V2_BINARY = "dexpack.v2.f840e427f83b819e2c251ad267d714797d23a34b88b0c2f1c61eafe03aef5b00.bin";
+export const DEX_V2_SIGNATURE = "eef48bdb054547c6a39e997a6293bda52798f73557f6b7774cd7d5ea1d53ca31c9a28e23f9a09c856f30b4e3ee0ad38bd018839ae4c8c592d24d94431603d911";
 export const DEX_V2_COUNTS = Object.freeze({ species: 23, moves: 18 });
 
 export async function readDexV2Binary(rootDir) {
