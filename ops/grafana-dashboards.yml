@@ -1,0 +1,81 @@
+# Dashboard Provisioning Configuration
+# Auto-loads Grafana dashboards on startup
+
+apiVersion: 1
+
+providers:
+  # ============================================================================
+  # Pokémon Infinity Gauntlet Dashboards
+  # ============================================================================
+  - name: 'infinity-gauntlet'
+    orgId: 1
+    folder: 'Pokémon Infinity Gauntlet'
+    folderUid: 'pokemon-infinity-gauntlet'
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    allowUiUpdates: true
+    options:
+      path: /etc/grafana/provisioning/dashboards/infinity-gauntlet
+      # In Docker: mount ops/*.json to /etc/grafana/provisioning/dashboards/infinity-gauntlet/
+
+# ============================================================================
+# Dashboard Inventory
+# ============================================================================
+#
+# This configuration auto-loads all dashboards from the mounted directory.
+# Expected dashboards:
+#
+# 1. grafana-infinity-gauntlet-main.json
+#    - UID: infinity-gauntlet-main
+#    - Purpose: Primary operations dashboard
+#    - Panels: System health, log analytics, resource monitoring, game metrics
+#
+# 2. grafana-battle-engine.json
+#    - UID: infinity-gauntlet-battle
+#    - Purpose: Battle system monitoring
+#    - Panels: Battle stats, move analytics, duration metrics
+#
+# 3. grafana-cache-performance.json
+#    - UID: infinity-gauntlet-cache
+#    - Purpose: Cache and database performance
+#    - Panels: Cache hit rate, memory usage, query latency
+#
+# 4. grafana-dashboard.json (existing)
+#    - UID: security-intelligence
+#    - Purpose: Security Intelligence System
+#    - Panels: Security bot metrics, role monitoring
+#
+# ============================================================================
+# Docker Volume Mapping
+# ============================================================================
+#
+# Add to docker-compose.loki.yml under grafana service:
+#
+# volumes:
+#   - ./ops/grafana-dashboards.yml:/etc/grafana/provisioning/dashboards/default.yaml
+#   - ./ops/grafana-infinity-gauntlet-main.json:/etc/grafana/provisioning/dashboards/infinity-gauntlet/main.json
+#   - ./ops/grafana-battle-engine.json:/etc/grafana/provisioning/dashboards/infinity-gauntlet/battle.json
+#   - ./ops/grafana-cache-performance.json:/etc/grafana/provisioning/dashboards/infinity-gauntlet/cache.json
+#   - ./ops/grafana-dashboard.json:/etc/grafana/provisioning/dashboards/infinity-gauntlet/security.json
+#
+# ============================================================================
+# Dashboard Tagging Convention
+# ============================================================================
+#
+# All dashboards should include these tags:
+#   - pokemon
+#   - infinity-gauntlet
+#   - [domain-specific: battle, cache, security, etc.]
+#
+# This enables the dashboard links dropdown to find related dashboards.
+#
+# ============================================================================
+# Datasource References
+# ============================================================================
+#
+# Dashboards use these datasource UIDs (configured in grafana-datasources.yml):
+#   - DS_LOKI: Loki for log queries
+#   - DS_PROMETHEUS: Prometheus for metrics (security_bot_* prefix)
+#
+# When importing dashboards manually, select the appropriate datasources.

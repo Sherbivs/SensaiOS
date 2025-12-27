@@ -1,0 +1,352 @@
+# Alert Rules v2 - Pokémon Infinity Gauntlet
+# Professional-grade alerting with severity tiers and runbook links
+
+groups:
+  # ============================================================================
+  # CRITICAL ALERTS - Immediate attention required
+  # ============================================================================
+  - name: critical_alerts
+    interval: 30s
+    rules:
+      # Service Down Alert
+      - alert: ServiceDown
+        expr: |
+          absent(count_over_time({service=~".+"} [5m])) or
+          count_over_time({service=~".+"} [5m]) < 1
+        for: 5m
+        labels:
+          severity: critical
+          team: platform
+          runbook: "docs/operations-bible/01-service-matrix.md#service-recovery"
+        annotations:
+          summary: "🚨 Service {{ $labels.service }} is DOWN"
+          description: "No logs received from {{ $labels.service }} for 5 minutes. Service may have crashed or lost connectivity."
+          action: |
+            1. Check Render dashboard for service status
+            2. Review last deploy for breaking changes
+            3. Check resource limits (memory, disk)
+            4. SSH to service and check process status
+
+      # Memory Critical (>90%)
+      - alert: MemoryCritical
+        expr: security_bot_memory_rss_bytes / 2147483648 * 100 > 90
+        for: 2m
+        labels:
+          severity: critical
+          team: platform
+          runbook: "docs/operations-bible/02-database-operations.md#memory-pressure"
+        annotations:
+          summary: "🔴 Memory critical on {{ $labels.instance }}: {{ $value | printf \"%.1f\" }}%"
+          description: "Memory usage is {{ $value | printf \"%.1f\" }}% of 2GB limit. OOM kill imminent."
+          action: |
+            1. SSH to service: render ssh srv-d3snk2ndiees73cn709g
+            2. Check heap: node --expose-gc -e 'gc(); console.log(process.memoryUsage())'
+            3. Force garbage collection or restart service
+            4. Review memory leaks in recent commits
+
+      # Database Connection Failure
+      - alert: DatabaseConnectionFailed
+        expr: |
+          count_over_time({service=~".+"} |= "database" |= "error" |~ "connection|timeout|ECONNREFUSED" [5m]) > 5
+        for: 1m
+        labels:
+          severity: critical
+          team: database
+          runbook: "docs/operations-bible/02-database-operations.md#connection-recovery"
+        annotations:
+          summary: "🔴 Database connection failures detected"
+          description: "{{ $value }} database connection errors in the last 5 minutes."
+          action: |
+            1. Check Render PostgreSQL dashboard status
+            2. Verify PROD_DATABASE_URL is correct
+            3. Check if connection pool is exhausted
+            4. Review Prisma heartbeat logs
+
+      # High Error Rate
+      - alert: ErrorRateCritical
+        expr: |
+          sum(count_over_time({level="error"} [1m])) > 50
+        for: 2m
+        labels:
+          severity: critical
+          team: platform
+          runbook: "docs/operations-bible/03-deployment-procedures.md#rollback"
+        annotations:
+          summary: "🚨 Critical error rate: {{ $value }} errors/minute"
+          description: "Error rate exceeds 50/minute threshold. System health compromised."
+          action: |
+            1. Check /ops errors for recent error patterns
+            2. Review last deployment timestamp
+            3. Consider rollback if recent deploy
+            4. Check external service dependencies
+
+      # Disk Full
+      - alert: DiskCritical
+        expr: security_bot_disk_used_percent > 95
+        for: 2m
+        labels:
+          severity: critical
+          team: platform
+          runbook: "docs/operations-bible/worker-troubleshooting-comprehensive.md#disk"
+        annotations:
+          summary: "🔴 Disk critical on {{ $labels.instance }}: {{ $value | printf \"%.1f\" }}%"
+          description: "Disk usage is {{ $value | printf \"%.1f\" }}% of 1GB /Store volume. Service will fail writes."
+          action: |
+            1. SSH and check disk: df -h /Store
+            2. Find large files: du -sh /Store/*
+            3. Run heap cleanup: scripts/render_cleanup_heaps_windows.ps1
+            4. Review data retention policies
+
+  # ============================================================================
+  # WARNING ALERTS - Attention needed soon
+  # ============================================================================
+  - name: warning_alerts
+    interval: 1m
+    rules:
+      # Memory Warning (>75%)
+      - alert: MemoryWarning
+        expr: security_bot_memory_rss_bytes / 2147483648 * 100 > 75
+        for: 5m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "⚠️ Memory high on {{ $labels.instance }}: {{ $value | printf \"%.1f\" }}%"
+          description: "Memory usage trending high. Monitor for potential escalation."
+          action: |
+            1. Monitor trend over next 15 minutes
+            2. Check for memory leaks in recent activity
+            3. Consider proactive restart during low-traffic period
+
+      # Error Rate Warning
+      - alert: ErrorRateWarning
+        expr: |
+          sum(count_over_time({level="error"} [5m])) > 10
+        for: 5m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "⚠️ Elevated error rate: {{ $value }} errors in 5 minutes"
+          description: "Error rate above normal. Investigate root cause."
+
+      # Cache Hit Rate Low
+      - alert: CacheHitRateLow
+        expr: security_bot_cache_hit_rate < 0.90
+        for: 10m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "⚠️ Cache hit rate low: {{ $value | printf \"%.1f\" }}%"
+          description: "Cache efficiency below 90%. Performance may be degraded."
+          action: |
+            1. Check cache configuration
+            2. Review cache refresh timing
+            3. Verify data access patterns
+
+      # Disk Warning (>80%)
+      - alert: DiskWarning
+        expr: security_bot_disk_used_percent > 80
+        for: 10m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "⚠️ Disk usage high: {{ $value | printf \"%.1f\" }}%"
+          description: "Disk usage trending high. Plan cleanup soon."
+
+      # Loki Queue Backlog
+      - alert: LokiQueueBacklog
+        expr: security_bot_loki_queue_size > 750
+        for: 5m
+        labels:
+          severity: warning
+          team: observability
+        annotations:
+          summary: "⚠️ Loki queue backlog: {{ $value }} entries"
+          description: "Log queue is 75% full. May miss logs if not resolved."
+          action: |
+            1. Check Loki service health
+            2. Verify network connectivity to Loki
+            3. Check for log volume spikes
+
+      # Long Query Latency
+      - alert: DatabaseLatencyHigh
+        expr: |
+          histogram_quantile(0.95, rate(security_bot_db_query_latency_bucket[5m])) > 100
+        for: 5m
+        labels:
+          severity: warning
+          team: database
+        annotations:
+          summary: "⚠️ Database latency high: p95 = {{ $value | printf \"%.0f\" }}ms"
+          description: "95th percentile query latency exceeds 100ms target."
+          action: |
+            1. Check for slow queries in logs
+            2. Review database indexes
+            3. Check connection pool status
+
+      # Battle Duration Anomaly
+      - alert: BattleDurationAnomaly
+        expr: |
+          histogram_quantile(0.95, rate(security_bot_battle_duration_seconds_bucket[15m])) > 300
+        for: 10m
+        labels:
+          severity: warning
+          team: game-engine
+        annotations:
+          summary: "⚠️ Battle duration anomaly: {{ $value | printf \"%.0f\" }}s"
+          description: "Battles taking longer than expected. Possible infinite loop or deadlock."
+
+  # ============================================================================
+  # INFORMATIONAL ALERTS - FYI notifications
+  # ============================================================================
+  - name: info_alerts
+    interval: 5m
+    rules:
+      # Service Restart Detected
+      - alert: ServiceRestarted
+        expr: |
+          count_over_time({service=~".+"} |= "startup" |= "ready" [5m]) > 0
+        labels:
+          severity: info
+          team: platform
+        annotations:
+          summary: "ℹ️ Service restart detected: {{ $labels.service }}"
+          description: "Service completed startup sequence. Verify health."
+
+      # Deployment Detected
+      - alert: DeploymentDetected
+        expr: |
+          changes(security_bot_uptime_seconds[10m]) > 0
+        labels:
+          severity: info
+          team: platform
+        annotations:
+          summary: "ℹ️ Deployment detected"
+          description: "Service uptime counter reset, indicating new deployment."
+
+      # Unusual Command Volume
+      - alert: UnusualCommandVolume
+        expr: |
+          sum(rate(security_bot_commands_total[5m])) > 10 or
+          sum(rate(security_bot_commands_total[5m])) < 0.1
+        for: 10m
+        labels:
+          severity: info
+          team: platform
+        annotations:
+          summary: "ℹ️ Unusual command volume: {{ $value | printf \"%.2f\" }}/sec"
+          description: "Command rate significantly above or below normal."
+
+      # Cache Refresh Completed
+      - alert: CacheRefreshCompleted
+        expr: |
+          count_over_time({service=~".+"} |= "cache" |= "refresh" |= "complete" [5m]) > 0
+        labels:
+          severity: info
+          team: platform
+        annotations:
+          summary: "ℹ️ Cache refresh completed"
+          description: "L1 cache refresh cycle completed successfully."
+
+      # Security Bot Sweep Complete
+      - alert: SecuritySweepComplete
+        expr: |
+          count_over_time({service="security-bot"} |= "sweep" |= "complete" [15m]) > 0
+        labels:
+          severity: info
+          team: security
+        annotations:
+          summary: "ℹ️ Security sweep completed"
+          description: "Security bot role/permission sweep completed."
+
+  # ============================================================================
+  # GAME ENGINE ALERTS
+  # ============================================================================
+  - name: game_engine_alerts
+    interval: 1m
+    rules:
+      # Battle Engine Errors
+      - alert: BattleEngineError
+        expr: |
+          count_over_time({service=~".+"} |= "battle" |= "error" [5m]) > 3
+        for: 2m
+        labels:
+          severity: warning
+          team: game-engine
+          runbook: "docs/architecture-bible/09-game-engine.md#debugging"
+        annotations:
+          summary: "⚠️ Battle engine errors: {{ $value }} in 5 minutes"
+          description: "Multiple battle engine errors detected. Player experience affected."
+
+      # Encounter Generation Failures
+      - alert: EncounterGenerationFailed
+        expr: |
+          count_over_time({service=~".+"} |= "encounter" |= "error" |~ "failed|exception" [10m]) > 5
+        for: 5m
+        labels:
+          severity: warning
+          team: game-engine
+        annotations:
+          summary: "⚠️ Encounter generation failures"
+          description: "Wild Pokémon encounter generation experiencing failures."
+
+      # Catch Rate Anomaly
+      - alert: CatchRateAnomaly
+        expr: |
+          security_bot_catch_rate > 0.95 or security_bot_catch_rate < 0.05
+        for: 15m
+        labels:
+          severity: info
+          team: game-engine
+        annotations:
+          summary: "ℹ️ Catch rate anomaly: {{ $value | printf \"%.1f\" }}%"
+          description: "Catch rate is outside normal range. May indicate balance issue or bug."
+
+  # ============================================================================
+  # OBSERVABILITY PIPELINE ALERTS
+  # ============================================================================
+  - name: observability_alerts
+    interval: 2m
+    rules:
+      # Loki Circuit Breaker Open
+      - alert: LokiCircuitBreakerOpen
+        expr: security_bot_loki_circuit_state == 1
+        for: 1m
+        labels:
+          severity: warning
+          team: observability
+        annotations:
+          summary: "⚠️ Loki circuit breaker OPEN"
+          description: "Log shipping to Loki halted due to failures. Logs being dropped."
+          action: |
+            1. Check Loki service health
+            2. Verify ngrok tunnel (if local development)
+            3. Check Loki disk space
+            4. Review error logs for root cause
+
+      # No Logs Received
+      - alert: NoLogsReceived
+        expr: |
+          absent(count_over_time({service=~".+"} [10m]))
+        for: 10m
+        labels:
+          severity: warning
+          team: observability
+        annotations:
+          summary: "⚠️ No logs received for 10 minutes"
+          description: "Loki has not received any logs. Check log shipping pipeline."
+
+      # Log Volume Spike
+      - alert: LogVolumeSpike
+        expr: |
+          sum(count_over_time({service=~".+"} [1m])) > 1000
+        for: 5m
+        labels:
+          severity: info
+          team: observability
+        annotations:
+          summary: "ℹ️ Log volume spike: {{ $value }} logs/minute"
+          description: "Log volume significantly higher than normal. May indicate runaway logging."

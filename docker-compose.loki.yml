@@ -27,10 +27,20 @@ services:
       - GF_SECURITY_ADMIN_USER=admin
       - GF_SECURITY_ADMIN_PASSWORD=admin
       - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH=/etc/grafana/provisioning/dashboards/infinity-gauntlet/main.json
     volumes:
       - grafana-data:/var/lib/grafana
+      # Datasources
       - ./ops/grafana-datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml
-      - ./ops/grafana-dashboard.json:/etc/grafana/provisioning/dashboards/infinity-gauntlet.json
+      # Dashboard provisioning config
+      - ./ops/grafana-dashboards.yml:/etc/grafana/provisioning/dashboards/default.yaml
+      # Dashboard JSON files
+      - ./ops/grafana-infinity-gauntlet-main.json:/etc/grafana/provisioning/dashboards/infinity-gauntlet/main.json
+      - ./ops/grafana-battle-engine.json:/etc/grafana/provisioning/dashboards/infinity-gauntlet/battle.json
+      - ./ops/grafana-cache-performance.json:/etc/grafana/provisioning/dashboards/infinity-gauntlet/cache.json
+      - ./ops/grafana-dashboard.json:/etc/grafana/provisioning/dashboards/infinity-gauntlet/security.json
+      # Alert rules
+      - ./ops/grafana-alert-rules-v2.yml:/etc/grafana/provisioning/alerting/alert-rules.yml
     networks:
       - loki-network
     depends_on:
