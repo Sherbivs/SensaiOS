@@ -1,4 +1,3 @@
-/* eslint-disable no-console */
 /**
  * DB Admin CLI - Database administration tool for Infinity Gauntlet
  * 
