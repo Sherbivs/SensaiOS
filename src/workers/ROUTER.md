@@ -2,9 +2,14 @@
 Title: Background Workers
 Purpose: Long-running background tasks for cache refresh, data sync, validation, disk maintenance, and alerting.
 Owned Globs: src/workers/**
-Last Updated (UTC): 2025-12-19T00:00:00Z
+Last Updated (UTC): 2025-12-28T00:00:00Z
 
 **Recent Updates:**
+- ⚠️ **Heap Snapshot Pruner DEPRECATED (2025-12-28):** DB-Only Policy Migration
+  - Raw .heapsnapshot file creation ELIMINATED
+  - Heap metrics now stored in `heap_snapshots` table in engine-write.db (SQLite)
+  - Pruner remains active ONLY for legacy file cleanup
+  - See: docs/projects/STORE-WRITE-ELIMINATION.md
 - ✅ **Heap Snapshot Pruner (2025-12-19):** Phase 1, Project 1 of Metrics Expansion Bible
   - Automated cleanup of startup heap snapshots
   - Keeps MAX_COUNT (default: 3) most recent, deletes older than MAX_AGE_DAYS (default: 7)
@@ -24,20 +29,29 @@ Notes:
 
 Key Files:
 
-**Heap Snapshot Pruner (Phase 1, Project 1):**
-- **heap-pruner.ts (~400 lines)** — Automated disk space management for heap snapshots:
+**Heap Snapshot Pruner (⚠️ DEPRECATED — Legacy Cleanup Only):**
+- **heap-pruner.ts (~400 lines)** — Legacy file cleanup worker:
   
-  **Purpose:**
-  - Heap snapshots created via v8.writeHeapSnapshot() on startup (~27 MB each)
+  **⚠️ DEPRECATION NOTICE (2025-12-28):**
+  - Raw .heapsnapshot file creation has been ELIMINATED
+  - Heap metrics now stored in engine-write.db `heap_snapshots` table
+  - This worker remains ONLY to delete legacy .heapsnapshot files
+  - New config defaults: MAX_COUNT=0, MAX_AGE_DAYS=0 (delete ALL legacy files)
+  
+  **Previous Purpose (NO LONGER APPLICABLE):**
+  - Heap snapshots were created via v8.writeHeapSnapshot() on startup (~27 MB each)
   - Pattern: `startup-heap-{ISO-timestamp}.heapsnapshot`
-  - Without pruning: 7 snapshots = 190 MB (22% of 974 MB /Store disk)
-  - With pruning: 3 snapshots = ~80 MB (8% of disk), saves ~110 MB
   
-  **Configuration:**
+  **New Architecture:**
+  - src/index.ts captures memory via process.memoryUsage() + v8.getHeapStatistics()
+  - Metrics stored in `heap_snapshots` table in engine-write.db (<1 KB vs 27 MB)
+  - See: docs/projects/STORE-WRITE-ELIMINATION.md
+  
+  **Configuration (Legacy Cleanup Mode):**
   - `HEAP_SNAPSHOT_ENABLED` — Master switch (default: true)
-  - `HEAP_SNAPSHOT_MAX_COUNT` — Keep N most recent (default: 3)
-  - `HEAP_SNAPSHOT_MAX_AGE_DAYS` — Delete older than N days (default: 7)
-  - `HEAP_SNAPSHOT_PRUNE_INTERVAL_MS` — Interval (default: 24 hours)
+  - `HEAP_SNAPSHOT_MAX_COUNT` — Keep N most recent (default: 0 = delete all)
+  - `HEAP_SNAPSHOT_MAX_AGE_DAYS` — Delete older than N days (default: 0 = immediate)
+  - `HEAP_SNAPSHOT_PRUNE_INTERVAL_MS` — Interval (default: 1 hour)
   - `HEAP_SNAPSHOT_RUN_ON_STARTUP` — Run immediately on boot (default: true)
   
   **Safety:**

@@ -8,10 +8,14 @@
 
 ## Current Writers to /Store
 
-### 1. Heap Snapshots (HIGH IMPACT - 53 MB)
+### 1. Heap Snapshots (HIGH IMPACT - 53 MB) ✅ COMPLETE
 **Location**: `/Store/startup-heap-*.heapsnapshot`  
 **Writer**: V8 heap profiler (via `v8.writeHeapSnapshot()`)  
-**Solution**: Parse immediately, insert to `heap_snapshots` table in `engine-write.db`, delete raw file
+**Solution**: ✅ **MIGRATED 2025-12-28** — Replaced with `heap_snapshots` table in `engine-write.db` (SQLite)
+- Memory metrics captured via `process.memoryUsage()` and `v8.getHeapStatistics()`
+- Equivalent observability: RSS, heap total/used, external, array buffers, V8 stats
+- Storage: <1 KB per snapshot vs ~27 MB raw file
+- Heap-pruner worker updated to cleanup-only mode (will delete legacy files)
 
 ### 2. Restart Metrics (4 KB)
 **Location**: `/Store/restart-metrics.json`  
@@ -64,7 +68,7 @@
 
 | Priority | Item | Impact | Effort | Status |
 |----------|------|--------|--------|--------|
-| **P0** | Stop heap snapshot writes | -53 MB/day | 2h | READY |
+| **P0** | Stop heap snapshot writes | -53 MB/day | 2h | ✅ **COMPLETE** (2025-12-28) |
 | **P0** | Restart metrics → PostgreSQL | -4 KB | 30m | READY |
 | **P1** | Security state → PostgreSQL | -3 MB | 4h | ✅ **COMPLETE** (2025-12-27) |
 | **P1** | Kernel logs → TimeScaleDB | -28 KB | 1h | READY |
@@ -77,6 +81,36 @@
 **Total savings**: 56.5 MB (99% of current /Store usage)
 
 ### ✅ Completed Migrations
+
+#### Heap Snapshots (2025-12-28)
+**Files migrated:**
+- `src/index.ts` — Replaced `v8.writeHeapSnapshot()` with DB insert
+- `src/services/database/engine-write-db.ts` — Added `heap_snapshots` table + insert/query functions
+- `src/workers/heap-pruner.ts` — Deprecated to cleanup-only mode
+
+**Database schema:**
+```sql
+CREATE TABLE heap_snapshots (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  captured_at INTEGER NOT NULL,
+  trigger TEXT NOT NULL CHECK (trigger IN ('startup', 'manual', 'oom-warning')),
+  rss_bytes INTEGER NOT NULL,
+  heap_total_bytes INTEGER NOT NULL,
+  heap_used_bytes INTEGER NOT NULL,
+  external_bytes INTEGER NOT NULL,
+  array_buffers_bytes INTEGER NOT NULL,
+  v8_total_heap_bytes INTEGER NOT NULL,
+  v8_used_heap_bytes INTEGER NOT NULL,
+  v8_heap_limit_bytes INTEGER NOT NULL,
+  v8_malloced_bytes INTEGER NOT NULL,
+  v8_external_bytes INTEGER NOT NULL,
+  heap_utilization_percent REAL NOT NULL,
+  mystery_allocation_bytes INTEGER NOT NULL
+);
+CREATE INDEX idx_heap_snapshots_captured_at ON heap_snapshots(captured_at DESC);
+```
+
+**Impact:** Eliminated ~27 MB per startup (previously ~53 MB/day with 2 restarts)
 
 #### Security Bot State (2025-12-27)
 **Files migrated:**

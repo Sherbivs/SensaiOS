@@ -1,31 +1,24 @@
 /**
- * Heap Snapshot Pruner — Automated Disk Space Management
+ * Heap Snapshot Pruner — Legacy File Cleanup Worker
  * 
- * Phase 1, Project 1 of Metrics Expansion Bible
- * @see docs/projects/metrics-expansion-bible.md § Project 1
+ * ⚠️ DEPRECATED (2025-12-28): Raw .heapsnapshot file creation has been eliminated.
+ * Heap metrics are now stored in engine-write.db (SQLite) per DB-Only Policy.
+ * @see docs/projects/STORE-WRITE-ELIMINATION.md
  * 
- * Purpose:
- * Heap snapshots are created in src/index.ts via v8.writeHeapSnapshot() on startup.
- * Pattern: startup-heap-{ISO-timestamp}.heapsnapshot
- * Without pruning, these accumulate indefinitely (~27 MB each), consuming disk.
+ * This worker remains active ONLY to clean up any legacy .heapsnapshot files
+ * that may exist from before the migration. Once all legacy files are deleted,
+ * this worker can be removed entirely.
  * 
- * This worker:
- * 1. Runs on configurable schedule (default: every 24 hours)
- * 2. Keeps only MAX_COUNT most recent snapshots (default: 3)
- * 3. Deletes snapshots older than MAX_AGE_DAYS (default: 7)
- * 4. Emits EventBus events for observability
- * 5. Only targets startup-heap-*.heapsnapshot files (safe pattern)
+ * Previous Implementation (REMOVED):
+ * - Heap snapshots were created in src/index.ts via v8.writeHeapSnapshot() on startup
+ * - Pattern: startup-heap-{ISO-timestamp}.heapsnapshot (~27 MB each)
+ * - Without pruning, these accumulated indefinitely
  * 
- * Resource Constraints (Render Standard Plan):
- * - /Store disk: 974 MB total
- * - Without pruning: 7 snapshots = 190 MB (22% of disk)
- * - With pruning: 3 snapshots = ~80 MB (8% of disk)
- * - Savings: ~110 MB (14% disk reclaimed)
- * 
- * Integration:
- * - Called from src/index.ts boot() after Store directory confirmed
- * - Gracefully stopped in gracefulShutdown()
- * - Events visible via EventBus subscriptions
+ * New Implementation:
+ * - Memory metrics captured via process.memoryUsage() and v8.getHeapStatistics()
+ * - Stored in `heap_snapshots` table in engine-write.db (SQLite)
+ * - No raw files written to /Store
+ * - Equivalent observability with <1 KB per snapshot instead of ~27 MB
  * 
  * @module workers/heap-pruner
  */
@@ -47,23 +40,25 @@ import { getErrorMessage } from '../shared/utils/error-utils.js';
 /**
  * Heap pruner configuration from environment variables
  * 
+ * ⚠️ DEPRECATED: This worker only handles legacy file cleanup.
+ * New heap snapshots are stored in engine-write.db, not as files.
+ * 
  * Note on env var naming:
- * - HEAP_SNAPSHOT_ON_STARTUP: Controls CREATION of snapshots (in src/index.ts)
- * - HEAP_SNAPSHOT_ENABLED: Controls PRUNING of snapshots (this worker)
- * These are independent — you can disable creation but keep pruning for existing files.
+ * - HEAP_SNAPSHOT_ON_STARTUP: DEPRECATED - no longer creates files
+ * - HEAP_SNAPSHOT_ENABLED: Controls PRUNING of legacy files (this worker)
  */
 const CONFIG = {
-  /** Master switch for pruner worker (default: enabled) */
+  /** Master switch for pruner worker (default: enabled for legacy cleanup) */
   enabled: process.env.HEAP_SNAPSHOT_ENABLED !== 'false',
   
-  /** Keep N most recent snapshots (default: 3) */
-  maxCount: parseInt(process.env.HEAP_SNAPSHOT_MAX_COUNT ?? '3', 10),
+  /** Keep N most recent snapshots (default: 0 - delete ALL legacy files) */
+  maxCount: parseInt(process.env.HEAP_SNAPSHOT_MAX_COUNT ?? '0', 10),
   
-  /** Delete snapshots older than N days (default: 7) */
-  maxAgeDays: parseInt(process.env.HEAP_SNAPSHOT_MAX_AGE_DAYS ?? '7', 10),
+  /** Delete snapshots older than N days (default: 0 - delete immediately) */
+  maxAgeDays: parseInt(process.env.HEAP_SNAPSHOT_MAX_AGE_DAYS ?? '0', 10),
   
-  /** Prune interval in milliseconds (default: 24 hours) */
-  pruneIntervalMs: parseInt(process.env.HEAP_SNAPSHOT_PRUNE_INTERVAL_MS ?? '86400000', 10),
+  /** Prune interval in milliseconds (default: 1 hour for faster cleanup) */
+  pruneIntervalMs: parseInt(process.env.HEAP_SNAPSHOT_PRUNE_INTERVAL_MS ?? '3600000', 10),
   
   /** Directory containing heap snapshots */
   storeDir: process.env.RENDER ? '/Store' : './Store',

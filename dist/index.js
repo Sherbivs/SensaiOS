@@ -1659,8 +1659,6 @@ export async function boot() {
         // MEMORY PROFILING: Capture detailed heap snapshot after startup
         try {
             const v8 = await import('node:v8');
-            const fs = await import('node:fs');
-            const path = await import('node:path');
             const heapStats = v8.getHeapStatistics();
             const mem = process.memoryUsage();
             // Log comprehensive memory breakdown
@@ -1687,26 +1685,39 @@ export async function boot() {
                     },
                 },
             });
-            // Capture heap snapshot to disk (production only, to avoid local pollution)
+            // DB-Only Policy: Store heap metrics in SQLite instead of writing raw .heapsnapshot files
+            // @see docs/projects/STORE-WRITE-ELIMINATION.md
             if (process.env.RENDER) {
-                const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-                const filename = `startup-heap-${timestamp}.heapsnapshot`;
-                const storeDir = '/Store';
-                const filepath = path.join(storeDir, filename);
                 try {
-                    fs.mkdirSync(storeDir, { recursive: true });
-                    const snapshotPath = v8.writeHeapSnapshot(filepath);
-                    const snapshotSize = fs.statSync(snapshotPath).size;
-                    log.info("index", "boot", "📸 Startup heap snapshot captured", {
-                        metadata: {
-                            filename,
-                            size_mb: bytesToMB(snapshotSize),
-                            location: storeDir,
-                        },
-                    });
+                    // Import the engine-write-db module to insert heap snapshot
+                    const engineWriteDb = await import('./services/database/engine-write-db.js');
+                    // Construct heap snapshot entry from collected metrics
+                    const heapSnapshotEntry = {
+                        capturedAt: new Date(),
+                        trigger: 'startup',
+                        // Process memory (from process.memoryUsage())
+                        rssBytes: mem.rss,
+                        heapTotalBytes: mem.heapTotal,
+                        heapUsedBytes: mem.heapUsed,
+                        externalBytes: mem.external,
+                        arrayBuffersBytes: mem.arrayBuffers,
+                        // V8 heap stats (from v8.getHeapStatistics())
+                        v8TotalHeapBytes: heapStats.total_heap_size,
+                        v8UsedHeapBytes: heapStats.used_heap_size,
+                        v8HeapLimitBytes: heapStats.heap_size_limit,
+                        v8MallocedBytes: heapStats.malloced_memory,
+                        v8ExternalBytes: heapStats.external_memory,
+                        // Computed analysis
+                        heapUtilizationPercent: (mem.heapUsed / mem.heapTotal) * 100,
+                        mysteryAllocationBytes: mem.rss - mem.heapTotal - mem.external,
+                    };
+                    await engineWriteDb.insertHeapSnapshot(heapSnapshotEntry);
+                    // Note: insertHeapSnapshot logs success internally
                 }
-                catch (fsErr) {
-                    log.warn("index", "boot", "Failed to write startup heap snapshot", { error: { name: 'HeapSnapshotError', message: getErrorMessage(fsErr) } });
+                catch (dbErr) {
+                    log.warn("index", "boot", "Failed to store heap snapshot in DB (non-critical)", {
+                        error: { name: 'HeapSnapshotDbError', message: getErrorMessage(dbErr) }
+                    });
                 }
             }
         }
