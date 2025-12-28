@@ -16,6 +16,7 @@ import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import pg from "pg";
 import crypto from "node:crypto";
+import { formatSectionHeader, formatKeyValueList, formatList, printSuccess, printError, printInfo, printWarning } from "../../src/utils/output-formatter.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const STORE_PATH = join(__dirname, "../../Store/security-bot-state");
@@ -38,15 +39,21 @@ interface MigrationStats {
 function log(message: string, options: MigrationOptions, level: "info" | "warn" | "error" | "success" | "verbose" = "info") {
   if (level === "verbose" && !options.verbose) return;
   
-  const prefix = {
-    info: "ℹ️ ",
-    warn: "⚠️ ",
-    error: "❌",
-    success: "✅",
-    verbose: "  ",
-  }[level];
-  
-  console.log(`${prefix} ${message}`);
+  switch (level) {
+    case "info":
+    case "verbose":
+      printInfo(message);
+      break;
+    case "warn":
+      printWarning(message);
+      break;
+    case "error":
+      printError(message);
+      break;
+    case "success":
+      printSuccess(message);
+      break;
+  }
 }
 
 function generateChecksum(data: string): string {
@@ -294,33 +301,32 @@ async function main() {
     }
   }
 
-  console.log("\n" + "═".repeat(63));
-  console.log("  Security State Migration - Direct PostgreSQL");
-  console.log("═".repeat(63) + "\n");
+  console.log(formatSectionHeader('Security State Migration - Direct PostgreSQL'));
+  console.log();
 
   try {
     const stats = await migrateDirect(options);
 
-    console.log("\n" + "═".repeat(63));
-    console.log("                 Migration Summary");
-    console.log("═".repeat(63) + "\n");
-    console.log(`  Role Audits:    ${stats.roleChanges.migrated}/${stats.roleChanges.total} migrated`);
-    console.log(`  Baselines:      ${stats.baselines.migrated}/${stats.baselines.total} migrated`);
-    console.log(`  Duration:       ${stats.duration.toFixed(2)}s`);
-    console.log(`  Errors:         ${stats.errors.length}\n`);
+    console.log(formatSectionHeader('Migration Summary'));
+    console.log();
+    console.log(formatKeyValueList([
+      ['Role Audits', `${stats.roleChanges.migrated}/${stats.roleChanges.total} migrated`],
+      ['Baselines', `${stats.baselines.migrated}/${stats.baselines.total} migrated`],
+      ['Duration', `${stats.duration.toFixed(2)}s`],
+      ['Errors', String(stats.errors.length)],
+    ]));
+    console.log();
 
     if (stats.errors.length > 0) {
-      console.log("Errors encountered:");
-      for (const error of stats.errors) {
-        console.log(`  - ${error}`);
-      }
+      printWarning('Errors encountered:');
+      console.log(formatList(stats.errors));
     }
 
-    console.log("\n✅ Migration complete. Rollback data saved.\n");
+    printSuccess('Migration complete. Rollback data saved.');
     process.exit(0);
   } catch (error: any) {
-    console.error("\n❌ Migration failed:", error.message);
-    console.error(error.stack);
+    printError(`Migration failed: ${error.message}`);
+    printError(error.stack);
     process.exit(1);
   }
 }
