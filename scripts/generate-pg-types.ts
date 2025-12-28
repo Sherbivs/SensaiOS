@@ -14,7 +14,7 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
-import { formatSectionHeader, formatKeyValueList, printSuccess, printError, printInfo } from '../src/utils/output-formatter.js';
+import { formatSectionHeader, formatKeyValueList, printSuccess, printError, printInfo } from './lib/output.js';
 
 // ============================================================================
 // Constants

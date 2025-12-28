@@ -17,7 +17,7 @@ import {
   printError,
   printWarning,
   printInfo,
-} from "../../src/utils/output-formatter.js";
+} from "../lib/output.js";
 
 /** Scoped logger for ONPREMISE-DEV-EXPERIMENT bootstrap operations */
 const log = scopedLogger('ops.bootstrap-experiment');
@@ -220,8 +220,8 @@ function findPgBinaries(): PgBinaries {
   if (!binDir) {
     printError("PostgreSQL binaries not found");
     console.log(formatKeyValueList([
-      { key: "Required", value: "Set PG_BIN_DIR environment variable" },
-      { key: "Example", value: "C:/Program Files/PostgreSQL/18/bin" },
+      ["Required", "Set PG_BIN_DIR environment variable"],
+      ["Example", "C:/Program Files/PostgreSQL/18/bin"],
     ]).join('\n'));
     process.exit(1);
   }
@@ -542,10 +542,10 @@ async function main(): Promise<void> {
   });
 
   console.log(formatKeyValueList([
-    { key: "Port", value: String(options.port) },
-    { key: "Source", value: options.source },
-    { key: "Store", value: paths.dbRoot },
-    { key: "Skip Start", value: String(options.skipStart) },
+    ["Port", String(options.port)],
+    ["Source", options.source],
+    ["Store", paths.dbRoot],
+    ["Skip Start", String(options.skipStart)],
   ]).join('\n'));
   console.log('');
 
@@ -554,13 +554,13 @@ async function main(): Promise<void> {
   if (!sourceUrl) {
     printError(`Source database URL not found for: ${options.source}`);
     console.log(formatKeyValueList([
-      { key: "Available Sources", value: "local, dev, prod, or postgresql:// URL" },
+      ["Available Sources", "local, dev, prod, or postgresql:// URL"],
     ]).join('\n'));
     console.log(formatList([
       "DATABASE_ONPREMISE_DEV_PRIMARY (for source=local)",
       "PROD_DATABASE_URL or RENDER_DB_EXTERNAL_URL (for source=dev)",
       "PROD_DATABASE_URL (for source=prod)",
-    ], "Required Environment Variables"));
+    ]).join('\n'));
     process.exit(1);
   }
 
@@ -591,10 +591,10 @@ async function main(): Promise<void> {
       printSection("Database Summary");
       const counts = await getRowCounts(binaries, options.port);
       console.log(formatKeyValueList(
-        Object.entries(counts).map(([table, count]) => ({
-          key: table,
-          value: `${count} rows`,
-        }))
+        Object.entries(counts).map(([table, count]): [string, string] => [
+          table,
+          `${count} rows`,
+        ])
       ).join('\n'));
 
       printSuccess("Experimental database bootstrap complete!");
@@ -609,12 +609,12 @@ async function main(): Promise<void> {
         "Test connection:\n     npm run db:cli -- count User --target experiment",
         `Test Phase 2 migration:\n     psql postgresql://postgres@127.0.0.1:${options.port}/infinity_gauntlet_experiment -f prisma/migrations/20251108183000_northstar_phase2_consolidation/migration.sql`,
         "Sync from primary local when needed:\n     npm run ops:sync-onpremise-experiment --from local",
-      ], ""));
+      ], { numbered: true }).join('\n'));
     } else {
       log.info('complete', 'Experimental cluster initialized (not started)', { port: options.port });
       printSuccess("Experimental cluster initialized (not started)");
       console.log(formatKeyValueList([
-        { key: "To start cluster", value: "npm run ops:start-onpremise-experiment" },
+        ["To start cluster", "npm run ops:start-onpremise-experiment"],
       ]).join('\n'));
     }
   } catch (err) {

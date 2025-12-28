@@ -16,7 +16,7 @@ import {
   printError,
   printWarning,
   printInfo,
-} from "../src/utils/output-formatter.js";
+} from "./lib/output.js";
 import {
   findAllTypes,
   countTable,
@@ -732,10 +732,10 @@ async function main(): Promise<void> {
 
   printSection("Seeding Complete");
   console.log(formatKeyValueList([
-    { key: "Species", value: String(speciesCount) },
-    { key: "Moves", value: String(moveCount) },
-    { key: "Abilities", value: String(abilityCount) },
-    { key: "Learnset Rows", value: String(learnsetCount) },
+    ["Species", String(speciesCount)],
+    ["Moves", String(moveCount)],
+    ["Abilities", String(abilityCount)],
+    ["Learnset Rows", String(learnsetCount)],
   ]).join('\n'));
   log.info("seed", "Dex seeding complete", {
     speciesCount,

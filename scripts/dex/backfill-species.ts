@@ -3,10 +3,10 @@ import { scopedLogger } from "../../src/observability/envelope/console.js";
 import { Prisma, PrismaClient } from "../../src/generated/prisma/client.js";
 import { PrismaPg } from "@prisma/adapter-pg";
 import pg from "pg";
-import { seedDex } from "./seed_reference.js";
+import { seedDex } from "./seed-reference.js";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
-import { printSuccess, printError, printInfo, printWarning } from "../../src/utils/output-formatter.js";
+import { printSuccess, printError, printInfo, printWarning } from "../lib/output.js";
 
 function createPrismaClient(): PrismaClient {
   const databaseUrl = process.env.PROD_DATABASE_URL || process.env.DATABASE_URL;

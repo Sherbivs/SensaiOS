@@ -696,8 +696,9 @@ const STATUS_LINE_DEDUPE_WINDOW_MS = 30_000; // 30 seconds
 /**
  * Check if a status line should be logged based on deduplication rules.
  * Returns true if the line should be logged, false if it's a duplicate within the time window.
+ * @remarks Currently unused, retained for future status line deduplication implementation.
  */
-function shouldLogStatusLine(statusKey) {
+function _shouldLogStatusLine(statusKey) {
     const now = Date.now();
     const cached = statusLineCache.get(statusKey);
     if (!cached) {
@@ -764,8 +765,9 @@ async function bootSecurityBot() {
 /**
  * Schedule automatic restart after 12 hours of uptime.
  * This helps maintain system health by periodically clearing memory and resetting connections.
+ * @deprecated Disabled 2025-12-28 per operator request - preserved for reference
  */
-function scheduleAutoRestart() {
+function _scheduleAutoRestart() {
     if (autoRestartTimer) {
         clearTimeout(autoRestartTimer);
     }
@@ -1712,12 +1714,13 @@ export async function boot() {
             log.warn("index", "boot", "Memory profiling failed", { error: { name: 'MemoryProfilingError', message: getErrorMessage(memErr) } });
         }
         // Schedule automatic restart every 12 hours (production only)
-        if (process.env.RENDER) {
-            scheduleAutoRestart();
-        }
-        else {
-            log.info("index", "boot", "⏰ Auto-restart disabled in local development");
-        }
+        // DISABLED 2025-12-28: Auto-restart no longer needed per operator request
+        // if (process.env.RENDER) {
+        //   scheduleAutoRestart();
+        // } else {
+        //   log.info("index", "boot", "⏰ Auto-restart disabled in local development");
+        // }
+        log.info("index", "boot", "⏰ Auto-restart disabled (manual restarts only)");
     }
     catch (error) {
         const message = getErrorMessage(error);

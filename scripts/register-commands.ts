@@ -25,7 +25,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { REST, Routes } from 'discord.js';
 import type { RESTPostAPIChatInputApplicationCommandsJSONBody } from 'discord.js';
-import { printError, printWarning, printSuccess, printInfo, formatSectionHeader, formatKeyValueList } from '../src/utils/output-formatter.js';
+import { printError, printWarning, printSuccess, printInfo, formatSectionHeader, formatKeyValueList } from './lib/output.js';
 
 // Token resolution with fallback chain
 const DISCORD_TOKEN: string | undefined =

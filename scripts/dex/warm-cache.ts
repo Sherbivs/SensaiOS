@@ -4,7 +4,7 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import pg from "pg";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
-import { printSuccess, printError, printInfo, printWarning } from "../../src/utils/output-formatter.js";
+import { printSuccess, printError, printInfo, printWarning } from "../lib/output.js";
 
 function createPrismaClient(): PrismaClient {
   const databaseUrl = process.env.PROD_DATABASE_URL || process.env.DATABASE_URL;
@@ -49,7 +49,7 @@ async function refreshSpeciesSheet() {
 async function refreshPokemonCache() {
   printInfo("Refreshing Pokemon cache artifacts…");
   try {
-    const cacheModule = await import("../refresh_cache.mjs");
+    const cacheModule = await import("../refresh-cache.mjs");
     if (typeof cacheModule.refresh !== "function") {
       throw new Error("refresh_cache.mjs did not export a refresh() helper");
     }
@@ -75,7 +75,7 @@ async function refreshPokemonCache() {
     }
 
     printWarning("Octokit not available; running fetch_pokemon.mjs directly.");
-    const fallback = await import("../fetch_pokemon.mjs");
+    const fallback = await import("../fetch-pokemon.mjs");
     if (typeof fallback.main !== "function") {
       throw new Error("fetch_pokemon.mjs did not export main()");
     }

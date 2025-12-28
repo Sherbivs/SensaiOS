@@ -6,7 +6,7 @@ import pg from "pg";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { printSuccess, printError, printInfo } from "../../src/utils/output-formatter.js";
+import { printSuccess, printError, printInfo } from "../lib/output.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);

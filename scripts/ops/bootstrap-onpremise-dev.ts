@@ -6,7 +6,7 @@ import process from "node:process";
 import { execFile, spawn } from "node:child_process";
 import * as dotenv from "dotenv";
 import { extractDatabaseName } from "../../src/shared/utils/url-utils.js";
-import { printWarning, printSuccess, printError, printInfo } from '../../src/utils/output-formatter.js';
+import { printWarning, printSuccess, printError, printInfo } from '../lib/output.js';
 
 const log = scopedLogger('ops.bootstrap-onpremise-dev');
 

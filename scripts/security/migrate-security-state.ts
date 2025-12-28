@@ -30,7 +30,7 @@ import { readFileSync, writeFileSync, existsSync, readdirSync } from 'fs';
 import { join, dirname, relative } from 'path';
 import { fileURLToPath } from 'url';
 import { createHash, createHmac } from 'crypto';
-import { formatSectionHeader, formatKeyValueList, formatList, printSuccess, printError, printWarning, printInfo } from '../../src/utils/output-formatter.js';
+import { formatSectionHeader, formatKeyValueList, formatList, printSuccess, printError, printWarning, printInfo } from '../lib/output.js';
 
 // Types for JSON source files
 interface JsonRoleChange {

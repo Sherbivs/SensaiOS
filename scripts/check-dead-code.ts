@@ -18,7 +18,7 @@
 import { execSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
-import { formatSectionHeader, formatKeyValueList, formatList, printSuccess, printError, printWarning, printInfo } from '../src/utils/output-formatter.js';
+import { formatSectionHeader, formatKeyValueList, formatList, printSuccess, printError, printWarning, printInfo } from './lib/output.js';
 
 // ============================================================================
 // Types

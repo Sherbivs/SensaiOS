@@ -831,8 +831,9 @@ const STATUS_LINE_DEDUPE_WINDOW_MS = 30_000; // 30 seconds
 /**
  * Check if a status line should be logged based on deduplication rules.
  * Returns true if the line should be logged, false if it's a duplicate within the time window.
+ * @remarks Currently unused, retained for future status line deduplication implementation.
  */
-function shouldLogStatusLine(statusKey: string): boolean {
+function _shouldLogStatusLine(statusKey: string): boolean {
   const now = Date.now();
   const cached = statusLineCache.get(statusKey);
   
@@ -912,8 +913,9 @@ async function bootSecurityBot(): Promise<Client | null> {
 /**
  * Schedule automatic restart after 12 hours of uptime.
  * This helps maintain system health by periodically clearing memory and resetting connections.
+ * @deprecated Disabled 2025-12-28 per operator request - preserved for reference
  */
-function scheduleAutoRestart(): void {
+function _scheduleAutoRestart(): void {
   if (autoRestartTimer) {
     clearTimeout(autoRestartTimer);
   }
