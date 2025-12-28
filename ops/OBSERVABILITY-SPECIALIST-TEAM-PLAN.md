@@ -20,6 +20,127 @@ Transform the current observability foundation into a **production-ready, operat
 
 ## 👥 Specialist Roles & Responsibilities
 
+### **Role 0: User Experience & Visual Simplification Specialist** ⭐ HIGHEST PRIORITY — THE BIGGEST TASK
+**Expertise:** CLI output design, log formatting, human-centered UX  
+**Primary Goal:** Remove ALL legacy technical jumble and make everything visually friendly for operators
+
+**Why This Is #1:** Observability tools are useless if operators can't understand them. Technical jargon, raw JSON, stack traces, and cryptic metric names prevent effective system monitoring. This role transforms everything into plain English with visual clarity.
+
+**Responsibilities:**
+- Audit all console output locations (scripts, services, workers)
+- Convert raw `console.log` to `output-formatter.ts` patterns (ASCII-safe, clean sections)
+- Translate dashboard labels from technical (`ig_memory_rss`) to plain English ("Memory Usage (MB)")
+- Add color coding to CLI outputs (green/yellow/red status indicators)
+- Reduce log noise by 85-90% (circuit breakers, Loki errors, duplicate lines)
+- Create visual status dashboard for at-a-glance health checks
+- Write operator guide explaining what outputs mean in plain language
+
+**Current Problems Blocking Operator Use:**
+- ❌ Raw JSON dumps (`console.log(JSON.stringify(obj))`) everywhere
+- ❌ Stack traces and debug noise polluting production logs
+- ❌ Cryptic metric names (`ig_memory_rss`, `ig_disk_used_percent`)
+- ❌ No color coding or visual hierarchy in CLI
+- ❌ Excessive log repetition (circuit breaker spam, Loki 404s × 30)
+- ❌ Dashboard panels labeled for developers not operators
+
+**Deliverables:**
+- `ops/CLI-VISUAL-AUDIT.md` — Inventory of console outputs (raw vs formatted)
+- `src/utils/visual-status.ts` — Color-coded status display module
+- `docs/operations-bible/reading-system-output.md` — Plain English operator guide
+- Updated `ops/grafana-unified-system-health.json` with translated labels
+- `scripts/migrate-console-to-formatter.ts` — Auto-conversion script
+
+**Task 1: CLI Output Audit**
+```powershell
+# Find raw console calls needing conversion
+grep -r "console\.log\|console\.info\|console\.error" --include="*.ts" --include="*.js" src/ scripts/ | wc -l
+
+# Find scripts already using output-formatter (examples)
+grep -r "printSection\|printKeyValue\|printSuccess" --include="*.ts" src/ scripts/
+```
+
+**Task 2: Convert Legacy Console to Visual Format**
+```typescript
+// ❌ BEFORE: Technical jumble
+console.log('Database connection established');
+console.log('Memory:', process.memoryUsage().rss, 'bytes');
+console.log('Errors:', JSON.stringify(errors));
+
+// ✅ AFTER: Operator-friendly visual format
+import { printSection, printKeyValue, printSuccess, printError } from '../utils/output-formatter.js';
+
+printSection('Database Status');
+printSuccess('Connection established');
+printKeyValue('Memory Usage', `${(process.memoryUsage().rss / 1024 / 1024).toFixed(1)} MB`);
+if (errors.length > 0) {
+  printError(`Found ${errors.length} errors - check logs`);
+} else {
+  printKeyValue('Errors', '✅ None');
+}
+```
+
+**Task 3: Dashboard Label Translation** 
+```json
+// ops/grafana-unified-system-health.json — Update ALL panels
+{
+  "title": "Memory Usage (MB)",  // ✅ Plain English
+  "description": "RAM used by the bot. Green (<1000 MB) = healthy, Yellow (1000-1500 MB) = high, Red (>1500 MB) = critical",
+  "targets": [{
+    "expr": "ig_memory_rss / 1024 / 1024",
+    "legendFormat": "Memory"  // ✅ Not "ig_memory_rss"
+  }]
+}
+```
+
+**Task 4: Add Color-Coded Status Outputs**
+```typescript
+// src/utils/visual-status.ts (CREATE THIS FILE)
+export const COLORS = {
+  green: '\x1b[32m',   // Good/healthy
+  yellow: '\x1b[33m',  // Warning/elevated
+  red: '\x1b[31m',     // Critical/danger
+  blue: '\x1b[34m',    // Info
+  reset: '\x1b[0m'
+};
+
+export function formatSystemHealth(metrics: HealthMetrics): string {
+  const memColor = metrics.memoryMB < 1000 ? COLORS.green : 
+                   metrics.memoryMB < 1500 ? COLORS.yellow : COLORS.red;
+  const diskColor = metrics.diskPercent < 75 ? COLORS.green :
+                    metrics.diskPercent < 85 ? COLORS.yellow : COLORS.red;
+  
+  return `
+╔════════════════════════════════════════╗
+║  INFINITY GAUNTLET — SYSTEM STATUS    ║
+╚════════════════════════════════════════╝
+
+[HEALTH]     ${metrics.errors === 0 ? '✅ ALL SYSTEMS GO' : '⚠️ ISSUES DETECTED'}
+[MEMORY]     ${memColor}${metrics.memoryMB} MB / 2048 MB (${Math.round(metrics.memoryMB/2048*100)}%)${COLORS.reset}
+[DISK]       ${diskColor}${metrics.diskPercent}% used (${metrics.diskMB} MB / 974 MB)${COLORS.reset}
+[DATABASE]   ${metrics.dbConnected ? '🟢 Connected' : '🔴 Disconnected'} (${metrics.dbLatencyMs}ms)
+[DISCORD]    ${metrics.discordReady ? '🟢 Ready' : '🔴 Offline'} (${metrics.guilds} guilds)
+[WORKERS]    ${metrics.workersRunning}/${metrics.workersTotal} running
+  `;
+}
+```
+
+**Task 5: Log Noise Reduction** (85-90% Complete — See `docs/logging-optimization-2025-12-26.md`)
+- ✅ Circuit breaker silent mode (suppress noisy state transitions)
+- ✅ Loki error suppression (log 1 in 60 failures instead of all)
+- ✅ Status line deduplication (30-second window)
+- 🟡 **Remaining:** Apply patterns to database retry logs, EventBus verbosity
+
+**Reality Check:**
+- ✅ `output-formatter.ts` exists (474 lines, 61 tests, Windows-compatible)
+- ✅ Logging optimization 85-90% complete
+- ✅ Status deduplication working
+- ❌ ~100+ raw `console.log` calls still in codebase
+- ❌ Dashboard labels still technical (`ig_*` metric names)
+- ❌ No CLI color coding yet
+- ❌ No visual status module yet
+
+---
+
 ### **Role 1: Alert Architect**
 **Expertise:** Grafana alerting, threshold tuning, notification routing  
 **Primary Goal:** Design and implement comprehensive alert rule system
@@ -862,12 +983,38 @@ When your phase is complete, sign off here:
 
 System is **PRODUCTION-READY** when:
 
-✅ Operator says: "I understand what I'm looking at"  
-✅ Operator says: "I know what to do when alerts fire"  
-✅ Operator says: "The system fixes most issues automatically"  
-✅ Operator says: "I feel confident using this without developer help"
+### 1. "I understand what I'm looking at" ⭐ VISUAL CLARITY IS #1
+✅ **NO TECHNICAL JARGON** — All labels in plain English ("Memory Usage" not "ig_memory_rss")  
+✅ **NO RAW JSON** — CLI outputs use clean sections and key-value pairs (`output-formatter.ts`)  
+✅ **NO STACK TRACES** — Logs show summaries, errors are readable  
+✅ **COLOR-CODED** — Dashboard and CLI use green/yellow/red (obvious meaning)  
+✅ **VISUAL HIERARCHY** — Important info stands out, noise suppressed  
+✅ **PLAIN-ENGLISH DESCRIPTIONS** — Every panel explains what it means and when to worry  
+✅ **LOGICAL ORGANIZATION** — Sections flow naturally (Health → Game → DB → Resources)  
+✅ **REDUCED LOG NOISE** — 85-90% less repetition (circuit breakers, Loki errors, duplicates)  
+✅ **GLANCEABLE STATUS** — Operator knows system health in <5 seconds
 
-**When all 4 statements are true → MISSION ACCOMPLISHED** 🎉
+### 2. "I know what to do when alerts fire"
+✅ Alert messages are clear ("Memory usage above 90%" not "ig_memory_rss threshold breach")  
+✅ Playbook exists with step-by-step actions  
+✅ Auto-remediation usually fixes issues automatically  
+✅ Escalation path documented if manual intervention needed
+
+### 3. "The system fixes most issues automatically"
+✅ Memory pressure → Auto GC triggered  
+✅ Disk full → Auto prune heap snapshots  
+✅ Queue backpressure → Auto drain old messages  
+✅ Circuit breaker → Auto block and recover  
+✅ 90%+ success rate for common issues
+
+### 4. "I feel confident using this without developer help"
+✅ Quick-start guide explains dashboard in 1 page (plain English)  
+✅ Alert playbooks have exact commands to run  
+✅ Common issues guide covers FAQs  
+✅ Training session delivered successfully  
+✅ Operator can troubleshoot without contacting developers
+
+**When all 4 criteria met → MISSION ACCOMPLISHED** 🎉
 
 ---
 
