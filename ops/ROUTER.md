@@ -35,13 +35,14 @@ Observability Dashboards (Grafana):
 - grafana-cache-performance.json — Legacy cache metrics (use unified instead)
 - grafana-timescaledb-dashboard.json — Legacy database metrics (use unified instead)
 
-Observability Documentation (moved to docs/operations-bible/):
-- See operations-bible/14-observability-specialist-team-plan.md — Specialist roles and implementation plan
-- See operations-bible/15-ux-visual-simplification-guide.md — CLI/log visual clarity transformation
-- See operations-bible/16-observability-implementation-summary.md — Completion summary
-- See operations-bible/17-dashboard-integration-plan.md — Dashboard consolidation strategy
-- See operations-bible/18-unified-dashboard-import-guide.md — Import instructions
-- See operations-bible/19-observability-delivery-summary.md — Initial delivery summary
+Observability Project Documentation:
+- See docs/projects/observability/ — Complete observability system implementation project
+  - specialist-team-plan.md — Team structure, roles, responsibilities
+  - ux-visual-simplification-guide.md — CLI/log visual clarity transformation
+  - implementation-summary.md — Project completion criteria
+  - dashboard-integration-plan.md — Dashboard consolidation strategy
+  - unified-dashboard-import-guide.md — Import instructions and verification
+  - delivery-summary.md — Initial delivery outcomes
 
 Subrouters:
 - ops/INBOX/ROUTER.md — Operator inbox staging area; sync with NEXT metadata before edits.
