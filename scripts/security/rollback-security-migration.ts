@@ -27,6 +27,7 @@ import { join, dirname, relative } from 'path';
 import { fileURLToPath } from 'url';
 import * as readline from 'readline';
 import { scopedLogger } from '../../src/observability/envelope/console.js';
+import { formatSectionHeader, formatKeyValueList, formatList, printSuccess, printError, printWarning, printInfo } from '../../src/utils/output-formatter.js';
 
 // Types
 interface RollbackData {
@@ -186,21 +187,12 @@ function loadRollbackData(): RollbackData | null {
 async function rollback(): Promise<void> {
   const options = parseArgs();
 
-  // eslint-disable-next-line no-console
-  console.log('\n');
-  // eslint-disable-next-line no-console
-  console.log('═══════════════════════════════════════════════════════════════');
-  // eslint-disable-next-line no-console
-  console.log('       Security State Rollback — PostgreSQL → JSON');
-  // eslint-disable-next-line no-console
-  console.log('═══════════════════════════════════════════════════════════════');
-  // eslint-disable-next-line no-console
-  console.log('\n');
+  console.log(formatSectionHeader('Security State Rollback — PostgreSQL → JSON'));
 
-  log(`Target: ${options.target.toUpperCase()}`, options);
-  log(`Mode: ${options.dryRun ? 'DRY RUN (no changes)' : 'LIVE'}`, options);
-  // eslint-disable-next-line no-console
-  console.log('\n');
+  console.log(formatKeyValueList([
+    ['Target', options.target.toUpperCase()],
+    ['Mode', options.dryRun ? 'DRY RUN (no changes)' : 'LIVE'],
+  ]));
 
   // Initialize stats
   const stats: RollbackStats = {
@@ -214,12 +206,7 @@ async function rollback(): Promise<void> {
   // ─────────────────────────────────────────────────────────────────────────
   // Phase 1: Load rollback data
   // ─────────────────────────────────────────────────────────────────────────
-  // eslint-disable-next-line no-console
-  console.log('┌─────────────────────────────────────────────────────────────┐');
-  // eslint-disable-next-line no-console
-  console.log('│  Phase 1: Loading Rollback Data                             │');
-  // eslint-disable-next-line no-console
-  console.log('└─────────────────────────────────────────────────────────────┘');
+  printInfo('Phase 1: Loading Rollback Data');
 
   const rollbackData = loadRollbackData();
 
@@ -228,8 +215,6 @@ async function rollback(): Promise<void> {
     log('Expected rollback data file missing', options, 'info', {
       relativePath: toRelativePath(ROLLBACK_DATA_FILE),
     });
-    // eslint-disable-next-line no-console
-    console.log('\n');
     return;
   }
 
@@ -254,46 +239,28 @@ async function rollback(): Promise<void> {
     options,
     'info'
   );
-  // eslint-disable-next-line no-console
-  console.log('\n');
 
   // ─────────────────────────────────────────────────────────────────────────
   // Phase 2: Confirmation
   // ─────────────────────────────────────────────────────────────────────────
   if (!options.force && !options.dryRun) {
-    // eslint-disable-next-line no-console
-    console.log('┌─────────────────────────────────────────────────────────────┐');
-    // eslint-disable-next-line no-console
-    console.log('│  Phase 2: Confirmation                                      │');
-    // eslint-disable-next-line no-console
-    console.log('└─────────────────────────────────────────────────────────────┘');
+    printInfo('Phase 2: Confirmation');
 
-    // eslint-disable-next-line no-console
-    console.log('\n⚠️  WARNING: This will DELETE migrated records from the database.');
-    // eslint-disable-next-line no-console
-    console.log('   Original JSON files will NOT be modified.\n');
+    printWarning('This will DELETE migrated records from the database.');
+    printInfo('Original JSON files will NOT be modified.');
 
     const confirmed = await confirm('Proceed with rollback?');
 
     if (!confirmed) {
       log('Rollback cancelled by user.', options, 'warn');
-      // eslint-disable-next-line no-console
-      console.log('\n');
       return;
     }
-    // eslint-disable-next-line no-console
-    console.log('\n');
   }
 
   // ─────────────────────────────────────────────────────────────────────────
   // Phase 3: Database rollback
   // ─────────────────────────────────────────────────────────────────────────
-  // eslint-disable-next-line no-console
-  console.log('┌─────────────────────────────────────────────────────────────┐');
-  // eslint-disable-next-line no-console
-  console.log('│  Phase 3: Database Rollback                                  │');
-  // eslint-disable-next-line no-console
-  console.log('└─────────────────────────────────────────────────────────────┘');
+  printInfo('Phase 3: Database Rollback');
 
   if (options.dryRun) {
     log('DRY RUN MODE - No database changes', options, 'info');
@@ -401,18 +368,10 @@ async function rollback(): Promise<void> {
     }
   }
 
-  // eslint-disable-next-line no-console
-  console.log('\n');
-
   // ─────────────────────────────────────────────────────────────────────────
   // Phase 4: Cleanup
   // ─────────────────────────────────────────────────────────────────────────
-  // eslint-disable-next-line no-console
-  console.log('┌─────────────────────────────────────────────────────────────┐');
-  // eslint-disable-next-line no-console
-  console.log('│  Phase 4: Cleanup                                            │');
-  // eslint-disable-next-line no-console
-  console.log('└─────────────────────────────────────────────────────────────┘');
+  printInfo('Phase 4: Cleanup');
 
   if (options.dryRun) {
     log('DRY RUN - Would remove marker files', options, 'info');
@@ -455,60 +414,34 @@ async function rollback(): Promise<void> {
     log(`Rollback marker created: ${ROLLBACK_COMPLETE_FILE}`, options);
   }
 
-  // eslint-disable-next-line no-console
-  console.log('\n');
-
   // ─────────────────────────────────────────────────────────────────────────
   // Summary
   // ─────────────────────────────────────────────────────────────────────────
   stats.completedAt = new Date();
   stats.durationMs = stats.completedAt.getTime() - stats.startedAt.getTime();
 
-  // eslint-disable-next-line no-console
-  console.log('═══════════════════════════════════════════════════════════════');
-  // eslint-disable-next-line no-console
-  console.log('                     Rollback Summary                           ');
-  // eslint-disable-next-line no-console
-  console.log('═══════════════════════════════════════════════════════════════');
-  // eslint-disable-next-line no-console
-  console.log('\n');
-  // eslint-disable-next-line no-console
-  console.log(`  Role Audits:    ${stats.roleChanges} deleted`);
-  // eslint-disable-next-line no-console
-  console.log(`  Baselines:      ${stats.baselines} deleted`);
-  // eslint-disable-next-line no-console
-  console.log(`  Events:         ${stats.events} deleted`);
-  // eslint-disable-next-line no-console
-  console.log(`  Duration:       ${(stats.durationMs / 1000).toFixed(2)}s`);
-  // eslint-disable-next-line no-console
-  console.log(`  Errors:         ${stats.errors.length}`);
-  // eslint-disable-next-line no-console
-  console.log('\n');
+  console.log(formatSectionHeader('Rollback Summary'));
+  console.log(formatKeyValueList([
+    ['Role Audits', `${stats.roleChanges} deleted`],
+    ['Baselines', `${stats.baselines} deleted`],
+    ['Events', `${stats.events} deleted`],
+    ['Duration', `${(stats.durationMs / 1000).toFixed(2)}s`],
+    ['Errors', String(stats.errors.length)],
+  ]));
 
   if (stats.errors.length > 0) {
-    // eslint-disable-next-line no-console
-    console.log('Errors encountered:');
-    for (const error of stats.errors.slice(0, 10)) {
-      // eslint-disable-next-line no-console
-      console.log(`  - ${error}`);
-    }
+    printError('Errors encountered:');
+    console.log(formatList(stats.errors.slice(0, 10)));
     if (stats.errors.length > 10) {
-      // eslint-disable-next-line no-console
-      console.log(`  ... and ${stats.errors.length - 10} more`);
+      printInfo(`... and ${stats.errors.length - 10} more`);
     }
-    // eslint-disable-next-line no-console
-    console.log('\n');
   }
 
   if (options.dryRun) {
-    // eslint-disable-next-line no-console
-    console.log('💡 This was a DRY RUN. Run without --dry-run to perform rollback.');
+    printInfo('This was a DRY RUN. Run without --dry-run to perform rollback.');
   } else {
-    // eslint-disable-next-line no-console
-    console.log('✅ Rollback complete. You can now re-run migration if needed.');
+    printSuccess('Rollback complete. You can now re-run migration if needed.');
   }
-  // eslint-disable-next-line no-console
-  console.log('\n');
 }
 
 // Run rollback
@@ -516,7 +449,6 @@ rollback().catch((error) => {
   envelopeLog.error('rollback', 'Rollback failed with error', {
     error: formatError(error),
   });
-  // eslint-disable-next-line no-console
-  console.error('❌ Rollback failed with error:', error);
+  printError(`Rollback failed with error: ${error}`);
   process.exit(1);
 });

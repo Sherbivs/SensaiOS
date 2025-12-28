@@ -32,6 +32,7 @@ import { join, dirname, relative } from 'path';
 import { fileURLToPath } from 'url';
 import { createHash, createHmac } from 'crypto';
 import { scopedLogger } from '../../src/observability/envelope/console.js';
+import { formatSectionHeader, formatKeyValueList, formatList, printSuccess, printError, printWarning, printInfo } from '../../src/utils/output-formatter.js';
 
 // Types for JSON source files
 interface JsonRoleChange {
@@ -573,24 +574,20 @@ function createMigrationMarker(
 async function migrate(): Promise<void> {
   const options = parseArgs();
 
-  console.log('\n');
-  console.log('═══════════════════════════════════════════════════════════════');
-  console.log('       Security State Migration — JSON → PostgreSQL');
-  console.log('═══════════════════════════════════════════════════════════════');
-  console.log('\n');
+  console.log(formatSectionHeader('Security State Migration — JSON → PostgreSQL'));
 
-  log(`Target: ${options.target.toUpperCase()}`, options);
-  log(`Mode: ${options.dryRun ? 'DRY RUN (no writes)' : 'LIVE'}`, options);
-  log(`Batch Size: ${options.batchSize}`, options);
-  log(`Verify: ${options.verify ? 'Yes' : 'No'}`, options);
-  console.log('\n');
+  console.log(formatKeyValueList([
+    ['Target', options.target.toUpperCase()],
+    ['Mode', options.dryRun ? 'DRY RUN (no writes)' : 'LIVE'],
+    ['Batch Size', String(options.batchSize)],
+    ['Verify', options.verify ? 'Yes' : 'No'],
+  ]));
 
   // Check for existing migration
   if (existsSync(MIGRATION_MARKER_FILE) && !options.dryRun) {
-    console.warn('⚠️  Migration marker found. Data may already be migrated.');
-    console.warn('   Run rollback first if you want to re-migrate.');
-    console.warn(`   Marker: ${MIGRATION_MARKER_FILE}`);
-    console.log('\n');
+    printWarning('Migration marker found. Data may already be migrated.');
+    printWarning('Run rollback first if you want to re-migrate.');
+    printInfo(`Marker: ${MIGRATION_MARKER_FILE}`);
   }
 
   // Initialize stats
@@ -605,9 +602,7 @@ async function migrate(): Promise<void> {
   // ─────────────────────────────────────────────────────────────────────────
   // Phase 1: Load source data
   // ─────────────────────────────────────────────────────────────────────────
-  console.log('┌─────────────────────────────────────────────────────────────┐');
-  console.log('│  Phase 1: Loading Source Data                               │');
-  console.log('└─────────────────────────────────────────────────────────────┘');
+  printInfo('Phase 1: Loading Source Data');
 
   const roleChanges = loadRoleChanges();
   stats.roleChanges.total = roleChanges.length;
@@ -627,14 +622,11 @@ async function migrate(): Promise<void> {
   // Extract unique guilds for baseline creation
   const uniqueGuilds = extractUniqueGuilds(roleChanges);
   log(`Unique guilds found: ${uniqueGuilds.size}`, options, 'success');
-  console.log('\n');
 
   // ─────────────────────────────────────────────────────────────────────────
   // Phase 2: Transform data
   // ─────────────────────────────────────────────────────────────────────────
-  console.log('┌─────────────────────────────────────────────────────────────┐');
-  console.log('│  Phase 2: Transforming Data                                 │');
-  console.log('└─────────────────────────────────────────────────────────────┘');
+  printInfo('Phase 2: Transforming Data');
 
   // Transform role changes with hash chain
   const transformedRoleChanges: Array<{
@@ -692,14 +684,11 @@ async function migrate(): Promise<void> {
     options,
     'success'
   );
-  console.log('\n');
 
   // ─────────────────────────────────────────────────────────────────────────
   // Phase 3: Write to database (or preview)
   // ─────────────────────────────────────────────────────────────────────────
-  console.log('┌─────────────────────────────────────────────────────────────┐');
-  console.log('│  Phase 3: Database Operations                               │');
-  console.log('└─────────────────────────────────────────────────────────────┘');
+  printInfo('Phase 3: Database Operations');
 
   if (options.dryRun) {
     log('DRY RUN MODE - No database writes', options, 'info');
@@ -841,9 +830,7 @@ async function migrate(): Promise<void> {
   // Phase 4: Verification (optional)
   // ─────────────────────────────────────────────────────────────────────────
   if (options.verify && !options.dryRun) {
-    console.log('┌─────────────────────────────────────────────────────────────┐');
-    console.log('│  Phase 4: Data Verification                                 │');
-    console.log('└─────────────────────────────────────────────────────────────┘');
+    printInfo('Phase 4: Data Verification');
 
     try {
       const { prisma, onPremiseDevPrisma } = await import(
@@ -886,8 +873,6 @@ async function migrate(): Promise<void> {
     } catch (error) {
       log(`Verification failed: ${error}`, options, 'error');
     }
-
-    console.log('\n');
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -896,34 +881,28 @@ async function migrate(): Promise<void> {
   stats.completedAt = new Date();
   stats.durationMs = stats.completedAt.getTime() - stats.startedAt.getTime();
 
-  console.log('═══════════════════════════════════════════════════════════════');
-  console.log('                     Migration Summary                          ');
-  console.log('═══════════════════════════════════════════════════════════════');
-  console.log('\n');
-  console.log(`  Role Audits:    ${stats.roleChanges.migrated}/${stats.roleChanges.total} migrated`);
-  console.log(`  Baselines:      ${stats.baselines.migrated}/${stats.baselines.total} migrated`);
-  console.log(`  Events:         ${stats.events.migrated}/${stats.events.total} migrated`);
-  console.log(`  Duration:       ${(stats.durationMs / 1000).toFixed(2)}s`);
-  console.log(`  Errors:         ${stats.errors.length}`);
-  console.log('\n');
+  console.log(formatSectionHeader('Migration Summary'));
+  console.log(formatKeyValueList([
+    ['Role Audits', `${stats.roleChanges.migrated}/${stats.roleChanges.total} migrated`],
+    ['Baselines', `${stats.baselines.migrated}/${stats.baselines.total} migrated`],
+    ['Events', `${stats.events.migrated}/${stats.events.total} migrated`],
+    ['Duration', `${(stats.durationMs / 1000).toFixed(2)}s`],
+    ['Errors', String(stats.errors.length)],
+  ]));
 
   if (stats.errors.length > 0) {
-    console.log('Errors encountered:');
-    for (const error of stats.errors.slice(0, 10)) {
-      console.log(`  - ${error}`);
-    }
+    printError('Errors encountered:');
+    console.log(formatList(stats.errors.slice(0, 10)));
     if (stats.errors.length > 10) {
-      console.log(`  ... and ${stats.errors.length - 10} more`);
+      printInfo(`... and ${stats.errors.length - 10} more`);
     }
-    console.log('\n');
   }
 
   if (options.dryRun) {
-    console.log('💡 This was a DRY RUN. Run without --dry-run to perform migration.');
+    printInfo('This was a DRY RUN. Run without --dry-run to perform migration.');
   } else {
-    console.log('✅ Migration complete. Rollback data saved.');
+    printSuccess('Migration complete. Rollback data saved.');
   }
-  console.log('\n');
 }
 
 // Run migration
@@ -931,6 +910,6 @@ migrate().catch((error) => {
   envelopeLog.error('migration', 'Migration failed with error', {
     error: formatError(error),
   });
-  console.error('❌ Migration failed with error:', error);
+  printError(`Migration failed with error: ${error}`);
   process.exit(1);
 });
