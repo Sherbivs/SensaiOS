@@ -6,6 +6,7 @@ import { seedDex } from "./seed_reference.js";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { scopedLogger } from "../../src/observability/envelope/console.js";
+import { printSuccess, printError, printInfo, printWarning } from "../../src/utils/output-formatter.js";
 
 function createPrismaClient(): PrismaClient {
   const databaseUrl = process.env.PROD_DATABASE_URL || process.env.DATABASE_URL;
@@ -101,8 +102,8 @@ async function main() {
     prisma.encounter.count(),
   ]);
 
-  console.log(`PokemonInstance rows: ${pokemonInstances}`);
-  console.log(`Encounter rows: ${encounters}`);
+  printInfo(`PokemonInstance rows: ${pokemonInstances}`);
+  printInfo(`Encounter rows: ${encounters}`);
 
   const missingBefore = await collectMissingSpeciesIds();
   if (missingBefore.size === 0) {
@@ -110,10 +111,10 @@ async function main() {
       pokemonInstances,
       encounters,
     });
-    console.log("All rows already reference seeded species. Nothing to backfill.");
+    printInfo("All rows already reference seeded species. Nothing to backfill.");
     if (!options.dryRun) {
       await refreshSpeciesSheet();
-      console.log("✅ Species references validated and materialized view refreshed.");
+      printSuccess("Species references validated and materialized view refreshed.");
       log.info("backfill", "Species references validated and view refreshed");
     }
     return;
@@ -122,11 +123,11 @@ async function main() {
   log.warn("backfill", "Missing species references detected", {
     missingCount: missingBefore.size,
   });
-  console.log(`Found ${missingBefore.size} species IDs missing from the reference tables: ${[...missingBefore].join(", ")}`);
+  printWarning(`Found ${missingBefore.size} species IDs missing from the reference tables: ${[...missingBefore].join(", ")}`);
 
   if (options.dryRun) {
     log.info("backfill", "Dry run enabled; exiting without changes");
-    console.log("Dry run enabled. Exiting without changes.");
+    printInfo("Dry run enabled. Exiting without changes.");
     process.exitCode = 1;
     return;
   }
@@ -135,7 +136,7 @@ async function main() {
     throw new Error("Missing species detected. Re-run with --seed-missing to import canonical rows before enforcing FKs.");
   }
 
-  console.log("Seeding missing species from bootstrap data…");
+  printInfo("Seeding missing species from bootstrap data…");
   log.info("backfill", "Seeding missing species from bootstrap data", {
     missingCount: missingBefore.size,
   });
@@ -147,7 +148,7 @@ async function main() {
   }
 
   await refreshSpeciesSheet();
-  console.log("✅ Species backfill complete. All references now point at seeded species.");
+  printSuccess("Species backfill complete. All references now point at seeded species.");
   log.info("backfill", "Species backfill complete", {
     missingResolved: missingBefore.size,
   });

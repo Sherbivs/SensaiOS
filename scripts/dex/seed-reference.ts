@@ -6,6 +6,7 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { scopedLogger } from "../../src/observability/envelope/console.js";
+import { printSuccess, printError, printInfo } from "../../src/utils/output-formatter.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -451,7 +452,7 @@ export async function seedDex(options: SeedOptions = {}) {
     log.info("seed", "No dex entries matched the requested filter", {
       requestedIds: requestedIds ? requestedIds.size : 0,
     });
-    console.log("No dex entries matched the requested filter. Nothing to seed.");
+    printInfo("No dex entries matched the requested filter. Nothing to seed.");
     return;
   }
 
@@ -477,31 +478,31 @@ export async function seedDex(options: SeedOptions = {}) {
     learnset
   );
 
-  console.log(`Seeding ${typeRecords.length} types…`);
+  printInfo(`Seeding ${typeRecords.length} types…`);
   await prisma.type.createMany({ data: typeRecords, skipDuplicates: true });
 
-  console.log(`Seeding ${abilityRecords.length} abilities…`);
+  printInfo(`Seeding ${abilityRecords.length} abilities…`);
   await prisma.ability.createMany({ data: abilityRecords, skipDuplicates: true });
 
-  console.log(`Seeding ${moveRecords.length} moves…`);
+  printInfo(`Seeding ${moveRecords.length} moves…`);
   await createManyChunked(prisma.move, moveRecords, 300);
 
-  console.log(`Seeding ${typeChart.length} type chart entries…`);
+  printInfo(`Seeding ${typeChart.length} type chart entries…`);
   await createManyChunked(prisma.typeChart, typeChart, 500);
 
-  console.log(`Seeding ${species.length} species…`);
+  printInfo(`Seeding ${species.length} species…`);
   await createManyChunked(prisma.species, species, 200);
 
-  console.log(`Seeding ${filteredTypes.length} species type records…`);
+  printInfo(`Seeding ${filteredTypes.length} species type records…`);
   await createManyChunked(prisma.speciesType, filteredTypes, 500);
 
-  console.log(`Seeding ${filteredAbilities.length} species abilities…`);
+  printInfo(`Seeding ${filteredAbilities.length} species abilities…`);
   await createManyChunked(prisma.speciesAbility, filteredAbilities, 500);
 
-  console.log(`Seeding ${filteredLearnset.length} learnset entries…`);
+  printInfo(`Seeding ${filteredLearnset.length} learnset entries…`);
   await createManyChunked(prisma.speciesLearnset, filteredLearnset, 500);
 
-  console.log("✅ Dex reference seeding complete.");
+  printSuccess("Dex reference seeding complete.");
   log.info("seed", "Dex reference seeding complete", {
     types: typeRecords.length,
     abilities: abilityRecords.length,
@@ -526,7 +527,7 @@ if (isDirectExecution) {
       error: message,
       stack: error instanceof Error ? error.stack : undefined,
     });
-    console.error("Dex seeding failed:", error);
+    printError(`Dex seeding failed: ${message}`);
     process.exitCode = 1;
   });
 }
