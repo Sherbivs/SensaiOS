@@ -26,6 +26,12 @@ Single source of truth for Infinity Gauntlet operational procedures, deployment 
 11. **[Logging Storage](11-logging-storage.md)** — Log buffer configuration, storage limits, rotation policies
 12. **[Analytics Queries](12-analytics-queries.md)** — Common database queries, performance analytics, monitoring queries
 13. **[Memory Management](13-memory-management.md)** — **[CRITICAL]** Memory safety audit, bounded data structures, resource limits
+14. **[Observability Specialist Team Plan](14-observability-specialist-team-plan.md)** — Comprehensive specialist roles, implementation phases, operator-friendly system design
+15. **[UX Visual Simplification Guide](15-ux-visual-simplification-guide.md)** — CLI/log transformation, plain-English outputs, color-coded status, 85-90% noise reduction
+16. **[Observability Implementation Summary](16-observability-implementation-summary.md)** — Completion criteria, deliverables, validation checklist
+17. **[Dashboard Integration Plan](17-dashboard-integration-plan.md)** — Grafana dashboard consolidation strategy, migration from 5 fragmented dashboards
+18. **[Unified Dashboard Import Guide](18-unified-dashboard-import-guide.md)** — Step-by-step import instructions, metric verification, troubleshooting
+19. **[Observability Delivery Summary](19-observability-delivery-summary.md)** — Initial delivery summary, dashboard creation, documentation deliverables
 
 ---
 
