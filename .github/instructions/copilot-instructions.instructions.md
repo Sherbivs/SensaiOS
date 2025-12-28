@@ -29,6 +29,67 @@ Pokemon Infinity Gauntlet is a Discord-first Pokemon adventure with **private gu
 - **Engine Terms:** PBSL, Dexpack, Engine Read-DB, Engine Write-DB, L1 Cache
 - **Enforcement:** Code review, AI assistants, documentation standards
 
+## Sensai OS Architecture (v1.1.2)
+
+**Sensai is the standard operating system for Pokémon Infinity Gauntlet.** It's a database-first runtime that makes PostgreSQL behave as the system substrate.
+
+### The Golden Invariant
+```
+CLIENTS APPEND EXPORTS.
+WORKERS TRANSFORM EXPORTS.
+POSTGRES IS THE TRUTH.
+EVERYTHING ELSE IS A VIEW.
+```
+
+### v1.1.2 Mandatory Patterns
+All new development MUST implement these patterns:
+
+1. **TenantScope** — Every envelope carries `{ tenantId, guildId }`:
+```typescript
+interface TenantScope {
+  tenantId: string;  // Bot instance ("prod", "staging")
+  guildId: string;   // Discord guild ID
+}
+```
+
+2. **runGuarded()** — All handlers wrapped for observability:
+```typescript
+export const handleCommand = runGuarded(
+  'discord.battle.command',
+  async (ctx, interaction) => { /* handler code */ }
+);
+```
+
+3. **SensaiError** — Typed error taxonomy (1xxx-6xxx codes):
+   - 1xxx = Kernel, 2xxx = Database, 3xxx = Component
+   - 4xxx = Validation, 5xxx = External, 6xxx = Game
+
+4. **Boot Logger** — Observability starts BEFORE database connection
+
+### Component Communication
+Components NEVER call handlers directly. They communicate via:
+- **Exports** — Immutable facts (append-only event log)
+- **Jobs** — Background work with retry semantics
+- **Outbox** — External side effects (Discord messages)
+
+### Kernel Primitives
+Every component receives `ComponentContext` with:
+- `ctx.db` — Database transactions
+- `ctx.exports` — Append-only event log (with TenantScope)
+- `ctx.jobs` — Background job queue (with TenantScope)
+- `ctx.outbox` — External message delivery (with TenantScope)
+- `ctx.obs` — Structured logging + metrics
+- `ctx.rng` — Deterministic RNG service
+- `ctx.rbac` — Role-based access control
+- `ctx.config` — Configuration + feature flags
+- `ctx.storage` — Database-backed object store
+
+### Reference Documentation
+- **Full Specification:** docs/projects/SENSAI-FINAL-ARCHITECTURE.md
+- **v1.1.2 Patterns:** docs/projects/SENSAI-MULTITENANT-OBS-FIRST-ADDENDUM.md
+- **Quick Reference:** docs/projects/SENSAI-QUICK-REFERENCE.md
+- **AI Instructions:** .github/instructions/sensai.instructions.md
+
 ## Critical: Start Here Before Any Work
 
 ### Orientation Flow (Required Reading)
@@ -186,4 +247,4 @@ $r.data.result | ForEach-Object { $_.values.Count }  # Log count per stream
 
 ---
 
-**Last Updated:** 2025-12-20 | **Revision:** 3.3 — Added NO-RESTART policy and Loki observability
+**Last Updated:** 2025-12-28 | **Revision:** 3.4 — Added Sensai OS v1.1.2 architecture section

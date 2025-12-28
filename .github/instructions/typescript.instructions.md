@@ -111,6 +111,88 @@ const user = await prisma.user.findUnique({
 
 ## Architecture Integration
 
+### Sensai OS Patterns (v1.1.2)
+
+When building Sensai components, follow these TypeScript patterns:
+
+#### Handler Registration with runGuarded
+```typescript
+import { runGuarded } from '../kernel/guarded.js';
+import type { ComponentContext } from '../sensai/types/kernel.js';
+import type { CommandInteraction } from 'discord.js';
+
+// ✅ CORRECT: All handlers wrapped with runGuarded
+export const handleBattle = runGuarded(
+  'game.battle.command',
+  async (ctx: ComponentContext, interaction: CommandInteraction) => {
+    // ctx provides all kernel primitives
+    // Automatic correlation ID, error capture, timing metrics
+    const battle = await ctx.db.transaction(async (tx) => {
+      return tx.battle.create({ data: { ... } });
+    });
+    
+    ctx.obs.log.info('Battle created', { battleId: battle.id });
+  }
+);
+```
+
+#### TenantScope in Envelopes
+```typescript
+import type { TenantScope, ExportEnvelope } from '../sensai/types/kernel.js';
+
+// Every envelope MUST include scope
+const scope: TenantScope = {
+  tenantId: ctx.tenantId,    // Bot instance ("prod", "staging")
+  guildId: interaction.guildId!  // Discord guild ID
+};
+
+await ctx.exports.append({
+  source: 'game.battles',
+  type: 'battle.completed',
+  scope,  // ← MANDATORY
+  idempotencyKey: `battle-${battleId}`,
+  payload: { battleId, winnerId },
+  occurredAt: new Date(),
+  correlationId: ctx.obs.correlationId,
+});
+```
+
+#### SensaiError Typed Errors
+```typescript
+import { SensaiError } from '../kernel/errors.js';
+
+// Error code ranges:
+// 1xxx = Kernel, 2xxx = Database, 3xxx = Component
+// 4xxx = Validation, 5xxx = External, 6xxx = Game
+
+throw new SensaiError({
+  code: 6001,
+  message: 'Invalid battle state transition',
+  context: { battleId, currentState, attemptedState },
+  cause: originalError,  // Optional
+});
+```
+
+#### Component Primitives Access
+```typescript
+// ctx.db - Database transactions
+const user = await ctx.db.prisma.user.findUnique({ where: { discordId } });
+
+// ctx.rng - Deterministic RNG (NEVER use Math.random())
+const rng = ctx.rng.derive(['battle', battleId, 'damage']);
+const critRoll = rng.random();
+
+// ctx.obs - Observability with automatic correlation
+ctx.obs.log.info('Damage calculated', { base, crit: critRoll < 0.0625 });
+ctx.obs.metrics.inc('battle.damage.calculated');
+
+// ctx.storage - DB-backed storage (NEVER use fs.writeFile)
+const snapshotId = await ctx.storage.putObject({
+  type: 'battle-snapshot',
+  data: battleState
+});
+```
+
 ### Service Registry
 ```typescript
 // Register services at startup

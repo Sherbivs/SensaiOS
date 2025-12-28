@@ -4,15 +4,17 @@ applyTo: '**'
 
 # Sensai OS Instructions — Pokémon Infinity Gauntlet
 
-**Version:** 1.1.0  
+**Version:** 1.2.0  
 **Status:** ACTIVE — Standard Operating System  
 **Authority:** Project Leadership (DRIPTVDD)
 
-> **v1.1.2 Addendum:** See `docs/projects/SENSAI-MULTITENANT-OBS-FIRST-ADDENDUM.md` for:
-> - Multi-tenant scope (tenantId + guildId) as mandatory envelope field
-> - Observability-first boot sequence (logging before DB connect)
-> - Guarded execution (`runGuarded()`) for all handlers
-> - Typed error taxonomy (`SensaiError`)
+> **v1.1.2 Patterns (MANDATORY):** All development MUST implement:
+> - **TenantScope** — `{ tenantId, guildId }` in every envelope
+> - **runGuarded()** — All handlers wrapped for observability + error capture
+> - **SensaiError** — Typed error taxonomy (codes 1xxx-6xxx)
+> - **Boot Logger** — Observability starts BEFORE database connection
+>
+> **Full Specification:** `docs/projects/SENSAI-MULTITENANT-OBS-FIRST-ADDENDUM.md`
 
 ---
 
@@ -62,6 +64,142 @@ This is the **ONE RULE** that makes the entire architecture work.
 
 ---
 
+## 🆕 v1.1.2 PATTERNS (MANDATORY FOR ALL NEW CODE)
+
+### TenantScope — Multi-Tenant Context
+
+Every envelope, log entry, and metric MUST include tenant scope:
+
+```typescript
+/** TenantScope is MANDATORY in all envelopes */
+interface TenantScope {
+  tenantId: string;   // Bot instance identifier (e.g., "prod", "staging")
+  guildId: string;    // Discord guild ID
+}
+
+/** Example envelope with scope */
+interface ExportEnvelope {
+  source: string;
+  type: string;
+  scope: TenantScope;           // ← MANDATORY
+  idempotencyKey: string;
+  payload: unknown;
+  occurredAt: Date;
+  correlationId: string;
+}
+
+// Usage in handlers
+await ctx.exports.append({
+  source: 'game.battles',
+  type: 'battle.completed',
+  scope: { tenantId: ctx.tenantId, guildId: interaction.guildId! },
+  idempotencyKey: `battle-${battleId}`,
+  payload: { battleId, winnerId, loserId },
+  occurredAt: new Date(),
+  correlationId: ctx.obs.correlationId,
+});
+```
+
+### runGuarded() — Handler Wrapper
+
+ALL handlers MUST be wrapped with `runGuarded()` for:
+- Automatic correlation ID propagation
+- Structured error capture with SensaiError
+- Timing metrics emission
+- Graceful error responses
+
+```typescript
+import { runGuarded } from '../kernel/guarded.js';
+
+// ❌ WRONG - Unguarded handler
+export async function handleBattleCommand(interaction: CommandInteraction) {
+  // No error boundary, no correlation, no metrics
+}
+
+// ✅ CORRECT - Guarded handler
+export const handleBattleCommand = runGuarded(
+  'discord.battle.command',
+  async (ctx: ComponentContext, interaction: CommandInteraction) => {
+    // Automatic correlation ID in ctx.obs.correlationId
+    // Automatic error capture if this throws
+    // Automatic timing metrics emitted
+    
+    const battle = await ctx.db.transaction(async (tx) => {
+      return createBattle(tx, interaction.user.id, challengedUserId);
+    });
+    
+    ctx.obs.log.info('Battle created', { battleId: battle.id });
+  }
+);
+```
+
+### SensaiError — Typed Error Taxonomy
+
+All errors MUST use SensaiError with appropriate codes:
+
+```typescript
+import { SensaiError } from '../kernel/errors.js';
+
+/** Error code ranges */
+// 1xxx = KERNEL errors (boot, shutdown, primitives)
+// 2xxx = DATABASE errors (connection, transaction, query)
+// 3xxx = COMPONENT errors (lifecycle, handlers, manifest)
+// 4xxx = VALIDATION errors (input, schema, business rules)
+// 5xxx = EXTERNAL errors (Discord API, HTTP, third-party)
+// 6xxx = GAME errors (battle, encounter, inventory)
+
+/** Throwing typed errors */
+throw new SensaiError({
+  code: 6001,
+  message: 'Invalid battle state transition',
+  context: { battleId, currentState, attemptedState },
+  cause: originalError,  // Optional wrapped error
+});
+
+/** Error handling in runGuarded */
+// runGuarded automatically:
+// 1. Catches any thrown error
+// 2. Wraps non-SensaiError in SensaiError (code 3999)
+// 3. Logs with full context and correlation
+// 4. Returns graceful error response to Discord
+```
+
+### Boot Logger — Observability-First Startup
+
+The boot sequence MUST initialize logging BEFORE database:
+
+```typescript
+/** CORRECT boot sequence */
+async function bootKernel(): Promise<void> {
+  // PHASE 1: Boot logger (FIRST - no dependencies)
+  const bootLog = createBootLogger('kernel');
+  bootLog.info('Kernel boot started');
+  
+  // PHASE 2: Load configuration (env vars, feature flags)
+  const config = loadConfig();
+  bootLog.info('Config loaded', { environment: config.env });
+  
+  // PHASE 3: Connect database (NOW we have logging if it fails)
+  try {
+    await connectDatabase(config.databaseUrl);
+    bootLog.info('Database connected');
+  } catch (error) {
+    bootLog.fatal('Database connection failed', { error });
+    throw error;  // Boot logger captured the failure
+  }
+  
+  // PHASE 4: Initialize kernel primitives
+  const kernel = await initializeKernel(config);
+  bootLog.info('Kernel primitives ready');
+  
+  // PHASE 5: Load and enable components
+  await kernel.supervisor.loadAll();
+  bootLog.info('Components loaded');
+}
+```
+
+---
+
 ## 🏗️ LAYERED ARCHITECTURE
 
 ```
@@ -96,33 +234,84 @@ interface DbPrimitive {
 }
 ```
 
-### 2. Export Log (`ctx.exports`)
+### 2. Export Log (`ctx.exports`) — v1.1.2 Enhanced
 ```typescript
 interface ExportsPrimitive {
+  /** Append export with mandatory TenantScope */
   append(envelope: ExportEnvelope): Promise<AppendResult>;
+  
+  /** Query exports with scope filtering */
   query(filter: ExportFilter): Promise<ExportEnvelope[]>;
+  
+  /** Get projection offset for replay */
   getOffset(projection: string): Promise<number>;
+  
+  /** Set projection offset after processing */
   setOffset(projection: string, seq: number): Promise<void>;
+  
+  /** Consume exports from sequence with type filtering */
   consumeFrom(seq: number, types: string[], limit?: number): Promise<ExportEnvelope[]>;
 }
-```
 
-### 3. Job Queue (`ctx.jobs`)
-```typescript
-interface JobsPrimitive {
-  enqueue(envelope: JobEnvelope): Promise<string>;
-  lease(kinds: string[], limit?: number): Promise<LeasedJob[]>;
-  complete(jobId: string, result: JobResult): Promise<void>;
-  fail(jobId: string, error: Error, retryAfter?: Date): Promise<void>;
+/** ExportEnvelope MUST include scope (v1.1.2) */
+interface ExportEnvelope {
+  source: string;              // Component name
+  type: string;                // Export type (e.g., 'battle.completed')
+  scope: TenantScope;          // ← MANDATORY v1.1.2
+  idempotencyKey: string;      // Dedup key
+  payload: unknown;            // Type-specific data
+  occurredAt: Date;            // Event timestamp
+  correlationId: string;       // Request trace ID
 }
 ```
 
-### 4. Outbox (`ctx.outbox`)
+### 3. Job Queue (`ctx.jobs`) — v1.1.2 Enhanced
+```typescript
+interface JobsPrimitive {
+  /** Enqueue job with mandatory TenantScope */
+  enqueue(envelope: JobEnvelope): Promise<string>;
+  
+  /** Lease available jobs (respects scope isolation) */
+  lease(kinds: string[], limit?: number): Promise<LeasedJob[]>;
+  
+  /** Mark job completed */
+  complete(jobId: string, result: JobResult): Promise<void>;
+  
+  /** Mark job failed with retry scheduling */
+  fail(jobId: string, error: SensaiError, retryAfter?: Date): Promise<void>;
+}
+
+/** JobEnvelope MUST include scope (v1.1.2) */
+interface JobEnvelope {
+  kind: string;                // Job type
+  scope: TenantScope;          // ← MANDATORY v1.1.2
+  payload: unknown;            // Job-specific data
+  scheduledFor?: Date;         // Delayed execution
+  correlationId: string;       // Request trace ID
+}
+```
+
+### 4. Outbox (`ctx.outbox`) — v1.1.2 Enhanced
 ```typescript
 interface OutboxPrimitive {
+  /** Send message with mandatory TenantScope */
   send(envelope: OutboxEnvelope): Promise<string>;
+  
+  /** Mark message delivered */
   markDelivered(id: string): Promise<void>;
-  markFailed(id: string, error: Error): Promise<void>;
+  
+  /** Mark message failed */
+  markFailed(id: string, error: SensaiError): Promise<void>;
+}
+
+/** OutboxEnvelope MUST include scope (v1.1.2) */
+interface OutboxEnvelope {
+  destination: string;         // Target system ('discord', 'webhook', etc.)
+  topic: string;               // Message topic
+  key: string;                 // Ordering key
+  scope: TenantScope;          // ← MANDATORY v1.1.2
+  payload: unknown;            // Message payload
+  correlationId: string;       // Request trace ID
 }
 ```
 
@@ -132,26 +321,50 @@ interface ConfigPrimitive {
   get<T>(key: string, scope?: ConfigScope): Promise<T | undefined>;
   set<T>(key: string, value: T, scope?: ConfigScope): Promise<void>;
   getComponentConfig<T>(component: string): Promise<T>;
-  getFeatureFlag(flag: string, scope?: ConfigScope): Promise<boolean>;
+  getFeatureFlag(flag: string, scope?: TenantScope): Promise<boolean>;
 }
 ```
 
 ### 6. RBAC (`ctx.rbac`)
 ```typescript
 interface RbacPrimitive {
-  assert(capability: Capability, scope: Scope): Promise<void>;
-  check(capability: Capability, scope: Scope): Promise<boolean>;
+  /** Assert capability with SensaiError on failure (v1.1.2) */
+  assert(capability: Capability, scope: TenantScope): Promise<void>;
+  
+  /** Check capability without throwing */
+  check(capability: Capability, scope: TenantScope): Promise<boolean>;
+  
+  /** Audit privileged actions */
   audit(event: AuditEvent): Promise<void>;
 }
 ```
 
-### 7. Observability (`ctx.obs`)
+### 7. Observability (`ctx.obs`) — v1.1.2 Enhanced
 ```typescript
 interface ObsPrimitive {
-  log: { debug, info, warn, error };
-  metrics: { inc, gauge, timing };
+  /** Structured logging with automatic context */
+  log: {
+    debug(message: string, data?: Record<string, unknown>): void;
+    info(message: string, data?: Record<string, unknown>): void;
+    warn(message: string, data?: Record<string, unknown>): void;
+    error(message: string, data?: Record<string, unknown>): void;
+  };
+  
+  /** Metrics emission */
+  metrics: {
+    inc(name: string, labels?: Record<string, string>): void;
+    gauge(name: string, value: number, labels?: Record<string, string>): void;
+    timing(name: string, ms: number, labels?: Record<string, string>): void;
+  };
+  
+  /** Current correlation ID (auto-propagated by runGuarded) */
   correlationId: string;
+  
+  /** Create child context with new correlation */
   withCorrelation(id: string): ObsPrimitive;
+  
+  /** Current tenant scope (v1.1.2) */
+  scope: TenantScope;
 }
 ```
 
@@ -159,6 +372,20 @@ interface ObsPrimitive {
 ```typescript
 interface RngPrimitive {
   derive(seedParts: string[]): DeterministicRng;
+}
+
+interface DeterministicRng {
+  /** Random float [0, 1) */
+  random(): number;
+  
+  /** Random integer [min, max] */
+  int(min: number, max: number): number;
+  
+  /** Weighted random selection */
+  weighted<T>(items: Array<{ weight: number; value: T }>): T;
+  
+  /** Shuffle array deterministically */
+  shuffle<T>(array: T[]): T[];
 }
 ```
 
@@ -460,17 +687,19 @@ UNINSTALLED → [install] → INSTALLED (disabled) → [enable] → ENABLED (act
 
 ## 📚 REFERENCE DOCUMENTATION
 
-### Primary Sources
-- **Final Architecture Spec:** `docs/projects/SENSAI-FINAL-ARCHITECTURE.md`
-- **Multi-Tenant + Obs-First Addendum (v1.1.2):** `docs/projects/SENSAI-MULTITENANT-OBS-FIRST-ADDENDUM.md`
-- **Architecture Overhaul Handover:** `docs/projects/ARCHITECTURE-OVERHAUL-HANDOVER.md`
-- **Component OS Blueprint:** `docs/projects/SENSAI-COMPONENT-OS-BLUEPRINT.md`
-- **OS Design Theory:** `docs/projects/Sensai-Project-Bible/Operating-System-Design/OS-Design-Theory.md`
+### Primary Sources (SENSAI Architecture)
+- **Final Architecture Spec:** `docs/projects/SENSAI-FINAL-ARCHITECTURE.md` — Master canonical specification
+- **Component OS Blueprint:** `docs/projects/SENSAI-COMPONENT-OS-BLUEPRINT.md` — Component model design
+- **Architecture Addendum (v1.1):** `docs/projects/SENSAI-ARCHITECTURE-ADDENDUM.md` — Scalability patterns
+- **Multi-Tenant + Obs-First (v1.1.2):** `docs/projects/SENSAI-MULTITENANT-OBS-FIRST-ADDENDUM.md` — TenantScope, runGuarded, SensaiError
+- **Quick Reference Card:** `docs/projects/SENSAI-QUICK-REFERENCE.md` — Cheat sheet for key patterns
 
 ### Implementation Guides
 - **Store Write Elimination:** `docs/projects/STORE-WRITE-ELIMINATION.md`
 - **Prisma 7 Bible:** `docs/prisma-7-bible.md`
 - **Database Operations:** `docs/operations-bible/database-operations-runbook-comprehensive.md`
+- **Architecture Bible:** `docs/architecture-bible/INDEX.md` — 27 sections covering complete system design
+- **Operations Bible:** `docs/operations-bible/INDEX.md` — 13 sections + 9 guides
 
 ---
 
@@ -496,8 +725,8 @@ When implementing ANY Sensai component:
 
 ---
 
-**Document Version:** 1.1.0  
+**Document Version:** 1.2.0  
 **Created:** December 28, 2025  
-**Updated:** December 28, 2025 — Added v1.1.2 multi-tenant + obs-first references  
+**Updated:** December 28, 2025 — Full v1.1.2 patterns with TenantScope, runGuarded, SensaiError, boot sequence  
 **Purpose:** AI Agent guidance for Sensai OS development  
 **Authority:** Supersedes all previous architecture instructions

@@ -2,7 +2,7 @@
 Title: Project Documentation Staging Area
 Purpose: Work-in-progress documentation before Bible integration (100% accuracy controlled experiment)
 Owned Globs: docs/projects/**
-Last Updated (UTC): 2025-12-23T12:30:00Z
+Last Updated (UTC): 2025-12-28T18:00:00Z
 
 Notes:
 - **Bible-Centric System:** Projects/ is staging area, Bibles are TRUTH
@@ -21,6 +21,12 @@ Areas:
 - .templates/ — Project README template and scaffolding
 
 Active Projects:
+- **Sensai OS Architecture** — 🚀 CANONICAL ARCHITECTURE v1.1.2:
+  - SENSAI-FINAL-ARCHITECTURE.md — Master specification (2390+ lines, 18 sections)
+  - SENSAI-COMPONENT-OS-BLUEPRINT.md — Component model design (14 sections)
+  - SENSAI-ARCHITECTURE-ADDENDUM.md — v1.1 future-proofing extensions
+  - SENSAI-MULTITENANT-OBS-FIRST-ADDENDUM.md — v1.1.2 multi-tenant + observability-first
+  - SENSAI-QUICK-REFERENCE.md — Quick reference card
 - v2-architecture/ — 🚀 ACTIVE: Greenfield rebuild architecture (meetings, blueprints, design)
 - database-centric/ — Database-centric development plan (Sprint 1 complete)
 - infrastructure/ — TypeScript migration, Discord testing, state persistence
