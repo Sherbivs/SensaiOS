@@ -1,24 +1,21 @@
+/* eslint-disable no-console */
+/**
+ * DB Admin CLI - Database administration tool for Infinity Gauntlet
+ * 
+ * This is a CLI script that outputs directly to console.
+ * All output uses visual formatters from output-formatter.js
+ */
 import fs from "node:fs";
 import path from "node:path";
 import process from "node:process";
 import * as dotenv from "dotenv";
-import { PrismaClient } from "../src/generated/prisma/client.js";
 import { Client as PgClient } from "pg";
 import {
-  formatBorder,
   formatSectionHeader,
   formatKeyValueList,
   formatStatus,
   formatList,
 } from "../src/utils/output-formatter.js";
-import {
-  formatCompactStatus,
-  formatServiceList,
-  getMemoryStatus,
-  getDiskStatus,
-  STATUS,
-  type ServiceStatus,
-} from "../src/utils/visual-status.js";
 
 const DEFAULT_COUNT_TARGETS = [
   { model: "species", label: "Species" },
@@ -27,8 +24,6 @@ const DEFAULT_COUNT_TARGETS = [
   { model: "encounter", label: "Encounters" },
   { model: "battle", label: "Battles" },
 ];
-
-type CountTargetModel = (typeof DEFAULT_COUNT_TARGETS)[number]["model"];
 
 interface DatasourceConfig {
   url: string;
@@ -429,7 +424,6 @@ async function showIndexUsage(ctx: DbContext, outputJson: boolean): Promise<void
   }
 
   console.log(formatSectionHeader("Index Usage Analysis"));
-  console.log();
 
   // Group by table for better readability
   const byTable = new Map<string, IndexUsageRow[]>();
@@ -445,29 +439,36 @@ async function showIndexUsage(ctx: DbContext, outputJson: boolean): Promise<void
   const warnings: string[] = [];
 
   for (const [tableKey, indexes] of byTable) {
-    console.log(`Table: ${tableKey}`);
-    console.log(formatBorder(80, "light"));
+    console.log(formatSectionHeader(tableKey, 1));
 
     for (const idx of indexes) {
       const scans = parseInt(idx.idx_scan, 10);
-      const status = scans === 0 ? "[UNUSED]" : scans < 10 ? "[LOW]" : "";
+      const status = scans === 0 ? "UNUSED" : scans < 10 ? "LOW" : "OK";
+      const statusLevel = scans === 0 ? "error" : scans < 10 ? "warning" : "success";
 
-      console.log(`  ${idx.indexname.padEnd(40)} ${status}`);
-      console.log(`    Scans: ${idx.idx_scan.padEnd(10)} | Tuples Read: ${idx.idx_tup_read.padEnd(10)} | Tuples Fetched: ${idx.idx_tup_fetch.padEnd(10)} | Size: ${idx.idx_size}`);
+      console.log(formatKeyValueList([
+        ["Index", idx.indexname],
+        ["Status", formatStatus(status, statusLevel as "error" | "warning" | "success" | "info")],
+        ["Scans", idx.idx_scan],
+        ["Tuples Read", idx.idx_tup_read],
+        ["Tuples Fetched", idx.idx_tup_fetch],
+        ["Size", idx.idx_size]
+      ], { indent: 2 }));
 
       if (scans === 0) {
         unusedCount++;
         warnings.push(`UNUSED: ${tableKey}.${idx.indexname} (0 scans, size: ${idx.idx_size})`);
       }
     }
-    console.log();
   }
 
   if (warnings.length > 0) {
     console.log(formatStatus("WARNINGS:", "warning"));
     console.log(formatList(warnings, { indent: 1 }));
-    console.log(`\nTotal unused indexes: ${unusedCount}`);
-    console.log("Consider dropping unused indexes to reduce storage and maintenance overhead.");
+    console.log(formatKeyValueList([
+      ["Total unused indexes", String(unusedCount)]
+    ]));
+    console.log(formatStatus("Consider dropping unused indexes to reduce storage and maintenance overhead.", "info"));
   } else {
     console.log(formatStatus("All indexes are being used.", "success"));
   }
@@ -522,7 +523,6 @@ async function showTableBloat(ctx: DbContext, outputJson: boolean): Promise<void
   }
 
   console.log(formatSectionHeader("Table Bloat Analysis"));
-  console.log();
 
   const warnings: string[] = [];
   const critical: string[] = [];
@@ -533,38 +533,42 @@ async function showTableBloat(ctx: DbContext, outputJson: boolean): Promise<void
     const liveTup = parseInt(row.n_live_tup, 10);
     const deadTup = parseInt(row.n_dead_tup, 10);
 
-    let status = "";
+    const statusLevel = deadPct >= 50 ? "error" : deadPct >= 20 ? "warning" : "success";
+    const statusText = deadPct >= 50 ? "CRITICAL" : deadPct >= 20 ? "WARNING" : "HEALTHY";
+    
     if (deadPct >= 50) {
-      status = "[CRITICAL]";
       critical.push(`${tableKey}: ${deadPct}% dead rows (${deadTup}/${liveTup + deadTup})`);
     } else if (deadPct >= 20) {
-      status = "[WARNING]";
       warnings.push(`${tableKey}: ${deadPct}% dead rows (${deadTup}/${liveTup + deadTup})`);
     }
 
-    console.log(`Table: ${tableKey} ${status}`);
-    console.log(`  Live Tuples: ${row.n_live_tup.padEnd(10)} | Dead Tuples: ${row.n_dead_tup.padEnd(10)} | Bloat: ${deadPct}%`);
-
     const lastVacuum = row.last_vacuum || row.last_autovacuum;
     const lastAnalyze = row.last_analyze || row.last_autoanalyze;
-    console.log(`  Last VACUUM: ${lastVacuum ? lastVacuum.toISOString() : "never"}`);
-    console.log(`  Last ANALYZE: ${lastAnalyze ? lastAnalyze.toISOString() : "never"}`);
-    console.log();
+
+    console.log(formatSectionHeader(tableKey, 1));
+    console.log(formatKeyValueList([
+      ["Status", formatStatus(statusText, statusLevel as "error" | "warning" | "success")],
+      ["Live Tuples", row.n_live_tup],
+      ["Dead Tuples", row.n_dead_tup],
+      ["Bloat", `${deadPct}%`],
+      ["Last VACUUM", lastVacuum ? lastVacuum.toISOString() : "never"],
+      ["Last ANALYZE", lastAnalyze ? lastAnalyze.toISOString() : "never"]
+    ], { indent: 1 }));
   }
 
   if (critical.length > 0) {
     console.log(formatStatus("CRITICAL BLOAT (>50%):", "error"));
     console.log(formatList(critical, { indent: 1 }));
-    console.log("\nRecommendation: Run VACUUM ANALYZE immediately on these tables.");
-    console.log('Example: VACUUM ANALYZE "User";');
-    console.log();
+    console.log(formatStatus("Recommendation: Run VACUUM ANALYZE immediately on these tables.", "info"));
+    console.log(formatKeyValueList([
+      ["Example", 'VACUUM ANALYZE "User";']
+    ], { indent: 1 }));
   }
 
   if (warnings.length > 0) {
     console.log(formatStatus("WARNING BLOAT (>20%):", "warning"));
     console.log(formatList(warnings, { indent: 1 }));
-    console.log("\nRecommendation: Schedule VACUUM ANALYZE during low-traffic period.");
-    console.log();
+    console.log(formatStatus("Recommendation: Schedule VACUUM ANALYZE during low-traffic period.", "info"));
   }
 
   if (critical.length === 0 && warnings.length === 0) {
@@ -594,9 +598,11 @@ async function showSlowQueries(ctx: DbContext, outputJson: boolean): Promise<voi
 
   if (!extensionCheck.rows[0]?.exists) {
     console.log(formatStatus("pg_stat_statements extension not installed.", "warning"));
-    console.log("To enable slow query tracking, run:");
-    console.log("  CREATE EXTENSION IF NOT EXISTS pg_stat_statements;");
-    console.log("\nNote: This requires superuser privileges and may require server restart.");
+    console.log(formatStatus("To enable slow query tracking, run:", "info"));
+    console.log(formatKeyValueList([
+      ["SQL", "CREATE EXTENSION IF NOT EXISTS pg_stat_statements;"]
+    ], { indent: 1 }));
+    console.log(formatStatus("Note: This requires superuser privileges and may require server restart.", "info"));
     return;
   }
 
@@ -623,12 +629,11 @@ async function showSlowQueries(ctx: DbContext, outputJson: boolean): Promise<voi
 
   if (result.rows.length === 0) {
     console.log(formatStatus("No queries found in pg_stat_statements.", "info"));
-    console.log("Note: Statistics may have been reset or no queries have been executed yet.");
+    console.log(formatStatus("Note: Statistics may have been reset or no queries have been executed yet.", "info"));
     return;
   }
 
   console.log(formatSectionHeader("Slow Query Analysis (Top 10 by Mean Execution Time)"));
-  console.log();
 
   const warnings: string[] = [];
   const critical: string[] = [];
@@ -637,38 +642,41 @@ async function showSlowQueries(ctx: DbContext, outputJson: boolean): Promise<voi
     const row = result.rows[i];
     const meanTime = row.mean_exec_time_ms;
     
-    let status = "";
+    const statusLevel = meanTime >= 2000 ? "error" : meanTime >= 500 ? "warning" : "success";
+    const statusText = meanTime >= 2000 ? "CRITICAL" : meanTime >= 500 ? "SLOW" : "OK";
+    
     if (meanTime >= 2000) {
-      status = "[CRITICAL]";
       critical.push(`Query #${i + 1}: ${meanTime}ms mean execution time`);
     } else if (meanTime >= 500) {
-      status = "[WARNING]";
       warnings.push(`Query #${i + 1}: ${meanTime}ms mean execution time`);
     }
 
-    console.log(`#${i + 1} ${status}`);
-    console.log(`  Query: ${row.query}...`);
-    console.log(`  Calls: ${row.calls} | Mean Time: ${meanTime}ms | Total Time: ${row.total_exec_time_ms}ms | StdDev: ${row.stddev_exec_time_ms}ms`);
-    console.log();
+    console.log(formatSectionHeader(`Query #${i + 1}`, 1));
+    console.log(formatKeyValueList([
+      ["Status", formatStatus(statusText, statusLevel as "error" | "warning" | "success")],
+      ["Query", `${row.query}...`],
+      ["Calls", row.calls],
+      ["Mean Time", `${meanTime}ms`],
+      ["Total Time", `${row.total_exec_time_ms}ms`],
+      ["StdDev", `${row.stddev_exec_time_ms}ms`]
+    ], { indent: 1 }));
   }
 
   if (critical.length > 0) {
     console.log(formatStatus("CRITICAL QUERIES (>2s mean time):", "error"));
     console.log(formatList(critical, { indent: 1 }));
-    console.log("\nRecommendation: Review these queries immediately. Consider:");
+    console.log(formatStatus("Recommendation: Review these queries immediately. Consider:", "info"));
     console.log(formatList([
       "Adding missing indexes",
       "Optimizing JOIN conditions",
       "Breaking complex queries into smaller parts"
     ], { indent: 1 }));
-    console.log();
   }
 
   if (warnings.length > 0) {
     console.log(formatStatus("SLOW QUERIES (>500ms mean time):", "warning"));
     console.log(formatList(warnings, { indent: 1 }));
-    console.log("\nRecommendation: Investigate these queries for optimization opportunities.");
-    console.log();
+    console.log(formatStatus("Recommendation: Investigate these queries for optimization opportunities.", "info"));
   }
 
   if (critical.length === 0 && warnings.length === 0) {
@@ -727,7 +735,6 @@ async function showCacheStats(ctx: DbContext, outputJson: boolean): Promise<void
   }
 
   console.log(formatSectionHeader("Buffer Cache Hit Rate Analysis"));
-  console.log();
 
   const warnings: string[] = [];
   const critical: string[] = [];
@@ -747,19 +754,25 @@ async function showCacheStats(ctx: DbContext, outputJson: boolean): Promise<void
     totalIdxRead += parseInt(row.idx_blks_read, 10);
     totalIdxHit += parseInt(row.idx_blks_hit, 10);
 
-    let status = "";
+    const statusLevel = (heapRate < 60 || idxRate < 60) ? "error" : (heapRate < 80 || idxRate < 80) ? "warning" : "success";
+    const statusText = (heapRate < 60 || idxRate < 60) ? "CRITICAL" : (heapRate < 80 || idxRate < 80) ? "WARNING" : "HEALTHY";
+    
     if (heapRate < 60 || idxRate < 60) {
-      status = "[CRITICAL]";
       critical.push(`${tableKey}: Heap ${heapRate}%, Index ${idxRate}%`);
     } else if (heapRate < 80 || idxRate < 80) {
-      status = "[WARNING]";
       warnings.push(`${tableKey}: Heap ${heapRate}%, Index ${idxRate}%`);
     }
 
-    console.log(`Table: ${tableKey} ${status}`);
-    console.log(`  Heap Blocks → Read: ${row.heap_blks_read.padEnd(10)} | Hit: ${row.heap_blks_hit.padEnd(10)} | Hit Rate: ${heapRate}%`);
-    console.log(`  Index Blocks → Read: ${row.idx_blks_read.padEnd(10)} | Hit: ${row.idx_blks_hit.padEnd(10)} | Hit Rate: ${idxRate}%`);
-    console.log();
+    console.log(formatSectionHeader(tableKey, 1));
+    console.log(formatKeyValueList([
+      ["Status", formatStatus(statusText, statusLevel as "error" | "warning" | "success")],
+      ["Heap Blocks Read", row.heap_blks_read],
+      ["Heap Blocks Hit", row.heap_blks_hit],
+      ["Heap Hit Rate", `${heapRate}%`],
+      ["Index Blocks Read", row.idx_blks_read],
+      ["Index Blocks Hit", row.idx_blks_hit],
+      ["Index Hit Rate", `${idxRate}%`]
+    ], { indent: 1 }));
   }
 
   // Calculate database-wide summary
@@ -768,31 +781,27 @@ async function showCacheStats(ctx: DbContext, outputJson: boolean): Promise<void
   const overallHeapRate = totalHeapOps > 0 ? ((totalHeapHit / totalHeapOps) * 100).toFixed(2) : "100.00";
   const overallIdxRate = totalIdxOps > 0 ? ((totalIdxHit / totalIdxOps) * 100).toFixed(2) : "100.00";
 
-  console.log(formatBorder(80, "heavy"));
   console.log(formatSectionHeader("DATABASE-WIDE SUMMARY"));
   console.log(formatKeyValueList([
     ["Overall Heap Cache Hit Rate", `${overallHeapRate}%`],
     ["Overall Index Cache Hit Rate", `${overallIdxRate}%`]
   ], { indent: 1 }));
-  console.log();
 
   if (critical.length > 0) {
     console.log(formatStatus("CRITICAL CACHE PERFORMANCE (<60%):", "error"));
     console.log(formatList(critical, { indent: 1 }));
-    console.log("\nRecommendation: Investigate immediately. Possible causes:");
+    console.log(formatStatus("Recommendation: Investigate immediately. Possible causes:", "info"));
     console.log(formatList([
       "Insufficient shared_buffers allocation",
       "Tables/indexes too large for available cache",
       "Sequential scans instead of index scans"
     ], { indent: 1 }));
-    console.log();
   }
 
   if (warnings.length > 0) {
     console.log(formatStatus("LOW CACHE HIT RATE (<80%):", "warning"));
     console.log(formatList(warnings, { indent: 1 }));
-    console.log("\nRecommendation: Consider increasing shared_buffers or optimizing queries.");
-    console.log();
+    console.log(formatStatus("Recommendation: Consider increasing shared_buffers or optimizing queries.", "info"));
   }
 
   if (critical.length === 0 && warnings.length === 0) {
@@ -802,7 +811,6 @@ async function showCacheStats(ctx: DbContext, outputJson: boolean): Promise<void
 
 async function showDatabases(): Promise<void> {
   console.log(formatSectionHeader("Available Databases"));
-  console.log();
 
   const databases = [
     { name: "CLOUD-PROD (Render Managed)", envVar: "PROD_DATABASE_URL", fallback: "RENDER_DB_EXTERNAL_URL", target: "cloud-prod" },
@@ -815,12 +823,12 @@ async function showDatabases(): Promise<void> {
     const configured = Boolean(url);
     const statusIcon = configured ? "✅" : "❌";
     
-    console.log(`${statusIcon} ${db.name}`);
+    console.log(formatSectionHeader(`${statusIcon} ${db.name}`, 1));
     console.log(formatKeyValueList([
       ["Environment", db.envVar],
       ["Configured", configured ? "Yes" : "No"],
       ["Target", `--target=${db.target}`]
-    ], { indent: 1 }));
+    ], { indent: 2 }));
     
     if (configured && url) {
       try {
@@ -836,34 +844,39 @@ async function showDatabases(): Promise<void> {
         const userCount = result.rows[0]?.count ?? "0";
         await pg.end();
         
-        console.log(formatStatus("Connected", "success"));
-        console.log(formatKeyValueList([["Sample (User records)", userCount]], { indent: 1 }));
+        console.log(formatKeyValueList([
+          ["Connection", formatStatus("Connected", "success")],
+          ["Sample (User records)", userCount]
+        ], { indent: 2 }));
       } catch (error) {
-        console.log(formatStatus("Connection failed", "error"));
-        console.log(formatKeyValueList([["Error", error instanceof Error ? error.message : String(error)]], { indent: 1 }));
+        console.log(formatKeyValueList([
+          ["Connection", formatStatus("Failed", "error")],
+          ["Error", error instanceof Error ? error.message : String(error)]
+        ], { indent: 2 }));
       }
     } else {
-      console.log(formatStatus("Not configured", "info"));
+      console.log(formatKeyValueList([
+        ["Connection", formatStatus("Not configured", "info")]
+      ], { indent: 2 }));
     }
-    
-    console.log();
   }
   
-  console.log(formatSectionHeader("Usage", 1));
+  console.log(formatSectionHeader("Usage Examples", 1));
   console.log(formatList([
     'npm run db:cli -- status --target=cloud-dev',
     'npm run db:cli -- count User --target=onpremise-experiment',
     'npm run db:cli -- query "SELECT * FROM \\"Species\\" LIMIT 5;" --target=cloud-prod'
   ], { indent: 1 }));
-  console.log("\nLegacy aliases supported: dev (cloud-dev), prod (cloud-prod), local (onpremise-dev), experiment (onpremise-experiment)");
+  console.log(formatStatus("Legacy aliases supported: dev (cloud-dev), prod (cloud-prod), local (onpremise-dev), experiment (onpremise-experiment)", "info"));
 }
 
 function printHelp(): void {
-  console.log("Infinity Gauntlet DB Control Suite\n\n");
-  console.log("Usage:");
-  console.log("  npm run db:cli [command] [options]");
+  console.log(formatSectionHeader("Infinity Gauntlet DB Control Suite"));
+  console.log(formatKeyValueList([
+    ["Usage", "npm run db:cli [command] [options]"]
+  ]));
   
-  console.log("\n" + formatSectionHeader("Commands", 1));
+  console.log(formatSectionHeader("Commands", 1));
   console.log(formatKeyValueList([
     ["status", "Show active connection metadata and sample counts."],
     ["counts", "Print counts for common tables."],
@@ -877,7 +890,7 @@ function printHelp(): void {
     ["help", "Show this message."]
   ], { indent: 1 }));
   
-  console.log("\n" + formatSectionHeader("Options", 1));
+  console.log(formatSectionHeader("Options", 1));
   console.log(formatKeyValueList([
     ["--target=<db>", "Target database: 'cloud-dev', 'cloud-prod', 'onpremise-dev' (default), 'onpremise-experiment'. Legacy aliases: 'dev', 'prod', 'local', 'experiment'."],
     ["--json", "Output results as JSON (query, index_usage, table_bloat, slow_queries, cache_stats)."],
@@ -885,14 +898,14 @@ function printHelp(): void {
     ["--sql=\"...\"", "Provide SQL for the query command without quoting."]
   ], { indent: 1 }));
   
-  console.log("\n" + formatSectionHeader("Target Databases", 1));
+  console.log(formatSectionHeader("Target Databases", 1));
   console.log(formatKeyValueList([
     ["cloud-prod", "CLOUD-PROD (PROD_DATABASE_URL) - Primary Render-managed database for all operations."],
     ["onpremise-dev", "ONPREMISE-DEV-PRIMARY (DATABASE_ONPREMISE_DEV_PRIMARY) - Workstation development (default)."],
     ["onpremise-experiment", "ONPREMISE-DEV-EXPERIMENT (DATABASE_ONPREMISE_DEV_EXPERIMENT) - Migration testing (offline)."]
   ], { indent: 1 }));
   
-  console.log("\n" + formatSectionHeader("Performance Monitoring", 1));
+  console.log(formatSectionHeader("Performance Monitoring", 1));
   console.log(formatKeyValueList([
     ["index_usage", "Identifies unused indexes (0 scans) that waste storage."],
     ["table_bloat", "Warns if dead rows >20% (warning) or >50% (critical)."],
@@ -900,7 +913,7 @@ function printHelp(): void {
     ["cache_stats", "Warns if hit rate <80% (warning) or <60% (critical)."]
   ], { indent: 1 }));
   
-  console.log("\n" + formatSectionHeader("Examples", 1));
+  console.log(formatSectionHeader("Examples", 1));
   console.log(formatList([
     "npm run db:cli -- databases                                   # List all databases",
     "npm run db:cli -- status --target=cloud-prod                  # Check CLOUD-PROD status",
@@ -908,7 +921,7 @@ function printHelp(): void {
     'npm run db:cli -- query "SELECT * FROM \\"Species\\" LIMIT 5;" --target=cloud-prod'
   ], { indent: 1 }));
   
-  console.log("\nEnvironment loading follows IG_ENV_FILE → DOTENV_CONFIG_PATH → repo .env (non-production).");
+  console.log(formatStatus("Environment loading follows IG_ENV_FILE → DOTENV_CONFIG_PATH → repo .env (non-production).", "info"));
 }
 
 async function main(): Promise<void> {
