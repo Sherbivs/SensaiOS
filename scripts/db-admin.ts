@@ -11,6 +11,14 @@ import {
   formatStatus,
   formatList,
 } from "../src/utils/output-formatter.js";
+import {
+  formatCompactStatus,
+  formatServiceList,
+  getMemoryStatus,
+  getDiskStatus,
+  STATUS,
+  type ServiceStatus,
+} from "../src/utils/visual-status.js";
 
 const DEFAULT_COUNT_TARGETS = [
   { model: "species", label: "Species" },
@@ -305,7 +313,8 @@ async function showStatus(ctx: DbContext, target: string): Promise<void> {
     }
   } catch (error) {
     console.log(formatStatus("Failed to read sample counts", "warning"));
-    console.warn(error);
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    console.log(formatKeyValueList([["Error", errorMsg]], { indent: 1 }));
   }
 }
 

@@ -1,5 +1,4 @@
 #!/usr/bin/env npx tsx
-/* eslint-disable no-console */
 /**
  * validate_database_urls.ts - Pre-build validation for database URLs
  *
@@ -14,6 +13,13 @@
  *   0 - All database URLs valid (direct PostgreSQL)
  *   1 - Invalid URLs detected (Accelerate format)
  */
+
+import {
+  formatSectionHeader,
+  formatKeyValueList,
+  formatStatus,
+  formatList,
+} from "../src/utils/output-formatter.js";
 
 const ACCELERATE_PATTERN = /prisma(\+|:\/\/)/i;
 const VALID_PATTERN = /^postgresql:\/\//i;
@@ -31,83 +37,87 @@ const DATABASE_ENV_VARS: readonly string[] = [
 let failures = 0;
 let warnings = 0;
 
-console.log('🔍 Validating database URLs for Prisma client generation...\n');
+console.log(formatSectionHeader("Database URL Validation"));
+console.log(formatStatus("Checking URLs for Prisma client generation...", "info"));
+console.log();
 
 // Check each database environment variable
+const urlResults: Array<[string, string]> = [];
+
 for (const key of DATABASE_ENV_VARS) {
   const value = process.env[key];
   
   if (!value) {
-    console.log(`⚪ ${key}: Not set (optional)`);
+    urlResults.push([key, "⚪ Not set (optional)"]);
     continue;
   }
   
   // Check for Accelerate URL format
   if (ACCELERATE_PATTERN.test(value)) {
-    console.error(`❌ ${key}: INVALID - Accelerate URL detected`);
-    console.error(`   Value: ${value.substring(0, 50)}...`);
-    console.error(`   Expected: postgresql:// format`);
+    urlResults.push([key, "❌ INVALID - Accelerate URL detected"]);
     failures++;
     continue;
   }
   
   // Check for valid PostgreSQL URL format
   if (VALID_PATTERN.test(value)) {
-    console.log(`✅ ${key}: Valid (direct PostgreSQL)`);
+    urlResults.push([key, "✅ Valid (direct PostgreSQL)"]);
   } else {
-    console.warn(`⚠️  ${key}: Unexpected format`);
-    console.warn(`   Value: ${value.substring(0, 50)}...`);
-    console.warn(`   Expected: postgresql:// prefix`);
+    urlResults.push([key, "⚠️ Unexpected format"]);
     warnings++;
   }
 }
 
-console.log('');
+console.log(formatKeyValueList(urlResults).join('\n'));
+
+console.log();
 
 // Check NODE_ENV and ensure correct environment-specific URL is set
 const nodeEnv = process.env.NODE_ENV || 'development';
-console.log(`Environment: ${nodeEnv}`);
+console.log(formatKeyValueList([["Environment", nodeEnv]]).join('\n'));
 
 // Verify environment-specific database URLs are configured
 if (nodeEnv === 'production') {
   const hasProdUrl = process.env.PROD_DATABASE_URL || process.env.RENDER_DB_INTERNAL_URL;
   if (!hasProdUrl) {
-    console.error('❌ CRITICAL: PROD_DATABASE_URL or RENDER_DB_INTERNAL_URL not set in production');
-    console.error('   Production requires direct PostgreSQL connection to Render managed database');
+    console.log(formatStatus("CRITICAL: PROD_DATABASE_URL or RENDER_DB_INTERNAL_URL not set", "error"));
+    console.log(formatKeyValueList([["Required", "Direct PostgreSQL connection to Render"]], { indent: 1 }).join('\n'));
     failures++;
   }
 } else {
   const hasProdUrl = process.env.PROD_DATABASE_URL || process.env.RENDER_DB_EXTERNAL_URL;
   if (!hasProdUrl) {
-    console.warn('⚠️  PROD_DATABASE_URL or RENDER_DB_EXTERNAL_URL not set in development');
-    console.warn('   Development requires connection to Render managed database');
+    console.log(formatStatus("PROD_DATABASE_URL or RENDER_DB_EXTERNAL_URL not set", "warning"));
+    console.log(formatKeyValueList([["Recommended", "Connection to Render database"]], { indent: 1 }).join('\n'));
     warnings++;
   }
 }
 
 // Summary
-console.log('\n=== VALIDATION SUMMARY ===\n');
+console.log();
+console.log(formatSectionHeader("Validation Summary"));
 
 if (failures === 0 && warnings === 0) {
-  console.log('✅ All database URLs valid');
-  console.log('✅ Prisma client will generate with correct engine type (direct PostgreSQL)');
-  console.log('');
+  console.log(formatStatus("All database URLs valid", "success"));
+  console.log(formatStatus("Prisma client ready for direct PostgreSQL", "success"));
   process.exit(0);
 } else if (failures === 0) {
-  console.log(`⚠️  ${warnings} warning(s) - build will continue`);
-  console.log('   Review warnings above to ensure correct configuration');
-  console.log('');
+  console.log(formatStatus(`${warnings} warning(s) - build will continue`, "warning"));
+  console.log(formatKeyValueList([["Action", "Review warnings above"]], { indent: 1 }).join('\n'));
   process.exit(0);
 } else {
-  console.error(`❌ ${failures} critical issue(s) detected`);
-  console.error(`⚠️  ${warnings} warning(s)`);
-  console.error('');
-  console.error('Action Required:');
-  console.error('  1. Remove Accelerate URLs from environment variables');
-  console.error('  2. Set PROD_DATABASE_URL (production/development)');
-  console.error('  3. Use direct PostgreSQL format: postgresql://...');
-  console.error('');
-  console.error('See docs/database-url-selection.md for canonical URL selection logic');
-  console.error('');
+  console.log(formatStatus(`${failures} critical issue(s) detected`, "error"));
+  if (warnings > 0) {
+    console.log(formatStatus(`${warnings} warning(s)`, "warning"));
+  }
+  console.log();
+  console.log(formatSectionHeader("Action Required", 1));
+  console.log(formatList([
+    "Remove Accelerate URLs from environment variables",
+    "Set PROD_DATABASE_URL (production/development)",
+    "Use direct PostgreSQL format: postgresql://..."
+  ], { numbered: true, indent: 1 }).join('\n'));
+  console.log();
+  console.log(formatKeyValueList([["Documentation", "docs/database-url-selection.md"]], { indent: 1 }).join('\n'));
   process.exit(1);
 }
