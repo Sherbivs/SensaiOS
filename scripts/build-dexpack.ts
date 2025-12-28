@@ -4,7 +4,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { buffersEqual, readFileIfExists, writeFileIfChanged } from "../src/shared/utils/file-utils.js";
-import { formatStatus, formatKeyValueList as _formatKeyValueList, formatList } from "../src/utils/output-formatter.js";
+import { formatStatus, formatKeyValueList as _formatKeyValueList, formatList, printError } from "../src/utils/output-formatter.js";
 import { scopedLogger } from "../src/observability/envelope/console.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -764,7 +764,7 @@ if (invokedDirectly) {
       stack: error instanceof Error ? error.stack : undefined,
     });
     console.log(formatStatus("build_dexpack failed", "error"));
-    console.error(error);
+    printError(error instanceof Error ? error.message : String(error));
     process.exitCode = 1;
   });
 }

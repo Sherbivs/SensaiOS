@@ -3,6 +3,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 import { config as loadEnv } from "dotenv";
+import { printInfo, printSuccess, printError, formatKeyValueList } from '../../src/utils/output-formatter.js';
 
 interface Options {
   envFile?: string;
@@ -96,14 +97,16 @@ async function main() {
 
   const maskedUrl = maskConnectionString(directUrl);
   if (options.dryRun) {
-    console.log("[DRY-RUN] Would execute pg_dump", {
-      command: options.pgDumpPath,
-      args: ["--format=custom", "--file", outputPath, "--dbname", maskedUrl],
-    });
+    printInfo('[DRY-RUN] Would execute pg_dump');
+    console.log(formatKeyValueList([
+      ['command', options.pgDumpPath],
+      ['file', outputPath],
+      ['dbname', maskedUrl],
+    ]));
     return;
   }
 
-  console.log(`Starting pg_dump to ${outputPath}`);
+  printInfo(`Starting pg_dump to ${outputPath}`);
   const child = spawn(options.pgDumpPath, [
     "--format=custom",
     "--file",
@@ -115,21 +118,21 @@ async function main() {
   });
 
   child.on("error", (error) => {
-    console.error("Failed to spawn pg_dump:", error.message);
+    printError(`Failed to spawn pg_dump: ${error.message}`);
     process.exitCode = 1;
   });
 
   child.on("close", (code) => {
     if (code === 0) {
-      console.log(`Backup complete: ${outputPath}`);
+      printSuccess(`Backup complete: ${outputPath}`);
     } else {
-      console.error(`pg_dump exited with code ${code}`);
+      printError(`pg_dump exited with code ${code}`);
       process.exitCode = code ?? 1;
     }
   });
 }
 
 main().catch((error) => {
-  console.error(error.message || error);
+  printError(error.message || String(error));
   process.exitCode = 1;
 });

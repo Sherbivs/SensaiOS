@@ -3,6 +3,7 @@ import path from "node:path";
 import process from "node:process";
 import { config as loadEnv } from "dotenv";
 import fetch from "node-fetch";
+import { printInfo, printSuccess, printWarning, printError, formatKeyValueList } from '../../src/utils/output-formatter.js';
 
 interface Options {
   envFile?: string;
@@ -135,7 +136,7 @@ async function writePlan(plan: FlagPlan, outputDir: string) {
 
 async function applyPlan(plan: FlagPlan, url: string) {
   if (plan.dryRun) {
-    console.log("[DRY-RUN] Skipping config service apply.");
+    printInfo('[DRY-RUN] Skipping config service apply.');
     return;
   }
 
@@ -157,36 +158,34 @@ async function main() {
   validateOptions(options);
 
   const plan = buildPlan(options);
-  console.log("Prepared feature flag plan:");
-  console.table([
-    {
-      Flag: plan.flag,
-      Percent: `${plan.percent}%`,
-      Cohort: plan.cohort,
-      Window: plan.windowDate ?? "(unspecified)",
-      Effective: plan.effective ?? "(unspecified)",
-      "Dry Run": plan.dryRun,
-    },
-  ]);
+  printInfo('Prepared feature flag plan:');
+  console.log(formatKeyValueList([
+    ['Flag', plan.flag],
+    ['Percent', `${plan.percent}%`],
+    ['Cohort', plan.cohort],
+    ['Window', plan.windowDate ?? '(unspecified)'],
+    ['Effective', plan.effective ?? '(unspecified)'],
+    ['Dry Run', String(plan.dryRun)],
+  ]));
 
   const outputPath = await writePlan(plan, options.outputDir);
-  console.log(`Plan file written to ${outputPath}`);
+  printSuccess(`Plan file written to ${outputPath}`);
 
   if (options.apply) {
     const target = options.configUrl || process.env.FLAG_CONFIG_URL;
     if (!target) {
-      console.warn("--apply requested without a config service URL (FLAG_CONFIG_URL or --config-url). Holding plan for manual execution.");
-      console.warn(`Manual apply reminder: upload ${outputPath} to the configuration console or run the approved request via the on-call procedure.`);
+      printWarning('--apply requested without a config service URL (FLAG_CONFIG_URL or --config-url). Holding plan for manual execution.');
+      printWarning(`Manual apply reminder: upload ${outputPath} to the configuration console or run the approved request via the on-call procedure.`);
     } else {
-      console.log(`Sending plan to ${target}`);
+      printInfo(`Sending plan to ${target}`);
       await applyPlan(plan, target);
-      console.log("Config service acknowledged feature flag plan.");
+      printSuccess('Config service acknowledged feature flag plan.');
     }
   }
 
 }
 
 main().catch((error) => {
-  console.error(error.message || error);
+  printError(error.message || String(error));
   process.exitCode = 1;
 });

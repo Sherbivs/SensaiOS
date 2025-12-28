@@ -1,8 +1,9 @@
 import { prisma } from "../src/shared/prisma.js";
+import { printInfo, printSuccess, printError } from "../src/utils/output-formatter.js";
 
 async function testInsert() {
   try {
-    console.log("Testing RoleChangeAudit insert...");
+    printInfo('Testing RoleChangeAudit insert...');
     
     const test = await prisma.roleChangeAudit.create({
       data: {
@@ -23,14 +24,14 @@ async function testInsert() {
       },
     });
     
-    console.log("✅ Insert successful:", test);
+    printSuccess(`Insert successful: ${JSON.stringify(test)}`);
     
     // Clean up test record
     await prisma.roleChangeAudit.delete({ where: { id: test.id } });
-    console.log("✅ Test record deleted");
+    printSuccess('Test record deleted');
     
   } catch (error) {
-    console.error("❌ Insert failed:", error);
+    printError(`Insert failed: ${error instanceof Error ? error.message : String(error)}`);
   } finally {
     await prisma.$disconnect();
   }
