@@ -1,10 +1,11 @@
 # ROUTER
 Title: Ops & Governance
-Purpose: Canonical operational control-plane (NEXT, CRITICAL, TOUCHMAP, router maps, inbox).
+Purpose: Canonical operational control-plane (NEXT, CRITICAL, TOUCHMAP, router maps, inbox, observability dashboards).
 Owned Globs: ops/**
-Last Updated (UTC): 2025-12-20T18:00:00Z
+Last Updated (UTC): 2025-12-28T00:00:00Z
 
 Notes:
+- 2025-12-28: **Observability Dashboard Consolidation** — Created unified system health dashboard (`grafana-unified-system-health.json`) consolidating 5 fragmented dashboards. Human-friendly panel descriptions, color-coded thresholds, comprehensive metric coverage (game, database, observability pipeline, resources). Import guide at `UNIFIED-DASHBOARD-IMPORT-GUIDE.md`, integration plan at `DASHBOARD-INTEGRATION-PLAN.md`.
 - 2025-12-20: **Markdown Consolidation** — Moved 8 meeting/audit reports to docs/projects/cleanup/ with date-prefixed names. ops/ now contains only operational essentials (ROUTER, credentials, NEXT, YAML configs).
   - Moved: CLEANUP-MEETING-4-*, CONSOLIDATION-MEETING-3-REPORT, STRESS-REMEDIATION-MEETING, SINGULARITY-AUDIT, SINGULARITY-REMEDIATION-PLAN, DUPLICATION-REPORT
 - 2025-02-26: Documented dexpack guard coverage; ops/ROUTER.yaml and touchmap now map assets build to T13.DEX.DEXPACK_ROLLOUT.
@@ -25,6 +26,16 @@ Key Files:
 - OPERATIONS.md — operational runbook documenting worker matrix and rollouts
 - operations-bible/02-database-operations.md — canonical database architecture, grants, and maintenance guide
 - masterroutetable.md — text-first router map for hotfix navigation when automation is unavailable
+
+Observability Dashboards (Grafana):
+- grafana-unified-system-health.json — **PRIMARY** unified dashboard (replaces 5 fragmented dashboards)
+- grafana-dashboard.json — Legacy security intelligence (use unified instead)
+- grafana-infinity-gauntlet-main.json — Legacy main dashboard (use unified instead)
+- grafana-battle-engine.json — Legacy battle performance (use unified instead)
+- grafana-cache-performance.json — Legacy cache metrics (use unified instead)
+- grafana-timescaledb-dashboard.json — Legacy database metrics (use unified instead)
+- UNIFIED-DASHBOARD-IMPORT-GUIDE.md — Import instructions and verification steps
+- DASHBOARD-INTEGRATION-PLAN.md — Integration plan and migration roadmap
 
 Subrouters:
 - ops/INBOX/ROUTER.md — Operator inbox staging area; sync with NEXT metadata before edits.
