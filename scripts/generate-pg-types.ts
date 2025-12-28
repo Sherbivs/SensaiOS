@@ -14,6 +14,7 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
+import { formatSectionHeader, formatKeyValueList, printSuccess, printError, printInfo } from '../src/utils/output-formatter.js';
 
 // ============================================================================
 // Constants
@@ -333,19 +334,20 @@ function generateTypeFile(models: Model[], enums: Enum[]): string {
 // ============================================================================
 
 async function main() {
-  console.log('[generate-types] Reading schema from:', SCHEMA_PATH);
+  console.log(formatSectionHeader('Generate PG Types'));
+  printInfo(`Reading schema from: ${SCHEMA_PATH}`);
 
   // Read schema
   const schemaContent = fs.readFileSync(SCHEMA_PATH, 'utf-8');
 
   // Parse
-  console.log('[generate-types] Parsing schema...');
+  printInfo('Parsing schema...');
   const { models, enums } = parseSchema(schemaContent);
 
-  console.log(`[generate-types] Found ${models.length} models, ${enums.length} enums`);
+  console.log(formatKeyValueList([['Models found', String(models.length)], ['Enums found', String(enums.length)]]));
 
   // Generate TypeScript
-  console.log('[generate-types] Generating TypeScript types...');
+  printInfo('Generating TypeScript types...');
   const output = generateTypeFile(models, enums);
 
   // Ensure output directory exists
@@ -357,15 +359,16 @@ async function main() {
   // Write output
   fs.writeFileSync(OUTPUT_PATH, output, 'utf-8');
 
-  console.log('[generate-types] ✅ Types written to:', OUTPUT_PATH);
-  console.log('[generate-types] Summary:');
-  console.log(`  - ${enums.length} enums`);
-  console.log(`  - ${models.length} base models`);
-  console.log(`  - 13 relation types (WithXYZ patterns)`);
-  console.log(`  - 6 pick types (partial selects)`);
+  printSuccess(`Types written to: ${OUTPUT_PATH}`);
+  console.log(formatKeyValueList([
+    ['Enums', String(enums.length)],
+    ['Base models', String(models.length)],
+    ['Relation types', '13 (WithXYZ patterns)'],
+    ['Pick types', '6 (partial selects)'],
+  ]));
 }
 
 main().catch(error => {
-  console.error('[generate-types] ❌ Error:', error);
+  printError(`Error: ${error}`);
   process.exit(1);
 });
