@@ -21,6 +21,11 @@ Areas:
 - .templates/ — Project README template and scaffolding
 
 Active Projects:
+- **SENSAI-FINAL-ARCHITECTURE.md** — 🎯 **STANDARD OS** (2,390 lines) — Complete Sensai architecture specification
+- **SENSAI-MULTITENANT-OBS-FIRST-ADDENDUM.md** — 🔒 **v1.1.2** Multi-tenant scope + observability-first patterns
+- **SENSAI-QUICK-REFERENCE.md** — 📋 Quick reference card for Sensai OS
+- **SENSAI-COMPONENT-OS-BLUEPRINT.md** — Component OS blueprint
+- **SENSAI-ARCHITECTURE-ADDENDUM.md** — v1.1 addendum with clarifications
 - v2-architecture/ — 🚀 ACTIVE: Greenfield rebuild architecture (meetings, blueprints, design)
 - database-centric/ — Database-centric development plan (Sprint 1 complete)
 - infrastructure/ — TypeScript migration, Discord testing, state persistence

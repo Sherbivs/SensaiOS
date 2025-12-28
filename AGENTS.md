@@ -24,6 +24,65 @@
 ## Mission
 An agentic system that routes tasks to capable sub-agents, never gets stuck, and can self-heal after errors. The system prioritizes safety, observability, and progress over perfection.
 
+---
+
+## 🎯 SENSAI OS — Standard Operating System (CRITICAL)
+
+**Sensai is the standard operating system for this project.** All new development MUST follow Sensai architecture patterns.
+
+### The Golden Invariant (MEMORIZE)
+```
+CLIENTS APPEND EXPORTS.
+WORKERS TRANSFORM EXPORTS.
+POSTGRES IS THE TRUTH.
+EVERYTHING ELSE IS A VIEW.
+```
+
+### Core Sensai Principles
+1. **Database as Substrate** — No file I/O except SQLite buffers. `/Store` only contains SQLite files.
+2. **Append-Only Facts** — External inputs become immutable export records in exports table.
+3. **Workers as Kernel Services** — Standardized worker contracts (ingest/project/deliver/gc).
+4. **Transactional System Calls** — Every operation is an atomic transaction.
+5. **Explicit Data Ownership** — Each table has ONE owner component (only writer).
+6. **Safe Removability** — Disable components without corrupting canonical state.
+7. **Multi-Tenant by Default** — Every envelope carries `scope: { tenantId, guildId }` (v1.1.2)
+8. **Observability-First** — Boot logger starts before DB; all handlers wrapped via `runGuarded()` (v1.1.2)
+
+### Sensai Non-Negotiables
+- ❌ **No `Math.random()` in gameplay** — Use `ctx.rng.derive(['seed', 'parts'])`
+- ❌ **No `fs.writeFile`** — Use `ctx.storage.putBlob()` or SQLite buffer
+- ❌ **No direct handler calls** — Components communicate via exports/jobs/outbox
+- ❌ **No table with multiple writers** — One owner per table (canonical data)
+- ✅ **All handlers idempotent** — Safe to retry without side effects
+- ✅ **All caches bounded** — LRU with hard caps (maxCacheMb in manifest)
+- ✅ **All RNG seeds logged** — Enable audit/replay capability
+
+### Sensai Documentation (REQUIRED READING)
+- **Full Specification:** `docs/projects/SENSAI-FINAL-ARCHITECTURE.md` (2,390 lines)
+- **AI Agent Instructions:** `.github/instructions/sensai.instructions.md`
+- **Quick Reference:** `docs/projects/SENSAI-QUICK-REFERENCE.md`
+- **Component Blueprint:** `docs/projects/SENSAI-COMPONENT-OS-BLUEPRINT.md`
+- **v1.1 Addendum:** `docs/projects/SENSAI-ARCHITECTURE-ADDENDUM.md`
+- **v1.1.2 Multi-Tenant + Obs-First:** `docs/projects/SENSAI-MULTITENANT-OBS-FIRST-ADDENDUM.md`
+
+### Component Pattern (USE THIS)
+```typescript
+export const MyComponent: SensaiComponent = {
+  name: 'domain.feature',
+  version: '1.0.0',
+  hosts: ['bot', 'worker'],
+  capabilities: { db: ['read', 'write'], discord: ['send'] },
+  owns: { canonical: ['MyTable'], projections: ['MyView'] },
+  resources: { maxCacheMb: 20, maxQueueSize: 10000 },
+  handlers: {
+    exports: { 'my.event': async (envelope, ctx) => { /* ... */ } },
+    jobs: { 'MY_JOB': async (job, ctx) => ({ status: 'success' }) },
+  },
+};
+```
+
+---
+
 **Phase 9 Complete** (2025-11-07): Repository is production-ready, centralized, standardized, and scalable. All quality metrics optimized: zero linter warnings, zero npm vulnerabilities, zero outdated packages, fast tests (6.82s), clean documentation. See `ops/REPO-OPTIMIZATION-REPORT.md` for comprehensive achievements.
 
 **Recent Enhancements (November 2025)**:

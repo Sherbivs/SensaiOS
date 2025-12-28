@@ -5,6 +5,45 @@ Pokémon Infinity Gauntlet is a Discord-first Pokémon adventure with **private 
 
 **HOMESTEAD MIGRATION COMPLETE (2025-06-15):** All gameplay uses private guild channels (homestead-{username}). DM modules removed. See `docs/architecture-bible/18-private-channel-architecture.md` for complete specification.
 
+---
+
+## 🎯 SENSAI OS — Standard Operating System (CRITICAL)
+
+**Sensai is the standard operating system for this project.** All new development MUST follow Sensai architecture patterns.
+
+### The Golden Invariant (MEMORIZE)
+```
+CLIENTS APPEND EXPORTS.
+WORKERS TRANSFORM EXPORTS.
+POSTGRES IS THE TRUTH.
+EVERYTHING ELSE IS A VIEW.
+```
+
+### Core Sensai Principles
+1. **Database as Substrate** — No file I/O except SQLite buffers
+2. **Append-Only Facts** — External inputs → immutable export records
+3. **Workers as Kernel Services** — Standardized worker contracts
+4. **Transactional System Calls** — All operations are atomic transactions
+5. **Explicit Data Ownership** — One writer component per table
+6. **Safe Removability** — Disable components without corrupting state
+7. **Multi-Tenant by Default** — Every envelope carries `scope: { tenantId, guildId }` (v1.1.2)
+8. **Observability-First** — Boot logger before DB; handlers via `runGuarded()` (v1.1.2)
+
+### Component Architecture
+- Components communicate via **EXPORTS** (facts), **JOBS** (work), **OUTBOX** (side effects)
+- **NEVER** call handlers directly between components
+- All handlers must be **idempotent** (safe to retry)
+- Use `ctx.rng.derive()` for deterministic RNG, not `Math.random()`
+- Use `ctx.storage` for blob storage, not `fs.writeFile()`
+
+### Sensai Documentation
+- **Full Specification:** `docs/projects/SENSAI-FINAL-ARCHITECTURE.md` (2,390 lines)
+- **Instructions:** `.github/instructions/sensai.instructions.md`
+- **Component Blueprint:** `docs/projects/SENSAI-COMPONENT-OS-BLUEPRINT.md`
+- **v1.1.2 Addendum:** `docs/projects/SENSAI-MULTITENANT-OBS-FIRST-ADDENDUM.md`
+
+---
+
 ## Critical: Start Here Before Any Work
 
 ### Orientation Flow (Required Reading)
@@ -364,6 +403,11 @@ Areas:
 
 ## Quick Reference Links
 
+- **🎯 Sensai OS:** `docs/projects/SENSAI-FINAL-ARCHITECTURE.md` → Standard operating system specification (2,390 lines):
+  - Component model, kernel primitives, data ownership rules
+  - Concurrency model (advisory locks, row locks, optimistic)
+  - Discord I/O policy (immediate/deferred/outbox tiers)
+  - Migration roadmap and non-negotiables
 - **Architecture:** `README.md` → comprehensive system overview
 - **Architecture Bible:** `docs/architecture-bible/INDEX.md` → 27 sections (system design, database, workers, game engine, etc.)
 - **Operations Bible:** `docs/operations-bible/INDEX.md` → 13 sections + 9 guides (service matrix, deployment, monitoring, database operations)
@@ -396,4 +440,4 @@ Areas:
 
 ---
 
-**Last Updated:** 2025-12-20 | **Revision:** 2.3 — Added NO-RESTART policy and Loki observability
+**Last Updated:** 2025-12-28 | **Revision:** 2.4 — Added Sensai OS as standard operating system

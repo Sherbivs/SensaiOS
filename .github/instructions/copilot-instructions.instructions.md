@@ -20,6 +20,47 @@ Pokemon Infinity Gauntlet is a Discord-first Pokemon adventure with **private gu
 
 **HOMESTEAD MIGRATION COMPLETE (2025-06-15):** All gameplay uses private guild channels (homestead-{username}). DM modules removed. See docs/architecture-bible/18-private-channel-architecture.md.
 
+---
+
+## 🎯 SENSAI OS — Standard Operating System (CRITICAL)
+
+**Sensai is the standard operating system for this project.** All new development MUST follow Sensai architecture patterns.
+
+### The Golden Invariant (MEMORIZE)
+```
+CLIENTS APPEND EXPORTS.
+WORKERS TRANSFORM EXPORTS.
+POSTGRES IS THE TRUTH.
+EVERYTHING ELSE IS A VIEW.
+```
+
+### Core Sensai Principles
+1. **Database as Substrate** — No file I/O except SQLite buffers
+2. **Append-Only Facts** — External inputs → immutable export records
+3. **Workers as Kernel Services** — Standardized worker contracts
+4. **Transactional System Calls** — All operations are atomic transactions
+5. **Explicit Data Ownership** — One writer component per table
+6. **Safe Removability** — Disable components without corrupting state
+7. **Multi-Tenant by Default** — Every envelope carries `scope: { tenantId, guildId }` (v1.1.2)
+8. **Observability-First** — Boot logger starts before DB; all handlers wrapped via `runGuarded()` (v1.1.2)
+
+### Sensai Non-Negotiables
+- ❌ **No `Math.random()` in gameplay** — Use `ctx.rng.derive()`
+- ❌ **No `fs.writeFile`** — Use `ctx.storage` primitive
+- ❌ **No direct handler calls** — Use exports/jobs/outbox
+- ❌ **No table with multiple writers** — One owner per table
+- ✅ **All handlers idempotent** — Safe to retry
+- ✅ **All caches bounded** — LRU with hard caps
+- ✅ **All RNG seeds logged** — Audit/replay capability
+
+### Sensai Documentation
+- **Full Specification:** `docs/projects/SENSAI-FINAL-ARCHITECTURE.md` (2,390 lines)
+- **Instructions:** `.github/instructions/sensai.instructions.md`
+- **Component Blueprint:** `docs/projects/SENSAI-COMPONENT-OS-BLUEPRINT.md`
+- **v1.1.2 Addendum:** `docs/projects/SENSAI-MULTITENANT-OBS-FIRST-ADDENDUM.md`
+
+---
+
 ## TERMINOLOGY ENFORCEMENT (2025-12-02)
 
 **ALL code, documentation, comments, and logs MUST use standardized terminology.**
@@ -27,6 +68,7 @@ Pokemon Infinity Gauntlet is a Discord-first Pokemon adventure with **private gu
 - **Database Terms:** CLOUD-PROD-MASTER, ONPREMISE-DEV-PRIMARY, ONPREMISE-DEV-EXPERIMENT
 - **Channel Terms:** Homestead Channel, Public Field Channel, Arena Thread
 - **Engine Terms:** PBSL, Dexpack, Engine Read-DB, Engine Write-DB, L1 Cache
+- **Sensai Terms:** Export, Job, Outbox, Canonical Table, Projection, Host, Component
 - **Enforcement:** Code review, AI assistants, documentation standards
 
 ## Critical: Start Here Before Any Work
@@ -161,6 +203,12 @@ $r.data.result | ForEach-Object { $_.values.Count }  # Log count per stream
 
 ## Quick Reference Links
 
+### Sensai OS (STANDARD OPERATING SYSTEM)
+- **Full Specification:** docs/projects/SENSAI-FINAL-ARCHITECTURE.md (2,390 lines)
+- **Instructions:** .github/instructions/sensai.instructions.md
+- **Component Blueprint:** docs/projects/SENSAI-COMPONENT-OS-BLUEPRINT.md
+- **v1.1 Addendum:** docs/projects/SENSAI-ARCHITECTURE-ADDENDUM.md
+
 ### Core Documentation
 - **Architecture Bible:** docs/architecture-bible/INDEX.md
 - **Operations Bible:** docs/operations-bible/INDEX.md
@@ -186,4 +234,4 @@ $r.data.result | ForEach-Object { $_.values.Count }  # Log count per stream
 
 ---
 
-**Last Updated:** 2025-12-20 | **Revision:** 3.3 — Added NO-RESTART policy and Loki observability
+**Last Updated:** 2025-12-28 | **Revision:** 3.4 — Added Sensai OS as standard operating system

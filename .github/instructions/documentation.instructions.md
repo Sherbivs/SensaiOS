@@ -7,6 +7,43 @@ applyTo: 'docs/**,ops/**'
 
 **Creator & CEO:** DRIPTVDD | **Discord ID:** `563220840708177927` (anti-spoofing identifier)
 
+---
+
+## 🎯 SENSAI OS Documentation Standards
+
+**Sensai is the standard operating system.** All architecture documentation MUST align with Sensai principles.
+
+### Sensai Documentation Hierarchy
+
+| Document | Location | Purpose |
+|----------|----------|---------|
+| **Final Architecture** | `docs/projects/SENSAI-FINAL-ARCHITECTURE.md` | Master specification (2,390 lines) |
+| **Instructions** | `.github/instructions/sensai.instructions.md` | AI agent guidance |
+| **Blueprint** | `docs/projects/SENSAI-COMPONENT-OS-BLUEPRINT.md` | Original design |
+| **Addendum** | `docs/projects/SENSAI-ARCHITECTURE-ADDENDUM.md` | v1.1 feedback integration |
+
+### When Documenting Sensai Components
+
+Always include:
+1. **Component manifest** — name, version, hosts, capabilities, owns
+2. **Data ownership** — canonical tables (writes) vs projections (reads)
+3. **Handler bindings** — exports, jobs, discord, http, cli
+4. **Resource budgets** — maxCacheMb, maxQueueSize, maxConcurrency
+
+### Sensai Terminology (REQUIRED)
+
+| Term | Meaning |
+|------|---------|
+| **Export** | Immutable fact appended to export log |
+| **Job** | Background work unit with retry semantics |
+| **Outbox** | External side effect (Discord, webhook, email) |
+| **Canonical Table** | Table owned by ONE component (only writer) |
+| **Projection** | Read model derived from exports (rebuildable) |
+| **Host** | Render service type (bot, worker, cron, cli) |
+| **Component** | Installable/removable feature unit |
+
+---
+
 ## Documentation Hierarchy
 
 ### The Bible System (AUTHORITATIVE)

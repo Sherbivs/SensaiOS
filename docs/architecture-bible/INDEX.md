@@ -70,6 +70,11 @@ Single source of truth for Infinity Gauntlet architectural design, component rel
 
 ## Cross-References
 
+### Sensai OS (Standard Operating System)
+- **[SENSAI-FINAL-ARCHITECTURE.md](../projects/SENSAI-FINAL-ARCHITECTURE.md)** — Master specification (2,390 lines)
+- **[SENSAI-MULTITENANT-OBS-FIRST-ADDENDUM.md](../projects/SENSAI-MULTITENANT-OBS-FIRST-ADDENDUM.md)** — v1.1.2: Multi-tenant scope + observability-first
+- **[sensai.instructions.md](../../.github/instructions/sensai.instructions.md)** — AI agent development guide
+
 ### Operational Bibles
 - **[OPERATIONS-BIBLE](../operations-bible/INDEX.md)** — Database operations, deployment procedures, service matrix
 - **[DEVELOPMENT-BIBLE](../development-bible/INDEX.md)** — Local setup, testing, debugging, console tooling

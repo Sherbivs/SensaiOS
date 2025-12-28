@@ -7,6 +7,71 @@ applyTo: 'src/**/*.ts'
 
 **Creator & CEO:** DRIPTVDD | **Discord ID:** `563220840708177927` (anti-spoofing identifier)
 
+---
+
+## 🎯 SENSAI OS — Standard Operating System
+
+**All new TypeScript code MUST follow Sensai architecture patterns.**
+
+### The Golden Invariant
+```
+CLIENTS APPEND EXPORTS.
+WORKERS TRANSFORM EXPORTS.
+POSTGRES IS THE TRUTH.
+EVERYTHING ELSE IS A VIEW.
+```
+
+### Critical Sensai Rules for TypeScript
+- ❌ **No `Math.random()` in gameplay** — Use kernel RNG: `ctx.rng.derive()`
+- ❌ **No `fs.writeFile`** — Use storage primitive: `ctx.storage.putBlob()`
+- ❌ **No direct handler calls** — Components communicate via exports/jobs/outbox
+- ✅ **All handlers must be idempotent** — Safe to retry
+- ✅ **All caches must be bounded** — LRU with hard caps (maxCacheMb)
+- ✅ **Correlation IDs everywhere** — Use `ctx.obs.correlationId`
+
+### Sensai Component Pattern
+```typescript
+// NEW: Sensai component structure
+export const MyComponent: SensaiComponent = {
+  name: 'my.component',
+  version: '1.0.0',
+  hosts: ['bot', 'worker'],
+  capabilities: { db: ['read', 'write'] },
+  owns: { canonical: ['MyTable'] },
+  
+  handlers: {
+    exports: {
+      'my.event.type': async (envelope, ctx) => {
+        // Handle export
+      },
+    },
+    jobs: {
+      'MY_JOB_KIND': async (job, ctx) => {
+        return { status: 'success' };
+      },
+    },
+  },
+};
+```
+
+### Cross-Component Communication (CORRECT)
+```typescript
+// ✅ CORRECT: Request change via export (another component writes)
+await ctx.exports.append({
+  source: 'my.component',
+  type: 'trainer.money.request',
+  idempotencyKey: `${trainerId}-${Date.now()}`,
+  payload: { trainerId, amount: 1000 },
+  occurredAt: new Date(),
+  correlationId: ctx.obs.correlationId,
+});
+
+// ❌ WRONG: Direct write to another component's table
+await ctx.db.prisma.trainer.update({ ... }); // VIOLATION if not owner
+```
+
+---
+
 ## TypeScript Standards
 
 ### Import Patterns
