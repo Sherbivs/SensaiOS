@@ -1947,11 +1947,13 @@ export async function boot(): Promise<void> {
     }
     
     // Schedule automatic restart every 12 hours (production only)
-    if (process.env.RENDER) {
-      scheduleAutoRestart();
-    } else {
-      log.info("index", "boot", "⏰ Auto-restart disabled in local development");
-    }
+    // DISABLED 2025-12-28: Auto-restart no longer needed per operator request
+    // if (process.env.RENDER) {
+    //   scheduleAutoRestart();
+    // } else {
+    //   log.info("index", "boot", "⏰ Auto-restart disabled in local development");
+    // }
+    log.info("index", "boot", "⏰ Auto-restart disabled (manual restarts only)");
   } catch (error) {
     const message = getErrorMessage(error);
     
