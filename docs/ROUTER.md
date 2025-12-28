@@ -2,9 +2,10 @@
 Title: Documentation Library — Bible System
 Purpose: Comprehensive architecture, operations, and development guides in modular Bible format.
 Owned Globs: docs/**
-Last Updated (UTC): 2025-12-19T01:45:00Z
+Last Updated (UTC): 2025-12-28T19:30:00Z
 
 Notes:
+- **AI COLLABORATION GUIDE ADDED (2025-12-28)**: Comprehensive AI assistant playbook for effective project contributions.
 - **PRISMA 7 BIBLE ADDED (2025-12-19)**: AI agent playbook for Prisma v7 after production failure.
 - **DOCUMENTATION REMEDIATION (2025-12-18)**: Architecture Bible renumbered to 22 sequential sections, Operations Bible cleaned to 13 sections + 9 guides.
 - **HOMESTEAD MIGRATION COMPLETE (2025-06-15)**: All DM-based gameplay migrated to private guild channels. `src/bot/dm/` DELETED.
@@ -17,6 +18,7 @@ Directory Structure (CURRENT):
 - **architecture-bible/** — System architecture Bible (27 sections + INDEX)
 - **operations-bible/** — Operations & deployment Bible (13 sections + 9 comprehensive guides + INDEX)
 - **development-bible/** — Development practices Bible (10 sections + INDEX)
+- **ai-collaboration-guide.md** — Comprehensive AI assistant playbook for effective project contributions [🟢 ONBOARDING]
 - **prisma-7-bible.md** — Comprehensive AI agent playbook (1000+ lines): emergency triage, migration guide, 7 failure modes, golden configs [🔴 CRITICAL]
 - **archive/** — Obsolete technical documentation (Accelerate-era files)
 
@@ -24,6 +26,7 @@ Directory Structure (CURRENT):
 
 | File | Coverage | Criticality |
 |------|----------|-------------|
+| **ai-collaboration-guide.md** | Patterns, workflows, quality checklists for AI assistants; output-formatter migration case study; project-specific knowledge; 8,000+ words comprehensive onboarding | 🟢 **ONBOARDING** |
 | **prisma-7-bible.md** | Emergency triage, Prisma 6→7 migration guide, 7 failure modes with fixes, golden configs, engine types (`library` vs `client`), Render deployment, PgBouncer, game persistence, transactions | 🔴 **CRITICAL** |
 
 ## Bible Navigation
@@ -110,6 +113,7 @@ Directory Structure (CURRENT):
 ## Quick Reference Index
 
 ### Critical Documents
+- **AI Collaboration Guide**: ai-collaboration-guide.md [🟢 ONBOARDING - 8,000+ words: Patterns, workflows, case studies for AI assistants]
 - **Prisma 7 Bible**: prisma-7-bible.md [🔴 CRITICAL - 1000+ lines: Emergency triage, migration guide, 7 failure modes, golden configs]
 - **Resource Limits**: RESOURCE-LIMITS-RAM-VS-DISK.md [CRITICAL - RAM (2 GB) vs Disk (1 GB) distinction]
 - **Database URL Selection**: operations-bible/02-database-operations.md § 2.1 [ABSOLUTE - Violations cause production failures]
