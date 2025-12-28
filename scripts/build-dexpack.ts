@@ -1,3 +1,4 @@
+import { scopedLogger } from "../src/observability/envelope/console.js";
 import { gzipSync } from "node:zlib";
 import fs from "node:fs/promises";
 import path from "node:path";
@@ -5,7 +6,6 @@ import { fileURLToPath } from "node:url";
 
 import { buffersEqual, readFileIfExists, writeFileIfChanged } from "../src/shared/utils/file-utils.js";
 import { formatStatus, formatKeyValueList as _formatKeyValueList, formatList, printError } from "../src/utils/output-formatter.js";
-import { scopedLogger } from "../src/observability/envelope/console.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);

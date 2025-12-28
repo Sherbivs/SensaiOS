@@ -18,10 +18,9 @@
  *   1 - Build failed (missing data or invariant failure)
  */
 
+import { scopedLogger } from '../src/observability/envelope/console.js';
 import fs from 'node:fs';
 import path from 'node:path';
-
-import { scopedLogger } from '../src/observability/envelope/console.js';
 
 const log = scopedLogger('scripts.build-data');
 

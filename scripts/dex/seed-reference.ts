@@ -1,11 +1,11 @@
 // Seeds Prisma dex reference tables using the bootstrap JSON artifacts.
+import { scopedLogger } from "../../src/observability/envelope/console.js";
 import { Prisma, PrismaClient } from "../../src/generated/prisma/client.js";
 import { PrismaPg } from "@prisma/adapter-pg";
 import pg from "pg";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { scopedLogger } from "../../src/observability/envelope/console.js";
 import { printSuccess, printError, printInfo } from "../../src/utils/output-formatter.js";
 
 const __filename = fileURLToPath(import.meta.url);

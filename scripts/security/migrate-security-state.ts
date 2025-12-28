@@ -25,11 +25,11 @@
  *   --verbose       Enable verbose logging
  */
 
+import { scopedLogger } from '../../src/observability/envelope/console.js';
 import { readFileSync, writeFileSync, existsSync, readdirSync } from 'fs';
 import { join, dirname, relative } from 'path';
 import { fileURLToPath } from 'url';
 import { createHash, createHmac } from 'crypto';
-import { scopedLogger } from '../../src/observability/envelope/console.js';
 import { formatSectionHeader, formatKeyValueList, formatList, printSuccess, printError, printWarning, printInfo } from '../../src/utils/output-formatter.js';
 
 // Types for JSON source files

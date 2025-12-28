@@ -137,28 +137,23 @@ Stay disciplined. The repository must always exit a run with a READY pointer, a 
 # _Patch Clipboard Scratch Area (leave empty when not in use)_
 # 
 <<<PATCHSET START>>>
-Header: [Task OBS.ENVELOPE.SCRIPTS.PHASE2_4] Complete scripts envelope evaluation (Phase 2.4)
+Header: [Task OBS.LOGGER.FIRST_IMPORTS] Enforce logger-first imports and document policy
 
 FILES:
-- scripts/seed-dex.ts: add scopedLogger and audit start/complete/error while keeping user-facing progress output.
-- scripts/dex/seed-reference.ts: add scopedLogger and audit start/complete/error while preserving CLI output.
-- scripts/dex/backfill-species.ts: add scopedLogger and log audit points plus permission fallback events while keeping operator-facing output.
-- scripts/register-commands.ts: add scopedLogger and audit registration start/complete/errors without changing console UX.
-- scripts/build-dexpack.ts: add scopedLogger and audit build start/complete/error while preserving formatted console output.
-- docs/projects/PHASE-2.4-SCRIPTS-EVALUATION.md: mark Phase 2.4 decisions and completion status.
-- docs/projects/SCRIPTS-ENVELOPE-MIGRATION.md: record Phase 2.4 migrated/skip lists and completion date.
-- Tasklist.md: add OBS.ENVELOPE.SCRIPTS.PHASE2_4 entry with completion notes.
-- ops/NEXT.yaml: set quick_task to OBS.ENVELOPE.SCRIPTS.PHASE2_4 and refresh timestamps/notes.
-- Prompt.md: update timestamp/revision, Last Repo Changes, and PATCHSET echo with Phase 2.4 completion status and testing note.
+- scripts/ops/bootstrap-onpremise-experiment.ts: move scopedLogger import to the top of the import block to comply with logger-first policy.
+- docs/ai-collaboration-guide.md: document logger-first import ordering and align script guidance.
+- Tasklist.md: add OBS.LOGGER.FIRST_IMPORTS quick task with completion notes.
+- ops/NEXT.yaml: update quick_task slot and timestamps for OBS.LOGGER.FIRST_IMPORTS.
+- Prompt.md: refresh timestamp/revision, Last Repo Changes, and PATCHSET echo with logger-first import enforcement status.
 
 TASKLIST UPDATE:
-- OBS.ENVELOPE.SCRIPTS.PHASE2_4 marked DONE.
+- OBS.LOGGER.FIRST_IMPORTS marked DONE.
 
 Commit Message:
-[Task OBS.ENVELOPE.SCRIPTS.PHASE2_4] Complete scripts envelope evaluation Phase 2.4
-Why: Add audit logging for key scripts while documenting which tools remain console-driven.
-Changes: Added scopedLogger audit points to selected scripts, documented Phase 2.4 decisions, and refreshed meta tracking.
-Testing: Not run (scripts require local data/env; no targeted automated suite).
+[Task OBS.LOGGER.FIRST_IMPORTS] Enforce logger-first imports in scripts
+Why: Ensure logger initialization happens first and codify the policy in collaboration docs.
+Changes: Reordered logger import in onpremise experiment bootstrap script and documented logger-first guidance.
+Testing: Not run (import order/docs only).
 <<<PATCHSET END>>>
 
 <<<PROPOSED PATCHSET START>>>

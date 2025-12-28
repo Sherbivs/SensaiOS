@@ -1,9 +1,9 @@
+import { scopedLogger } from "../src/observability/envelope/console.js";
 import fs from "node:fs";
 import path from "node:path";
 import process from "node:process";
 import { setTimeout as sleep } from "node:timers/promises";
 import * as dotenv from "dotenv";
-import { scopedLogger } from "../src/observability/envelope/console.js";
 import { initializeConnection, getProdDb } from "../src/shared/pg-connection.js";
 import {
   formatSectionHeader,

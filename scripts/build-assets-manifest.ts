@@ -21,9 +21,9 @@
  *   1 - No dex data found
  */
 
+import { scopedLogger } from '../src/observability/envelope/console.js';
 import fs from 'node:fs';
 import path from 'node:path';
-import { scopedLogger } from '../src/observability/envelope/console.js';
 
 const log = scopedLogger('scripts.build-assets-manifest');
 

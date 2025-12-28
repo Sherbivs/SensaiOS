@@ -60,18 +60,14 @@ main_tasks:
 
 # Quick/hot task slot (1 concurrent quick task allowed)
 quick_task:
-  id: OBS.ENVELOPE.SCRIPTS.PHASE2_4
-  title: "Complete scripts envelope evaluation (Phase 2.4)"
+  id: OBS.LOGGER.FIRST_IMPORTS
+  title: "Enforce logger-first imports in scripts"
   status: DONE
-  effort: "2h"
+  effort: "20m"
   files_hint:
-    - scripts/seed-dex.ts
-    - scripts/dex/seed-reference.ts
-    - scripts/dex/backfill-species.ts
-    - scripts/register-commands.ts
-    - scripts/build-dexpack.ts
-    - docs/projects/PHASE-2.4-SCRIPTS-EVALUATION.md
-    - docs/projects/SCRIPTS-ENVELOPE-MIGRATION.md
+    - scripts/ops/bootstrap-onpremise-experiment.ts
+    - docs/ai-collaboration-guide.md
+    - Tasklist.md
     - Prompt.md
 
 # Legacy fields (maintained for backward compatibility)
@@ -82,7 +78,7 @@ files_hint:
   - src/kernel/boot-kernel.ts
 
 queue: []
-timestamp_utc: 2025-12-27T20:55:59Z
+timestamp_utc: 2025-12-28T12:46:37Z
 router_version: 2
-last_notes_read_utc: 2025-12-27T20:55:59Z
-note: "Scripts envelope migration Phase 2.4 complete. Sprint 2 output plugin tasks remain READY."
+last_notes_read_utc: 2025-12-28T12:46:37Z
+note: "Logger-first import order enforced for scripts; Sprint 2 output plugin tasks remain READY."

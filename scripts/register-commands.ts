@@ -19,12 +19,12 @@
  *   1 - Missing credentials or registration failed
  */
 
+import { scopedLogger } from '../src/observability/envelope/console.js';
 import 'dotenv/config';
 import fs from 'node:fs';
 import path from 'node:path';
 import { REST, Routes } from 'discord.js';
 import type { RESTPostAPIChatInputApplicationCommandsJSONBody } from 'discord.js';
-import { scopedLogger } from '../src/observability/envelope/console.js';
 import { printError, printWarning, printSuccess, printInfo, formatSectionHeader, formatKeyValueList } from '../src/utils/output-formatter.js';
 
 // Token resolution with fallback chain

@@ -1,7 +1,10 @@
 # Tasklist
-Last Updated (UTC): 2025-12-27T20:55:59Z
-Revision: 2.120
+Last Updated (UTC): 2025-12-28T12:46:37Z
+Revision: 2.121
 <!-- # TASKLIST UPDATE -->
+
+**Recent Activity (2025-12-28T12:46Z):**
+- ✅ **Logger-First Import Policy** — Moved scopedLogger import to the top of onpremise experiment bootstrap and documented logger-first ordering.
 
 **Recent Activity (2025-12-27T20:55Z):**
 - ✅ **Scripts Envelope Migration Phase 2.4** — Evaluated remaining scripts, added audit logging to seed/register/build scripts, and documented skip list.
@@ -238,6 +241,18 @@ Each task has:
 ---
 
 ## 🔥 Quick/Hotfix Tasks
+
+- id: OBS.LOGGER.FIRST_IMPORTS
+  title: Enforce logger-first imports in scripts
+  status: DONE
+  depends_on: []
+  priority: P3-LOW
+  effort: 20m
+  acceptance_criteria:
+    - Move scopedLogger import to the top of scripts/ops/bootstrap-onpremise-experiment.ts
+    - Document logger-first import ordering in docs/ai-collaboration-guide.md
+    - Prompt.md updated with completion report
+  notes: Aligns script entrypoints with logger-first policy.
 
 - id: OBS.ENVELOPE.MIGRATION.FIXUP
   title: Restore stdout/stderr output for envelope migration

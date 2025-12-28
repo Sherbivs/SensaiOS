@@ -22,11 +22,11 @@
  *   --verbose       Enable verbose logging
  */
 
+import { scopedLogger } from '../../src/observability/envelope/console.js';
 import { readFileSync, writeFileSync, existsSync, unlinkSync } from 'fs';
 import { join, dirname, relative } from 'path';
 import { fileURLToPath } from 'url';
 import * as readline from 'readline';
-import { scopedLogger } from '../../src/observability/envelope/console.js';
 import { formatSectionHeader, formatKeyValueList, formatList, printSuccess, printError, printWarning, printInfo } from '../../src/utils/output-formatter.js';
 
 // Types

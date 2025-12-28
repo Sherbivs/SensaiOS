@@ -1,11 +1,11 @@
 // Ensures PokemonInstance and Encounter rows reference seeded species entries.
+import { scopedLogger } from "../../src/observability/envelope/console.js";
 import { Prisma, PrismaClient } from "../../src/generated/prisma/client.js";
 import { PrismaPg } from "@prisma/adapter-pg";
 import pg from "pg";
 import { seedDex } from "./seed_reference.js";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
-import { scopedLogger } from "../../src/observability/envelope/console.js";
 import { printSuccess, printError, printInfo, printWarning } from "../../src/utils/output-formatter.js";
 
 function createPrismaClient(): PrismaClient {

@@ -1,6 +1,6 @@
 # Prompt.md
-Timestamp (UTC): 2025-12-27T20:55:59Z
-Revision: 4.5
+Timestamp (UTC): 2025-12-28T12:46:37Z
+Revision: 4.6
 
 **Cross-References**:
 - See `Patch.md` for contract rules (updated 2025-12-27T00:00:00Z Rev 1.75)
@@ -22,15 +22,15 @@ Revision: 4.5
 5. When Git remote validation or CI guards fail locally, stop and request human assistance rather than proceeding.
 
 ## Last Repo Changes
-- Added envelope audit logging to Phase 2.4 scripts (seed-dex, dex seed/reference/backfill, register-commands, build-dexpack) while preserving CLI output.
-- Completed Phase 2.4 evaluation docs and updated SCRIPTS-ENVELOPE-MIGRATION tracker plus Tasklist/NEXT/Prompt metadata.
+- Moved scopedLogger import to the top of the onpremise experiment bootstrap script to comply with logger-first policy.
+- Documented logger-first import ordering in the AI collaboration guide and refreshed Tasklist/NEXT/Prompt metadata.
 
 - **NEXT Pointer:** Multi-task queue system (3 main + 1 quick/hot task allowed)
   - **Main Tasks (3/3 READY):**
     1. KERNEL.LOGGING.OUTPUT_PLUGINS — Add output plugin system to Kernel.
     2. KERNEL.LOGGING.PII_SCRUBBING — Add PII scrubbing to Kernel output.
     3. KERNEL.LOGGING.CORRELATION_IDS — Add correlation ID tracking.
-  - **Quick Task Slot:** Available for bug fixes, documentation updates, or hotfixes (<30 min work)
+  - **Quick Task Slot:** OBS.LOGGER.FIRST_IMPORTS completed (logger-first import order enforcement)
 - **READY / In-flight:** Kernel logging Sprint 2 output plugin architecture (READY). Homestead migration COMPLETE — see `docs/architecture-bible/18-private-channel-architecture.md`.
 
 ## System Highlights
@@ -71,12 +71,12 @@ Revision: 4.5
 
 ## Embedded PATCHSET Echo
 <!-- PATCHSET:ECHO BEGIN -->
-HEAD: pending-local (Scripts Envelope Migration Phase 2.4)
-Change: Added audit logging to selected scripts (seed/register/build) and documented Phase 2.4 migrate/skip decisions.
+HEAD: pending-local (Logger-first import policy)
+Change: Reordered scopedLogger import in bootstrap-onpremise-experiment and documented logger-first import ordering in AI collaboration guide.
 TasklistDiff: true.
-Tests: Not run (scripts require local data/env; no targeted automated suite).
+Tests: Not run (import order/docs only).
 Contracts: ON (Patch Engine active).
-NextPointer: Main tasks remain KERNEL.LOGGING.OUTPUT_PLUGINS/KERNEL.LOGGING.PII_SCRUBBING/KERNEL.LOGGING.CORRELATION_IDS because Sprint 2 work is still READY; quick task OBS.ENVELOPE.SCRIPTS.PHASE2_4 completed.
+NextPointer: Main tasks remain KERNEL.LOGGING.OUTPUT_PLUGINS/KERNEL.LOGGING.PII_SCRUBBING/KERNEL.LOGGING.CORRELATION_IDS because Sprint 2 work is still READY; quick task OBS.LOGGER.FIRST_IMPORTS completed.
 <!-- PATCHSET:ECHO END -->
 
 ## AI Worker Prompt (copy/paste for Copilot/GPT)

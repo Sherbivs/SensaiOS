@@ -254,6 +254,19 @@ log.warn('operation', 'Warning', { details });
 log.error('operation', 'Error occurred', { error: err.message });
 ```
 
+#### Logger-First Import Order (CRITICAL)
+Logger imports must come before other imports in any file that initializes logging (entrypoints, scripts, workers).
+
+```typescript
+// ✅ CORRECT
+import { scopedLogger } from '../observability/envelope/console.js';
+import fs from 'node:fs';
+
+// ❌ WRONG
+import fs from 'node:fs';
+import { scopedLogger } from '../observability/envelope/console.js';
+```
+
 #### Script Logging (scripts/)
 ```typescript
 // ✅ CORRECT: Use output-formatter for user-facing output

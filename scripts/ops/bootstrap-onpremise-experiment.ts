@@ -1,10 +1,10 @@
+import { scopedLogger } from '../../src/observability/envelope/console.js';
 import fs from "node:fs";
 import { promises as fsPromises } from "node:fs";
 import path from "node:path";
 import process from "node:process";
 import { execFile, spawn } from "node:child_process";
 import * as dotenv from "dotenv";
-import { scopedLogger } from '../../src/observability/envelope/console.js';
 import {
   formatSectionHeader,
   formatKeyValueList,

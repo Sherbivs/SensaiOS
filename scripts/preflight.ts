@@ -18,9 +18,9 @@
  *   1 - Missing required files or token
  */
 
+import { scopedLogger } from '../src/observability/envelope/console.js';
 import fs from 'node:fs';
 import path from 'node:path';
-import { scopedLogger } from '../src/observability/envelope/console.js';
 
 const ROOT: string = process.cwd();
 const log = scopedLogger('scripts.preflight');
