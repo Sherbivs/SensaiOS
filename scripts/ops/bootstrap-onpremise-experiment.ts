@@ -5,6 +5,19 @@ import process from "node:process";
 import { execFile, spawn } from "node:child_process";
 import * as dotenv from "dotenv";
 import { scopedLogger } from '../../src/observability/envelope/console.js';
+import {
+  formatSectionHeader,
+  formatKeyValueList,
+  formatStatus,
+  formatList,
+  formatBorder,
+  printSection,
+  printKeyValue,
+  printSuccess,
+  printError,
+  printWarning,
+  printInfo,
+} from "../../src/utils/output-formatter.js";
 
 /** Scoped logger for ONPREMISE-DEV-EXPERIMENT bootstrap operations */
 const log = scopedLogger('ops.bootstrap-experiment');
@@ -205,9 +218,11 @@ function findPgBinaries(): PgBinaries {
   }
 
   if (!binDir) {
-    console.error("❌ PostgreSQL binaries not found.");
-    console.error("Please set PG_BIN_DIR environment variable to PostgreSQL bin directory.");
-    console.error("Example: C:/Program Files/PostgreSQL/18/bin");
+    printError("PostgreSQL binaries not found");
+    console.log(formatKeyValueList([
+      { key: "Required", value: "Set PG_BIN_DIR environment variable" },
+      { key: "Example", value: "C:/Program Files/PostgreSQL/18/bin" },
+    ]).join('\n'));
     process.exit(1);
   }
 
@@ -234,7 +249,7 @@ async function stopExistingCluster(binaries: PgBinaries, paths: Paths): Promise<
     return;
   }
 
-  console.log("🛑 Stopping existing experimental database cluster...");
+  printInfo("Stopping existing experimental database cluster");
 
   try {
     await new Promise<void>((resolve, reject) => {
@@ -254,29 +269,29 @@ async function stopExistingCluster(binaries: PgBinaries, paths: Paths): Promise<
           if (error) {
             // Ignore error if cluster was already stopped
             if (stderr.includes("PID file") || stderr.includes("not running")) {
-              console.log("   (Cluster was already stopped)");
+              printInfo("Cluster was already stopped");
               resolve();
             } else {
               reject(new Error(`pg_ctl stop failed: ${stderr}`));
             }
           } else {
-            console.log("✅ Experimental cluster stopped");
+            printSuccess("Experimental cluster stopped");
             resolve();
           }
         },
       );
     });
   } catch (err) {
-    console.warn(`⚠️  Could not stop existing cluster: ${(err as Error).message}`);
+    printWarning(`Could not stop existing cluster: ${(err as Error).message}`);
   }
 }
 
 async function initializeCluster(binaries: PgBinaries, paths: Paths): Promise<void> {
-  console.log("🔨 Initializing experimental database cluster...");
+  printInfo("Initializing experimental database cluster");
 
   // Remove existing cluster directory if it exists
   if (fs.existsSync(paths.clusterDir)) {
-    console.log("   Removing existing cluster directory...");
+    printInfo("Removing existing cluster directory");
     await fsPromises.rm(paths.clusterDir, { recursive: true, force: true });
   }
 
@@ -296,7 +311,7 @@ async function initializeCluster(binaries: PgBinaries, paths: Paths): Promise<vo
         if (error) {
           reject(new Error(`initdb failed: ${stderr}`));
         } else {
-          console.log("✅ Cluster initialized");
+          printSuccess("Cluster initialized");
           resolve();
         }
       },
@@ -305,7 +320,7 @@ async function initializeCluster(binaries: PgBinaries, paths: Paths): Promise<vo
 }
 
 async function startCluster(binaries: PgBinaries, paths: Paths, port: number): Promise<void> {
-  console.log(`🚀 Starting experimental database cluster on port ${port}...`);
+  printInfo(`Starting experimental database cluster on port ${port}`);
 
   await new Promise<void>((resolve, reject) => {
     execFile(
@@ -326,7 +341,7 @@ async function startCluster(binaries: PgBinaries, paths: Paths, port: number): P
         if (error) {
           reject(new Error(`pg_ctl start failed: ${stderr}`));
         } else {
-          console.log("✅ Cluster started");
+          printSuccess("Cluster started");
           resolve();
         }
       },
@@ -334,7 +349,7 @@ async function startCluster(binaries: PgBinaries, paths: Paths, port: number): P
   });
 
   // Wait for server to be ready
-  console.log("⏳ Waiting for server to be ready...");
+  printInfo("Waiting for server to be ready");
   await new Promise<void>((resolve, reject) => {
     let attempts = 0;
     const maxAttempts = 10;
@@ -342,7 +357,7 @@ async function startCluster(binaries: PgBinaries, paths: Paths, port: number): P
     const checkReady = () => {
       execFile(binaries.pgIsReady, ["-h", "localhost", "-p", String(port)], (error) => {
         if (!error) {
-          console.log("✅ Server is ready");
+          printSuccess("Server is ready");
           resolve();
         } else {
           attempts++;
@@ -365,11 +380,12 @@ async function cloneFromSource(
   sourceUrl: string,
   port: number,
 ): Promise<void> {
-  console.log(`📦 Cloning database from source: ${sourceUrl.replace(/\/\/[^:]+:[^@]+@/, "//***:***@")}...`);
+  const maskedUrl = sourceUrl.replace(/\/\/[^:]+:[^@]+@/, "//***:***@");
+  printInfo(`Cloning database from source: ${maskedUrl}`);
 
   // Step 1: Create dump of source database
   const dumpFile = path.join(paths.snapshotsDir, `clone_${Date.now()}.dump`);
-  console.log("   Creating snapshot of source database...");
+  printInfo("Creating snapshot of source database");
 
   await new Promise<void>((resolve, reject) => {
     execFile(
@@ -386,7 +402,7 @@ async function cloneFromSource(
         if (error) {
           reject(new Error(`pg_dump failed: ${stderr}`));
         } else {
-          console.log("✅ Snapshot created");
+          printSuccess("Snapshot created");
           resolve();
         }
       },
@@ -397,7 +413,7 @@ async function cloneFromSource(
   const expDbName = "infinity_gauntlet_experiment";
   const expUrl = `postgresql://postgres@localhost:${port}/postgres`;
 
-  console.log(`   Creating database: ${expDbName}...`);
+  printInfo(`Creating database: ${expDbName}`);
 
   await new Promise<void>((resolve, reject) => {
     execFile(
@@ -407,13 +423,13 @@ async function cloneFromSource(
         if (error) {
           // Ignore error if database already exists
           if (stderr.includes("already exists")) {
-            console.log("   (Database already exists)");
+            printInfo("Database already exists");
             resolve();
           } else {
             reject(new Error(`createdb failed: ${stderr}`));
           }
         } else {
-          console.log("✅ Database created");
+          printSuccess("Database created");
           resolve();
         }
       },
@@ -422,7 +438,7 @@ async function cloneFromSource(
 
   // Step 3: Restore dump to experimental database
   const expRestoreUrl = `postgresql://postgres@localhost:${port}/${expDbName}`;
-  console.log("   Restoring snapshot to experimental database...");
+  printInfo("Restoring snapshot to experimental database");
 
   await new Promise<void>((resolve, reject) => {
     execFile(
@@ -441,10 +457,10 @@ async function cloneFromSource(
         // pg_restore often outputs warnings to stderr even on success
         // Only reject if there's an actual error code
         if (error && error.code !== 0) {
-          console.warn(`⚠️  pg_restore warnings: ${stderr}`);
+          printWarning(`pg_restore warnings: ${stderr}`);
           // Don't reject - warnings are common and usually harmless
         }
-        console.log("✅ Snapshot restored");
+        printSuccess("Snapshot restored");
         resolve();
       },
     );
@@ -459,8 +475,8 @@ async function writeConnectionFile(paths: Paths, port: number): Promise<void> {
   const url = `postgresql://postgres@127.0.0.1:${port}/${dbName}`;
 
   await fsPromises.writeFile(paths.connectionFile, url, "utf8");
-  console.log(`✅ Connection URL written to: ${paths.connectionFile}`);
-  console.log(`   DATABASE_ONPREMISE_DEV_EXPERIMENT="${url}"`);
+  printSuccess(`Connection URL written to: ${paths.connectionFile}`);
+  printKeyValue("DATABASE_ONPREMISE_DEV_EXPERIMENT", url);
 }
 
 async function writeMetadata(paths: Paths, source: string): Promise<void> {
@@ -473,7 +489,7 @@ async function writeMetadata(paths: Paths, source: string): Promise<void> {
   };
 
   await fsPromises.writeFile(paths.metadataFile, JSON.stringify(metadata, null, 2), "utf8");
-  console.log(`✅ Metadata written to: ${paths.metadataFile}`);
+  printSuccess(`Metadata written to: ${paths.metadataFile}`);
 }
 
 async function getRowCounts(binaries: PgBinaries, port: number): Promise<Record<string, number>> {
@@ -509,8 +525,7 @@ async function getRowCounts(binaries: PgBinaries, port: number): Promise<Record<
 }
 
 async function main(): Promise<void> {
-  console.log("🎯 Bootstrap Experimental Database");
-  console.log("=====================================\n");
+  printSection("Bootstrap Experimental Database");
 
   loadEnvironment();
 
@@ -526,21 +541,26 @@ async function main(): Promise<void> {
     skipStart: options.skipStart,
   });
 
-  console.log("Configuration:");
-  console.log(`  Port: ${options.port}`);
-  console.log(`  Source: ${options.source}`);
-  console.log(`  Store: ${paths.dbRoot}`);
-  console.log(`  Skip start: ${options.skipStart}\n`);
+  console.log(formatKeyValueList([
+    { key: "Port", value: String(options.port) },
+    { key: "Source", value: options.source },
+    { key: "Store", value: paths.dbRoot },
+    { key: "Skip Start", value: String(options.skipStart) },
+  ]).join('\n'));
+  console.log('');
 
   // Validate source database URL
   const sourceUrl = getSourceDatabaseUrl(options.source);
   if (!sourceUrl) {
-    console.error(`❌ Source database URL not found for: ${options.source}`);
-    console.error("Available sources: local, dev, prod, or full postgresql:// URL");
-    console.error("Ensure environment variables are set:");
-    console.error("  - DATABASE_ONPREMISE_DEV_PRIMARY (for source=local)");
-    console.error("  - PROD_DATABASE_URL or RENDER_DB_EXTERNAL_URL (for source=dev)");
-    console.error("  - PROD_DATABASE_URL (for source=prod)");
+    printError(`Source database URL not found for: ${options.source}`);
+    console.log(formatKeyValueList([
+      { key: "Available Sources", value: "local, dev, prod, or postgresql:// URL" },
+    ]).join('\n'));
+    console.log(formatList([
+      "DATABASE_ONPREMISE_DEV_PRIMARY (for source=local)",
+      "PROD_DATABASE_URL or RENDER_DB_EXTERNAL_URL (for source=dev)",
+      "PROD_DATABASE_URL (for source=prod)",
+    ], "Required Environment Variables"));
     process.exit(1);
   }
 
@@ -568,46 +588,45 @@ async function main(): Promise<void> {
       await writeMetadata(paths, options.source);
 
       // Step 8: Get row counts
-      console.log("\n📊 Database Summary:");
+      printSection("Database Summary");
       const counts = await getRowCounts(binaries, options.port);
-      for (const [table, count] of Object.entries(counts)) {
-        console.log(`  ${table}: ${count} rows`);
-      }
+      console.log(formatKeyValueList(
+        Object.entries(counts).map(([table, count]) => ({
+          key: table,
+          value: `${count} rows`,
+        }))
+      ).join('\n'));
 
-      console.log("\n✅ Experimental database bootstrap complete!");
+      printSuccess("Experimental database bootstrap complete!");
       log.info('complete', 'Experimental database bootstrap complete', {
         port: options.port,
         source: options.source,
       });
-      console.log("\nNext steps:");
-      console.log("  1. Add to secrets/Infinity-Gauntlet.env:");
-      console.log(
-        `     DATABASE_ONPREMISE_DEV_EXPERIMENT=postgresql://postgres@127.0.0.1:${options.port}/infinity_gauntlet_experiment`,
-      );
-      console.log("  2. Test connection:");
-      console.log("     npm run db:cli -- count User --target experiment");
-      console.log("  3. Test Phase 2 migration:");
-      console.log(
-        `     psql postgresql://postgres@127.0.0.1:${options.port}/infinity_gauntlet_experiment -f prisma/migrations/20251108183000_northstar_phase2_consolidation/migration.sql`,
-      );
-      console.log("  4. Sync from primary local when needed:");
-      console.log("     npm run ops:sync-onpremise-experiment --from local");
+      
+      printSection("Next Steps");
+      console.log(formatList([
+        `Add to secrets/Infinity-Gauntlet.env:\n     DATABASE_ONPREMISE_DEV_EXPERIMENT=postgresql://postgres@127.0.0.1:${options.port}/infinity_gauntlet_experiment`,
+        "Test connection:\n     npm run db:cli -- count User --target experiment",
+        `Test Phase 2 migration:\n     psql postgresql://postgres@127.0.0.1:${options.port}/infinity_gauntlet_experiment -f prisma/migrations/20251108183000_northstar_phase2_consolidation/migration.sql`,
+        "Sync from primary local when needed:\n     npm run ops:sync-onpremise-experiment --from local",
+      ], ""));
     } else {
       log.info('complete', 'Experimental cluster initialized (not started)', { port: options.port });
-      console.log("\n✅ Experimental cluster initialized (not started)");
-      console.log("\nTo start cluster:");
-      console.log(`  npm run ops:start-onpremise-experiment`);
+      printSuccess("Experimental cluster initialized (not started)");
+      console.log(formatKeyValueList([
+        { key: "To start cluster", value: "npm run ops:start-onpremise-experiment" },
+      ]).join('\n'));
     }
   } catch (err) {
     const message = (err as Error).message;
     log.error('bootstrap', 'Bootstrap failed', { error: message, source: options.source });
-    console.error(`\n❌ Bootstrap failed: ${message}`);
+    printError(`Bootstrap failed: ${message}`);
     process.exit(1);
   }
 }
 
 main().catch((err) => {
   log.error('bootstrap', 'Unhandled error', { error: String(err) });
-  console.error(`Unhandled error: ${err}`);
+  printError(`Unhandled error: ${err}`);
   process.exit(1);
 });

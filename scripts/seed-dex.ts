@@ -6,6 +6,18 @@ import * as dotenv from "dotenv";
 import { scopedLogger } from "../src/observability/envelope/console.js";
 import { initializeConnection, getProdDb } from "../src/shared/pg-connection.js";
 import {
+  formatSectionHeader,
+  formatKeyValueList,
+  formatStatus,
+  formatList,
+  printSection,
+  printKeyValue,
+  printSuccess,
+  printError,
+  printWarning,
+  printInfo,
+} from "../src/utils/output-formatter.js";
+import {
   findAllTypes,
   countTable,
   deleteAllSpeciesLearnsets,
@@ -507,27 +519,28 @@ async function main(): Promise<void> {
   
   const dryRun = process.argv.includes("--dry-run");
 
-  console.log("🔄 Preparing Pokédex seeding (dryRun=%s)…", dryRun);
+  printSection("Pokédex Seeding");
+  printKeyValue("Dry Run", String(dryRun));
   const concurrency = Math.max(1, DEFAULT_CONCURRENCY);
   log.info("seed", "Starting dex seed", { dryRun, concurrency });
 
   const [typeMap, versionOrder] = await Promise.all([loadTypeMap(), fetchVersionOrder()]);
-  console.log("✅ Loaded type map (%d types) and version ordering.", typeMap.size);
+  printSuccess(`Loaded type map (${typeMap.size} types) and version ordering`);
 
   const abilityResources = await fetchAllResources("ability?limit=2000");
-  console.log("📥 Fetching %d abilities…", abilityResources.length);
+  printInfo(`Fetching ${abilityResources.length} abilities`);
   const abilities = await mapWithConcurrency(abilityResources, concurrency, fetchAbilityDetail);
   const abilitySlugToId = new Map(abilities.map((a) => [a.slug, a.id]));
 
   const moveResources = await fetchAllResources("move?limit=2000");
-  console.log("📥 Fetching %d moves… this may take a few minutes.", moveResources.length);
+  printInfo(`Fetching ${moveResources.length} moves (this may take a few minutes)`);
   const moves = await mapWithConcurrency(moveResources, concurrency, (entry) =>
     fetchMoveDetail(entry, typeMap),
   );
   const moveSlugToId = new Map(moves.filter((m) => m.typeId !== null).map((m) => [m.slug, m.id]));
 
   const pokemonResources = await fetchAllResources("pokemon?limit=2000");
-  console.log("📥 Fetching %d Pokémon entries…", pokemonResources.length);
+  printInfo(`Fetching ${pokemonResources.length} Pokémon entries`);
   const speciesRaw = await mapWithConcurrency(pokemonResources, concurrency, (entry, idx) => {
     if (idx % 50 === 0) {
       process.stdout.write(`\r  → ${idx}/${pokemonResources.length} processed`);
@@ -537,10 +550,10 @@ async function main(): Promise<void> {
   process.stdout.write("\r");
 
   const species = speciesRaw.filter((record): record is SpeciesRecord => Boolean(record));
-  console.log("✅ Collected %d default species.", species.length);
+  printSuccess(`Collected ${species.length} default species`);
 
   const typeChart = await fetchTypeChart(typeMap);
-  console.log("✅ Built type effectiveness chart (%d rows).", typeChart.length);
+  printSuccess(`Built type effectiveness chart (${typeChart.length} rows)`);
 
   if (dryRun) {
     log.info("seed", "Dry run complete; skipping database writes", {
@@ -548,11 +561,11 @@ async function main(): Promise<void> {
       moveCount: moves.length,
       abilityCount: abilities.length,
     });
-    console.log("Dry-run complete — skipping database writes.");
+    printInfo("Dry-run complete — skipping database writes");
     return;
   }
 
-  console.log("🧹 Clearing existing dex tables…");
+  printInfo("Clearing existing dex tables");
   // Delete in order to respect foreign key constraints
   await deleteAllSpeciesLearnsets();
   await deleteAllSpeciesAbilities();
@@ -564,7 +577,7 @@ async function main(): Promise<void> {
   await deleteAllAbilities();
   await deleteAllTypeChart();
 
-  console.log("📝 Inserting abilities…");
+  printInfo("Inserting abilities");
   await createManyChunked(
     "abilities",
     abilities,
@@ -577,17 +590,17 @@ async function main(): Promise<void> {
   const skippedMoves = moves.length - validMoves.length;
   if (skippedMoves > 0) {
     log.warn("seed", "Skipping moves with unknown types", { skippedMoves });
-    console.warn("⚠️  Skipping %d moves with unknown types.", skippedMoves);
+    printWarning(`Skipping ${skippedMoves} moves with unknown types`);
   }
 
-  console.log("📝 Inserting moves…");
+  printInfo("Inserting moves");
   await createManyChunked(
     "moves",
     validMoves,
     (chunk) => insertMoves(chunk.map(m => ({ ...m, pp: m.pp ?? 0 }))),
   );
 
-  console.log("📝 Inserting species…");
+  printInfo("Inserting species");
   await createManyChunked(
     "species",
     species,
@@ -672,42 +685,42 @@ async function main(): Promise<void> {
     normalized: s.nameVariant.normalized,
   }));
 
-  console.log("📝 Inserting species type mappings…");
+  printInfo("Inserting species type mappings");
   await createManyChunked(
     "species types",
     speciesTypes,
     (chunk) => insertSpeciesTypes(chunk),
   );
 
-  console.log("📝 Inserting species abilities…");
+  printInfo("Inserting species abilities");
   await createManyChunked(
     "species abilities",
     speciesAbilities,
     (chunk) => insertSpeciesAbilities(chunk),
   );
 
-  console.log("📝 Inserting species learnsets…");
+  printInfo("Inserting species learnsets");
   await createManyChunked(
     "species learnsets",
     speciesLearnset,
     (chunk) => insertSpeciesLearnsets(chunk),
   );
 
-  console.log("📝 Inserting name variants…");
+  printInfo("Inserting name variants");
   await createManyChunked(
     "name variants",
     nameVariants,
     (chunk) => insertNameVariants(chunk),
   );
 
-  console.log("📝 Inserting type chart…");
+  printInfo("Inserting type chart");
   await createManyChunked(
     "type chart rows",
     typeChart,
     (chunk) => insertTypeChart(chunk),
   );
 
-  console.log("🔁 Refreshing SpeciesSheet materialized view…");
+  printInfo("Refreshing SpeciesSheet materialized view");
   await refreshSpeciesSheet();
 
   const [speciesCount, moveCount, abilityCount, learnsetCount] = await Promise.all([
@@ -717,11 +730,13 @@ async function main(): Promise<void> {
     countTable("SpeciesLearnset"),
   ]);
 
-  console.log("✅ Seeding complete!");
-  console.log("   Species: %d", speciesCount);
-  console.log("   Moves: %d", moveCount);
-  console.log("   Abilities: %d", abilityCount);
-  console.log("   Learnset rows: %d", learnsetCount);
+  printSection("Seeding Complete");
+  console.log(formatKeyValueList([
+    { key: "Species", value: String(speciesCount) },
+    { key: "Moves", value: String(moveCount) },
+    { key: "Abilities", value: String(abilityCount) },
+    { key: "Learnset Rows", value: String(learnsetCount) },
+  ]).join('\n'));
   log.info("seed", "Dex seeding complete", {
     speciesCount,
     moveCount,
@@ -737,7 +752,7 @@ main()
       error: message,
       stack: error instanceof Error ? error.stack : undefined,
     });
-    console.error("❌ Dex seeding failed:", error);
+    printError(`Dex seeding failed: ${message}`);
     process.exitCode = 1;
   })
   .finally(async () => {
