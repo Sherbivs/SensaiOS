@@ -1,16 +1,14 @@
+/* eslint-disable no-console -- CLI script requires operator-facing console output */
 import { scopedLogger } from '../../src/observability/envelope/console.js';
 import fs from "node:fs";
 import { promises as fsPromises } from "node:fs";
 import path from "node:path";
 import process from "node:process";
-import { execFile, spawn } from "node:child_process";
+import { execFile } from "node:child_process";
 import * as dotenv from "dotenv";
 import {
-  formatSectionHeader,
   formatKeyValueList,
-  formatStatus,
   formatList,
-  formatBorder,
   printSection,
   printKeyValue,
   printSuccess,
@@ -411,7 +409,7 @@ async function cloneFromSource(
 
   // Step 2: Create experimental database
   const expDbName = "infinity_gauntlet_experiment";
-  const expUrl = `postgresql://postgres@localhost:${port}/postgres`;
+  const _expUrl = `postgresql://postgres@localhost:${port}/postgres`;
 
   printInfo(`Creating database: ${expDbName}`);
 
@@ -419,7 +417,7 @@ async function cloneFromSource(
     execFile(
       binaries.createdb,
       ["-h", "localhost", "-p", String(port), "-U", "postgres", expDbName],
-      (error, stdout, stderr) => {
+      (error, _stdout, stderr) => {
         if (error) {
           // Ignore error if database already exists
           if (stderr.includes("already exists")) {
@@ -440,7 +438,7 @@ async function cloneFromSource(
   const expRestoreUrl = `postgresql://postgres@localhost:${port}/${expDbName}`;
   printInfo("Restoring snapshot to experimental database");
 
-  await new Promise<void>((resolve, reject) => {
+  await new Promise<void>((resolve, _reject) => {
     execFile(
       binaries.pgRestore,
       [
@@ -453,7 +451,7 @@ async function cloneFromSource(
         "--no-privileges", // Don't restore privileges
         dumpFile,
       ],
-      (error, stdout, stderr) => {
+      (error, _stdout, stderr) => {
         // pg_restore often outputs warnings to stderr even on success
         // Only reject if there's an actual error code
         if (error && error.code !== 0) {
@@ -516,7 +514,8 @@ async function getRowCounts(binaries: PgBinaries, port: number): Promise<Record<
         );
       });
       counts[table] = parseInt(result, 10) || 0;
-    } catch (err) {
+    } catch {
+      // Table may not exist in experimental database
       counts[table] = 0;
     }
   }
