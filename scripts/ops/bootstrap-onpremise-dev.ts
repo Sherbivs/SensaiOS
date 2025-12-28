@@ -6,6 +6,7 @@ import { execFile, spawn } from "node:child_process";
 import * as dotenv from "dotenv";
 import { extractDatabaseName } from "../../src/shared/utils/url-utils.js";
 import { scopedLogger } from '../../src/observability/envelope/console.js';
+import { printWarning, printSuccess, printError, printInfo } from '../../src/utils/output-formatter.js';
 
 const log = scopedLogger('ops.bootstrap-onpremise-dev');
 
@@ -154,7 +155,7 @@ function loadEnvironment(): void {
 
   if (!loaded) {
     log.warn('env', 'No environment file loaded', { hint: 'Set IG_ENV_FILE or DOTENV_CONFIG_PATH' });
-    console.warn("⚠️  No environment file loaded. Set IG_ENV_FILE or DOTENV_CONFIG_PATH before running this helper.");
+    printWarning('No environment file loaded. Set IG_ENV_FILE or DOTENV_CONFIG_PATH before running this helper.');
   }
 }
 
@@ -216,9 +217,7 @@ function locatePgBinDirectory(): string | undefined {
     const shareFound = shareCandidates.some((sharePath) => fs.existsSync(sharePath) && fs.statSync(sharePath).isDirectory());
 
     if (!shareFound) {
-      console.warn(
-        `[onpremise-dev] Skipping Postgres bin directory without share/: ${normalized}. Run "npm run ops:auto-bootstrap-local-db" to install a complete toolchain.`,
-      );
+      printWarning(`Skipping Postgres bin directory without share/: ${normalized}. Run "npm run ops:auto-bootstrap-local-db" to install a complete toolchain.`);
       continue;
     }
 
@@ -471,14 +470,14 @@ async function main(): Promise<void> {
   const clusterInitialized = await initializeCluster(binaries, paths);
   if (clusterInitialized) {
     log.info('cluster', 'Initialized new Postgres cluster', { clusterDir: paths.clusterDir });
-    console.log(`✅ Initialized new Postgres cluster at ${paths.clusterDir}`);
+    printSuccess(`Initialized new Postgres cluster at ${paths.clusterDir}`);
   }
 
   if (!options.skipStart) {
     const started = await startCluster(binaries, paths, options.port);
     if (started) {
       log.info('cluster', 'Started local Postgres', { port: options.port });
-      console.log(`✅ Started local Postgres on port ${options.port}`);
+      printSuccess(`Started local Postgres on port ${options.port}`);
     }
   } else if (!(await clusterRunning(binaries, paths))) {
     throw new Error("Local Postgres is not running. Remove --skip-start or start the cluster manually before syncing.");
@@ -496,9 +495,9 @@ async function main(): Promise<void> {
   if (options.skipSync) {
     await writeMetadata(paths, localUrl, sourceUrl, "");
     log.info('complete', 'Local fallback ready (sync skipped)', { localUrl });
-    console.log(`✅ Local fallback ready on ${localUrl} (sync skipped).`);
-    console.log(`   Set DATABASE_ONPREMISE_DEV_PRIMARY=${localUrl}`);
-    console.log(`   (Legacy: DATABASE_LOCAL_URL is deprecated, use DATABASE_ONPREMISE_DEV_PRIMARY)`);
+    printSuccess(`Local fallback ready on ${localUrl} (sync skipped).`);
+    printInfo(`Set DATABASE_ONPREMISE_DEV_PRIMARY=${localUrl}`);
+    printInfo('(Legacy: DATABASE_LOCAL_URL is deprecated, use DATABASE_ONPREMISE_DEV_PRIMARY)');
     return;
   }
 
@@ -508,15 +507,15 @@ async function main(): Promise<void> {
   await writeMetadata(paths, localUrl, sourceUrl, snapshotFile);
 
   log.info('complete', 'Local fallback synchronized', { source: maskConnectionString(sourceUrl), localUrl });
-  console.log(`✅ Local fallback synchronized from ${maskConnectionString(sourceUrl)}.`);
-  console.log(`   Connection string written to ${path.relative(process.cwd(), paths.connectionFile)}`);
-  console.log(`   Set DATABASE_ONPREMISE_DEV_PRIMARY=${localUrl}`);
-  console.log(`   (Legacy: DATABASE_LOCAL_URL is deprecated, use DATABASE_ONPREMISE_DEV_PRIMARY)`);
+  printSuccess(`Local fallback synchronized from ${maskConnectionString(sourceUrl)}.`);
+  printInfo(`Connection string written to ${path.relative(process.cwd(), paths.connectionFile)}`);
+  printInfo(`Set DATABASE_ONPREMISE_DEV_PRIMARY=${localUrl}`);
+  printInfo('(Legacy: DATABASE_LOCAL_URL is deprecated, use DATABASE_ONPREMISE_DEV_PRIMARY)');
 }
 
 void main().catch((error) => {
   const message = error instanceof Error ? error.message : String(error);
   log.error('bootstrap', 'Bootstrap failed', { error: message });
-  console.error(`❌ Bootstrap failed: ${message}`);
+  printError(`Bootstrap failed: ${message}`);
   process.exitCode = 1;
 });

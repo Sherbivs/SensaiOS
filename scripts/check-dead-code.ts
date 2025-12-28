@@ -18,6 +18,7 @@
 import { execSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
+import { formatSectionHeader, formatKeyValueList, formatList, printSuccess, printError, printWarning, printInfo } from '../src/utils/output-formatter.js';
 
 // ============================================================================
 // Types
@@ -54,14 +55,13 @@ interface DepcheckResult {
 // ============================================================================
 
 async function checkDeadCode(): Promise<DeadCodeReport> {
-  console.log('🔍 Dead Code Analysis');
-  console.log('='.repeat(50));
+  console.log(formatSectionHeader('Dead Code Analysis'));
   console.log();
 
   // ─────────────────────────────────────────────────────────────────────────
   // Step 1: Check unused exports with ts-prune
   // ─────────────────────────────────────────────────────────────────────────
-  console.log('📦 Checking unused exports (ts-prune)...');
+  printInfo('Checking unused exports (ts-prune)...');
   
   let unusedExports: UnusedExport[] = [];
   try {
@@ -79,19 +79,19 @@ async function checkDeadCode(): Promise<DeadCodeReport> {
     }
   }
   
-  console.log(`   Found ${unusedExports.length} unused exports`);
+  console.log(formatKeyValueList([['Unused exports found', String(unusedExports.length)]]));
   if (unusedExports.length > 0 && unusedExports.length <= 5) {
-    unusedExports.forEach(e => console.log(`   - ${e.file}:${e.line} → ${e.export}`));
+    console.log(formatList(unusedExports.map(e => `${e.file}:${e.line} → ${e.export}`), { indent: 1 }));
   } else if (unusedExports.length > 5) {
-    unusedExports.slice(0, 5).forEach(e => console.log(`   - ${e.file}:${e.line} → ${e.export}`));
-    console.log(`   ... and ${unusedExports.length - 5} more`);
+    console.log(formatList(unusedExports.slice(0, 5).map(e => `${e.file}:${e.line} → ${e.export}`), { indent: 1 }));
+    printInfo(`... and ${unusedExports.length - 5} more`);
   }
   console.log();
 
   // ─────────────────────────────────────────────────────────────────────────
   // Step 2: Check unused dependencies with depcheck
   // ─────────────────────────────────────────────────────────────────────────
-  console.log('📚 Checking unused dependencies (depcheck)...');
+  printInfo('Checking unused dependencies (depcheck)...');
   
   let unusedDependencies: string[] = [];
   let unusedDevDependencies: string[] = [];
@@ -105,20 +105,20 @@ async function checkDeadCode(): Promise<DeadCodeReport> {
     unusedDependencies = result.dependencies || [];
     unusedDevDependencies = result.devDependencies || [];
   } catch (_error) {
-    console.warn('   ⚠️ depcheck failed, skipping dependency check');
+    printWarning('depcheck failed, skipping dependency check');
   }
   
-  console.log(`   Found ${unusedDependencies.length} unused dependencies`);
+  console.log(formatKeyValueList([['Unused dependencies', String(unusedDependencies.length)]]));
   if (unusedDependencies.length > 0) {
-    unusedDependencies.forEach(d => console.log(`   - ${d}`));
+    console.log(formatList(unusedDependencies, { indent: 1 }));
   }
   
-  console.log(`   Found ${unusedDevDependencies.length} unused devDependencies`);
+  console.log(formatKeyValueList([['Unused devDependencies', String(unusedDevDependencies.length)]]));
   if (unusedDevDependencies.length > 0 && unusedDevDependencies.length <= 5) {
-    unusedDevDependencies.forEach(d => console.log(`   - ${d}`));
+    console.log(formatList(unusedDevDependencies, { indent: 1 }));
   } else if (unusedDevDependencies.length > 5) {
-    unusedDevDependencies.slice(0, 5).forEach(d => console.log(`   - ${d}`));
-    console.log(`   ... and ${unusedDevDependencies.length - 5} more`);
+    console.log(formatList(unusedDevDependencies.slice(0, 5), { indent: 1 }));
+    printInfo(`... and ${unusedDevDependencies.length - 5} more`);
   }
   console.log();
 
@@ -160,28 +160,27 @@ async function checkDeadCode(): Promise<DeadCodeReport> {
   // ─────────────────────────────────────────────────────────────────────────
   // Step 5: Print summary
   // ─────────────────────────────────────────────────────────────────────────
-  console.log('='.repeat(50));
-  console.log('📊 SUMMARY');
-  console.log('='.repeat(50));
+  console.log(formatSectionHeader('SUMMARY'));
   console.log();
-  console.log(`   Unused Exports:        ${unusedExports.length}`);
-  console.log(`   Unused Dependencies:   ${unusedDependencies.length}`);
-  console.log(`   Unused DevDeps:        ${unusedDevDependencies.length}`);
-  console.log(`   ─────────────────────────`);
-  console.log(`   Total Issues:          ${totalIssues}`);
-  console.log(`   Health Score:          ${healthScore}/100 ${getHealthEmoji(healthScore)}`);
+  console.log(formatKeyValueList([
+    ['Unused Exports', String(unusedExports.length)],
+    ['Unused Dependencies', String(unusedDependencies.length)],
+    ['Unused DevDeps', String(unusedDevDependencies.length)],
+    ['Total Issues', String(totalIssues)],
+    ['Health Score', `${healthScore}/100 ${getHealthEmoji(healthScore)}`],
+  ]));
   console.log();
-  console.log(`📄 Full report: ${reportPath}`);
+  printInfo(`Full report: ${reportPath}`);
   console.log();
 
   // Exit with appropriate code
   if (healthScore < 70) {
-    console.log('❌ Health score below threshold (70). Consider cleaning up dead code.');
+    printError('Health score below threshold (70). Consider cleaning up dead code.');
     process.exitCode = 1;
   } else if (totalIssues === 0) {
-    console.log('✅ No dead code detected! Excellent!');
+    printSuccess('No dead code detected! Excellent!');
   } else {
-    console.log('⚠️ Some dead code detected. Review the report for cleanup opportunities.');
+    printWarning('Some dead code detected. Review the report for cleanup opportunities.');
   }
 
   return report;
@@ -228,6 +227,6 @@ function getHealthEmoji(score: number): string {
 // ============================================================================
 
 checkDeadCode().catch((error) => {
-  console.error('Fatal error:', error);
+  printError(`Fatal error: ${error}`);
   process.exit(1);
 });

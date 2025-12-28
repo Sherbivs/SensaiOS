@@ -5,6 +5,7 @@ import process from "node:process";
 import { execFile, spawn } from "node:child_process";
 import * as dotenv from "dotenv";
 import { scopedLogger } from '../../src/observability/envelope/console.js';
+import { printSuccess, printError, printInfo, formatSectionHeader, formatKeyValueList } from '../../src/utils/output-formatter.js';
 
 const log = scopedLogger('ops.sync-experiment');
 
@@ -264,11 +265,11 @@ async function clusterRunning(binaries: PgBinaries, paths: Paths): Promise<boole
 
 async function stopCluster(binaries: PgBinaries, paths: Paths): Promise<void> {
   if (!(await clusterRunning(binaries, paths))) {
-    console.log("[sync-experiment] Cluster is not running");
+    printInfo("Cluster is not running");
     return;
   }
 
-  console.log("[sync-experiment] Stopping experimental cluster...");
+  printInfo("Stopping experimental cluster...");
   await runCommand(
     binaries.pgCtl,
     ["-D", paths.clusterDir, "-m", "fast", "-w", "stop"],
@@ -278,11 +279,11 @@ async function stopCluster(binaries: PgBinaries, paths: Paths): Promise<void> {
 
 async function startCluster(binaries: PgBinaries, paths: Paths): Promise<void> {
   if (await clusterRunning(binaries, paths)) {
-    console.log("[sync-experiment] Cluster is already running");
+    printInfo("Cluster is already running");
     return;
   }
 
-  console.log("[sync-experiment] Starting experimental cluster...");
+  printInfo("Starting experimental cluster...");
   await runCommand(
     binaries.pgCtl,
     ["-D", paths.clusterDir, "-l", paths.logFile, "-w", "start", "-o", "-p 55434"],
@@ -453,8 +454,7 @@ async function getRowCounts(binaries: PgBinaries): Promise<Record<string, number
 }
 
 async function main(): Promise<void> {
-  console.log("🔄 Sync Experimental Database");
-  console.log("============================\n");
+  console.log(formatSectionHeader("Sync Experimental Database"));
 
   loadEnvironment();
 
@@ -464,14 +464,14 @@ async function main(): Promise<void> {
   const paths = resolvePaths(options.storeRoot);
 
   log.info('config', 'Starting sync', { source: options.from, store: paths.dbRoot });
-  console.log(`Source: ${options.from.toUpperCase()}`);
-  console.log(`Store: ${paths.dbRoot}\n`);
+  console.log(formatKeyValueList([["Source", options.from.toUpperCase()], ["Store", paths.dbRoot]]));
+  console.log();
 
   // Validate experimental cluster exists
   if (!fs.existsSync(paths.clusterDir)) {
     log.error('validate', 'Experimental cluster not initialized', { clusterDir: paths.clusterDir });
-    console.error("❌ Experimental cluster not initialized.");
-    console.error("   Run: npm run ops:bootstrap-onpremise-experiment");
+    printError("Experimental cluster not initialized.");
+    printInfo("Run: npm run ops:bootstrap-onpremise-experiment");
     process.exit(1);
   }
 
@@ -480,7 +480,7 @@ async function main(): Promise<void> {
     const sourceName = options.from.toUpperCase();
     
     log.info('sync', 'Starting sync from source', { source: sourceName });
-    console.log(`📦 Syncing from ${sourceName} (${maskConnectionString(sourceUrl)})...`);
+    printInfo(`Syncing from ${sourceName} (${maskConnectionString(sourceUrl)})...`);
 
     // Step 1: Stop cluster
     await stopCluster(binaries, paths);
@@ -488,7 +488,7 @@ async function main(): Promise<void> {
     // Step 2: Create snapshot
     const snapshotFile = await createSnapshot(binaries, sourceUrl, paths);
     log.info('snapshot', 'Created snapshot', { source: sourceName, file: snapshotFile });
-    console.log(`✅ Created snapshot from ${sourceName}`);
+    printSuccess(`Created snapshot from ${sourceName}`);
 
     // Step 3: Start cluster
     if (!options.skipRestart) {
@@ -497,10 +497,10 @@ async function main(): Promise<void> {
 
     // Step 4: Restore snapshot
     log.info('restore', 'Restoring snapshot to experimental database');
-    console.log("📥 Restoring snapshot to experimental database...");
+    printInfo("Restoring snapshot to experimental database...");
     await restoreSnapshot(binaries, snapshotFile);
     log.info('restore', 'Snapshot restored');
-    console.log("✅ Snapshot restored");
+    printSuccess("Snapshot restored");
 
     // Step 5: Clean up old snapshots
     await pruneSnapshots(paths, 2);
@@ -509,25 +509,23 @@ async function main(): Promise<void> {
     await writeMetadata(paths, options.from, sourceUrl);
 
     // Step 7: Get row counts
-    console.log("\n📊 Database Summary:");
+    console.log(formatSectionHeader("Database Summary", 1));
     const counts = await getRowCounts(binaries);
-    for (const [table, count] of Object.entries(counts)) {
-      console.log(`  ${table}: ${count} rows`);
-    }
+    console.log(formatKeyValueList(Object.entries(counts).map(([table, count]) => [table, `${count} rows`])));
 
     log.info('complete', 'Sync complete', { source: sourceName });
-    console.log("\n✅ Sync complete!");
-    console.log(`   Experimental database synchronized from ${sourceName}`);
-    console.log("   Ready for migration testing");
+    printSuccess("Sync complete!");
+    printInfo(`Experimental database synchronized from ${sourceName}`);
+    printInfo("Ready for migration testing");
   } catch (err) {
     log.error('sync', 'Sync failed', { error: (err as Error).message, stack: (err as Error).stack });
-    console.error(`\n❌ Sync failed: ${(err as Error).message}`);
+    printError(`Sync failed: ${(err as Error).message}`);
     process.exit(1);
   }
 }
 
 main().catch((err) => {
   log.error('unhandled', 'Unhandled error', { error: String(err) });
-  console.error(`❌ Unhandled error: ${err}`);
+  printError(`Unhandled error: ${err}`);
   process.exit(1);
 });

@@ -26,6 +26,7 @@ import path from 'node:path';
 import { REST, Routes } from 'discord.js';
 import type { RESTPostAPIChatInputApplicationCommandsJSONBody } from 'discord.js';
 import { scopedLogger } from '../src/observability/envelope/console.js';
+import { printError, printWarning, printSuccess, printInfo, formatSectionHeader, formatKeyValueList } from '../src/utils/output-formatter.js';
 
 // Token resolution with fallback chain
 const DISCORD_TOKEN: string | undefined =
@@ -45,7 +46,7 @@ if (!DISCORD_TOKEN || !DISCORD_CLIENT_ID) {
     hasToken: Boolean(DISCORD_TOKEN),
     hasClientId: Boolean(DISCORD_CLIENT_ID),
   });
-  console.error('❌ Missing DISCORD_TOKEN (or SECURITY_BOT_TOKEN/BOT_TOKEN) or DISCORD_CLIENT_ID');
+  printError('Missing DISCORD_TOKEN (or SECURITY_BOT_TOKEN/BOT_TOKEN) or DISCORD_CLIENT_ID');
   process.exit(1);
 }
 
@@ -70,7 +71,7 @@ async function readCommandJSON(): Promise<RESTPostAPIChatInputApplicationCommand
     log.warn('register', 'Commands directory not found', {
       path: path.relative(process.cwd(), dir) || 'src/commands',
     });
-    console.warn('⚠️  Commands directory not found:', dir);
+    printWarning(`Commands directory not found: ${dir}`);
     return [];
   }
 
@@ -90,7 +91,7 @@ async function readCommandJSON(): Promise<RESTPostAPIChatInputApplicationCommand
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : String(e);
       log.warn('register', 'Skipped command module', { file, error: message });
-      console.warn(`⚠️  [register-commands] Skipped ${file}:`, message);
+      printWarning(`Skipped ${file}: ${message}`);
     }
   }
 
@@ -98,7 +99,7 @@ async function readCommandJSON(): Promise<RESTPostAPIChatInputApplicationCommand
 }
 
 async function main(): Promise<void> {
-  console.log('🔧 Discord Command Registration\n');
+  console.log(formatSectionHeader('Discord Command Registration'));
 
   const commands = await readCommandJSON();
 
@@ -106,11 +107,11 @@ async function main(): Promise<void> {
     log.info('register', 'No commands found to register', {
       path: 'src/commands',
     });
-    console.log('📭 No commands found in src/commands');
+    printInfo('No commands found in src/commands');
     process.exit(0);
   }
 
-  console.log(`📋 Found ${commands.length} command(s) to register`);
+  console.log(formatKeyValueList([['Commands found', String(commands.length)]]));
   log.info('register', 'Registering commands', {
     count: commands.length,
     target: DISCORD_GUILD_ID ? 'guild' : 'global',
@@ -120,20 +121,20 @@ async function main(): Promise<void> {
 
   try {
     if (DISCORD_GUILD_ID) {
-      console.log(`🎯 Target: Guild ${DISCORD_GUILD_ID}`);
+      printInfo(`Target: Guild ${DISCORD_GUILD_ID}`);
       const route = Routes.applicationGuildCommands(DISCORD_CLIENT_ID!, DISCORD_GUILD_ID);
       await rest.put(route, { body: commands });
-      console.log(`✅ Registered ${commands.length} guild command(s)`);
+      printSuccess(`Registered ${commands.length} guild command(s)`);
       log.info('register', 'Registered guild commands', {
         count: commands.length,
         guildId: DISCORD_GUILD_ID,
       });
     } else {
-      console.log('🌐 Target: Global (all guilds)');
+      printInfo('Target: Global (all guilds)');
       const route = Routes.applicationCommands(DISCORD_CLIENT_ID!);
       await rest.put(route, { body: commands });
-      console.log(`✅ Registered ${commands.length} global command(s)`);
-      console.log('⏳ Note: Global command propagation can take up to an hour');
+      printSuccess(`Registered ${commands.length} global command(s)`);
+      printInfo('Note: Global command propagation can take up to an hour');
       log.info('register', 'Registered global commands', {
         count: commands.length,
       });
@@ -144,7 +145,7 @@ async function main(): Promise<void> {
       error: message,
       stack: e instanceof Error ? e.stack : undefined,
     });
-    console.error('❌ Failed to register commands:', e);
+    printError(`Failed to register commands: ${e}`);
     process.exit(1);
   }
 }
