@@ -25,8 +25,6 @@
  *   --verbose       Enable verbose logging
  */
 
-/* eslint-disable no-console */
-
 import { readFileSync, writeFileSync, existsSync, readdirSync } from 'fs';
 import { join, dirname, relative } from 'path';
 import { fileURLToPath } from 'url';
