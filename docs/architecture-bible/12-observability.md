@@ -1,14 +1,67 @@
 # Section 12: Observability
 
-**Last Updated**: 2025-12-27 | **Status**: Production
+**Last Updated**: 2025-12-28 | **Status**: Production
 
 [← Back to INDEX](INDEX.md) | [← Previous: Safety Guarantees](11-safety-guarantees.md) | [Next: Performance →](13-performance.md)
 
 ---
 
-**Philosophy**: "Observability is not optional—every metric must be queried live or explicitly declared unavailable with reason."
+## 12.0 Philosophy & Mental Models
+
+**Core Philosophy**: "Observability is not optional—every metric must be queried live or explicitly declared unavailable with reason."
 
 **Purpose**: Comprehensive monitoring and metrics transparency for production operations.
+
+### 12.0.1 The Three Pillars
+
+| Pillar | Tool | Purpose | Query Language |
+|--------|------|---------|----------------|
+| **Metrics** | Prometheus | Numeric time-series (gauges, counters, histograms) | PromQL |
+| **Logs** | Loki | Structured event streams | LogQL |
+| **Traces** | (Future) | Request flow across services | — |
+
+### 12.0.2 Mental Models
+
+**Metrics are for Dashboards** — Answer: "How is the system performing right now?"
+- CPU, memory, request rates, error rates
+- Aggregate patterns, trends, anomalies
+- Alert when thresholds breached
+
+**Logs are for Debugging** — Answer: "What happened to this specific request?"
+- Structured JSON events with context
+- Full event details, stack traces, parameters
+- Query by correlation_id, user_id, error_type
+
+### 12.0.3 Cardinality Discipline
+
+**CRITICAL RULE:** Never use unbounded values as metric labels.
+
+| ❌ FORBIDDEN Labels | ✅ SAFE Labels | ✅ Log Fields Instead |
+|---------------------|----------------|----------------------|
+| `user_id` | `command_name` | `context.user_id` |
+| `guild_id` | `error_type` | `context.guild_id` |
+| `battle_id` | `service` | `battle.id` |
+| `correlation_id` | `environment` | `correlation_id` |
+
+**Why?** A bot with 10K users × 100 guilds × 50 commands = **50 million** metric series. Prometheus will OOM.
+
+**Solution:** Use high-cardinality values as **log fields**, then query with LogQL:
+```logql
+{service="bot"} | json | user_id="123456789"
+```
+
+### 12.0.4 Metric Type Selection
+
+| Type | Use When | Example |
+|------|----------|---------|
+| **Counter** | Counting events (always increases) | `commands_total`, `errors_total` |
+| **Gauge** | Current value (can go up/down) | `active_battles`, `memory_bytes` |
+| **Histogram** | Measuring distributions | `command_duration_seconds` |
+
+### 12.0.5 Authoritative Contracts
+
+- **[Telemetry Contract](../../src/observability/TELEMETRY_CONTRACT.md)** — ALL metrics, labels, schemas
+- **[Discord Observability](../../src/observability/DISCORD_OBSERVABILITY.md)** — Discord-specific patterns
 
 ## 12.1 Metrics Transparency
 

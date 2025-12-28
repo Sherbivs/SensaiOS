@@ -35,6 +35,11 @@ Observability Dashboards (Grafana):
 - grafana-cache-performance.json — Legacy cache metrics (use unified instead)
 - grafana-timescaledb-dashboard.json — Legacy database metrics (use unified instead)
 
+Observability Documentation (AUTHORITATIVE):
+- **GRAFANA-DASHBOARDS.md** — Dashboard inventory, design principles, panel templates
+- **ALERTING-GUIDE.md** — Alert design, lifecycle, runbook patterns, notification templates
+- **OBSERVABILITY-AI-PROMPTS.md** — AI prompt templates for observability tasks
+
 Observability Project Documentation:
 - See docs/projects/observability/ — Complete observability system implementation project
   - specialist-team-plan.md — Team structure, roles, responsibilities
@@ -43,6 +48,10 @@ Observability Project Documentation:
   - dashboard-integration-plan.md — Dashboard consolidation strategy
   - unified-dashboard-import-guide.md — Import instructions and verification
   - delivery-summary.md — Initial delivery outcomes
+
+Related Observability Docs (src/observability/):
+- **TELEMETRY_CONTRACT.md** — ALL metrics, labels, log schemas, cardinality rules
+- **DISCORD_OBSERVABILITY.md** — Discord-specific patterns, bot metrics, anti-patterns
 
 Subrouters:
 - ops/INBOX/ROUTER.md — Operator inbox staging area; sync with NEXT metadata before edits.

@@ -129,10 +129,24 @@ observabilityHub.ingest('security.sweep.completed', {
 
 ## Related Documentation
 
-- [Observability Bible](../../docs/projects/observability-bible.md) — Complete architecture spec
+### Core Contracts (AUTHORITATIVE)
+- [Telemetry Contract](./TELEMETRY_CONTRACT.md) — ALL metrics, labels, log schemas, cardinality rules
+- [Discord Observability](./DISCORD_OBSERVABILITY.md) — Discord-specific patterns, anti-patterns, bot metrics
+
+### Architecture
+- [Observability Bible](../../docs/projects/observability/bible-integration/observability-bible.md) — Complete architecture spec
+- [Metrics Expansion Bible](../../docs/projects/observability/bible-integration/metrics-expansion-bible.md) — Metrics roadmap
+
+### Operations
+- [Loki Setup](../../docs/operations-bible/loki-setup.md) — Local Loki stack quickstart
+- [Loki Query Suite](../../docs/operations-bible/loki-query-suite.md) — LogQL recipes
+- [Monitoring](../../docs/operations-bible/05-monitoring.md) — Service health and alerts
+
+### Integration
 - [Event Bus](../shared/event-bus.ts) — Source of events via '**' subscription
 - [Security Bot State](../bot/state/) — Direct ingestion source
+- [Envelope System](./envelope/) — Structured logging primitives
 
 ---
 
-**Created:** 2025-12-20 | **Author:** Sherman Bivens
+**Created:** 2025-12-20 | **Updated:** 2025-12-28 | **Author:** Sherman Bivens
