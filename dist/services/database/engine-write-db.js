@@ -230,6 +230,39 @@ async function createSchema() {
       disk_pressure INTEGER NOT NULL DEFAULT 0
     )
   `);
+    // =========================================================================
+    // DB-Only Policy: Heap Snapshots Table (replaces .heapsnapshot files)
+    // @see docs/projects/STORE-WRITE-ELIMINATION.md
+    // 
+    // Stores memory metrics on startup without writing raw heap snapshot files.
+    // Captures equivalent observability data from process.memoryUsage() and v8.getHeapStatistics()
+    // Retention: 30 days (pruned automatically)
+    // =========================================================================
+    db.run(`
+    CREATE TABLE IF NOT EXISTS heap_snapshots (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      captured_at INTEGER NOT NULL,
+      trigger TEXT NOT NULL CHECK (trigger IN ('startup', 'manual', 'oom-warning')),
+      
+      -- Process memory (from process.memoryUsage())
+      rss_bytes INTEGER NOT NULL,
+      heap_total_bytes INTEGER NOT NULL,
+      heap_used_bytes INTEGER NOT NULL,
+      external_bytes INTEGER NOT NULL,
+      array_buffers_bytes INTEGER NOT NULL,
+      
+      -- V8 heap stats (from v8.getHeapStatistics())
+      v8_total_heap_bytes INTEGER NOT NULL,
+      v8_used_heap_bytes INTEGER NOT NULL,
+      v8_heap_limit_bytes INTEGER NOT NULL,
+      v8_malloced_bytes INTEGER NOT NULL,
+      v8_external_bytes INTEGER NOT NULL,
+      
+      -- Computed analysis
+      heap_utilization_percent REAL NOT NULL,
+      mystery_allocation_bytes INTEGER NOT NULL
+    )
+  `);
     // Create indexes for fast queries
     db.run('CREATE INDEX IF NOT EXISTS idx_battle_logs_created_at ON battle_logs(created_at)');
     db.run('CREATE INDEX IF NOT EXISTS idx_battle_logs_uploaded_at ON battle_logs(uploaded_at)');
@@ -240,6 +273,8 @@ async function createSchema() {
     db.run('CREATE INDEX IF NOT EXISTS idx_wal_created_at ON write_ahead_log(created_at)');
     // P6: System metrics index for time-based queries
     db.run('CREATE INDEX IF NOT EXISTS idx_system_metrics_timestamp ON system_metrics(timestamp)');
+    // DB-Only: Heap snapshots index for time-based queries
+    db.run('CREATE INDEX IF NOT EXISTS idx_heap_snapshots_captured_at ON heap_snapshots(captured_at DESC)');
     logger.info('engine-write-db', 'createSchema', 'Schema created/verified');
 }
 // ============================================================================
@@ -753,6 +788,177 @@ function getOldestMetricsAge() {
     }
 }
 // ============================================================================
+// DB-Only Policy: Heap Snapshot Operations
+// @see docs/projects/STORE-WRITE-ELIMINATION.md
+// 
+// Replaces raw .heapsnapshot file writes with database-stored memory metrics.
+// Captures equivalent observability data without 27 MB file writes.
+// ============================================================================
+/** Heap snapshot retention: 30 days in seconds */
+const HEAP_SNAPSHOT_RETENTION_SECONDS = 30 * 24 * 60 * 60;
+/**
+ * Insert heap snapshot entry (memory metrics on startup/demand).
+ *
+ * Replaces v8.writeHeapSnapshot() file writes with database storage.
+ * Called from boot() in index.ts after startup completes.
+ *
+ * @param entry Heap snapshot entry with memory metrics
+ */
+export async function insertHeapSnapshot(entry) {
+    if (!db) {
+        throw new Error('Write-DB not initialized');
+    }
+    try {
+        const stmt = db.prepare(`
+      INSERT INTO heap_snapshots (
+        captured_at, trigger,
+        rss_bytes, heap_total_bytes, heap_used_bytes, external_bytes, array_buffers_bytes,
+        v8_total_heap_bytes, v8_used_heap_bytes, v8_heap_limit_bytes, v8_malloced_bytes, v8_external_bytes,
+        heap_utilization_percent, mystery_allocation_bytes
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+        stmt.run([
+            Math.floor(entry.capturedAt.getTime() / 1000),
+            entry.trigger,
+            entry.rssBytes,
+            entry.heapTotalBytes,
+            entry.heapUsedBytes,
+            entry.externalBytes,
+            entry.arrayBuffersBytes,
+            entry.v8TotalHeapBytes,
+            entry.v8UsedHeapBytes,
+            entry.v8HeapLimitBytes,
+            entry.v8MallocedBytes,
+            entry.v8ExternalBytes,
+            entry.heapUtilizationPercent,
+            entry.mysteryAllocationBytes,
+        ]);
+        stmt.free();
+        logger.info('engine-write-db', 'insertHeapSnapshot', '📸 Heap snapshot captured to DB (no file write)', {
+            metadata: {
+                trigger: entry.trigger,
+                rssMB: Math.round(entry.rssBytes / 1024 / 1024 * 10) / 10,
+                heapUsedMB: Math.round(entry.heapUsedBytes / 1024 / 1024 * 10) / 10,
+                heapUtilization: entry.heapUtilizationPercent.toFixed(1) + '%',
+            }
+        });
+    }
+    catch (error) {
+        logger.error('engine-write-db', 'insertHeapSnapshot', 'Failed to insert heap snapshot', {
+            error: {
+                name: error.name,
+                message: error.message,
+                stack: error.stack,
+            }
+        });
+        throw error;
+    }
+}
+/**
+ * Query recent heap snapshots for /ops commands.
+ *
+ * @param limit Maximum number of snapshots to return (default: 10)
+ * @returns Array of heap snapshot entries, newest first
+ */
+export async function queryHeapSnapshots(limit = 10) {
+    if (!db) {
+        return [];
+    }
+    try {
+        const result = db.exec(`
+      SELECT 
+        id, captured_at, trigger,
+        rss_bytes, heap_total_bytes, heap_used_bytes, external_bytes, array_buffers_bytes,
+        v8_total_heap_bytes, v8_used_heap_bytes, v8_heap_limit_bytes, v8_malloced_bytes, v8_external_bytes,
+        heap_utilization_percent, mystery_allocation_bytes
+      FROM heap_snapshots
+      ORDER BY captured_at DESC
+      LIMIT ${limit}
+    `);
+        const entries = [];
+        if (result && result[0]?.values) {
+            for (const row of result[0].values) {
+                entries.push({
+                    id: row[0],
+                    capturedAt: new Date(row[1] * 1000),
+                    trigger: row[2],
+                    rssBytes: row[3],
+                    heapTotalBytes: row[4],
+                    heapUsedBytes: row[5],
+                    externalBytes: row[6],
+                    arrayBuffersBytes: row[7],
+                    v8TotalHeapBytes: row[8],
+                    v8UsedHeapBytes: row[9],
+                    v8HeapLimitBytes: row[10],
+                    v8MallocedBytes: row[11],
+                    v8ExternalBytes: row[12],
+                    heapUtilizationPercent: row[13],
+                    mysteryAllocationBytes: row[14],
+                });
+            }
+        }
+        return entries;
+    }
+    catch (error) {
+        logger.error('engine-write-db', 'queryHeapSnapshots', 'Failed to query heap snapshots', {
+            error: {
+                name: error.name,
+                message: error.message,
+                stack: error.stack,
+            }
+        });
+        return [];
+    }
+}
+/**
+ * Prune old heap snapshots (older than 30 days retention).
+ */
+export async function pruneOldHeapSnapshots() {
+    if (!db) {
+        return { deletedCount: 0 };
+    }
+    try {
+        const cutoffTime = Math.floor(Date.now() / 1000) - HEAP_SNAPSHOT_RETENTION_SECONDS;
+        // Get count before deletion
+        const beforeResult = db.exec(`SELECT COUNT(*) FROM heap_snapshots WHERE captured_at < ${cutoffTime}`);
+        const deletedCount = beforeResult[0]?.values[0]?.[0] ?? 0;
+        if (deletedCount > 0) {
+            db.exec(`DELETE FROM heap_snapshots WHERE captured_at < ${cutoffTime}`);
+            logger.info('engine-write-db', 'pruneOldHeapSnapshots', 'Pruned old heap snapshots', {
+                metadata: {
+                    deletedCount,
+                    retentionDays: 30,
+                    cutoffTime: new Date(cutoffTime * 1000).toISOString(),
+                }
+            });
+        }
+        return { deletedCount };
+    }
+    catch (error) {
+        logger.error('engine-write-db', 'pruneOldHeapSnapshots', 'Failed to prune old heap snapshots', {
+            error: {
+                name: error.name,
+                message: error.message,
+                stack: error.stack,
+            }
+        });
+        return { deletedCount: 0 };
+    }
+}
+/**
+ * Get heap snapshot count (for stats).
+ */
+function getHeapSnapshotCount() {
+    if (!db)
+        return 0;
+    try {
+        return getTableCount(db, 'heap_snapshots');
+    }
+    catch {
+        return 0;
+    }
+}
+// ============================================================================
 // WAL Operations (Crash Recovery)
 // ============================================================================
 /**
@@ -1180,6 +1386,7 @@ export function getStats() {
             anomalyCount: 0,
             walEntryCount: 0,
             systemMetricsCount: 0,
+            heapSnapshotCount: 0,
             sizeBytes: 0,
             oldestEntryAge: 0,
             oldestMetricsAge: 0,
@@ -1201,6 +1408,8 @@ export function getStats() {
         const walEntryCount = getTableCount(db, 'write_ahead_log');
         // P6: Count system metrics
         const systemMetricsCount = getSystemMetricsCount();
+        // DB-Only: Count heap snapshots
+        const heapSnapshotCount = getHeapSnapshotCount();
         // P6: Get oldest metrics age
         const oldestMetricsAge = getOldestMetricsAge();
         // Get oldest entry age
@@ -1220,6 +1429,7 @@ export function getStats() {
             anomalyCount,
             walEntryCount,
             systemMetricsCount,
+            heapSnapshotCount,
             sizeBytes,
             oldestEntryAge,
             oldestMetricsAge,
@@ -1239,6 +1449,7 @@ export function getStats() {
             anomalyCount: 0,
             walEntryCount: 0,
             systemMetricsCount: 0,
+            heapSnapshotCount: 0,
             sizeBytes: 0,
             oldestEntryAge: 0,
             oldestMetricsAge: 0,
