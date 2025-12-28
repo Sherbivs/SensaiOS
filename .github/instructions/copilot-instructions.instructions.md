@@ -85,9 +85,9 @@ Every component receives `ComponentContext` with:
 - `ctx.storage` — Database-backed object store
 
 ### Reference Documentation
-- **Full Specification:** docs/projects/SENSAI-FINAL-ARCHITECTURE.md
-- **v1.1.2 Patterns:** docs/projects/SENSAI-MULTITENANT-OBS-FIRST-ADDENDUM.md
-- **Quick Reference:** docs/projects/SENSAI-QUICK-REFERENCE.md
+- **Full Specification:** docs/projects/SensaiOS/SENSAI-FINAL-ARCHITECTURE.md
+- **v1.1.2 Patterns:** docs/projects/SensaiOS/SENSAI-MULTITENANT-OBS-FIRST-ADDENDUM.md
+- **Quick Reference:** docs/projects/SensaiOS/SENSAI-QUICK-REFERENCE.md
 - **AI Instructions:** .github/instructions/sensai.instructions.md
 
 ## Critical: Start Here Before Any Work

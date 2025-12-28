@@ -21,12 +21,12 @@ Areas:
 - .templates/ — Project README template and scaffolding
 
 Active Projects:
-- **Sensai OS Architecture** — 🚀 CANONICAL ARCHITECTURE v1.1.2:
-  - SENSAI-FINAL-ARCHITECTURE.md — Master specification (2390+ lines, 18 sections)
-  - SENSAI-COMPONENT-OS-BLUEPRINT.md — Component model design (14 sections)
-  - SENSAI-ARCHITECTURE-ADDENDUM.md — v1.1 future-proofing extensions
-  - SENSAI-MULTITENANT-OBS-FIRST-ADDENDUM.md — v1.1.2 multi-tenant + observability-first
-  - SENSAI-QUICK-REFERENCE.md — Quick reference card
+- **Sensai OS Architecture** — 🚀 CANONICAL ARCHITECTURE v1.1.2 (in `SensaiOS/` folder):
+  - SensaiOS/SENSAI-FINAL-ARCHITECTURE.md — Master specification (2390+ lines, 18 sections)
+  - SensaiOS/SENSAI-COMPONENT-OS-BLUEPRINT.md — Component model design (14 sections)
+  - SensaiOS/SENSAI-ARCHITECTURE-ADDENDUM.md — v1.1 future-proofing extensions
+  - SensaiOS/SENSAI-MULTITENANT-OBS-FIRST-ADDENDUM.md — v1.1.2 multi-tenant + observability-first
+  - SensaiOS/SENSAI-QUICK-REFERENCE.md — Quick reference card
 - v2-architecture/ — 🚀 ACTIVE: Greenfield rebuild architecture (meetings, blueprints, design)
 - database-centric/ — Database-centric development plan (Sprint 1 complete)
 - infrastructure/ — TypeScript migration, Discord testing, state persistence

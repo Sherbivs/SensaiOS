@@ -14,7 +14,7 @@ applyTo: '**'
 > - **SensaiError** — Typed error taxonomy (codes 1xxx-6xxx)
 > - **Boot Logger** — Observability starts BEFORE database connection
 >
-> **Full Specification:** `docs/projects/SENSAI-MULTITENANT-OBS-FIRST-ADDENDUM.md`
+> **Full Specification:** `docs/projects/SensaiOS/SENSAI-MULTITENANT-OBS-FIRST-ADDENDUM.md`
 
 ---
 
@@ -688,11 +688,11 @@ UNINSTALLED → [install] → INSTALLED (disabled) → [enable] → ENABLED (act
 ## 📚 REFERENCE DOCUMENTATION
 
 ### Primary Sources (SENSAI Architecture)
-- **Final Architecture Spec:** `docs/projects/SENSAI-FINAL-ARCHITECTURE.md` — Master canonical specification
-- **Component OS Blueprint:** `docs/projects/SENSAI-COMPONENT-OS-BLUEPRINT.md` — Component model design
-- **Architecture Addendum (v1.1):** `docs/projects/SENSAI-ARCHITECTURE-ADDENDUM.md` — Scalability patterns
-- **Multi-Tenant + Obs-First (v1.1.2):** `docs/projects/SENSAI-MULTITENANT-OBS-FIRST-ADDENDUM.md` — TenantScope, runGuarded, SensaiError
-- **Quick Reference Card:** `docs/projects/SENSAI-QUICK-REFERENCE.md` — Cheat sheet for key patterns
+- **Final Architecture Spec:** `docs/projects/SensaiOS/SENSAI-FINAL-ARCHITECTURE.md` — Master canonical specification
+- **Component OS Blueprint:** `docs/projects/SensaiOS/SENSAI-COMPONENT-OS-BLUEPRINT.md` — Component model design
+- **Architecture Addendum (v1.1):** `docs/projects/SensaiOS/SENSAI-ARCHITECTURE-ADDENDUM.md` — Scalability patterns
+- **Multi-Tenant + Obs-First (v1.1.2):** `docs/projects/SensaiOS/SENSAI-MULTITENANT-OBS-FIRST-ADDENDUM.md` — TenantScope, runGuarded, SensaiError
+- **Quick Reference Card:** `docs/projects/SensaiOS/SENSAI-QUICK-REFERENCE.md` — Cheat sheet for key patterns
 
 ### Implementation Guides
 - **Store Write Elimination:** `docs/projects/STORE-WRITE-ELIMINATION.md`
