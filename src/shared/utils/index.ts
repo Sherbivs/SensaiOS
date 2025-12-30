@@ -88,3 +88,11 @@ export {
   normalizeString,
   getFilesafeTimestamp,
 } from './string-utils.js';
+
+// Deterministic RNG Utilities
+export {
+  DeterministicRng,
+  createDeterministicRng,
+  createUserRng,
+  createSessionRng,
+} from './deterministic-rng.js';

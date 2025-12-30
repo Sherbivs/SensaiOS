@@ -21,6 +21,7 @@ const logger = getLogger();
 import { prisma as _prisma } from "../shared/prisma.js";
 import { ensureUser as _ensureUser } from "../shared/models/user-queries-pg.js";
 import { hasItems } from "./inventory.js";
+import { createDeterministicRng, type DeterministicRng } from "../shared/utils/deterministic-rng.js";
 
 // ============================================================================
 // CONSTANTS
@@ -277,9 +278,9 @@ export function castLine(discordId: string): { waitMs: number } | { error: strin
     return { error: "Already fishing! Wait for the result." };
   }
   
-  // Calculate random wait time
-  const waitMs = FISHING_CONFIG.MIN_WAIT_MS + 
-    Math.random() * (FISHING_CONFIG.MAX_WAIT_MS - FISHING_CONFIG.MIN_WAIT_MS);
+  // Calculate random wait time using deterministic RNG
+  const rng = createDeterministicRng(['fishing', 'cast', discordId, Date.now().toString()]);
+  const waitMs = rng.float(FISHING_CONFIG.MIN_WAIT_MS, FISHING_CONFIG.MAX_WAIT_MS);
   
   session.state = "waiting";
   session.castTime = Date.now();
@@ -305,8 +306,9 @@ export function checkForBite(discordId: string): { bite: true } | { nothing: tru
     return { error: "Not currently waiting for a bite." };
   }
   
-  // Roll for nothing biting
-  if (Math.random() < FISHING_CONFIG.NO_BITE_CHANCE) {
+  // Roll for nothing biting using deterministic RNG
+  const biteRng = createDeterministicRng(['fishing', 'bite', discordId, Date.now().toString()]);
+  if (biteRng.chance(FISHING_CONFIG.NO_BITE_CHANCE)) {
     session.state = "nothing";
     session.chainCount = 0; // Chain breaks
     
@@ -442,23 +444,20 @@ export function rollFishingEncounter(session: FishingSession): FishingEncounter 
   const pool = FISHING_POOLS[session.rodTier];
   const levelRange = LEVEL_RANGES[session.rodTier];
   
-  // Roll for species
-  const roll = Math.random();
-  let cumulative = 0;
-  let selected = pool[0]; // Fallback
+  // Create deterministic RNG for this encounter
+  const rng = createDeterministicRng([
+    'fishing', 
+    'encounter', 
+    session.discordId, 
+    session.chainCount.toString(),
+    Date.now().toString()
+  ]);
   
-  for (const entry of pool) {
-    cumulative += entry.rate;
-    if (roll <= cumulative) {
-      selected = entry;
-      break;
-    }
-  }
+  // Roll for species using weightedByRate helper
+  const selected = rng.weightedByRate(pool);
   
   // Roll for level
-  const level = Math.floor(
-    levelRange.min + Math.random() * (levelRange.max - levelRange.min + 1)
-  );
+  const level = rng.int(levelRange.min, levelRange.max);
   
   // Roll for shiny with chain bonus
   let shinyRate = SHINY_CHAIN_BONUS[SHINY_CHAIN_BONUS.length - 1].rate; // Base rate
@@ -468,7 +467,7 @@ export function rollFishingEncounter(session: FishingSession): FishingEncounter 
       break;
     }
   }
-  const isShiny = Math.random() < shinyRate;
+  const isShiny = rng.chance(shinyRate);
   
   logger.info('Fishing', 'rollFishingEncounter', 'Generated fishing encounter', {
     userId: session.discordId,
@@ -479,6 +478,7 @@ export function rollFishingEncounter(session: FishingSession): FishingEncounter 
       rarity: selected.rarity,
       chainCount: session.chainCount,
       shinyRate,
+      rngSeed: rng.seed, // Log seed for audit/replay
     },
   });
   

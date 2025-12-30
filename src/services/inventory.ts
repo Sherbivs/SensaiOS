@@ -29,6 +29,7 @@ import { getLogger } from "../shared/logging/index.js";
 const logger = getLogger();
 
 import { prisma } from "../shared/prisma.js";
+import { createDeterministicRng } from "../shared/utils/deterministic-rng.js";
 
 // ============================================================================
 // ITEM IDS (Well-known item IDs from the database)
@@ -418,8 +419,11 @@ export async function rollCatchRewards(
   const rewards: ItemReward[] = [];
   const possibleRewards = CATCH_REWARDS[rarity];
   
+  // Create deterministic RNG for catch rewards
+  const rng = createDeterministicRng(['inventory', 'catch-rewards', userId, rarity, Date.now().toString()]);
+  
   for (const reward of possibleRewards) {
-    if (Math.random() < reward.chance) {
+    if (rng.chance(reward.chance)) {
       const result = await addItems(userId, reward.itemId, reward.qty, tenantId);
       if (result.success && result.itemName) {
         rewards.push({
