@@ -20,7 +20,7 @@ import { scopeFromInteraction, systemScope } from './tenant-scope.js';
 import type { ComponentSupervisor } from './component-supervisor.js';
 import { toCanonicalError } from './canonical-error.js';
 import { createComponentContext } from './context-factory.js';
-import type { PrismaClient } from '@prisma/client';
+import type { PrismaClient } from '../generated/prisma/client.js';
 
 const log = scopedLogger('sensaios-dispatch');
 
