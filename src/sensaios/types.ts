@@ -154,7 +154,7 @@ export interface GuardedResult<T> {
   /** The result (if successful) */
   result?: T;
 
-  /** The error (if failed) */
+  /** The error (if failed) - CanonicalError when from runGuarded */
   error?: unknown;
 
   /** Execution duration in milliseconds */
@@ -162,4 +162,7 @@ export interface GuardedResult<T> {
 
   /** Correlation ID used */
   correlationId: string;
+
+  /** Scope used (if available) */
+  scope?: import('./tenant-scope.js').TenantScope;
 }

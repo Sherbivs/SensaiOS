@@ -4,7 +4,7 @@
  * Tests for scoped envelope creation, serialization, and batching.
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import {
   createExportEnvelope,
   toExportEnvelope,
@@ -17,7 +17,7 @@ import {
   EnvelopeBatcher,
   type ExportEnvelope,
 } from '../../src/sensaios/export-envelope.js';
-import { systemScope, type TenantScope } from '../../src/sensaios/tenant-scope.js';
+import { type TenantScope } from '../../src/sensaios/tenant-scope.js';
 import type { UniversalEnvelope } from '../../src/observability/envelope/types.js';
 
 describe('ExportEnvelope', () => {

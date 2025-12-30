@@ -4,16 +4,15 @@
  * Tests for error deduplication and trending detection.
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import {
   ErrorTracker,
   getErrorTracker,
   initializeErrorTracker,
   trackError,
-  type ErrorPattern,
 } from '../../src/sensaios/error-tracker.js';
 import { toCanonicalError } from '../../src/sensaios/canonical-error.js';
-import { systemScope, type TenantScope } from '../../src/sensaios/tenant-scope.js';
+import { type TenantScope } from '../../src/sensaios/tenant-scope.js';
 
 describe('ErrorTracker', () => {
   const testScope: TenantScope = {

@@ -155,8 +155,206 @@ export {
 } from './error-tracker.js';
 
 // ============================================================================
-// PHASE 3: RUN GUARDED (Coming Soon)
+// PHASE 3: RUN GUARDED
 // ============================================================================
 
-// export { runGuarded, runGuardedSafe, getCorrelationId } from './run-guarded.js';
-// export { guarded } from './guarded-decorator.js';
+export type { RunGuardedContext } from './run-guarded.js';
+
+export {
+  // Core functions
+  runGuarded,
+  runGuardedSafe,
+  // Correlation ID access
+  getCorrelationId,
+  requireCorrelationId,
+  // Convenience helpers
+  createGuardedHandler,
+  wrapWithGuard,
+  runGuardedParallel,
+  runGuardedSequence,
+} from './run-guarded.js';
+
+export type {
+  GuardedDecoratorOptions,
+  GuardedClassOptions,
+} from './guarded-decorator.js';
+
+export {
+  // Decorators
+  guarded,
+  guardedClass,
+  guardedProperty,
+} from './guarded-decorator.js';
+
+// ============================================================================
+// PHASE 4: COMPONENT CONTEXT & KERNEL PRIMITIVES
+// ============================================================================
+
+export type {
+  // Database primitive
+  DbPrimitive,
+  // Export log primitive
+  ExportEnvelopeData,
+  AppendResult,
+  ExportFilter,
+  ExportsPrimitive,
+  // Job queue primitive
+  JobEnvelope,
+  LeasedJob,
+  JobResult,
+  JobsPrimitive,
+  // Outbox primitive
+  OutboxEnvelope,
+  OutboxPrimitive,
+  // Config primitive
+  ConfigScope,
+  ConfigPrimitive,
+  // RBAC primitive
+  Capability,
+  AuditEvent,
+  RbacPrimitive,
+  // Observability primitive
+  ScopedLogger,
+  MetricsClient,
+  ObsPrimitive,
+  // RNG primitive
+  DeterministicRng,
+  RngPrimitive,
+  // Storage primitive
+  BlobMetadata,
+  StorageObject,
+  StoragePrimitive,
+  // Component context
+  ComponentContext,
+  // Component model
+  HostKind,
+  DiscordHandler,
+  ExportHandler,
+  JobHandler,
+  HttpHandler,
+  CliHandler,
+  SensaiComponent,
+} from './component-context.js';
+
+export type { CreateContextOptions } from './context-factory.js';
+
+export {
+  // Primitive factories (for custom implementations)
+  createDbPrimitive,
+  createExportsPrimitiveStub,
+  createJobsPrimitiveStub,
+  createOutboxPrimitiveStub,
+  createConfigPrimitiveStub,
+  createRbacPrimitiveStub,
+  createStoragePrimitiveStub,
+  createObsPrimitive,
+  createRngPrimitive,
+  // Main context factory
+  createComponentContext,
+  // Specialized context helpers
+  contextFromInteraction,
+  contextFromGuild,
+  contextFromWorker,
+  systemContext,
+  contextFromCli,
+  // Testing
+  createTestContext,
+} from './context-factory.js';
+
+// ============================================================================
+// PHASE 5: COMPONENT REGISTRY & SUPERVISOR
+// ============================================================================
+
+export type {
+  // Component state types
+  ComponentState,
+  RegisteredComponent,
+  RegistryStats,
+  // Validation types
+  ValidationResult,
+  ValidationError,
+  ValidationWarning,
+} from './component-registry.js';
+
+export {
+  ComponentRegistry,
+  componentRegistry,
+} from './component-registry.js';
+
+export type {
+  // Handler registry types
+  RegisteredHandler,
+  HandlerLookup,
+  SupervisorStats,
+} from './component-supervisor.js';
+
+export {
+  ComponentSupervisor,
+  supervisor,
+  // Convenience functions
+  registerComponent,
+  bootSupervisor,
+  shutdownSupervisor,
+} from './component-supervisor.js';
+
+// ============================================================================
+// PHASE 6: INTEGRATION LAYER (Boot & Dispatchers)
+// ============================================================================
+
+export type {
+  BootLogger,
+  BootLogEntry,
+  BootLogLevel,
+  BootPhase,
+  BootStatus,
+} from './boot-logger.js';
+
+export {
+  BOOT_PHASES,
+  createBootLogger,
+  initBootLogger,
+  getBootLogger,
+  clearBootLogger,
+} from './boot-logger.js';
+
+export type {
+  KernelConfig,
+  DatabaseConfig,
+  KernelStats,
+  SensaiKernel,
+} from './kernel-boot.js';
+
+export {
+  createKernel,
+  initKernel,
+  getKernel,
+  clearKernel,
+  bootKernel,
+  shutdownKernel,
+} from './kernel-boot.js';
+
+export type {
+  DiscordInteraction,
+  DiscordDispatcherConfig,
+  DiscordDispatchResult,
+  ExportDispatcherConfig,
+  ExportDispatchResult,
+  JobDispatcherConfig,
+  JobDispatchResult,
+  HttpRequest,
+  HttpResponse,
+  HttpDispatcherConfig,
+  HttpDispatchResult,
+  CliCommand,
+  CliResult,
+  CliDispatcherConfig,
+  CliDispatchResult,
+} from './dispatchers.js';
+
+export {
+  createDiscordDispatcher,
+  createExportDispatcher,
+  createJobDispatcher,
+  createHttpDispatcher,
+  createCliDispatcher,
+} from './dispatchers.js';

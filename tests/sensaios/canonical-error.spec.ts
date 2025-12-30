@@ -4,7 +4,7 @@
  * Tests for error conversion, category detection, and fingerprinting.
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import {
   toCanonicalError,
   isCanonicalError,
@@ -15,9 +15,8 @@ import {
   getRecoverySuggestions,
   serializeCanonicalError,
   summarizeError,
-  type CanonicalError,
 } from '../../src/sensaios/canonical-error.js';
-import { systemScope, type TenantScope } from '../../src/sensaios/tenant-scope.js';
+import { type TenantScope } from '../../src/sensaios/tenant-scope.js';
 
 describe('CanonicalError', () => {
   const testScope: TenantScope = {

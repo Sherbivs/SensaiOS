@@ -1656,8 +1656,6 @@ export async function handleOpsCommand(interaction, deps = {}) {
         const detailed = Boolean(interaction.options?.getBoolean?.("detailed"));
         try {
             const v8 = await import('node:v8');
-            const fs = await import('node:fs');
-            const path = await import('node:path');
             // Helper function for formatting bytes
             const formatSnapshotBytes = (bytes) => {
                 if (bytes === 0)
@@ -1709,28 +1707,38 @@ export async function handleOpsCommand(interaction, deps = {}) {
                     lines.push(`• ${space.space_name}: ${formatSnapshotBytes(space.space_used_size)} / ${formatSnapshotBytes(space.space_size)} (${utilization}%)`);
                 }
             }
-            // Capture heap snapshot to disk
+            const heapUtilizationPercent = mem.heapTotal > 0
+                ? (mem.heapUsed / mem.heapTotal) * 100
+                : 0;
+            const mysteryAllocationBytes = Math.max(0, mem.rss - mem.heapTotal - mem.external);
+            const snapshotEntry = {
+                capturedAt: new Date(),
+                trigger: 'manual',
+                rssBytes: mem.rss,
+                heapTotalBytes: mem.heapTotal,
+                heapUsedBytes: mem.heapUsed,
+                externalBytes: mem.external,
+                arrayBuffersBytes: mem.arrayBuffers,
+                v8TotalHeapBytes: heapStats.total_heap_size,
+                v8UsedHeapBytes: heapStats.used_heap_size,
+                v8HeapLimitBytes: heapStats.heap_size_limit,
+                v8MallocedBytes: heapStats.malloced_memory,
+                v8ExternalBytes: heapStats.external_memory,
+                heapUtilizationPercent,
+                mysteryAllocationBytes,
+            };
+            await engineWriteDb.insertHeapSnapshot(snapshotEntry);
+            const recentSnapshots = await engineWriteDb.queryHeapSnapshots(3);
             lines.push("");
-            lines.push("**📁 Heap Snapshot File**");
-            const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-            const filename = `heap-snapshot-${timestamp}.heapsnapshot`;
-            const storeDir = process.env.RENDER ? '/Store' : path.join(process.cwd(), 'Store');
-            const filepath = path.join(storeDir, filename);
-            try {
-                fs.mkdirSync(storeDir, { recursive: true });
-                const snapshotPath = v8.writeHeapSnapshot(filepath);
-                const snapshotSize = fs.statSync(snapshotPath).size;
-                lines.push(`✅ Snapshot captured: ${formatSnapshotBytes(snapshotSize)}`);
-                lines.push(`📂 Location: \`${filename}\``);
+            lines.push("**📦 Storage (DB-only)**");
+            lines.push("✅ Snapshot stored in Engine Write-DB (heap_snapshots table, 30-day retention)");
+            lines.push("📂 No /Store file writes — complies with DB-only policy");
+            if (recentSnapshots.length > 0) {
                 lines.push("");
-                lines.push("**💡 Analysis Instructions:**");
-                lines.push("1. Download snapshot file from Render dashboard");
-                lines.push("2. Open Chrome DevTools (F12) → Memory tab");
-                lines.push("3. Click 'Load' and select the .heapsnapshot file");
-                lines.push("4. Analyze memory allocations by constructor");
-            }
-            catch (fsErr) {
-                lines.push(`❌ Failed to write snapshot: ${getErrorMessage(fsErr)}`);
+                lines.push("**🕑 Recent Snapshots (newest first)**");
+                for (const snap of recentSnapshots) {
+                    lines.push(`• ${snap.capturedAt.toISOString()} — ${snap.trigger} — heap ${formatSnapshotBytes(snap.heapUsedBytes)} / ${formatSnapshotBytes(snap.heapTotalBytes)} (${snap.heapUtilizationPercent.toFixed(1)}%)`);
+                }
             }
             const message = lines.join("\n");
             if (message.length > 2000) {

@@ -16,7 +16,7 @@ import {
   DEFAULT_ERROR_ROUTES,
 } from '../../src/sensaios/error-routing.js';
 import { toCanonicalError } from '../../src/sensaios/canonical-error.js';
-import { systemScope, type TenantScope } from '../../src/sensaios/tenant-scope.js';
+import { type TenantScope } from '../../src/sensaios/tenant-scope.js';
 
 describe('ErrorRouting', () => {
   const testScope: TenantScope = {
