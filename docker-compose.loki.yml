@@ -39,8 +39,8 @@ services:
       - ./ops/grafana-battle-engine.json:/etc/grafana/provisioning/dashboards/infinity-gauntlet/battle.json
       - ./ops/grafana-cache-performance.json:/etc/grafana/provisioning/dashboards/infinity-gauntlet/cache.json
       - ./ops/grafana-dashboard.json:/etc/grafana/provisioning/dashboards/infinity-gauntlet/security.json
-      # Alert rules
-      - ./ops/grafana-alert-rules-v2.yml:/etc/grafana/provisioning/alerting/alert-rules.yml
+      # Alert rules - DISABLED until converted to Grafana 10+ unified alerting format
+      # - ./ops/grafana-alert-rules-v2.yml:/etc/grafana/provisioning/alerting/alert-rules.yml
     networks:
       - loki-network
     depends_on:

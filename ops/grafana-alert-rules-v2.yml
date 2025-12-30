@@ -1,15 +1,20 @@
-# Alert Rules v2 - Pokémon Infinity Gauntlet
+# Alert Rules v2 - Sensai OS
 # Professional-grade alerting with severity tiers and runbook links
+
+apiVersion: 1
 
 groups:
   # ============================================================================
   # CRITICAL ALERTS - Immediate attention required
   # ============================================================================
   - name: critical_alerts
+    folder: SensaiOS
     interval: 30s
     rules:
       # Service Down Alert
       - alert: ServiceDown
+        uid: sensai-service-down
+        title: Service Down
         expr: |
           absent(count_over_time({service=~".+"} [5m])) or
           count_over_time({service=~".+"} [5m]) < 1
@@ -29,6 +34,8 @@ groups:
 
       # Memory Critical (>90%)
       - alert: MemoryCritical
+        uid: sensai-memory-critical
+        title: Memory Critical
         expr: security_bot_memory_rss_bytes / 2147483648 * 100 > 90
         for: 2m
         labels:
@@ -46,6 +53,8 @@ groups:
 
       # Database Connection Failure
       - alert: DatabaseConnectionFailed
+        uid: sensai-db-connection-failed
+        title: Database Connection Failed
         expr: |
           count_over_time({service=~".+"} |= "database" |= "error" |~ "connection|timeout|ECONNREFUSED" [5m]) > 5
         for: 1m
@@ -64,6 +73,8 @@ groups:
 
       # High Error Rate
       - alert: ErrorRateCritical
+        uid: sensai-error-rate-critical
+        title: Error Rate Critical
         expr: |
           sum(count_over_time({level="error"} [1m])) > 50
         for: 2m
@@ -82,6 +93,8 @@ groups:
 
       # Disk Full
       - alert: DiskCritical
+        uid: sensai-disk-critical
+        title: Disk Critical
         expr: security_bot_disk_used_percent > 95
         for: 2m
         labels:
@@ -101,10 +114,13 @@ groups:
   # WARNING ALERTS - Attention needed soon
   # ============================================================================
   - name: warning_alerts
+    folder: SensaiOS
     interval: 1m
     rules:
       # Memory Warning (>75%)
       - alert: MemoryWarning
+        uid: sensai-memory-warning
+        title: Memory Warning
         expr: security_bot_memory_rss_bytes / 2147483648 * 100 > 75
         for: 5m
         labels:
@@ -120,6 +136,8 @@ groups:
 
       # Error Rate Warning
       - alert: ErrorRateWarning
+        uid: sensai-error-rate-warning
+        title: Error Rate Warning
         expr: |
           sum(count_over_time({level="error"} [5m])) > 10
         for: 5m
@@ -132,6 +150,8 @@ groups:
 
       # Cache Hit Rate Low
       - alert: CacheHitRateLow
+        uid: sensai-cache-hit-rate-low
+        title: Cache Hit Rate Low
         expr: security_bot_cache_hit_rate < 0.90
         for: 10m
         labels:
@@ -147,6 +167,8 @@ groups:
 
       # Disk Warning (>80%)
       - alert: DiskWarning
+        uid: sensai-disk-warning
+        title: Disk Warning
         expr: security_bot_disk_used_percent > 80
         for: 10m
         labels:
@@ -158,6 +180,8 @@ groups:
 
       # Loki Queue Backlog
       - alert: LokiQueueBacklog
+        uid: sensai-loki-queue-backlog
+        title: Loki Queue Backlog
         expr: security_bot_loki_queue_size > 750
         for: 5m
         labels:
@@ -173,6 +197,8 @@ groups:
 
       # Long Query Latency
       - alert: DatabaseLatencyHigh
+        uid: sensai-db-latency-high
+        title: Database Latency High
         expr: |
           histogram_quantile(0.95, rate(security_bot_db_query_latency_bucket[5m])) > 100
         for: 5m
@@ -189,6 +215,8 @@ groups:
 
       # Battle Duration Anomaly
       - alert: BattleDurationAnomaly
+        uid: sensai-battle-duration-anomaly
+        title: Battle Duration Anomaly
         expr: |
           histogram_quantile(0.95, rate(security_bot_battle_duration_seconds_bucket[15m])) > 300
         for: 10m
@@ -203,10 +231,13 @@ groups:
   # INFORMATIONAL ALERTS - FYI notifications
   # ============================================================================
   - name: info_alerts
+    folder: SensaiOS
     interval: 5m
     rules:
       # Service Restart Detected
       - alert: ServiceRestarted
+        uid: sensai-service-restarted
+        title: Service Restarted
         expr: |
           count_over_time({service=~".+"} |= "startup" |= "ready" [5m]) > 0
         labels:
@@ -218,6 +249,8 @@ groups:
 
       # Deployment Detected
       - alert: DeploymentDetected
+        uid: sensai-deployment-detected
+        title: Deployment Detected
         expr: |
           changes(security_bot_uptime_seconds[10m]) > 0
         labels:
@@ -229,6 +262,8 @@ groups:
 
       # Unusual Command Volume
       - alert: UnusualCommandVolume
+        uid: sensai-unusual-command-volume
+        title: Unusual Command Volume
         expr: |
           sum(rate(security_bot_commands_total[5m])) > 10 or
           sum(rate(security_bot_commands_total[5m])) < 0.1
@@ -242,6 +277,8 @@ groups:
 
       # Cache Refresh Completed
       - alert: CacheRefreshCompleted
+        uid: sensai-cache-refresh-completed
+        title: Cache Refresh Completed
         expr: |
           count_over_time({service=~".+"} |= "cache" |= "refresh" |= "complete" [5m]) > 0
         labels:
@@ -253,6 +290,8 @@ groups:
 
       # Security Bot Sweep Complete
       - alert: SecuritySweepComplete
+        uid: sensai-security-sweep-complete
+        title: Security Sweep Complete
         expr: |
           count_over_time({service="security-bot"} |= "sweep" |= "complete" [15m]) > 0
         labels:
@@ -266,10 +305,13 @@ groups:
   # GAME ENGINE ALERTS
   # ============================================================================
   - name: game_engine_alerts
+    folder: SensaiOS
     interval: 1m
     rules:
       # Battle Engine Errors
       - alert: BattleEngineError
+        uid: sensai-battle-engine-error
+        title: Battle Engine Error
         expr: |
           count_over_time({service=~".+"} |= "battle" |= "error" [5m]) > 3
         for: 2m
@@ -283,6 +325,8 @@ groups:
 
       # Encounter Generation Failures
       - alert: EncounterGenerationFailed
+        uid: sensai-encounter-generation-failed
+        title: Encounter Generation Failed
         expr: |
           count_over_time({service=~".+"} |= "encounter" |= "error" |~ "failed|exception" [10m]) > 5
         for: 5m
@@ -295,6 +339,8 @@ groups:
 
       # Catch Rate Anomaly
       - alert: CatchRateAnomaly
+        uid: sensai-catch-rate-anomaly
+        title: Catch Rate Anomaly
         expr: |
           security_bot_catch_rate > 0.95 or security_bot_catch_rate < 0.05
         for: 15m
@@ -309,10 +355,13 @@ groups:
   # OBSERVABILITY PIPELINE ALERTS
   # ============================================================================
   - name: observability_alerts
+    folder: SensaiOS
     interval: 2m
     rules:
       # Loki Circuit Breaker Open
       - alert: LokiCircuitBreakerOpen
+        uid: sensai-loki-circuit-breaker-open
+        title: Loki Circuit Breaker Open
         expr: security_bot_loki_circuit_state == 1
         for: 1m
         labels:
@@ -329,6 +378,8 @@ groups:
 
       # No Logs Received
       - alert: NoLogsReceived
+        uid: sensai-no-logs-received
+        title: No Logs Received
         expr: |
           absent(count_over_time({service=~".+"} [10m]))
         for: 10m
@@ -341,6 +392,8 @@ groups:
 
       # Log Volume Spike
       - alert: LogVolumeSpike
+        uid: sensai-log-volume-spike
+        title: Log Volume Spike
         expr: |
           sum(count_over_time({service=~".+"} [1m])) > 1000
         for: 5m
