@@ -14,6 +14,7 @@
 
 import { AsyncLocalStorage } from 'node:async_hooks';
 import type { Environment } from './types.js';
+import { kernelError, KERNEL_ERRORS } from './sensai-error.js';
 
 // ============================================================================
 // TYPES
@@ -279,7 +280,10 @@ export function getCurrentScope(): TenantScope | undefined {
 export function requireScope(): TenantScope {
   const scope = scopeStorage.getStore();
   if (!scope) {
-    throw new Error('No scope in context — did you forget withScope()?');
+    throw kernelError(
+      KERNEL_ERRORS.CONTEXT_MISSING,
+      'No scope in context — did you forget withScope()?'
+    );
   }
   return scope;
 }

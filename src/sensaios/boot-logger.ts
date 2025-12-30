@@ -9,6 +9,8 @@
  * @module sensaios/boot-logger
  */
 
+import { kernelError, KERNEL_ERRORS } from './sensai-error.js';
+
 // ============================================================================
 // BOOT LOGGER TYPES
 // ============================================================================
@@ -230,7 +232,10 @@ let globalBootLogger: BootLogger | null = null;
  */
 export function initBootLogger(config: Partial<BootLoggerConfig> = {}): BootLogger {
   if (globalBootLogger) {
-    throw new Error('Boot logger already initialized');
+    throw kernelError(
+      KERNEL_ERRORS.BOOT_ALREADY_INITIALIZED,
+      'Boot logger already initialized'
+    );
   }
 
   globalBootLogger = createBootLogger({

@@ -95,6 +95,30 @@ export {
 // PHASE 2: ERROR DETECTION
 // ============================================================================
 
+// SensaiError — Typed error taxonomy (1xxx-6xxx codes)
+export {
+  SensaiError,
+  KERNEL_ERRORS,
+  DATABASE_ERRORS,
+  COMPONENT_ERRORS,
+  VALIDATION_ERRORS,
+  EXTERNAL_ERRORS,
+  GAME_ERRORS,
+  KERNEL_SCOPE,
+  kernelError,
+  databaseError,
+  componentError,
+  validationError,
+  externalError,
+  gameError,
+} from './sensai-error.js';
+
+export type {
+  SensaiErrorOptions,
+  ErrorCategory as SensaiErrorCategory,
+} from './sensai-error.js';
+
+// CanonicalError — Structured errors with recovery suggestions
 export type {
   CanonicalError,
   ToCanonicalErrorOptions,

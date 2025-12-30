@@ -25,6 +25,7 @@ import type { CanonicalError } from './canonical-error.js';
 import { toCanonicalError, isCanonicalError } from './canonical-error.js';
 import { routeError } from './error-routing.js';
 import type { GuardedContext, GuardedResult } from './types.js';
+import { kernelError, KERNEL_ERRORS } from './sensai-error.js';
 
 /** Scoped logger for run-guarded */
 const log = scopedLogger('sensaios-run-guarded');
@@ -68,7 +69,10 @@ export function getCorrelationId(): string | undefined {
 export function requireCorrelationId(): string {
   const correlationId = getCorrelationId();
   if (!correlationId) {
-    throw new Error('requireCorrelationId() called outside runGuarded context');
+    throw kernelError(
+      KERNEL_ERRORS.CONTEXT_MISSING,
+      'requireCorrelationId() called outside runGuarded context'
+    );
   }
   return correlationId;
 }

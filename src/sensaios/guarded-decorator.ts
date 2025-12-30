@@ -13,6 +13,7 @@
 
 import { runGuarded, type RunGuardedContext } from './run-guarded.js';
 import { getCurrentScope, isTenantScope, systemScope, type TenantScope } from './tenant-scope.js';
+import { validationError, VALIDATION_ERRORS } from './sensai-error.js';
 
 // ============================================================================
 // TYPES
@@ -143,7 +144,10 @@ export function guarded(options: GuardedDecoratorOptions = {}) {
     const originalMethod = descriptor.value;
 
     if (!originalMethod) {
-      throw new Error(`@guarded can only decorate methods, not ${String(propertyKey)}`);
+      throw validationError(
+        VALIDATION_ERRORS.INVALID_INPUT,
+        `@guarded can only decorate methods, not ${String(propertyKey)}`
+      );
     }
 
     const className = target.constructor.name;

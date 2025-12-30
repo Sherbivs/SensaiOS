@@ -25,6 +25,7 @@ import {
 import { createComponentContext, systemContext as _systemContext } from './context-factory.js';
 import type { TenantScope } from './tenant-scope.js';
 import { scopedLogger } from '../observability/envelope/console.js';
+import { componentError, COMPONENT_ERRORS } from './sensai-error.js';
 
 /** Scoped logger for supervisor operations */
 const log = scopedLogger('sensaios-supervisor');
@@ -184,7 +185,10 @@ export class ComponentSupervisor {
 
     if (!result.valid) {
       const errors = result.errors.map(e => e.message).join('; ');
-      throw new Error(`Failed to register ${component.name}: ${errors}`);
+      throw componentError(
+        COMPONENT_ERRORS.VALIDATION_FAILED,
+        `Failed to register ${component.name}: ${errors}`
+      );
     }
 
     // Log warnings
@@ -221,7 +225,10 @@ export class ComponentSupervisor {
    */
   async boot(): Promise<void> {
     if (this._bootStatus !== 'not-started') {
-      throw new Error(`Cannot boot: supervisor is ${this._bootStatus}`);
+      throw componentError(
+        COMPONENT_ERRORS.INVALID_STATE,
+        `Cannot boot: supervisor is ${this._bootStatus}`
+      );
     }
 
     this._bootStatus = 'booting';
@@ -235,7 +242,10 @@ export class ComponentSupervisor {
       // Check for circular dependencies
       const cycles = this.registry.detectCircularDependencies();
       if (cycles.length > 0) {
-        throw new Error(`Circular dependencies detected: ${cycles.map(c => c.join(' -> ')).join('; ')}`);
+        throw componentError(
+          COMPONENT_ERRORS.CIRCULAR_DEPENDENCIES,
+          `Circular dependencies detected: ${cycles.map(c => c.join(' -> ')).join('; ')}`
+        );
       }
 
       // Get components in dependency order that can run on this host

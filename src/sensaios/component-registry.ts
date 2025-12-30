@@ -8,6 +8,7 @@
 
 import type { SensaiComponent, ComponentContext, HostKind } from './component-context.js';
 import { scopedLogger } from '../observability/envelope/console.js';
+import { componentError, COMPONENT_ERRORS } from './sensai-error.js';
 
 /** Scoped logger for registry operations */
 const log = scopedLogger('sensaios-registry');
@@ -219,11 +220,17 @@ export class ComponentRegistry {
     const entry = this.components.get(name);
 
     if (!entry) {
-      throw new Error(`Component ${name} not found`);
+      throw componentError(
+        COMPONENT_ERRORS.NOT_FOUND,
+        `Component ${name} not found`
+      );
     }
 
     if (entry.state === 'enabled') {
-      throw new Error(`Cannot uninstall enabled component ${name}. Disable it first.`);
+      throw componentError(
+        COMPONENT_ERRORS.INVALID_STATE,
+        `Cannot uninstall enabled component ${name}. Disable it first.`
+      );
     }
 
     // Check for dependents
@@ -234,7 +241,8 @@ export class ComponentRegistry {
     });
 
     if (enabledDependents.length > 0) {
-      throw new Error(
+      throw componentError(
+        COMPONENT_ERRORS.HAS_DEPENDENTS,
         `Cannot uninstall ${name}: enabled dependents: ${enabledDependents.join(', ')}`
       );
     }
@@ -263,7 +271,10 @@ export class ComponentRegistry {
     const entry = this.components.get(name);
 
     if (!entry) {
-      throw new Error(`Component ${name} not found`);
+      throw componentError(
+        COMPONENT_ERRORS.NOT_FOUND,
+        `Component ${name} not found`
+      );
     }
 
     if (entry.state === 'enabled') {
@@ -272,13 +283,19 @@ export class ComponentRegistry {
     }
 
     if (entry.state !== 'installed') {
-      throw new Error(`Component ${name} must be installed before enabling (state: ${entry.state})`);
+      throw componentError(
+        COMPONENT_ERRORS.INVALID_STATE,
+        `Component ${name} must be installed before enabling (state: ${entry.state})`
+      );
     }
 
     // Check dependencies are enabled
     const unmetDeps = this.getUnmetDependencies(name);
     if (unmetDeps.length > 0) {
-      throw new Error(`Cannot enable ${name}: unmet dependencies: ${unmetDeps.join(', ')}`);
+      throw componentError(
+        COMPONENT_ERRORS.UNMET_DEPENDENCIES,
+        `Cannot enable ${name}: unmet dependencies: ${unmetDeps.join(', ')}`
+      );
     }
 
     try {
@@ -320,7 +337,10 @@ export class ComponentRegistry {
     const entry = this.components.get(name);
 
     if (!entry) {
-      throw new Error(`Component ${name} not found`);
+      throw componentError(
+        COMPONENT_ERRORS.NOT_FOUND,
+        `Component ${name} not found`
+      );
     }
 
     if (entry.state !== 'enabled') {
@@ -331,7 +351,8 @@ export class ComponentRegistry {
     // Check for enabled dependents
     const enabledDependents = this.getEnabledDependents(name);
     if (enabledDependents.length > 0) {
-      throw new Error(
+      throw componentError(
+        COMPONENT_ERRORS.HAS_DEPENDENTS,
         `Cannot disable ${name}: enabled dependents: ${enabledDependents.join(', ')}`
       );
     }

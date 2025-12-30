@@ -21,6 +21,7 @@ import { ComponentSupervisor } from './component-supervisor.js';
 import { ComponentRegistry } from './component-registry.js';
 import { createComponentContext } from './context-factory.js';
 import type { TenantScope } from './tenant-scope.js';
+import { SensaiError, KERNEL_ERRORS, kernelError } from './sensai-error.js';
 import {
   createBootLogger,
   createBootStatus,
@@ -342,7 +343,10 @@ export function createKernel(config: KernelConfig): SensaiKernel {
   // Context factory
   function getContext(scope: TenantScope): ComponentContext {
     if (!db) {
-      throw new Error('Kernel not booted - database not available');
+      throw kernelError(
+        KERNEL_ERRORS.BOOT_DB_UNAVAILABLE,
+        'Kernel not booted - database not available'
+      );
     }
     return createComponentContext({ scope, component: 'kernel', prisma: db });
   }
@@ -389,7 +393,10 @@ let globalKernel: SensaiKernel | null = null;
  */
 export function initKernel(config: KernelConfig): SensaiKernel {
   if (globalKernel) {
-    throw new Error('Kernel already initialized');
+    throw kernelError(
+      KERNEL_ERRORS.BOOT_ALREADY_INITIALIZED,
+      'Kernel already initialized'
+    );
   }
   globalKernel = createKernel(config);
   return globalKernel;
@@ -400,7 +407,10 @@ export function initKernel(config: KernelConfig): SensaiKernel {
  */
 export function getKernel(): SensaiKernel {
   if (!globalKernel) {
-    throw new Error('Kernel not initialized - call initKernel() first');
+    throw kernelError(
+      KERNEL_ERRORS.BOOT_NOT_INITIALIZED,
+      'Kernel not initialized - call initKernel() first'
+    );
   }
   return globalKernel;
 }

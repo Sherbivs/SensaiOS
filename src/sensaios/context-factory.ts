@@ -41,6 +41,7 @@ import type {
 } from './component-context.js';
 import type { CanonicalError } from './canonical-error.js';
 import { scopedLogger } from '../observability/envelope/console.js';
+import { databaseError, DATABASE_ERRORS } from './sensai-error.js';
 
 // ============================================================================
 // DETERMINISTIC RNG IMPLEMENTATION
@@ -502,15 +503,24 @@ export function createComponentContext(options: CreateContextOptions): Component
 function createDbPrimitiveStub(): DbPrimitive {
   return {
     get prisma(): PrismaClient {
-      throw new Error('Database not available in this context. Provide prisma option to createComponentContext.');
+      throw databaseError(
+        DATABASE_ERRORS.NOT_AVAILABLE,
+        'Database not available in this context. Provide prisma option to createComponentContext.'
+      );
     },
 
     async transaction<T>(_fn: (tx: PrismaClient) => Promise<T>): Promise<T> {
-      throw new Error('Database not available in this context.');
+      throw databaseError(
+        DATABASE_ERRORS.NOT_AVAILABLE,
+        'Database transaction not available in this context.'
+      );
     },
 
     async query<T>(_sql: string, _params?: unknown[]): Promise<T[]> {
-      throw new Error('Database not available in this context.');
+      throw databaseError(
+        DATABASE_ERRORS.NOT_AVAILABLE,
+        'Database query not available in this context.'
+      );
     },
   };
 }
