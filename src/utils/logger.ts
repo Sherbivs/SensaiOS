@@ -874,7 +874,7 @@ function printInfinityConsole(): void {
               statsCache.databases.engineRead.status === 'ready' ? 'online' : 'degraded',
       latency: statsCache.databases.engineRead.latency ?? undefined,
       details: statsCache.databases.engineRead.entries 
-        ? `${statsCache.databases.engineRead.entries.toLocaleString()} Pokémon loaded` 
+        ? `${statsCache.databases.engineRead.entries.toLocaleString()} entities loaded` 
         : 'Loading...',
     },
     {
@@ -967,7 +967,11 @@ function printInfinityConsole(): void {
     },
   };
 
-  writeStdout(`\n${renderDashboard(config)}`);
+  // Only render visual dashboard in TTY mode (interactive terminals)
+  // Non-TTY environments (Render logs, CI, pipes) get structured JSON via Loki
+  if (process.stdout.isTTY) {
+    writeStdout(`\n${renderDashboard(config)}`);
+  }
   
   // Forward comprehensive dashboard metrics to Loki
   forwardToLoki('info', 'Dashboard rendered', {
@@ -1081,7 +1085,7 @@ async function printStats(): Promise<void> {
     statsCache.databases.engineRead.entries,
     statsCache.databases.engineRead.entriesReason
   );
-  lines.push(`  LOCAL-R = ${engineReadStatus}  Latency: ${engineReadLatency.padEnd(30)}  Pokemon: ${engineReadEntries}`);
+  lines.push(`  LOCAL-R = ${engineReadStatus}  Latency: ${engineReadLatency.padEnd(30)}  Entities: ${engineReadEntries}`);
   
   const engineWriteStatus = statsCache.databases.engineWrite.status.toUpperCase().padEnd(12);
   const engineWriteLatency = formatMetric(
@@ -1155,7 +1159,7 @@ async function printStats(): Promise<void> {
     if (statsCache.errors.status === 'ready' && statsCache.errors.summary) {
       const summary = statsCache.errors.summary;
       
-      lines.push(`  🚨 CRITICAL: ${summary.criticalCount} unique | ⚠️  HIGH: ${summary.highCount} unique | 📊 MEDIUM: ${summary.mediumCount} unique | 📝 LOW: ${summary.lowCount} unique`);
+      lines.push(`  CRITICAL: ${summary.criticalCount} unique | HIGH: ${summary.highCount} unique | MEDIUM: ${summary.mediumCount} unique | LOW: ${summary.lowCount} unique`);
       lines.push(`  Total: ${summary.totalUnique} unique errors | ${summary.totalOccurrences} occurrences | Rate: ${summary.errorRate.toFixed(2)}/min`);
       lines.push('');
       
@@ -1164,20 +1168,20 @@ async function printStats(): Promise<void> {
         const topErrors = statsCache.errors.recentErrors.slice(0, 5);
         
         topErrors.forEach(err => {
-          const icon = err.severity === 'CRITICAL' ? '❌' : err.severity === 'HIGH' ? '⚠️ ' : err.severity === 'MEDIUM' ? '📊' : '📝';
+          const severityTag = err.severity === 'CRITICAL' ? '[CRIT]' : err.severity === 'HIGH' ? '[HIGH]' : err.severity === 'MEDIUM' ? '[MED]' : '[LOW]';
           const timeSince = formatTimeSince(new Date(err.lastSeen));
           const recoveryInfo = (err.recoveryAttempts ?? 0) > 0 
             ? ` | Recovery: ${err.recoverySuccesses}/${err.recoveryAttempts}`
             : '';
           
-          lines.push(`    ${icon} [${err.severity}] ${err.name} (x${err.count}, ${timeSince} ago)${recoveryInfo}`);
+          lines.push(`    ${severityTag} ${err.name} (x${err.count}, ${timeSince} ago)${recoveryInfo}`);
           
           if (err.impactedFeatures && err.impactedFeatures.length > 0) {
-            lines.push(`       → affecting: ${err.impactedFeatures.slice(0, 3).join(', ')}`);
+            lines.push(`       -> affecting: ${err.impactedFeatures.slice(0, 3).join(', ')}`);
           }
         });
       } else {
-        lines.push('  ✅ No errors in last hour');
+        lines.push('  [OK] No errors in last hour');
       }
       
       lines.push('');
@@ -1247,7 +1251,7 @@ async function getFormattedStats(): Promise<string> {
     statsCache.databases.engineRead.entries,
     statsCache.databases.engineRead.entriesReason
   );
-  lines.push(`  LOCAL-R → ${statsCache.databases.engineRead.status} | Latency: ${engineReadLatency} | Pokemon: ${engineReadEntries}`);
+  lines.push(`  LOCAL-R -> ${statsCache.databases.engineRead.status} | Latency: ${engineReadLatency} | Entities: ${engineReadEntries}`);
   
   const engineWriteLatency = formatMetric(
     statsCache.databases.engineWrite.latency,

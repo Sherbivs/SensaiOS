@@ -120,13 +120,14 @@ export class WorkerManager {
       this.initialized = true;
       
       const duration = Date.now() - startTime;
-      logger.info('WorkerManager', 'initializeAll', `✅ All workers initialized in ${duration}ms`, { metadata: { durationMs: duration } });
+      logger.info('WorkerManager', 'initializeAll', `All workers initialized in ${duration}ms`, { durationMs: duration, metadata: { success: true, workerCount: 4 } });
       
       // Report to kernel: orchestration complete
       getKernelHook()?.execution('initializeAll', duration, true, { workerCount: 4 });
       getKernelHook()?.status('STARTED', { phase: 'initialized', workerCount: 4 });
     } catch (error) {
-      logger.error('WorkerManager', 'initializeAll', '❌ Initialization failed', errorContext(error as Error));
+      const ctx = errorContext(error as Error);
+      logger.error('WorkerManager', 'initializeAll', 'Initialization failed', { ...ctx, metadata: { ...ctx.metadata, success: false } });
       
       // Report to kernel: orchestration failed
       const duration = Date.now() - startTime;
@@ -166,12 +167,13 @@ export class WorkerManager {
       
       this.started = true;
       const duration = Date.now() - startTime;
-      logger.info('WorkerManager', 'startAll', '✅ All workers started');
+      logger.info('WorkerManager', 'startAll', 'All workers started', { durationMs: duration, metadata: { success: true, workerCount: 4 } });
       
       // Report to kernel: start phase complete
       getKernelHook()?.execution('startAll', duration, true, { workerCount: 4 });
     } catch (error) {
-      logger.error('WorkerManager', 'startAll', '❌ Start failed', errorContext(error as Error));
+      const ctx = errorContext(error as Error);
+      logger.error('WorkerManager', 'startAll', 'Start failed', { ...ctx, metadata: { ...ctx.metadata, success: false } });
       
       // Report to kernel: start phase failed
       const duration = Date.now() - startTime;
@@ -221,13 +223,14 @@ export class WorkerManager {
       
       this.started = false;
       const duration = Date.now() - startTime;
-      logger.info('WorkerManager', 'stopAll', '✅ All workers stopped');
+      logger.info('WorkerManager', 'stopAll', 'All workers stopped', { durationMs: duration, metadata: { success: true, workerCount: 4 } });
       
       // Report to kernel: shutdown phase complete
       getKernelHook()?.execution('stopAll', duration, true, { workerCount: 4 });
       getKernelHook()?.status('STOPPED', { phase: 'stopped', workerCount: 4 });
     } catch (error) {
-      logger.error('WorkerManager', 'stopAll', '❌ Stop failed', errorContext(error as Error));
+      const ctx = errorContext(error as Error);
+      logger.error('WorkerManager', 'stopAll', 'Stop failed', { ...ctx, metadata: { ...ctx.metadata, success: false } });
       
       // Report to kernel: shutdown phase failed
       const duration = Date.now() - startTime;
