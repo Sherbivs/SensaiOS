@@ -1,6 +1,24 @@
 # Section 7: Scheduled Service Restart — Setup Instructions
 
-**Last Updated**: 2025-12-27 | **Status**: Production
+**⚠️ DEPRECATED — REMOVED 2026-01-01**
+
+**Security Notice:** This feature has been **PERMANENTLY REMOVED** as a security hazard.
+
+**Automatic restarts at predictable times (7am/7pm EST) created:**
+- Predictable downtime windows for potential attacks
+- Unnecessary service disruptions
+- Risk of unauthorized automation
+
+**Replacement:** Manual restarts only via Render dashboard or explicit operator commands.
+
+**Removal Date:** 2026-01-01  
+**Reason:** Security vulnerability (predictable restart schedule)
+
+---
+
+**Historical Documentation Below (For Reference Only)**
+
+**Last Updated**: 2025-12-27 | **Status**: ~~Production~~ **REMOVED**
 
 ---
 

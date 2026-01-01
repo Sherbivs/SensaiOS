@@ -77,7 +77,7 @@ Directory Structure (CURRENT):
 | **04** | 04-environment-management.md | AI environment setup, credentials |
 | **05** | 05-monitoring.md | Resource standards, /ops commands |
 | **06** | 06-optimization-history.md | Repository modernization summaries |
-| **07** | 07-scheduled-restart.md | Auto-restart behavior |
+| **07** | 07-scheduled-restart.md | ⚠️ DEPRECATED — Auto-restart (removed 2026-01-01) |
 | **08** | 08-rollback-procedures.md | Rollback and recovery |
 | **09** | 09-incident-response.md | Incident handling |
 | **10** | 10-backup-procedures.md | Backup and restore |

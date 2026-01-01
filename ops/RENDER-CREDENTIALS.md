@@ -432,7 +432,7 @@ pwsh -File scripts/setup_ai_env.ps1 -EnvFile $env:IG_ENV_FILE
 
 ## 📚 Related Documentation
 
-- **Scheduled Restart:** `docs/operations-bible/07-scheduled-restart.md` (workflow behavior, setup instructions, troubleshooting)
+- **Scheduled Restart:** `docs/operations-bible/07-scheduled-restart.md` ⚠️ **DEPRECATED** — Feature removed 2026-01-01 for security
 - **Recovery Runbook:** `docs/operations-bible/07-recovery-runbook.md` (emergency procedures, restart methods)
 - **Render Dashboard:** https://dashboard.render.com/services/srv-d3snk2ndiees73cn709g
 
