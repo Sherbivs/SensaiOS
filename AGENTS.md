@@ -91,12 +91,76 @@ An agentic system that routes tasks to capable sub-agents, never gets stuck, and
 ## Core Control Documents
 - `Patch.md` — AI Project Manager Contract. Defines marker modes, clipboard expectations, hotfix loop, and Absolutes. Never edit outside the rules described here.
 - `Prompt.md` — Operational prompt. Holds the current timestamp, revision, Last Repo Changes, PATCHSET echo, and NEXT pointer context.
-- `Tasklist.md` — Task ledger. Tracks backlog, in-flight efforts, and outcomes. When tasks close, record status changes here.
+- `Tasklist.md` — Task ledger. Tracks active backlog, in-flight efforts, and outcomes. Completed tasks are archived to `docs/archive/tasks/`.
+- `docs/archive/tasks/` — **Task Archive.** Historical record of ~115 completed tasks organized by project/phase (~500 lines per file). See [README.md](docs/archive/tasks/README.md) for index.
 - `masterroutetable.md` — Human-readable router index. Pairs with `ops/ROUTER.yaml` for canonical routing metadata.
 - `README.md` (Router & Meta Index section) — Cross-links routers, contract files, and meta tooling for external automation.
 - `ops/DB_BOOTSTRAP.md` — Staging Postgres bootstrap runbook covering migrate deploy vs. db push safety.
   - Expect `PROD_DATABASE_URL` (Render-managed PostgreSQL) to be configured. Runtime services use PROD_DATABASE_URL for all operations including gameplay and migrations.
 - `operations-bible/02-database-operations.md` — **CRITICAL:** Canonical database URL selection logic. Production requires `PROD_DATABASE_URL` (direct PostgreSQL - Render managed database). Non-compliance causes production failures. Read this before any database operation.
+
+## Task Archive Policy (ENFORCED)
+
+**Location:** `docs/archive/tasks/`  
+**Index:** [docs/archive/tasks/README.md](docs/archive/tasks/README.md)  
+**Enforcement:** Patch.md Postflight triggers `META.TASKLIST.ARCHIVE` when >20 DONE tasks accumulate
+
+### Archive Structure
+- **Project-specific files** — Tasks grouped by project/phase (e.g., `phase-13-dex-backbone.md`)
+- **~500 line limit** — Each archive file stays under 500 lines for readability
+- **Full task details** — id, title, status, depends_on, acceptance_criteria, outcome notes preserved
+- **Archive date** — Each file has header with archived date and task count
+
+### When to Archive
+1. **Automatic trigger:** Patch.md forces `META.TASKLIST.ARCHIVE` when Tasklist.md has 20+ DONE tasks
+2. **Manual trigger:** When completing a major phase/project with many completed tasks
+3. **Quarterly maintenance:** Sweep completed tasks during documentation maintenance
+
+### How to Archive
+1. **Identify group:** Find related DONE tasks (by project, phase, or feature)
+2. **Create/update archive file:** Add to appropriate `docs/archive/tasks/*.md` file
+3. **Remove from Tasklist.md:** Delete the archived tasks from active tasklist
+4. **Update README index:** Add/update entry in `docs/archive/tasks/README.md`
+5. **Update Tasklist header:** Increment revision, add archive activity note
+
+### Archive File Format
+```markdown
+# [Project Name] — Completed Tasks
+
+**Archived:** YYYY-MM-DD
+**Source:** Tasklist.md
+**Task Count:** N tasks
+**Coverage:** Brief description
+
+---
+
+## Section Name
+
+- id: TASK.ID
+  title: Task title
+  status: DONE
+  depends_on: [dependencies]
+  acceptance_criteria:
+    - Criterion 1
+    - Criterion 2
+  notes: |
+    Outcome notes with dates and results...
+```
+
+### Current Archive Files
+| Archive | Content |
+|---------|---------|
+| `meta-repository-tooling.md` | META.* guards, routers, contracts |
+| `phase-0-9-core-features.md` | T0-T9 core feature development |
+| `phase-10-scalability.md` | T10.SCALE.* scalability foundations |
+| `phase-11-12-meta-ai.md` | Phase 11-12 governance & AI docs |
+| `phase-13-dex-backbone.md` | T13.DEX.* dex backbone |
+| `phase-14-live-cache.md` | T14.CACHE.* + T14.SECURITY.* |
+| `phase-15-db-bootstrap-northstar.md` | DB.V0.* + DB.NORTHSTAR.* |
+| `phase-16-db-replication.md` | DB.REPLICATION.* architecture |
+| `phase-17-18-northstar-homestead.md` | Phase 17-18 Northstar & Homestead |
+| `pbsl-kernel-logging.md` | PBSL.* + KERNEL.LOGGING.* |
+| `hotfix-system.md` | HF.* hotfix infrastructure |
 
 ## How to Run Locally
 - **Install:** `npm install`

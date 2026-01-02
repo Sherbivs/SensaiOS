@@ -11,8 +11,9 @@ Pokémon Infinity Gauntlet is a Discord-first Pokémon adventure with **private 
 1. **`Patch.md`** — AI Project Manager Contract. Defines marker modes, Absolutes (never-violate rules), clipboard discipline, and hotfix workflows
 2. **`Prompt.md`** — Current timestamp, recent changes, PATCHSET echo template
 3. **`Tasklist.md`** — Active backlog with READY queue, dependencies, acceptance criteria
-4. **`ops/NEXT.yaml`** — Current task pointer (must point to READY task)
-5. **`Agents.md`** — Comprehensive operations guide covering database setup, worker architecture, deployment procedures
+4. **`docs/archive/tasks/`** — Completed task history (~115 tasks archived by project/phase)
+5. **`ops/NEXT.yaml`** — Current task pointer (must point to READY task)
+6. **`Agents.md`** — Comprehensive operations guide covering database setup, worker architecture, deployment procedures
 
 ### Router Navigation System
 - **`ops/ROUTER.yaml`** — Router-of-routers manifest. Start here to locate any subsystem
@@ -168,6 +169,17 @@ Meta-only changes still need clear "Why" statements.
 - Add acceptance criteria for new tasks
 - Include outcome notes when marking `DONE`
 - Never delete tasks with active dependencies
+- **Archive when >20 DONE tasks accumulate** — See Task Archive Policy below
+
+### Task Archive Policy (ENFORCED)
+**Location:** `docs/archive/tasks/` | **Index:** [docs/archive/tasks/README.md](docs/archive/tasks/README.md)
+
+- **Trigger:** Patch.md forces `META.TASKLIST.ARCHIVE` when Tasklist.md has 20+ DONE tasks
+- **Structure:** Project-grouped files (~500 line limit each)
+- **Content preserved:** id, title, status, depends_on, acceptance_criteria, outcome notes
+- **Workflow:** Identify DONE tasks by project → Create/update archive file → Remove from Tasklist.md → Update README index
+
+**Current Archives:** meta-repository-tooling, phase-0-9-core-features, phase-10-scalability, phase-11-12-meta-ai, phase-13-dex-backbone, phase-14-live-cache, phase-15-db-bootstrap-northstar, phase-16-db-replication, phase-17-18-northstar-homestead, pbsl-kernel-logging, hotfix-system
 
 ## Integration Points
 
