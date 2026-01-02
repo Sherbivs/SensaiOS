@@ -23,6 +23,8 @@ import type {
   ObsPrimitive,
   RngPrimitive,
   StoragePrimitive,
+  CapabilitiesPrimitive,
+  CapabilityCheck,
   ScopedLogger,
   MetricsClient,
   DeterministicRng,
@@ -411,6 +413,59 @@ export function createRngPrimitive(): RngPrimitive {
   };
 }
 
+/**
+ * Create a capabilities primitive stub (for testing/development)
+ */
+export function createCapabilitiesPrimitiveStub(componentName: string): CapabilitiesPrimitive {
+  // In-memory capability grants for stub
+  const grants = new Map<string, { type: string; scope: TenantScope; expiresAt?: Date }>();
+
+  return {
+    async check(type: string, scope: TenantScope): Promise<CapabilityCheck> {
+      const key = `${componentName}:${type}:${scope.tenant}`;
+      const grant = grants.get(key);
+
+      if (!grant) {
+        return {
+          granted: false,
+          reason: `No capability grant for ${componentName} to perform ${type}`,
+        };
+      }
+
+      if (grant.expiresAt && grant.expiresAt < new Date()) {
+        return {
+          granted: false,
+          reason: `Capability ${type} expired at ${grant.expiresAt.toISOString()}`,
+        };
+      }
+
+      return {
+        granted: true,
+        expiresAt: grant.expiresAt,
+      };
+    },
+
+    async assert(type: string, scope: TenantScope): Promise<void> {
+      const check = await this.check(type, scope);
+      if (!check.granted) {
+        throw new Error(`Capability denied: ${check.reason}`);
+      }
+    },
+
+    async list(scope: TenantScope): Promise<string[]> {
+      const result: string[] = [];
+      for (const [key, grant] of grants.entries()) {
+        if (key.startsWith(`${componentName}:`) && grant.scope.tenant === scope.tenant) {
+          if (!grant.expiresAt || grant.expiresAt > new Date()) {
+            result.push(grant.type);
+          }
+        }
+      }
+      return result;
+    },
+  };
+}
+
 // ============================================================================
 // CONTEXT FACTORY OPTIONS
 // ============================================================================
@@ -442,6 +497,7 @@ export interface CreateContextOptions {
     obs: ObsPrimitive;
     rng: RngPrimitive;
     storage: StoragePrimitive;
+    capabilities: CapabilitiesPrimitive;
   }>;
 }
 
@@ -481,6 +537,7 @@ export function createComponentContext(options: CreateContextOptions): Component
   const obs = overrides.obs ?? createObsPrimitive(scope, correlationId, component);
   const rng = overrides.rng ?? createRngPrimitive();
   const storage = overrides.storage ?? createStoragePrimitiveStub();
+  const capabilities = overrides.capabilities ?? createCapabilitiesPrimitiveStub(component);
 
   return {
     scope,
@@ -494,6 +551,7 @@ export function createComponentContext(options: CreateContextOptions): Component
     rbac,
     config,
     storage,
+    capabilities,
   };
 }
 

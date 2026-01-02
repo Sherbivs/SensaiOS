@@ -714,8 +714,66 @@ export interface StoragePrimitive {
   deleteObject(id: string): Promise<void>;
 }
 
+// ============================================================================// CAPABILITIES PRIMITIVE (Ring Security)
 // ============================================================================
-// COMPONENT CONTEXT
+
+/**
+ * Capability grant result
+ */
+export interface CapabilityCheck {
+  /** Whether the capability is granted */
+  granted: boolean;
+
+  /** Reason for denial (if not granted) */
+  reason?: string;
+
+  /** Expiration time (if granted and temporary) */
+  expiresAt?: Date;
+}
+
+/**
+ * Capabilities primitive — Ring 0-3 security model
+ * 
+ * Components must assert required capabilities before privileged operations.
+ * Kernel enforces capability checks at runtime.
+ */
+export interface CapabilitiesPrimitive {
+  /**
+   * Check if component has a capability
+   * 
+   * @param type - Capability type (e.g., "db.write", "discord.send")
+   * @param scope - Tenant scope for the operation
+   * @returns Capability check result
+   * 
+   * @example
+   * ```ts
+   * const check = await ctx.capabilities.check('db.write', ctx.scope);
+   * if (!check.granted) {
+   *   throw new Error(`Missing capability: ${check.reason}`);
+   * }
+   * ```
+   */
+  check(type: string, scope: TenantScope): Promise<CapabilityCheck>;
+
+  /**
+   * Assert a capability (throws if denied)
+   * 
+   * @param type - Capability type
+   * @param scope - Tenant scope
+   * @throws If capability is not granted
+   */
+  assert(type: string, scope: TenantScope): Promise<void>;
+
+  /**
+   * List all capabilities for current component
+   * 
+   * @param scope - Tenant scope
+   * @returns Array of capability types
+   */
+  list(scope: TenantScope): Promise<string[]>;
+}
+
+// ============================================================================// COMPONENT CONTEXT
 // ============================================================================
 
 /**
@@ -830,6 +888,11 @@ export interface ComponentContext {
    * Database-backed object storage
    */
   readonly storage: StoragePrimitive;
+
+  /**
+   * Capability checks (Ring 0-3 security model)
+   */
+  readonly capabilities: CapabilitiesPrimitive;
 }
 
 // ============================================================================
@@ -883,6 +946,9 @@ export interface SensaiComponent {
 
   /** Human-readable description */
   description?: string;
+
+  /** Ring security level: 0=kernel, 1=sensaios, 3=apps (Ring 2 reserved) */
+  ringLevel: 0 | 1 | 3;
 
   // === Deployment ===
 

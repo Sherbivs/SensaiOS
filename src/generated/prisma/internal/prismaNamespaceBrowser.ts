@@ -109,7 +109,9 @@ export const ModelName = {
   RuntimeMetric: 'RuntimeMetric',
   AlertQueue: 'AlertQueue',
   GuildConfig: 'GuildConfig',
-  CacheEntry: 'CacheEntry'
+  CacheEntry: 'CacheEntry',
+  ComponentCapability: 'ComponentCapability',
+  InstalledApp: 'InstalledApp'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -1069,6 +1071,36 @@ export const CacheEntryScalarFieldEnum = {
 export type CacheEntryScalarFieldEnum = (typeof CacheEntryScalarFieldEnum)[keyof typeof CacheEntryScalarFieldEnum]
 
 
+export const ComponentCapabilityScalarFieldEnum = {
+  id: 'id',
+  component: 'component',
+  type: 'type',
+  scope: 'scope',
+  reason: 'reason',
+  expiresAt: 'expiresAt',
+  revokedAt: 'revokedAt',
+  createdAt: 'createdAt',
+  grantedBy: 'grantedBy',
+  revokeReason: 'revokeReason'
+} as const
+
+export type ComponentCapabilityScalarFieldEnum = (typeof ComponentCapabilityScalarFieldEnum)[keyof typeof ComponentCapabilityScalarFieldEnum]
+
+
+export const InstalledAppScalarFieldEnum = {
+  id: 'id',
+  name: 'name',
+  version: 'version',
+  ringLevel: 'ringLevel',
+  manifest: 'manifest',
+  installedAt: 'installedAt',
+  updatedAt: 'updatedAt',
+  status: 'status'
+} as const
+
+export type InstalledAppScalarFieldEnum = (typeof InstalledAppScalarFieldEnum)[keyof typeof InstalledAppScalarFieldEnum]
+
+
 export const SortOrder = {
   asc: 'asc',
   desc: 'desc'
@@ -1716,4 +1748,26 @@ export const CacheEntryOrderByRelevanceFieldEnum = {
 } as const
 
 export type CacheEntryOrderByRelevanceFieldEnum = (typeof CacheEntryOrderByRelevanceFieldEnum)[keyof typeof CacheEntryOrderByRelevanceFieldEnum]
+
+
+export const ComponentCapabilityOrderByRelevanceFieldEnum = {
+  id: 'id',
+  component: 'component',
+  type: 'type',
+  reason: 'reason',
+  grantedBy: 'grantedBy',
+  revokeReason: 'revokeReason'
+} as const
+
+export type ComponentCapabilityOrderByRelevanceFieldEnum = (typeof ComponentCapabilityOrderByRelevanceFieldEnum)[keyof typeof ComponentCapabilityOrderByRelevanceFieldEnum]
+
+
+export const InstalledAppOrderByRelevanceFieldEnum = {
+  id: 'id',
+  name: 'name',
+  version: 'version',
+  status: 'status'
+} as const
+
+export type InstalledAppOrderByRelevanceFieldEnum = (typeof InstalledAppOrderByRelevanceFieldEnum)[keyof typeof InstalledAppOrderByRelevanceFieldEnum]
 

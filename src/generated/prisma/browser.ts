@@ -319,3 +319,13 @@ export type GuildConfig = Prisma.GuildConfigModel
  * Cache entries (replaces /Store/runtime-cache/, /Store/discord-cache/, /Store/pokemon-cache/)
  */
 export type CacheEntry = Prisma.CacheEntryModel
+/**
+ * Model ComponentCapability
+ * Component capability grants (Ring 0-3 security model)
+ */
+export type ComponentCapability = Prisma.ComponentCapabilityModel
+/**
+ * Model InstalledApp
+ * Installed applications in the SensaiOS environment
+ */
+export type InstalledApp = Prisma.InstalledAppModel

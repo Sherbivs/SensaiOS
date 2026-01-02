@@ -97,7 +97,9 @@ export const ModelName = {
     RuntimeMetric: 'RuntimeMetric',
     AlertQueue: 'AlertQueue',
     GuildConfig: 'GuildConfig',
-    CacheEntry: 'CacheEntry'
+    CacheEntry: 'CacheEntry',
+    ComponentCapability: 'ComponentCapability',
+    InstalledApp: 'InstalledApp'
 };
 /*
  * Enums
@@ -813,6 +815,28 @@ export const CacheEntryScalarFieldEnum = {
     createdAt: 'createdAt',
     updatedAt: 'updatedAt'
 };
+export const ComponentCapabilityScalarFieldEnum = {
+    id: 'id',
+    component: 'component',
+    type: 'type',
+    scope: 'scope',
+    reason: 'reason',
+    expiresAt: 'expiresAt',
+    revokedAt: 'revokedAt',
+    createdAt: 'createdAt',
+    grantedBy: 'grantedBy',
+    revokeReason: 'revokeReason'
+};
+export const InstalledAppScalarFieldEnum = {
+    id: 'id',
+    name: 'name',
+    version: 'version',
+    ringLevel: 'ringLevel',
+    manifest: 'manifest',
+    installedAt: 'installedAt',
+    updatedAt: 'updatedAt',
+    status: 'status'
+};
 export const SortOrder = {
     asc: 'asc',
     desc: 'desc'
@@ -1217,4 +1241,18 @@ export const GuildConfigOrderByRelevanceFieldEnum = {
 export const CacheEntryOrderByRelevanceFieldEnum = {
     key: 'key',
     namespace: 'namespace'
+};
+export const ComponentCapabilityOrderByRelevanceFieldEnum = {
+    id: 'id',
+    component: 'component',
+    type: 'type',
+    reason: 'reason',
+    grantedBy: 'grantedBy',
+    revokeReason: 'revokeReason'
+};
+export const InstalledAppOrderByRelevanceFieldEnum = {
+    id: 'id',
+    name: 'name',
+    version: 'version',
+    status: 'status'
 };

@@ -442,7 +442,9 @@ export const ModelName = {
   RuntimeMetric: 'RuntimeMetric',
   AlertQueue: 'AlertQueue',
   GuildConfig: 'GuildConfig',
-  CacheEntry: 'CacheEntry'
+  CacheEntry: 'CacheEntry',
+  ComponentCapability: 'ComponentCapability',
+  InstalledApp: 'InstalledApp'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -458,7 +460,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "tenant" | "trainer" | "dexPack" | "trainerSettings" | "type" | "ability" | "item" | "move" | "species" | "speciesType" | "speciesAbility" | "speciesLearnset" | "evolutionStep" | "typeChart" | "nameVariant" | "user" | "homesteadChannel" | "discordGuild" | "discordMember" | "pokemonInstance" | "party" | "partySlot" | "inventory" | "encounter" | "battle" | "cooldown" | "busMessage" | "busIdemToken" | "auditLog" | "dbVersion" | "dbSyncState" | "logEntry" | "errorLog" | "errorAlert" | "errorKnowledge" | "errorResolution" | "errorDependency" | "errorCodeContext" | "battleAnalytics" | "consoleOutput" | "dataPoolSyncStatus" | "discordRole" | "eventHistory" | "memberRoleHistory" | "securityEvent" | "roleChangeAudit" | "threatDetection" | "securityBaseline" | "permissionSnapshot" | "workerMetrics" | "tradeLog" | "playerStats" | "achievementDef" | "achievementUnlock" | "leaderboardSnapshot" | "runtimeMetric" | "alertQueue" | "guildConfig" | "cacheEntry"
+    modelProps: "tenant" | "trainer" | "dexPack" | "trainerSettings" | "type" | "ability" | "item" | "move" | "species" | "speciesType" | "speciesAbility" | "speciesLearnset" | "evolutionStep" | "typeChart" | "nameVariant" | "user" | "homesteadChannel" | "discordGuild" | "discordMember" | "pokemonInstance" | "party" | "partySlot" | "inventory" | "encounter" | "battle" | "cooldown" | "busMessage" | "busIdemToken" | "auditLog" | "dbVersion" | "dbSyncState" | "logEntry" | "errorLog" | "errorAlert" | "errorKnowledge" | "errorResolution" | "errorDependency" | "errorCodeContext" | "battleAnalytics" | "consoleOutput" | "dataPoolSyncStatus" | "discordRole" | "eventHistory" | "memberRoleHistory" | "securityEvent" | "roleChangeAudit" | "threatDetection" | "securityBaseline" | "permissionSnapshot" | "workerMetrics" | "tradeLog" | "playerStats" | "achievementDef" | "achievementUnlock" | "leaderboardSnapshot" | "runtimeMetric" | "alertQueue" | "guildConfig" | "cacheEntry" | "componentCapability" | "installedApp"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -4828,6 +4830,154 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         }
       }
     }
+    ComponentCapability: {
+      payload: Prisma.$ComponentCapabilityPayload<ExtArgs>
+      fields: Prisma.ComponentCapabilityFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.ComponentCapabilityFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ComponentCapabilityPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.ComponentCapabilityFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ComponentCapabilityPayload>
+        }
+        findFirst: {
+          args: Prisma.ComponentCapabilityFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ComponentCapabilityPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.ComponentCapabilityFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ComponentCapabilityPayload>
+        }
+        findMany: {
+          args: Prisma.ComponentCapabilityFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ComponentCapabilityPayload>[]
+        }
+        create: {
+          args: Prisma.ComponentCapabilityCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ComponentCapabilityPayload>
+        }
+        createMany: {
+          args: Prisma.ComponentCapabilityCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.ComponentCapabilityCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ComponentCapabilityPayload>[]
+        }
+        delete: {
+          args: Prisma.ComponentCapabilityDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ComponentCapabilityPayload>
+        }
+        update: {
+          args: Prisma.ComponentCapabilityUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ComponentCapabilityPayload>
+        }
+        deleteMany: {
+          args: Prisma.ComponentCapabilityDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.ComponentCapabilityUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.ComponentCapabilityUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ComponentCapabilityPayload>[]
+        }
+        upsert: {
+          args: Prisma.ComponentCapabilityUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ComponentCapabilityPayload>
+        }
+        aggregate: {
+          args: Prisma.ComponentCapabilityAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateComponentCapability>
+        }
+        groupBy: {
+          args: Prisma.ComponentCapabilityGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.ComponentCapabilityGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.ComponentCapabilityCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.ComponentCapabilityCountAggregateOutputType> | number
+        }
+      }
+    }
+    InstalledApp: {
+      payload: Prisma.$InstalledAppPayload<ExtArgs>
+      fields: Prisma.InstalledAppFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.InstalledAppFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$InstalledAppPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.InstalledAppFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$InstalledAppPayload>
+        }
+        findFirst: {
+          args: Prisma.InstalledAppFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$InstalledAppPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.InstalledAppFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$InstalledAppPayload>
+        }
+        findMany: {
+          args: Prisma.InstalledAppFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$InstalledAppPayload>[]
+        }
+        create: {
+          args: Prisma.InstalledAppCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$InstalledAppPayload>
+        }
+        createMany: {
+          args: Prisma.InstalledAppCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.InstalledAppCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$InstalledAppPayload>[]
+        }
+        delete: {
+          args: Prisma.InstalledAppDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$InstalledAppPayload>
+        }
+        update: {
+          args: Prisma.InstalledAppUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$InstalledAppPayload>
+        }
+        deleteMany: {
+          args: Prisma.InstalledAppDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.InstalledAppUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.InstalledAppUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$InstalledAppPayload>[]
+        }
+        upsert: {
+          args: Prisma.InstalledAppUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$InstalledAppPayload>
+        }
+        aggregate: {
+          args: Prisma.InstalledAppAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateInstalledApp>
+        }
+        groupBy: {
+          args: Prisma.InstalledAppGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.InstalledAppGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.InstalledAppCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.InstalledAppCountAggregateOutputType> | number
+        }
+      }
+    }
   }
 } & {
   other: {
@@ -5808,6 +5958,36 @@ export const CacheEntryScalarFieldEnum = {
 export type CacheEntryScalarFieldEnum = (typeof CacheEntryScalarFieldEnum)[keyof typeof CacheEntryScalarFieldEnum]
 
 
+export const ComponentCapabilityScalarFieldEnum = {
+  id: 'id',
+  component: 'component',
+  type: 'type',
+  scope: 'scope',
+  reason: 'reason',
+  expiresAt: 'expiresAt',
+  revokedAt: 'revokedAt',
+  createdAt: 'createdAt',
+  grantedBy: 'grantedBy',
+  revokeReason: 'revokeReason'
+} as const
+
+export type ComponentCapabilityScalarFieldEnum = (typeof ComponentCapabilityScalarFieldEnum)[keyof typeof ComponentCapabilityScalarFieldEnum]
+
+
+export const InstalledAppScalarFieldEnum = {
+  id: 'id',
+  name: 'name',
+  version: 'version',
+  ringLevel: 'ringLevel',
+  manifest: 'manifest',
+  installedAt: 'installedAt',
+  updatedAt: 'updatedAt',
+  status: 'status'
+} as const
+
+export type InstalledAppScalarFieldEnum = (typeof InstalledAppScalarFieldEnum)[keyof typeof InstalledAppScalarFieldEnum]
+
+
 export const SortOrder = {
   asc: 'asc',
   desc: 'desc'
@@ -6457,6 +6637,28 @@ export const CacheEntryOrderByRelevanceFieldEnum = {
 export type CacheEntryOrderByRelevanceFieldEnum = (typeof CacheEntryOrderByRelevanceFieldEnum)[keyof typeof CacheEntryOrderByRelevanceFieldEnum]
 
 
+export const ComponentCapabilityOrderByRelevanceFieldEnum = {
+  id: 'id',
+  component: 'component',
+  type: 'type',
+  reason: 'reason',
+  grantedBy: 'grantedBy',
+  revokeReason: 'revokeReason'
+} as const
+
+export type ComponentCapabilityOrderByRelevanceFieldEnum = (typeof ComponentCapabilityOrderByRelevanceFieldEnum)[keyof typeof ComponentCapabilityOrderByRelevanceFieldEnum]
+
+
+export const InstalledAppOrderByRelevanceFieldEnum = {
+  id: 'id',
+  name: 'name',
+  version: 'version',
+  status: 'status'
+} as const
+
+export type InstalledAppOrderByRelevanceFieldEnum = (typeof InstalledAppOrderByRelevanceFieldEnum)[keyof typeof InstalledAppOrderByRelevanceFieldEnum]
+
+
 
 /**
  * Field references
@@ -6777,6 +6979,8 @@ export type GlobalOmitConfig = {
   alertQueue?: Prisma.AlertQueueOmit
   guildConfig?: Prisma.GuildConfigOmit
   cacheEntry?: Prisma.CacheEntryOmit
+  componentCapability?: Prisma.ComponentCapabilityOmit
+  installedApp?: Prisma.InstalledAppOmit
 }
 
 /* Types for Logging */

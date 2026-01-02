@@ -1366,3 +1366,43 @@ model CacheEntry {
   @@index([lastAccessedAt], map: "idx_cache_access")
   @@map("cache_entries")
 }
+// ============================================================================
+// SENSAIOS RING SECURITY MODEL
+// Reference: docs/projects/SensaiOS/architecture/06-os-security-model.md
+// Added: 2026-01-01 (SENSAI.RING_SECURITY.SCHEMA)
+// ============================================================================
+
+/// Component capability grants (Ring 0-3 security model)
+model ComponentCapability {
+  id         String    @id @default(cuid())
+  component  String    // Component name (e.g., "discord.bot", "battle.engine")
+  type       String    // Capability type (e.g., "db.read", "db.write", "discord.send")
+  scope      Json      // TenantScope: { tenantId: string, guildId: string }
+  reason     String    // Justification for capability grant
+  expiresAt  DateTime? @map("expires_at")  // Optional expiration
+  revokedAt  DateTime? @map("revoked_at")  // null = active, non-null = revoked
+  createdAt  DateTime  @default(now()) @map("created_at")
+  grantedBy  String?   @map("granted_by")  // Operator/admin who granted
+  revokeReason String? @map("revoke_reason") // Why was it revoked
+  
+  @@index([component, type], map: "idx_capability_component_type")
+  @@index([expiresAt], map: "idx_capability_expires")
+  @@index([revokedAt], map: "idx_capability_revoked")
+  @@map("component_capabilities")
+}
+
+/// Installed applications in the SensaiOS environment
+model InstalledApp {
+  id          String    @id // App identifier (e.g., "discord.bot", "game.core")
+  name        String    // Human-readable name
+  version     String    // Semver version
+  ringLevel   Int       @default(3) @map("ring_level") @db.SmallInt // 0=kernel, 1=sensaios, 3=apps
+  manifest    Json      // Complete AppManifest
+  installedAt DateTime  @default(now()) @map("installed_at")
+  updatedAt   DateTime  @default(now()) @updatedAt @map("updated_at")
+  status      String    @default("enabled") // enabled, disabled, failed
+  
+  @@index([status, ringLevel], map: "idx_installed_app_status_ring")
+  @@index([installedAt(sort: Desc)], map: "idx_installed_app_installed")
+  @@map("installed_apps")
+}
