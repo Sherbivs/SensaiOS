@@ -110,31 +110,31 @@ function getLevelColor(level: string): string {
 }
 
 /**
- * Get emoji for log level
+ * Get text symbol for log level (professional output, no emojis)
  */
-function getLevelEmoji(level: string): string {
+function getLevelSymbol(level: string): string {
   switch (level) {
-    case LogLevel.DEBUG: return '🔍';
-    case LogLevel.INFO: return '📘';
-    case LogLevel.WARN: return '⚠️';
-    case LogLevel.ERROR: return '❌';
-    case LogLevel.FATAL: return '💀';
-    default: return '📝';
+    case LogLevel.DEBUG: return '[DEBUG]';
+    case LogLevel.INFO: return '[INFO]';
+    case LogLevel.WARN: return '[WARN]';
+    case LogLevel.ERROR: return '[ERROR]';
+    case LogLevel.FATAL: return '[FATAL]';
+    default: return '[LOG]';
   }
 }
 
 /**
- * Get emoji for observation kind
+ * Get text symbol for observation kind (professional output, no emojis)
  */
-function getKindEmoji(kind: string): string {
+function getKindSymbol(kind: string): string {
   switch (kind) {
-    case ObservationKind.LOG: return '📝';
-    case ObservationKind.METRIC: return '📊';
-    case ObservationKind.EVENT: return '⚡';
-    case ObservationKind.TRACE: return '🔗';
-    case ObservationKind.ALERT: return '🚨';
-    case ObservationKind.OUTPUT: return '💬';
-    default: return '📦';
+    case ObservationKind.LOG: return 'LOG';
+    case ObservationKind.METRIC: return 'METRIC';
+    case ObservationKind.EVENT: return 'EVENT';
+    case ObservationKind.TRACE: return 'TRACE';
+    case ObservationKind.ALERT: return 'ALERT';
+    case ObservationKind.OUTPUT: return 'OUTPUT';
+    default: return 'OBS';
   }
 }
 
@@ -282,18 +282,18 @@ function serializePretty<T>(
   const c = colorize ? COLORS : { reset: '', dim: '', bold: '', timestamp: '', component: '', message: '', data: '', correlation: '', debug: '', info: '', warn: '', error: '', fatal: '' };
   
   const lines: string[] = [];
-  const emoji = getLevelEmoji(envelope.level);
-  const kindEmoji = getKindEmoji(envelope.kind);
+  const levelSymbol = getLevelSymbol(envelope.level);
+  const kindSymbol = getKindSymbol(envelope.kind);
   const levelColor = colorize ? getLevelColor(envelope.level) : '';
   
   // Header line
-  lines.push(`${kindEmoji} ${levelColor}${c.bold}${envelope.level.toUpperCase()}${c.reset} ${c.dim}${formatTimestamp(envelope.timestamp, 'iso')}${c.reset}`);
+  lines.push(`${kindSymbol} ${levelColor}${c.bold}${envelope.level.toUpperCase()}${c.reset} ${c.dim}${formatTimestamp(envelope.timestamp, 'iso')}${c.reset}`);
   
   // Source
-  lines.push(`   ${c.component}${envelope.source.service}${c.reset} → ${c.bold}${envelope.source.component}.${envelope.source.operation}${c.reset}`);
+  lines.push(`   ${c.component}${envelope.source.service}${c.reset} -> ${c.bold}${envelope.source.component}.${envelope.source.operation}${c.reset}`);
   
   // Message
-  lines.push(`   ${emoji} ${envelope.message}`);
+  lines.push(`   ${levelSymbol} ${envelope.message}`);
   
   // Data (if present)
   if (envelope.data) {

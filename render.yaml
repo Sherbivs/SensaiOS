@@ -100,7 +100,7 @@ services:
       - key: SERVICE_NAME
         value: discord-bots
       - key: LOG_FORMAT
-        value: cli
+        value: json
       - key: LOG_BUFFER_ENABLED
         value: "true"
       - key: LOG_BUFFER_INTERVAL
@@ -292,7 +292,7 @@ services:
       - key: TZ
         value: America/New_York
       - key: LOG_FORMAT
-        value: cli
+        value: json
       - key: LOG_BUFFER_ENABLED
         value: "true"
       - key: LOG_BUFFER_INTERVAL
@@ -348,7 +348,7 @@ services:
       - key: TZ
         value: America/New_York
       - key: LOG_FORMAT
-        value: cli
+        value: json
       - key: GITHUB_REPO
         value: https://github.com/sherbivs/infinity-gauntlet.git
       - key: GITHUB_BRANCH

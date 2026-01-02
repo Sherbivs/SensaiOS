@@ -202,6 +202,7 @@ import {
   startDiscordTrace,
   startDiscordTraceAsync,
   startWorkerTrace,
+  startWorkerTraceAsync,
   enrichWithCorrelation,
   getCorrelationStats,
   getActiveTraces,
@@ -681,6 +682,7 @@ const Kernel = {
     
     // Worker helpers
     startWorkerTrace,
+    startWorkerTraceAsync,
     
     // Log enrichment
     enrich: enrichWithCorrelation,

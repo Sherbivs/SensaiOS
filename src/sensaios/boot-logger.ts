@@ -87,11 +87,11 @@ const LOG_LEVEL_PRIORITY: Record<BootLogLevel, number> = {
 };
 
 const LOG_LEVEL_ICONS: Record<BootLogLevel, string> = {
-  debug: '🔍',
-  info: '📋',
-  warn: '⚠️',
-  error: '❌',
-  fatal: '💀',
+  debug: '[D]',
+  info: '[I]',
+  warn: '[!]',
+  error: '[X]',
+  fatal: '[XX]',
 };
 
 // ============================================================================

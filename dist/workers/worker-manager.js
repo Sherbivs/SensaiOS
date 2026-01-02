@@ -23,7 +23,7 @@
  *
  * @module workers/worker-manager
  */
-import { createWorkerHook } from '../kernel/kernel-hooks.js';
+import { createWorkerHook } from '../app/index.js';
 // LOGGER SECOND — Must be early import to capture initialization errors
 import { getLogger, errorContext } from '../shared/logging/index.js';
 const logger = getLogger();

@@ -71,6 +71,7 @@
     "verify:metrics:staged": "node scripts/verify-metrics-accuracy.mjs --staged",
     "setup:git-hooks": "node scripts/setup-git-hooks.mjs",
     "lint": "eslint \"{src,tests}/**/*.ts\"",
+    "validate:boundaries": "tsx scripts/validate-boundaries.ts",
     "check:dead-code": "tsx scripts/check-dead-code.ts",
     "deps:graph": "tsx scripts/generate-dependency-graph.ts",
     "deps:circular": "tsx scripts/generate-dependency-graph.ts --circular",

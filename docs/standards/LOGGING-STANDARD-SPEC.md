@@ -1,8 +1,8 @@
 # Professional Logging Standard Specification
 
 **Version:** 1.0.0  
-**Last Updated:** 2025-12-29  
-**Status:** DRAFT — Awaiting Review  
+**Last Updated:** 2025-12-30  
+**Status:** IN PROGRESS — Phase 1 Complete (Visual Clutter Removed)  
 
 ---
 
@@ -414,15 +414,15 @@ rate({level="error"}[5m])
 
 ## 10. Migration Path
 
-### Phase 1: Remove Visual Clutter (Immediate)
-- [ ] Replace emojis with text symbols in serializer
-- [ ] Replace box characters with ASCII in console-renderer
-- [ ] Verify all services have `LOG_FORMAT=json` in render.yaml
+### Phase 1: Remove Visual Clutter (Immediate) ✅ COMPLETE
+- [x] Replace emojis with text symbols in serializer (`getLevelSymbol`, `getKindSymbol`)
+- [x] Replace box characters with ASCII in console-renderer (BOX, STATUS, ICONS constants)
+- [x] Verify all services have `LOG_FORMAT=json` in render.yaml (7/7 services updated)
 
-### Phase 2: Standardize Correlation (Week 1)
-- [ ] Ensure all entry points call `startTrace()`
-- [ ] Propagate correlationId through async operations
-- [ ] Add correlationId to Loki labels
+### Phase 2: Standardize Correlation (Week 1) ✅ COMPLETE
+- [x] Ensure all entry points call `startTrace()` — Discord handler wrapped with `startDiscordTraceAsync`
+- [x] Propagate correlationId through async operations — Added `startWorkerTraceAsync` + wrapped worker executes
+- [x] Add correlationId to Loki labels — Updated `buildPayload()` in loki-transport.ts
 
 ### Phase 3: Optimize Volume (Week 2)
 - [ ] Tune sampling rates for INFO logs

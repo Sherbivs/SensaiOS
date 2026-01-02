@@ -11,7 +11,14 @@
     "outDir": "dist",
     "rootDir": "src",
     "resolveJsonModule": true,
-    "jsx": "preserve"
+    "jsx": "preserve",
+    "baseUrl": ".",
+    "paths": {
+      "@kernel/*": ["src/kernel/*"],
+      "@sensai/*": ["src/sensaios/*"],
+      "@app/*": ["src/app/*"],
+      "@observability/*": ["src/observability/*"]
+    }
   },
   "include": [
     "src/**/*.ts",

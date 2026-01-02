@@ -40,6 +40,14 @@ import {
 } from './kernel-observer.js';
 import { kernel, getKernelUptime, getKernelLogs, exportKernelLogs } from './kernel-logger.js';
 import { getErrors, getPatterns, getLearnings, exportErrorData } from './kernel-error-detector.js';
+import { 
+  observeInfraMetric, 
+  onInfraMetric, 
+  getInfrastructureMetrics,
+  getInfraMetricStats,
+  getLatestInfraMetric,
+  getRecentInfraMetrics,
+} from './kernel-metrics.js';
 import type {
   SystemType as _SystemType,
   LogObservation as _LogObservation,
@@ -53,6 +61,10 @@ import type {
   KernelMetrics as _KernelMetrics,
   SystemHealth as _SystemHealth,
   KernelStateExport as _KernelStateExport,
+  MetricCategory,
+  MetricUnit,
+  MetricHook,
+  ResourceMetricObservation,
 } from './kernel-types.js';
 const writeHookError = (message: string, error: unknown): void => {
   const details = error instanceof Error ? `${error.name}: ${error.message}` : String(error);
@@ -599,6 +611,155 @@ export const createObservabilityHook = safe((name: string): ObservabilityHook =>
   };
 });
 
+/**
+ * Create a hook for infrastructure monitoring systems (resource-monitor, prometheus-metrics, etc.)
+ * 
+ * Infrastructure hooks report METRICS to the kernel — numeric values that represent
+ * system resource state (memory, CPU, disk, network, etc.).
+ * 
+ * @example
+ * // In resource-monitor.ts
+ * import { createInfrastructureHook } from '../kernel/hooks.js';
+ * const kernelHook = createInfrastructureHook('resource-monitor');
+ * 
+ * // Report memory metric
+ * kernelHook.metric('MEMORY', 'memory_rss_bytes', process.memoryUsage().rss, 'bytes');
+ * 
+ * // Report multiple metrics at once
+ * kernelHook.batch([
+ *   { category: 'MEMORY', name: 'memory_heap_used', value: heapUsed, unit: 'bytes' },
+ *   { category: 'CPU', name: 'cpu_percent', value: cpuPercent, unit: 'percent' },
+ * ]);
+ */
+export interface InfrastructureHook {
+  systemId: string;
+  /** Report a single metric observation */
+  metric: (
+    category: MetricCategory,
+    name: string,
+    value: number,
+    unit: MetricUnit,
+    labels?: Record<string, string>,
+    metadata?: Record<string, unknown>
+  ) => void;
+  /** Report multiple metrics at once (batch) */
+  batch: (
+    metrics: Array<{
+      category: MetricCategory;
+      name: string;
+      value: number;
+      unit: MetricUnit;
+      labels?: Record<string, string>;
+      metadata?: Record<string, unknown>;
+    }>
+  ) => void;
+  /** Report a health check result */
+  health: (
+    checkName: string,
+    healthy: boolean,
+    latencyMs?: number,
+    metadata?: Record<string, unknown>
+  ) => void;
+  /** Report alert state change */
+  alert: (
+    alertName: string,
+    level: 'NORMAL' | 'WARNING' | 'CRITICAL' | 'EMERGENCY',
+    message: string,
+    metadata?: Record<string, unknown>
+  ) => void;
+  unregister: () => void;
+}
+
+export const createInfrastructureHook = safe((name: string): InfrastructureHook => {
+  const systemId = registerSystem('CUSTOM', name, { kind: 'infrastructure' });
+  
+  return {
+    systemId,
+    metric: safe((category, metricName, value, unit, labels, metadata) => {
+      observeInfraMetric({
+        source: name,
+        category,
+        name: metricName,
+        value,
+        unit,
+        timestamp: new Date(),
+        labels,
+        metadata,
+      });
+    }),
+    batch: safe((metrics) => {
+      for (const m of metrics) {
+        observeInfraMetric({
+          source: name,
+          category: m.category,
+          name: m.name,
+          value: m.value,
+          unit: m.unit,
+          timestamp: new Date(),
+          labels: m.labels,
+          metadata: m.metadata,
+        });
+      }
+    }),
+    health: safe((checkName, healthy, latencyMs, metadata) => {
+      // Report as metric
+      observeInfraMetric({
+        source: name,
+        category: 'SYSTEM',
+        name: `health_${checkName.toLowerCase().replace(/[^a-z0-9]/g, '_')}`,
+        value: healthy ? 1 : 0,
+        unit: 'gauge',
+        timestamp: new Date(),
+        metadata: { checkName, healthy, latencyMs, ...metadata },
+      });
+      
+      // Also log the health check
+      observeLog({
+        source: name,
+        level: healthy ? 'debug' : 'warn',
+        component: 'infrastructure',
+        operation: 'health-check',
+        message: `Health check "${checkName}": ${healthy ? 'PASS' : 'FAIL'}${latencyMs ? ` (${latencyMs}ms)` : ''}`,
+        timestamp: new Date(),
+        metadata: { checkName, healthy, latencyMs, ...metadata },
+      });
+    }),
+    alert: safe((alertName, level, message, metadata) => {
+      // Report alert state as metric
+      const levelValue = level === 'EMERGENCY' ? 4 : level === 'CRITICAL' ? 3 : level === 'WARNING' ? 2 : 1;
+      observeInfraMetric({
+        source: name,
+        category: 'SYSTEM',
+        name: `alert_${alertName.toLowerCase().replace(/[^a-z0-9]/g, '_')}`,
+        value: levelValue,
+        unit: 'gauge',
+        timestamp: new Date(),
+        metadata: { alertName, level, message, ...metadata, stringValue: level },
+      });
+      
+      // Log the alert
+      const logLevel = level === 'EMERGENCY' || level === 'CRITICAL' ? 'error' : level === 'WARNING' ? 'warn' : 'info';
+      observeLog({
+        source: name,
+        level: logLevel,
+        component: 'infrastructure',
+        operation: 'alert',
+        message: `Alert [${alertName}] ${level}: ${message}`,
+        timestamp: new Date(),
+        metadata: { alertName, level, ...metadata },
+      });
+    }),
+    unregister: () => unregisterSystem(systemId),
+  };
+});
+
+/**
+ * Subscribe to real-time infrastructure metric observations
+ */
+export const subscribeToMetrics = safe((hook: MetricHook): (() => void) => {
+  return onInfraMetric(hook);
+});
+
 // ============================================================================
 // REAL-TIME OBSERVATION SUBSCRIPTIONS
 // ============================================================================
@@ -671,6 +832,20 @@ export const queryKernel = {
   
   /** Export kernel error data */
   exportErrors: safe(exportErrorData),
+  
+  // ─── Infrastructure Metrics ─────────────────────────────────────────────
+  
+  /** Get aggregated infrastructure metrics */
+  infrastructure: safe(getInfrastructureMetrics),
+  
+  /** Get infrastructure metric statistics */
+  infraStats: safe(getInfraMetricStats),
+  
+  /** Get latest value for a specific infrastructure metric */
+  latestMetric: safe((name: string) => getLatestInfraMetric(name)),
+  
+  /** Get recent infrastructure metric observations */
+  recentMetrics: safe((limit?: number) => getRecentInfraMetrics(limit ?? 100)),
 };
 
 // ============================================================================

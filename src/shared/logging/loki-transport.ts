@@ -268,17 +268,27 @@ class LokiTransport {
 
   /**
    * Build Loki push payload from log entries
+   * Phase 2: correlationId added to stream labels for Grafana filtering
    */
   private buildPayload(entries: LokiLogEntry[]): LokiPushPayload {
     const streams: Map<string, Array<[string, string]>> = new Map();
 
     for (const entry of entries) {
-      const labels = JSON.stringify({
+      // Phase 2: Include correlationId in stream labels for distributed tracing queries
+      // correlationId enables Grafana queries like: {correlationId="abc-123"}
+      const labelObj: Record<string, string> = {
         level: entry.level,
         service: entry.service,
         job: 'infinity-gauntlet',
         environment: process.env.NODE_ENV || 'production',
-      });
+      };
+      
+      // Only add correlationId label if present (reduces label cardinality for logs without traces)
+      if (entry.correlationId) {
+        labelObj.correlationId = entry.correlationId;
+      }
+      
+      const labels = JSON.stringify(labelObj);
 
       if (!streams.has(labels)) {
         streams.set(labels, []);
@@ -288,7 +298,7 @@ class LokiTransport {
       const timestamp = new Date(entry.timestamp).getTime() * 1_000_000; // Convert to nanoseconds
       const logLine = JSON.stringify({
         message: entry.message,
-        correlationId: entry.correlationId,
+        correlationId: entry.correlationId, // Keep in log line for JSON parsing
         data: entry.data,
       });
 

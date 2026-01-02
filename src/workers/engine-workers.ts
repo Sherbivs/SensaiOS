@@ -22,9 +22,9 @@
  * @module workers/engine-workers
  */
 
-// KERNEL FIRST — Must be first import to monitor other system initialization
-import type { WorkerHook } from '../kernel/kernel-hooks.js';
-import { createWorkerHook } from '../kernel/kernel-hooks.js';
+// APP LAYER FIRST — Isolated access to kernel through application layer
+import type { WorkerHook } from '../app/index.js';
+import { createWorkerHook, startWorkerTraceAsync, generateCorrelationId } from '../app/index.js';
 
 // LOGGER SECOND — Must be early import to capture initialization errors
 import { getLogger } from "../shared/logging/index.js";
@@ -140,7 +140,7 @@ class CacheRefreshWorker {
   }
 
   /**
-   * Execute cache refresh task
+   * Execute cache refresh task (wrapped in correlation trace)
    */
   private async execute(): Promise<void> {
     if (this.status.isRunning) {
@@ -148,61 +148,65 @@ class CacheRefreshWorker {
       return;
     }
 
-    this.status.isRunning = true;
-    const startTime = performance.now();
+    // Phase 2: Wrap execution in correlation trace
+    const jobId = generateCorrelationId();
+    await startWorkerTraceAsync('CacheRefreshWorker', jobId, async () => {
+      this.status.isRunning = true;
+      const startTime = performance.now();
 
-    try {
-      logger.info('EngineWorkers', 'CacheRefreshWorker.execute', 'CacheRefreshWorker execution started');
+      try {
+        logger.info('EngineWorkers', 'CacheRefreshWorker.execute', 'CacheRefreshWorker execution started');
 
-      // Delegate to engineCache (handles double-buffering)
-      await engineCache['refresh'](); // Access private method via bracket notation
+        // Delegate to engineCache (handles double-buffering)
+        await engineCache['refresh'](); // Access private method via bracket notation
 
-      const durationMs = performance.now() - startTime;
-      this.status.lastRunTime = new Date();
-      this.status.lastRunDurationMs = durationMs;
-      this.status.successCount++;
-      this.status.lastError = null;
+        const durationMs = performance.now() - startTime;
+        this.status.lastRunTime = new Date();
+        this.status.lastRunDurationMs = durationMs;
+        this.status.successCount++;
+        this.status.lastError = null;
 
-      // Report execution SUCCESS to kernel
-      getKernelHook()?.execution('cache-refresh', durationMs, true, {
-        successCount: this.status.successCount,
-      });
+        // Report execution SUCCESS to kernel
+        getKernelHook()?.execution('cache-refresh', durationMs, true, {
+          successCount: this.status.successCount,
+        });
 
-      logger.info('EngineWorkers', 'CacheRefreshWorker.execute', 'CacheRefreshWorker execution complete', {
-        durationMs,
-        metadata: { successCount: this.status.successCount },
-      });
+        logger.info('EngineWorkers', 'CacheRefreshWorker.execute', 'CacheRefreshWorker execution complete', {
+          durationMs,
+          metadata: { successCount: this.status.successCount },
+        });
 
-    } catch (error) {
-      const durationMs = performance.now() - startTime;
-      this.status.lastRunTime = new Date();
-      this.status.lastRunDurationMs = durationMs;
-      this.status.errorCount++;
-      this.status.lastError = getErrorMessage(error);
+      } catch (error) {
+        const durationMs = performance.now() - startTime;
+        this.status.lastRunTime = new Date();
+        this.status.lastRunDurationMs = durationMs;
+        this.status.errorCount++;
+        this.status.lastError = getErrorMessage(error);
 
-      // Report execution FAILURE to kernel
-      getKernelHook()?.execution('cache-refresh', durationMs, false, {
-        error: this.status.lastError,
-        errorCount: this.status.errorCount,
-      });
-
-      logger.error('EngineWorkers', 'CacheRefreshWorker.execute', 'CacheRefreshWorker execution failed', {
-        metadata: {
-          errorMsg: this.status.lastError,
+        // Report execution FAILURE to kernel
+        getKernelHook()?.execution('cache-refresh', durationMs, false, {
+          error: this.status.lastError,
           errorCount: this.status.errorCount,
-        },
-      });
-      
-      // Capture error for tracking
-      await workerErrorHandler.handleCacheRefreshError(
-        ensureError(error),
-        'engine-cache-l1',
-        'refresh'
-      );
+        });
 
-    } finally {
-      this.status.isRunning = false;
-    }
+        logger.error('EngineWorkers', 'CacheRefreshWorker.execute', 'CacheRefreshWorker execution failed', {
+          metadata: {
+            errorMsg: this.status.lastError,
+            errorCount: this.status.errorCount,
+          },
+        });
+        
+        // Capture error for tracking
+        await workerErrorHandler.handleCacheRefreshError(
+          ensureError(error),
+          'engine-cache-l1',
+          'refresh'
+        );
+
+      } finally {
+        this.status.isRunning = false;
+      }
+    }); // end startWorkerTraceAsync
   }
 
   /**
@@ -290,7 +294,7 @@ class WriteBufferFlusher {
   }
 
   /**
-   * Execute buffer flush task with adaptive polling
+   * Execute buffer flush task with adaptive polling (wrapped in correlation trace)
    * Skips flush if queues empty, adjusts interval based on activity
    */
   private async execute(): Promise<void> {
@@ -323,85 +327,89 @@ class WriteBufferFlusher {
       return; // Skip flush entirely
     }
 
-    this.status.isRunning = true;
-    const startTime = performance.now();
+    // Phase 2: Wrap execution in correlation trace
+    const jobId = generateCorrelationId();
+    await startWorkerTraceAsync('WriteBufferFlusher', jobId, async () => {
+      this.status.isRunning = true;
+      const startTime = performance.now();
 
-    try {
-      // Data present, reset adaptive state
-      this.consecutiveEmptyFlushes = 0;
-      this.lastDataSeen = new Date();
-      
-      // Reset interval if needed
-      if (this.currentFlushIntervalMs !== EngineDbConfig.writeBufferFlushIntervalMs) {
-        this.adjustFlushInterval('reset');
-      }
-      
-      // Delegate to engineWriteBuffer (handles atomic splice)
-      await engineWriteBuffer.flush();
+      try {
+        // Data present, reset adaptive state
+        this.consecutiveEmptyFlushes = 0;
+        this.lastDataSeen = new Date();
+        
+        // Reset interval if needed
+        if (this.currentFlushIntervalMs !== EngineDbConfig.writeBufferFlushIntervalMs) {
+          this.adjustFlushInterval('reset');
+        }
+        
+        // Delegate to engineWriteBuffer (handles atomic splice)
+        await engineWriteBuffer.flush();
 
-      const durationMs = performance.now() - startTime;
-      this.status.lastRunTime = new Date();
-      this.status.lastRunDurationMs = durationMs;
-      this.status.successCount++;
-      this.status.lastError = null;
+        const durationMs = performance.now() - startTime;
+        this.status.lastRunTime = new Date();
+        this.status.lastRunDurationMs = durationMs;
+        this.status.successCount++;
+        this.status.lastError = null;
 
-      // Only log if flush actually wrote data (check buffer stats)
-      const updatedStats = engineWriteBuffer.getStats();
-      if (updatedStats.flushCount > 0) {
-        // Report execution SUCCESS to kernel
-        getKernelHook()?.execution('buffer-flush', durationMs, true, {
-          flushCount: updatedStats.flushCount,
-          successCount: this.status.successCount,
-        });
-
-        logger.info('EngineWorkers', 'WriteBufferFlusher.execute', 'WriteBufferFlusher execution complete', {
-          durationMs,
-          metadata: {
+        // Only log if flush actually wrote data (check buffer stats)
+        const updatedStats = engineWriteBuffer.getStats();
+        if (updatedStats.flushCount > 0) {
+          // Report execution SUCCESS to kernel
+          getKernelHook()?.execution('buffer-flush', durationMs, true, {
             flushCount: updatedStats.flushCount,
             successCount: this.status.successCount,
-            adaptivePolling: {
-              consecutiveEmpty: this.consecutiveEmptyFlushes,
-              currentInterval: `${this.currentFlushIntervalMs / 1000}s`,
-              totalSkipped: this.totalFlushesSkipped,
+          });
+
+          logger.info('EngineWorkers', 'WriteBufferFlusher.execute', 'WriteBufferFlusher execution complete', {
+            durationMs,
+            metadata: {
+              flushCount: updatedStats.flushCount,
+              successCount: this.status.successCount,
+              adaptivePolling: {
+                consecutiveEmpty: this.consecutiveEmptyFlushes,
+                currentInterval: `${this.currentFlushIntervalMs / 1000}s`,
+                totalSkipped: this.totalFlushesSkipped,
+              },
             },
+          });
+        }
+
+      } catch (error) {
+        const durationMs = performance.now() - startTime;
+        this.status.lastRunTime = new Date();
+        this.status.lastRunDurationMs = durationMs;
+        this.status.errorCount++;
+        this.status.lastError = getErrorMessage(error);
+
+        // Report execution FAILURE to kernel
+        getKernelHook()?.execution('buffer-flush', durationMs, false, {
+          error: this.status.lastError,
+          errorCount: this.status.errorCount,
+        });
+
+        logger.error('EngineWorkers', 'WriteBufferFlusher.execute', 'WriteBufferFlusher execution failed', {
+          metadata: {
+            errorMsg: this.status.lastError,
+            errorCount: this.status.errorCount,
           },
         });
+        
+        // Capture error for tracking
+        const errorBufferStats = engineWriteBuffer.getStats();
+        await workerErrorHandler.handleTaskError(ensureError(error), 'WriteBufferFlusher', 'flush', {
+          operation: 'buffer-flush',
+          customData: {
+            battleLogQueueSize: errorBufferStats.battleLogQueueSize,
+            moveUsageQueueSize: errorBufferStats.moveUsageQueueSize,
+            anomalyQueueSize: errorBufferStats.anomalyQueueSize,
+          },
+        });
+
+      } finally {
+        this.status.isRunning = false;
       }
-
-    } catch (error) {
-      const durationMs = performance.now() - startTime;
-      this.status.lastRunTime = new Date();
-      this.status.lastRunDurationMs = durationMs;
-      this.status.errorCount++;
-      this.status.lastError = getErrorMessage(error);
-
-      // Report execution FAILURE to kernel
-      getKernelHook()?.execution('buffer-flush', durationMs, false, {
-        error: this.status.lastError,
-        errorCount: this.status.errorCount,
-      });
-
-      logger.error('EngineWorkers', 'WriteBufferFlusher.execute', 'WriteBufferFlusher execution failed', {
-        metadata: {
-          errorMsg: this.status.lastError,
-          errorCount: this.status.errorCount,
-        },
-      });
-      
-      // Capture error for tracking
-      const bufferStats = engineWriteBuffer.getStats();
-      await workerErrorHandler.handleTaskError(ensureError(error), 'WriteBufferFlusher', 'flush', {
-        operation: 'buffer-flush',
-        customData: {
-          battleLogQueueSize: bufferStats.battleLogQueueSize,
-          moveUsageQueueSize: bufferStats.moveUsageQueueSize,
-          anomalyQueueSize: bufferStats.anomalyQueueSize,
-        },
-      });
-
-    } finally {
-      this.status.isRunning = false;
-    }
+    }); // end startWorkerTraceAsync
   }
   
   /**

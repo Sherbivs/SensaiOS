@@ -3,6 +3,8 @@
  * =================
  *
  * Central intermediary between event sources and observability backends.
+ * This is the "service manager" of the Observability Layer where backends
+ * install themselves to receive events.
  *
  * Two Ingestion Paths:
  * 1. Event Bus Subscription — Hub subscribes to '**' (all events) and forwards
@@ -20,7 +22,8 @@
  * @since 2025-12-20
  */
 
-// KERNEL FIRST — Must be first import to monitor other system initialization
+// KERNEL DIRECT — Observability Layer is a peer to Application Layer
+// Both layers import directly from kernel as siblings
 import {
   createObservabilityHook,
   type ObservabilityHook,

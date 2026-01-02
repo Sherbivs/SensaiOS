@@ -119,7 +119,7 @@ export {
   type CreateEnvelopeOptions,
 } from './factory.js';
 
-// ─── Kernel Re-exports (convenience) ───────────────────────────────────────
+// ─── Kernel Re-exports (Observability Layer is a peer to App Layer) ────────
 // These let consumers use kernel correlation without importing both modules
 export {
   getCurrentCorrelationId,

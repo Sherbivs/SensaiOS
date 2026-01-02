@@ -223,6 +223,125 @@ export interface KernelStateExport {
 export interface KernelAuditEntry {
   uptimeMs: number;
   event: string;
-  category: 'LIFECYCLE' | 'SYSTEM' | 'OBSERVATION' | 'ERROR' | 'CONFIG';
+  category: 'LIFECYCLE' | 'SYSTEM' | 'OBSERVATION' | 'ERROR' | 'CONFIG' | 'METRIC';
   details: Record<string, unknown>;
+}
+
+// ============================================================================
+// INFRASTRUCTURE METRICS (Kernel-Level Resource Tracking)
+// ============================================================================
+
+/**
+ * Resource metric observation from infrastructure monitors
+ */
+export interface ResourceMetricObservation {
+  source: string;                // Which monitor (resource-monitor, prometheus, etc.)
+  category: MetricCategory;      // Category of metric
+  name: string;                  // Metric name
+  value: number;                 // Current value
+  unit: MetricUnit;              // Unit of measurement
+  timestamp: Date;               // When measured
+  uptimeMs: number;              // Kernel uptime when observed
+  labels?: Record<string, string>;  // Prometheus-style labels
+  metadata?: Record<string, unknown>;
+}
+
+/**
+ * Metric categories for infrastructure monitoring
+ */
+export type MetricCategory = 
+  | 'MEMORY'        // RAM, heap, buffers
+  | 'CPU'           // CPU usage, load
+  | 'DISK'          // Disk I/O, storage
+  | 'NETWORK'       // Network I/O, connections
+  | 'DATABASE'      // Query times, connections
+  | 'CACHE'         // Hit rates, sizes
+  | 'WORKER'        // Task durations, queue sizes
+  | 'DISCORD'       // API latency, shard status
+  | 'GAME'          // Battle durations, encounters
+  | 'SYSTEM';       // Generic system metrics
+
+/**
+ * Metric units for values
+ */
+export type MetricUnit = 
+  | 'bytes'         // Memory, disk
+  | 'percent'       // CPU, utilization
+  | 'count'         // Counters
+  | 'milliseconds'  // Latency, duration
+  | 'seconds'       // Uptime
+  | 'rate'          // Per-second rates
+  | 'ratio'         // Hit ratios (0-1)
+  | 'gauge';        // Point-in-time values
+
+/**
+ * Metric type (Prometheus-style)
+ */
+export type MetricType = 
+  | 'counter'       // Only increases
+  | 'gauge'         // Can go up/down
+  | 'histogram'     // Distribution buckets
+  | 'summary';      // Percentiles
+
+/**
+ * Hook for metric observations
+ */
+export type MetricHook = (observation: ResourceMetricObservation) => void;
+
+/**
+ * Infrastructure metrics summary
+ */
+export interface InfrastructureMetrics {
+  // Memory (RAM)
+  memoryRssMB: number;
+  memoryHeapUsedMB: number;
+  memoryHeapTotalMB: number;
+  memoryExternalMB: number;
+  memoryUtilizationPercent: number;
+  
+  // CPU
+  cpuUsagePercent: number;
+  eventLoopLagMs: number;
+  
+  // Storage  
+  diskUsedMB: number;
+  diskFreeMB: number;
+  diskUtilizationPercent: number;
+  
+  // Database
+  dbConnectionsActive: number;
+  dbQueryLatencyMs: number;
+  dbQueryCount: number;
+  
+  // Cache
+  cacheHitRate: number;
+  cacheSizeMB: number;
+  cacheEntryCount: number;
+  
+  // Workers
+  workersActive: number;
+  workersIdle: number;
+  workerTasksCompleted: number;
+  workerTasksFailed: number;
+  
+  // Discord
+  discordLatencyMs: number;
+  discordGatewayStatus: string;
+  
+  // Aggregated
+  healthScore: number;          // 0-100 overall health
+  alertLevel: 'NORMAL' | 'WARNING' | 'CRITICAL' | 'EMERGENCY';
+  lastUpdated: Date;
+}
+
+/**
+ * Metric definition for registration
+ */
+export interface MetricDefinition {
+  name: string;
+  category: MetricCategory;
+  type: MetricType;
+  unit: MetricUnit;
+  description: string;
+  labels?: string[];
 }

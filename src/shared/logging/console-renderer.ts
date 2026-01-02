@@ -1,14 +1,14 @@
 /**
  * Infinity Console Renderer — Visual Log Output System
  * 
- * ═══════════════════════════════════════════════════════════════════════════
- * DESIGN: "Infinity Console" — Logs that tell a story at a glance
- * ═══════════════════════════════════════════════════════════════════════════
+ * ---------------------------------------------------------------------------
+ * DESIGN: Professional console output with ASCII-safe characters
+ * ---------------------------------------------------------------------------
  * 
  * Features:
- *   - Visual hierarchy with box drawing characters
+ *   - Visual hierarchy with ASCII box characters
  *   - Progress bars for resource utilization
- *   - Status indicators (●○◐) for system health
+ *   - Status indicators for system health
  *   - Compact log stream with consistent formatting
  *   - Themed sections for different subsystems
  * 
@@ -18,84 +18,84 @@
 
 import { formatBytes, formatUptime } from '../utils/index.js';
 
-// ═══════════════════════════════════════════════════════════════════════════
-// Visual Constants
-// ═══════════════════════════════════════════════════════════════════════════
+// ---------------------------------------------------------------------------
+// Visual Constants (ASCII-safe for cross-platform compatibility)
+// ---------------------------------------------------------------------------
 
-/** Box drawing characters for visual framing */
+/** Box drawing characters for visual framing (ASCII-safe) */
 const BOX = {
-  // Double line (headers)
-  TOP_LEFT: '╔',
-  TOP_RIGHT: '╗',
-  BOTTOM_LEFT: '╚',
-  BOTTOM_RIGHT: '╝',
-  HORIZONTAL: '═',
-  VERTICAL: '║',
+  // Double line equivalent (headers)
+  TOP_LEFT: '+',
+  TOP_RIGHT: '+',
+  BOTTOM_LEFT: '+',
+  BOTTOM_RIGHT: '+',
+  HORIZONTAL: '=',
+  VERTICAL: '|',
   
-  // Single line (sections)
-  S_TOP_LEFT: '┌',
-  S_TOP_RIGHT: '┐',
-  S_BOTTOM_LEFT: '└',
-  S_BOTTOM_RIGHT: '┘',
-  S_HORIZONTAL: '─',
-  S_VERTICAL: '│',
+  // Single line equivalent (sections)
+  S_TOP_LEFT: '+',
+  S_TOP_RIGHT: '+',
+  S_BOTTOM_LEFT: '+',
+  S_BOTTOM_RIGHT: '+',
+  S_HORIZONTAL: '-',
+  S_VERTICAL: '|',
   
   // Connectors
-  T_DOWN: '┬',
-  T_UP: '┴',
-  T_RIGHT: '├',
-  T_LEFT: '┤',
-  CROSS: '┼',
+  T_DOWN: '+',
+  T_UP: '+',
+  T_RIGHT: '+',
+  T_LEFT: '+',
+  CROSS: '+',
 } as const;
 
-/** Status indicator symbols */
+/** Status indicator symbols (ASCII-safe) */
 const STATUS = {
-  ONLINE: '●',
-  OFFLINE: '○',
-  DEGRADED: '◐',
-  SUCCESS: '✓',
-  FAILURE: '✗',
-  PENDING: '⟳',
-  WARNING: '⚠',
+  ONLINE: '[*]',
+  OFFLINE: '[ ]',
+  DEGRADED: '[~]',
+  SUCCESS: '[OK]',
+  FAILURE: '[X]',
+  PENDING: '[..]',
+  WARNING: '[!]',
 } as const;
 
-/** Log level symbols */
+/** Log level symbols (ASCII-safe, no emojis) */
 const LEVEL_SYMBOLS = {
-  success: '✓',
-  info: 'ℹ',
-  warn: '⚠',
-  error: '✗',
-  fatal: '💀',
-  debug: '🔍',
+  success: '[OK]',
+  info: '[i]',
+  warn: '[!]',
+  error: '[X]',
+  fatal: '[XX]',
+  debug: '[D]',
 } as const;
 
-/** Section icons */
+/** Section prefixes (ASCII-safe, no emojis) */
 const ICONS = {
-  database: '💾',
-  discord: '🤖',
-  resources: '📊',
-  cache: '🗄️',
-  security: '🛡️',
-  battle: '⚔️',
-  pokemon: '🎮',
-  system: '⚡',
-  time: '🕐',
-  infinity: '∞',
+  database: 'DB:',
+  discord: 'BOT:',
+  resources: 'RES:',
+  cache: 'CACHE:',
+  security: 'SEC:',
+  battle: 'BTL:',
+  pokemon: 'PKM:',
+  system: 'SYS:',
+  time: 'TIME:',
+  infinity: '---',
 } as const;
 
-/** Progress bar characters */
+/** Progress bar characters (ASCII-safe) */
 const PROGRESS = {
-  FILLED: '▓',
-  EMPTY: '░',
+  FILLED: '#',
+  EMPTY: '-',
   WIDTH: 16,
 } as const;
 
 /** Standard console width */
 const CONSOLE_WIDTH = 80;
 
-// ═══════════════════════════════════════════════════════════════════════════
+// ---------------------------------------------------------------------------
 // Type Definitions
-// ═══════════════════════════════════════════════════════════════════════════
+// ---------------------------------------------------------------------------
 
 export type LogLevel = 'success' | 'info' | 'warn' | 'error' | 'fatal' | 'debug';
 
@@ -131,9 +131,9 @@ export interface DashboardConfig {
   resources: ResourceMetrics;
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
+// ---------------------------------------------------------------------------
 // Visual Primitives
-// ═══════════════════════════════════════════════════════════════════════════
+// ---------------------------------------------------------------------------
 
 /**
  * Creates a horizontal line of specified width
@@ -147,7 +147,7 @@ function horizontalLine(char: string, width: number): string {
  */
 function fixedWidth(text: string, width: number, align: 'left' | 'right' | 'center' = 'left'): string {
   if (text.length > width) {
-    return text.slice(0, width - 1) + '…';
+    return text.slice(0, width - 1) + '...';
   }
   const padding = width - text.length;
   if (align === 'right') {
@@ -201,9 +201,9 @@ function _statusText(status: 'online' | 'offline' | 'degraded'): string {
   }
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
+// ---------------------------------------------------------------------------
 // Box Rendering
-// ═══════════════════════════════════════════════════════════════════════════
+// ---------------------------------------------------------------------------
 
 /**
  * Creates a double-line header box
@@ -261,9 +261,9 @@ export function sectionBox(icon: string, title: string, content: string[]): stri
   return lines;
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
+// ---------------------------------------------------------------------------
 // Dashboard Sections
-// ═══════════════════════════════════════════════════════════════════════════
+// ---------------------------------------------------------------------------
 
 /**
  * Renders database status section
@@ -334,16 +334,16 @@ export function renderResourceSection(resources: ResourceMetrics): string[] {
   return sectionBox(ICONS.resources, 'RESOURCES', content);
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
+// ---------------------------------------------------------------------------
 // Log Stream Formatting
-// ═══════════════════════════════════════════════════════════════════════════
+// ---------------------------------------------------------------------------
 
 /**
  * Formats a log entry for the stream view
  */
 export function formatLogEntry(entry: LogStreamEntry): string {
   const time = entry.timestamp.toTimeString().slice(0, 8);
-  const symbol = LEVEL_SYMBOLS[entry.level] || 'ℹ';
+  const symbol = LEVEL_SYMBOLS[entry.level] || '[i]';
   const levelStr = fixedWidth(entry.level.toUpperCase(), 7);
   const message = fixedWidth(entry.message, 35);
   const context = entry.context ? `${BOX.S_VERTICAL} ${entry.context}` : '';
@@ -358,9 +358,9 @@ export function logStreamSeparator(): string {
   return horizontalLine(BOX.S_HORIZONTAL, CONSOLE_WIDTH);
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
+// ---------------------------------------------------------------------------
 // Full Dashboard Rendering
-// ═══════════════════════════════════════════════════════════════════════════
+// ---------------------------------------------------------------------------
 
 /**
  * Renders the complete Infinity Console dashboard
@@ -414,12 +414,12 @@ export function renderStatusLine(
   
   const uptimeStr = formatUptime(uptime);
   
-  return `[${ICONS.infinity}] ${dbStatus} ${BOX.S_VERTICAL} ${ramStatus} RAM ${ramPercent}% ${BOX.S_VERTICAL} ⏱️ ${uptimeStr}`;
+  return `[${ICONS.infinity}] ${dbStatus} ${BOX.S_VERTICAL} ${ramStatus} RAM ${ramPercent}% ${BOX.S_VERTICAL} UP: ${uptimeStr}`;
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
+// ---------------------------------------------------------------------------
 // Quick Log Functions (Convenience Wrappers)
-// ═══════════════════════════════════════════════════════════════════════════
+// ---------------------------------------------------------------------------
 
 /**
  * Quick success log
@@ -469,9 +469,9 @@ export function error(message: string, context?: string): string {
   });
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
+// ---------------------------------------------------------------------------
 // Exports
-// ═══════════════════════════════════════════════════════════════════════════
+// ---------------------------------------------------------------------------
 
 export const ConsoleRenderer = {
   // Visual primitives

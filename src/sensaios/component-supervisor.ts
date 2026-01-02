@@ -6,6 +6,7 @@
  * @module sensaios/component-supervisor
  */
 
+import { scopedLogger } from '../observability/envelope/console.js';
 import type {
   SensaiComponent,
   ComponentContext,
@@ -24,7 +25,6 @@ import {
 } from './component-registry.js';
 import { createComponentContext, systemContext as _systemContext } from './context-factory.js';
 import type { TenantScope } from './tenant-scope.js';
-import { scopedLogger } from '../observability/envelope/console.js';
 import { componentError, COMPONENT_ERRORS } from './sensai-error.js';
 
 /** Scoped logger for supervisor operations */

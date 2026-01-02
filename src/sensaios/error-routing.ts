@@ -227,10 +227,10 @@ export class ErrorRouter {
     if (!this.config.discordWebhookUrl) return;
 
     const color = error.severity === 'critical' ? 0xff0000 : 0xff6600;
-    const emoji = error.severity === 'critical' ? '🚨' : '❌';
+    const prefix = error.severity === 'critical' ? '[CRITICAL]' : '[ERROR]';
 
     const embed = {
-      title: `${emoji} ${error.severity.toUpperCase()}: ${error.code}`,
+      title: `${prefix} ${error.severity.toUpperCase()}: ${error.code}`,
       description: error.message.substring(0, 200),
       color,
       fields: [

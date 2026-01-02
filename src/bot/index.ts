@@ -1,10 +1,11 @@
 // ============================================================================
-// KERNEL BOOTSTRAP — MUST BE FIRST
+// APPLICATION LAYER IMPORTS — Bot Layer Isolation (Phase 3)
 // ============================================================================
-// Bot module uses Kernel for all logging. The Kernel handles pre-boot queuing
-// so logs during early initialization are captured and replayed after boot.
-// This is the Kernel-first logging pattern - see docs/projects/KERNEL-FIRST-LOGGING-INITIATIVE.md
-import { kernel } from "../kernel/boot-kernel.js";
+// Bot module uses Application Layer for all logging and correlation tracking.
+// The Application Layer wraps Kernel primitives with Discord-specific facades.
+// This ensures the bot layer never imports directly from the kernel layer.
+// See docs/architecture-bible/ and src/app/ for architecture documentation.
+import { appLog, withDiscordTrace, getCorrelationId } from "../app/index.js";
 
 // NOTE: Legacy logger import removed (2025-12-26)
 // Bot now uses kernel exclusively. Kernel reports to shared/logger internally,
@@ -67,7 +68,7 @@ export async function bootDiscord(opts: BotStartOptions = {}): Promise<Client> {
 		process.env.BOT_TOKEN;
 
 	if (!token) {
-		kernel.warn('bot/index', 'Discord bot token not provided; skipping bot startup');
+		appLog.warn('bot/index', 'Discord bot token not provided; skipping bot startup');
 		// Return a stub client to keep the app running without hard failure
 		// when the bot is intentionally disabled.
 		return new Client({ intents: [] });
@@ -113,7 +114,7 @@ export async function bootDiscord(opts: BotStartOptions = {}): Promise<Client> {
 			const loadStart = process.hrtime.bigint();
 			commands = await loadCommands();
 			const loadDurationMs = Number(process.hrtime.bigint() - loadStart) / 1_000_000;
-			kernel.info('bot/index', `Commands loaded lazily (${loadDurationMs.toFixed(1)}ms, ${commands.size} commands)`);
+			appLog.info('bot/index', `Commands loaded lazily (${loadDurationMs.toFixed(1)}ms, ${commands.size} commands)`);
 		}
 		return commands;
 	}
@@ -121,12 +122,25 @@ export async function bootDiscord(opts: BotStartOptions = {}): Promise<Client> {
         const readyPromise = once(client, Events.ClientReady);
 
         client.once(Events.ClientReady, () => {
-                kernel.info('bot/index', `Discord bot is ready: ${client.user?.tag} (lazy commands enabled)`);
+                appLog.info('bot/index', `Discord bot is ready: ${client.user?.tag} (lazy commands enabled)`);
         });
 
 	client.on("interactionCreate", async (interaction: Interaction) => {
-		try {
-				if (interaction.isChatInputCommand()) {
+		// Phase 3: Wrap entire interaction in correlation trace via Application Layer
+		const operation = interaction.isCommand() 
+			? `cmd:${(interaction as any).commandName}` 
+			: `btn:${(interaction as any).customId?.slice(0, 20) || 'unknown'}`;
+		
+		await withDiscordTrace(
+			{
+				interactionId: interaction.id,
+				userId: interaction.user.id,
+				guildId: interaction.guildId,
+				operation,
+			},
+			async () => {
+				try {
+					if (interaction.isChatInputCommand()) {
 					// DEV-ONLY GATE: Only /start is available to regular players
 					// All other slash commands require dev/admin privileges
 					// Per Game Design Bible: Button-first gameplay, minimal slash commands
@@ -425,16 +439,19 @@ export async function bootDiscord(opts: BotStartOptions = {}): Promise<Client> {
 						return;
 					}
 				}
-		} catch (err: any) {
-			kernel.error('bot/index', `Interaction handler error: ${err?.message || String(err)}`, {}, err instanceof Error ? err : undefined);
-			if (interaction.isRepliable()) {
-				try {
-					await safeReply(interaction, "Something went wrong.");
-				} catch {
-					// Ignore secondary reply errors; the primary failure is already logged.
+				} catch (err: any) {
+					const correlationId = getCorrelationId();
+					appLog.error('bot/index', `Interaction handler error: ${err?.message || String(err)}`, { correlationId, stack: err instanceof Error ? err.stack : undefined });
+					if (interaction.isRepliable()) {
+						try {
+							await safeReply(interaction, "Something went wrong.");
+						} catch {
+							// Ignore secondary reply errors; the primary failure is already logged.
+						}
+					}
 				}
-			}
-		}
+			} // end withDiscordTrace callback
+		); // end withDiscordTrace
 	});
 
         await Promise.all([client.login(token), readyPromise]);
@@ -456,10 +473,10 @@ export async function bootDiscord(opts: BotStartOptions = {}): Promise<Client> {
                         
                         // Only log if caches are growing beyond expected limits
                         if (messageCount > 500 || memberCount > 500) {
-                                kernel.warn('bot/index', `Discord cache above threshold: messages=${messageCount}, members=${memberCount}. Sweepers should be reducing this.`);
+                                appLog.warn('bot/index', `Discord cache above threshold: messages=${messageCount}, members=${memberCount}. Sweepers should be reducing this.`);
                         }
                 } catch (err: any) {
-                        kernel.warn('bot/index', `Cache monitor failed: ${err?.message || String(err)}`);
+                        appLog.warn('bot/index', `Cache monitor failed: ${err?.message || String(err)}`);
                 }
         }, 3600_000); // 1 hour
 

@@ -11,9 +11,9 @@
  * @module workers/database/base-worker
  */
 
-// KERNEL FIRST — Must be first import to monitor other system initialization
-import type { DatabaseHook } from '../../kernel/kernel-hooks.js';
-import { createDatabaseHook } from '../../kernel/kernel-hooks.js';
+// APP LAYER FIRST — Isolated access to kernel through application layer
+import type { DatabaseHook } from '../../app/index.js';
+import { createDatabaseHook } from '../../app/index.js';
 
 import type {
   DatabaseWorker,

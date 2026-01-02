@@ -165,12 +165,12 @@ const LEVEL_COLORS: Record<AlertLevel, ColorResolvable> = {
   EMERGENCY: 0x9b59b6, // Purple (standout)
 };
 
-/** Emoji mapping for severity */
+/** Emoji mapping for severity (ASCII-safe for logs, Discord embeds can override) */
 const LEVEL_EMOJI: Record<AlertLevel, string> = {
-  INFO: 'ℹ️',
-  WARNING: '⚠️',
-  CRITICAL: '🚨',
-  EMERGENCY: '🆘',
+  INFO: '[INFO]',
+  WARNING: '[WARN]',
+  CRITICAL: '[CRITICAL]',
+  EMERGENCY: '[EMERGENCY]',
 };
 
 // ============================================================================

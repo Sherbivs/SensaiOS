@@ -15,8 +15,8 @@
  * @module shared/service-registry
  */
 
-// KERNEL FIRST — Must be first import to monitor other system initialization
-import { createServiceRegistryHook, type ServiceRegistryHook } from '../kernel/kernel-hooks.js';
+// APP LAYER FIRST — Isolated access to kernel through application layer
+import { createServiceRegistryHook, type ServiceRegistryHook } from '../app/index.js';
 
 // LOGGER SECOND — Must be early import to capture initialization errors
 import { getLogger } from "../shared/logging/index.js";

@@ -71,48 +71,50 @@ SensaiOS is a **multi-tenant observability-first operating layer** that extends 
 
 ```
 docs/projects/SensaiOS/
-├── README.md                    # This file
-├── ROUTER.md                    # Navigation router
-├── architecture/
-│   ├── 01-tenant-scope.md       # Multi-tenant scope design
-│   ├── 02-export-envelope.md    # Scoped envelope specification
-│   ├── 03-error-detection.md    # Error subsystem design
-│   ├── 04-run-guarded.md        # Kernel wrapper pattern
-│   └── FINAL-ARCHITECTURE.md    # Complete architecture document
-└── implementation/
-    ├── tenant-scope.ts          # TenantScope type implementation
-    ├── export-envelope.ts       # ExportEnvelope implementation
-    ├── error-types.ts           # Canonical error types
-    └── run-guarded.ts           # runGuarded() implementation
+├── INDEX.md                              # 📚 START HERE — Document navigation
+├── README.md                             # This file (project overview)
+├── ROUTER.md                             # Navigation router
+├── IMPLEMENTATION-PLAN.md                # Phased implementation guide
+├── SENSAI-FINAL-ARCHITECTURE.md          # ⭐ CANONICAL SPEC (v1.1.2)
+├── SENSAI-COMPONENT-OS-BLUEPRINT.md      # Component model deep-dive
+├── SENSAI-ARCHITECTURE-ADDENDUM.md       # Scalability patterns
+├── SENSAI-MULTITENANT-OBS-FIRST-ADDENDUM.md  # v1.1.2 patterns
+├── SENSAI-QUICK-REFERENCE.md             # Cheat sheet
+└── architecture/                         # Design specifications
+    ├── 01-tenant-scope.md                # Multi-tenant scope design
+    ├── 02-export-envelope.md             # Export envelope specification
+    ├── 03-error-detection.md             # Canonical error subsystem
+    ├── 04-run-guarded.md                 # Kernel wrapper pattern
+    ├── 05-host-runtime.md                # Node container boot contract
+    └── 06-os-security-model.md           # Ring security model (NEW)
 ```
+
+> **Implementation:** TypeScript implementations live in `src/sensaios/` (18 files, ~2,000 lines)
 
 ---
 
 ## Key Components
 
-### 1. TenantScope (Required on Every Envelope)
+### 1. TenantScope (v1.1.2 — Required on Every Envelope)
 
 ```typescript
+/** v1.1.2 Simplified TenantScope */
 interface TenantScope {
-  /** Tenant identifier (e.g., guild ID, user ID, "system") */
-  tenant: string;
+  /** Bot instance identifier (e.g., "prod", "staging", "dev") */
+  tenantId: string;
   
-  /** Environment (production, staging, development) */
-  environment: 'production' | 'staging' | 'development';
-  
-  /** Service name */
-  service: string;
-  
-  /** Component within service */
-  component: string;
+  /** Discord guild ID (or "system" for non-guild operations) */
+  guildId: string;
 }
 ```
+
+> **See:** [architecture/01-tenant-scope.md](architecture/01-tenant-scope.md) for complete specification.
 
 ### 2. ExportEnvelope (Extended from UniversalEnvelope)
 
 ```typescript
 interface ExportEnvelope<T = unknown> extends UniversalEnvelope<T> {
-  /** REQUIRED: Tenant scope for multi-tenancy */
+  /** REQUIRED: Tenant scope for multi-tenancy (v1.1.2) */
   scope: TenantScope;
   
   /** Export metadata */
@@ -197,13 +199,17 @@ async function runGuarded<T>(
 
 ## Implementation Status
 
-| Component | Status | File |
-|-----------|--------|------|
-| TenantScope | 🔄 In Progress | `architecture/01-tenant-scope.md` |
-| ExportEnvelope | 🔄 In Progress | `architecture/02-export-envelope.md` |
-| Error Detection | 🔄 In Progress | `architecture/03-error-detection.md` |
-| runGuarded() | 🔄 In Progress | `architecture/04-run-guarded.md` |
-| Final Architecture | ⏳ Pending | `architecture/FINAL-ARCHITECTURE.md` |
+| Component | Status | Document |
+|-----------|--------|----------|
+| Core Architecture | ✅ CANONICAL | `SENSAI-FINAL-ARCHITECTURE.md` (v1.1.2, 1,191 lines) |
+| TenantScope | ✅ SPEC | `architecture/01-tenant-scope.md` (389 lines) |
+| ExportEnvelope | ✅ SPEC | `architecture/02-export-envelope.md` (548 lines) |
+| Error Detection | ✅ SPEC | `architecture/03-error-detection.md` (724 lines) |
+| runGuarded() | ✅ SPEC | `architecture/04-run-guarded.md` (699 lines) |
+| Host Runtime | ✅ SPEC | `architecture/05-host-runtime.md` (~150 lines) |
+| Ring Security | ✅ SPEC | `architecture/06-os-security-model.md` (892 lines) |
+
+**Implementation Phase:** Phase 1 Ring Security Foundation (5 tasks READY)
 
 ---
 
@@ -243,14 +249,18 @@ async function runGuarded<T>(
 
 ## Next Steps
 
-1. **Complete Architecture Documents** — Define all specifications
-2. **Implement Core Types** — TenantScope, ExportEnvelope, CanonicalError
-3. **Create runGuarded()** — Kernel wrapper implementation
-4. **Integrate with Existing Systems** — Envelope, Logger, Error Tracker
-5. **Migrate Handlers** — Wrap all Discord commands with runGuarded()
+📚 **See [INDEX.md](INDEX.md)** for complete navigation and reading order.
+
+**Current Priority:** Phase 1 Ring Security Foundation (18-task roadmap)
+
+1. **SENSAI.RING_SECURITY.SCHEMA** — Add ring security database schema
+2. **SENSAI.RING_SECURITY.CAPABILITIES** — Implement capability assertion system
+3. **SENSAI.RING_SECURITY.ESLINT** — Add compile-time ring boundary enforcement
+4. **SENSAI.RING_SECURITY.RUNTIME_IMPORTS** — Add runtime dynamic import checks
+5. **SENSAI.RING_SECURITY.TESTS** — Add ring security test suite
 
 ---
 
-**Document Version:** 1.0  
-**Last Updated:** 2025-12-28  
-**Entry Point:** Start with `architecture/01-tenant-scope.md`
+**Document Version:** 1.1  
+**Last Updated:** 2026-01-01  
+**Entry Point:** Start with [INDEX.md](INDEX.md), then [SENSAI-FINAL-ARCHITECTURE.md](SENSAI-FINAL-ARCHITECTURE.md)

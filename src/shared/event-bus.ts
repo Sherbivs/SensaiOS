@@ -19,8 +19,8 @@
  * @module shared/event-bus
  */
 
-// KERNEL FIRST — Must be first import to monitor other system initialization
-import { createEventBusHook, type EventBusHook } from '../kernel/kernel-hooks.js';
+// APP LAYER FIRST — Isolated access to kernel through application layer
+import { createEventBusHook, type EventBusHook } from '../app/index.js';
 
 import { scopedLogger } from '../observability/envelope/console.js';
 import { randomUUID } from 'crypto';

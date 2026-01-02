@@ -1,14 +1,16 @@
 # Prompt.md
-Timestamp (UTC): 2025-12-28T12:46:37Z
-Revision: 4.6
+Timestamp (UTC): 2026-01-01T15:00:00Z
+Revision: 4.11
 
 **Cross-References**:
 - See `Patch.md` for contract rules (updated 2025-12-27T00:00:00Z Rev 1.75)
-- See `Tasklist.md` for backlog and active tasks
+- See `Tasklist.md` for active backlog and current tasks
+- See `docs/archive/tasks/` for completed task history (~115 tasks archived by project/phase)
 - See `ops/NEXT.yaml` for current task pointer
 - See `docs/architecture-bible/INDEX.md` for architecture documentation (27 sections)
 - See `docs/operations-bible/INDEX.md` for operational procedures (13 sections + 9 guides)
 - See `docs/development-bible/INDEX.md` for development workflows (10 sections)
+- See `docs/projects/SensaiOS/INDEX.md` for SensaiOS documentation (14 files, ~6,500 lines)
 
 ## Purpose & Scope
 - Canonical brief for automation: captures current mission, guardrails, and truth sources so every run starts aligned.
@@ -22,16 +24,33 @@ Revision: 4.6
 5. When Git remote validation or CI guards fail locally, stop and request human assistance rather than proceeding.
 
 ## Last Repo Changes
-- Moved scopedLogger import to the top of the onpremise experiment bootstrap script to comply with logger-first policy.
-- Documented logger-first import ordering in the AI collaboration guide and refreshed Tasklist/NEXT/Prompt metadata.
+- **SensaiOS Task Checklists Updated (2026-01-01T15:00Z):**
+  - All 16 SensaiOS Ring Security tasks now have detailed AI subagent checklists
+  - Phase-level acceptance criteria added from `06-os-security-model.md` § 7
+  - Tasks include checkbox format (`- [ ]`) for AI execution tracking
+  - Task distribution: Phase 1 (5 tasks), Phase 2 (4 tasks), Phase 3 (3 tasks), Phase 4 (4 tasks)
+  - Non-SensaiOS tasks PAUSED: Kernel-First Logging (Sprint 2+), /Store DB-Only Migration, Quick Tasks
+  - SensaiOS Ring Security now marked ACTIVE with priority flag
+- **SensaiOS Documentation Consolidation (2026-01-01):**
+  - Created `docs/projects/SensaiOS/INDEX.md` (~300 lines) — unified navigation for 14 documentation files (~6,500 lines total)
+  - Updated `docs/projects/SensaiOS/ROUTER.md` with comprehensive Areas section
+  - Verified 16-task Ring Security implementation plan against spec (4 phases, 8 weeks)
+  - Marked `architecture/FINAL-ARCHITECTURE.md` as deprecated (v1.0 superseded by v1.1.2)
+  - INDEX.md includes: 4-tier document hierarchy, version matrix, reading orders for developers/implementers/AI agents
+- Added SensaiOS Host Runtime architecture spec (Node container boots SensaiOS).
+- Added SensaiOS OS Security Model spec (ring security, capability system, installation API, visibility enforcement).
+- **Created SensaiOS Ring Security implementation plan (16 tasks, 4 phases, 8 weeks) — Phase 1 Foundation tasks READY**.
 
-- **NEXT Pointer:** Multi-task queue system (3 main + 1 quick/hot task allowed)
-  - **Main Tasks (3/3 READY):**
-    1. KERNEL.LOGGING.OUTPUT_PLUGINS — Add output plugin system to Kernel.
-    2. KERNEL.LOGGING.PII_SCRUBBING — Add PII scrubbing to Kernel output.
-    3. KERNEL.LOGGING.CORRELATION_IDS — Add correlation ID tracking.
-  - **Quick Task Slot:** OBS.LOGGER.FIRST_IMPORTS completed (logger-first import order enforcement)
-- **READY / In-flight:** Kernel logging Sprint 2 output plugin architecture (READY). Homestead migration COMPLETE — see `docs/architecture-bible/18-private-channel-architecture.md`.
+- **NEXT Pointer:** SensaiOS Ring Security Phase 1 (AI Subagent Tasks)
+  - **Main Tasks (5 READY — Phase 1 Foundation):**
+    1. **SENSAI.RING_SECURITY.SCHEMA** — Add ring security database schema (4h, detailed checklist)
+    2. **SENSAI.RING_SECURITY.CAPABILITIES** — Implement capability assertion system (6h, detailed checklist)
+    3. **SENSAI.RING_SECURITY.ESLINT** — Add compile-time ring boundary enforcement (2h, detailed checklist)
+    4. **SENSAI.RING_SECURITY.RUNTIME_IMPORTS** — Add runtime dynamic import checks (4h, detailed checklist)
+    5. **SENSAI.RING_SECURITY.TESTS** — Add ring security test suite (6h, detailed checklist)
+  - **Quick Task Slot:** PAUSED (non-critical tasks deferred)
+  - **PAUSED Initiatives:** Kernel-First Logging Sprint 2+, /Store DB-Only Migration
+- **READY / In-flight:** SensaiOS Ring Security Model Phase 1 Foundation (5 tasks READY, 2 weeks estimated). Homestead migration COMPLETE — see `docs/architecture-bible/18-private-channel-architecture.md`.
 
 ## System Highlights
 - **Database:** Production uses unified Render-managed PostgreSQL (`PROD_DATABASE_URL`) for all operations. Optional workstation development via `DATABASE_ONPREMISE_DEV_PRIMARY` (offline fallback). Migrations use direct PostgreSQL mode via `RENDER_DB_EXTERNAL_URL`. See `operations-bible/02-database-operations.md` for complete URL selection logic.
@@ -71,12 +90,12 @@ Revision: 4.6
 
 ## Embedded PATCHSET Echo
 <!-- PATCHSET:ECHO BEGIN -->
-HEAD: pending-local (Logger-first import policy)
-Change: Reordered scopedLogger import in bootstrap-onpremise-experiment and documented logger-first import ordering in AI collaboration guide.
-TasklistDiff: true.
-Tests: Not run (import order/docs only).
+HEAD: pending-local (SensaiOS task checklist verification complete)
+Change: Verified and corrected SensaiOS Ring Security roadmap — 16 tasks (not 18) across 4 phases. Distribution: Phase 1 (5 tasks READY), Phase 2 (4 tasks), Phase 3 (3 tasks), Phase 4 (4 tasks). All tasks have complete AI subagent checklists with acceptance criteria from spec § 7. Non-SensaiOS tasks remain PAUSED.
+TasklistDiff: true (task count correction, header updates).
+Tests: Not run (documentation/task management only).
 Contracts: ON (Patch Engine active).
-NextPointer: Main tasks remain KERNEL.LOGGING.OUTPUT_PLUGINS/KERNEL.LOGGING.PII_SCRUBBING/KERNEL.LOGGING.CORRELATION_IDS because Sprint 2 work is still READY; quick task OBS.LOGGER.FIRST_IMPORTS completed.
+NextPointer: Phase 1 SENSAI.RING_SECURITY.* tasks (5 READY) for AI subagent execution.
 <!-- PATCHSET:ECHO END -->
 
 ## AI Worker Prompt (copy/paste for Copilot/GPT)

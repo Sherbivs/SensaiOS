@@ -36,9 +36,8 @@
  *
  * @module shared/logger
  */
-// KERNEL FIRST — Must be first import to monitor other system initialization
-import { createLoggerHook } from '../kernel/kernel-hooks.js';
-import { getCurrentCorrelationId, getParentCorrelationId } from '../kernel/correlation.js';
+// APP LAYER FIRST — Isolated access to kernel through application layer
+import { createLoggerHook, getCurrentCorrelationId, getParentCorrelationId } from '../app/index.js';
 import { lokiTransport } from './logging/loki-transport.js';
 const writeStdout = (line) => {
     process.stdout.write(`${line}\n`);

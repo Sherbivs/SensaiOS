@@ -13,11 +13,11 @@
  * @module error-brain/pattern-detector
  */
 
-// KERNEL FIRST — Must be first import to monitor other system initialization
+// APP LAYER FIRST — Isolated access to kernel through application layer
 import {
   createIntelligenceHook,
   type IntelligenceHook,
-} from "../../kernel/kernel-hooks.js";
+} from "../../app/index.js";
 
 import { ErrorBrainConfig } from "../../config/error-brain-config.js";
 import {

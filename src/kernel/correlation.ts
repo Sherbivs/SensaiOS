@@ -428,7 +428,7 @@ export async function startDiscordTraceAsync<T>(
 // ============================================================================
 
 /**
- * Start a trace for a background worker job
+ * Start a trace for a background worker job (synchronous)
  */
 export function startWorkerTrace<T>(
   workerName: string,
@@ -457,6 +457,23 @@ export function startWorkerTrace<T>(
     startTime: Date.now(),
     metadata: context.metadata,
   };
+}
+
+/**
+ * Start an async trace for a background worker job (Phase 2)
+ */
+export async function startWorkerTraceAsync<T>(
+  workerName: string,
+  jobId: string | undefined,
+  callback: () => Promise<T>
+): Promise<T> {
+  return startTraceAsync({
+    source: 'worker',
+    metadata: {
+      workerName,
+      requestId: jobId,
+    },
+  }, callback);
 }
 
 // ============================================================================

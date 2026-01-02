@@ -1,7 +1,9 @@
 # SensaiOS Final Architecture
 
-**Version:** 1.0  
-**Status:** SPECIFICATION COMPLETE  
+> ⚠️ **DEPRECATED:** This is Version 1.0 (494 lines). Use [`SENSAI-FINAL-ARCHITECTURE.md`](../SENSAI-FINAL-ARCHITECTURE.md) (Version 1.1.2, 1,191 lines) as the canonical source.
+
+**Version:** 1.0 (SUPERSEDED)  
+**Status:** ~~SPECIFICATION COMPLETE~~ **DEPRECATED**  
 **Created:** 2025-12-28  
 **Owner:** DRIPTVDD
 

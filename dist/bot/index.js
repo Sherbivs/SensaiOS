@@ -1,10 +1,11 @@
 // ============================================================================
-// KERNEL BOOTSTRAP — MUST BE FIRST
+// APPLICATION LAYER IMPORTS — Bot Layer Isolation (Phase 3)
 // ============================================================================
-// Bot module uses Kernel for all logging. The Kernel handles pre-boot queuing
-// so logs during early initialization are captured and replayed after boot.
-// This is the Kernel-first logging pattern - see docs/projects/KERNEL-FIRST-LOGGING-INITIATIVE.md
-import { kernel } from "../kernel/boot-kernel.js";
+// Bot module uses Application Layer for all logging and correlation tracking.
+// The Application Layer wraps Kernel primitives with Discord-specific facades.
+// This ensures the bot layer never imports directly from the kernel layer.
+// See docs/architecture-bible/ and src/app/ for architecture documentation.
+import { appLog, withDiscordTrace, getCorrelationId } from "../app/index.js";
 // NOTE: Legacy logger import removed (2025-12-26)
 // Bot now uses kernel exclusively. Kernel reports to shared/logger internally,
 // so all logs still reach DB/Loki. The shared/logger is kernel-integrated now.
@@ -52,7 +53,7 @@ export async function bootDiscord(opts = {}) {
         process.env.DISCORD_TOKEN ||
         process.env.BOT_TOKEN;
     if (!token) {
-        kernel.warn('bot/index', 'Discord bot token not provided; skipping bot startup');
+        appLog.warn('bot/index', 'Discord bot token not provided; skipping bot startup');
         // Return a stub client to keep the app running without hard failure
         // when the bot is intentionally disabled.
         return new Client({ intents: [] });
@@ -95,334 +96,347 @@ export async function bootDiscord(opts = {}) {
             const loadStart = process.hrtime.bigint();
             commands = await loadCommands();
             const loadDurationMs = Number(process.hrtime.bigint() - loadStart) / 1_000_000;
-            kernel.info('bot/index', `Commands loaded lazily (${loadDurationMs.toFixed(1)}ms, ${commands.size} commands)`);
+            appLog.info('bot/index', `Commands loaded lazily (${loadDurationMs.toFixed(1)}ms, ${commands.size} commands)`);
         }
         return commands;
     }
     const readyPromise = once(client, Events.ClientReady);
     client.once(Events.ClientReady, () => {
-        kernel.info('bot/index', `Discord bot is ready: ${client.user?.tag} (lazy commands enabled)`);
+        appLog.info('bot/index', `Discord bot is ready: ${client.user?.tag} (lazy commands enabled)`);
     });
     client.on("interactionCreate", async (interaction) => {
-        try {
-            if (interaction.isChatInputCommand()) {
-                // DEV-ONLY GATE: Only /start is available to regular players
-                // All other slash commands require dev/admin privileges
-                // Per Game Design Bible: Button-first gameplay, minimal slash commands
-                const isDevCommand = interaction.commandName !== "start";
-                if (isDevCommand && !isAdmin(interaction)) {
-                    await replyError(interaction, "🚫 This command is for developers only.\n\n🎮 **Players:** Use `/start` to begin your adventure!");
-                    return;
-                }
-                // /start - The ONLY player-facing slash command
-                // Opens homestead channel where all gameplay happens via buttons
-                if (interaction.commandName === "start") {
-                    if (interaction.guildId) {
-                        // Open homestead and trigger starter selection if needed
-                        await openStartersHomestead(client, interaction.guildId, interaction.user);
-                        await replySuccess(interaction, "🏠 Welcome! Check your homestead channel to begin your Pokémon adventure.");
+        // Phase 3: Wrap entire interaction in correlation trace via Application Layer
+        const operation = interaction.isCommand()
+            ? `cmd:${interaction.commandName}`
+            : `btn:${interaction.customId?.slice(0, 20) || 'unknown'}`;
+        await withDiscordTrace({
+            interactionId: interaction.id,
+            userId: interaction.user.id,
+            guildId: interaction.guildId,
+            operation,
+        }, async () => {
+            try {
+                if (interaction.isChatInputCommand()) {
+                    // DEV-ONLY GATE: Only /start is available to regular players
+                    // All other slash commands require dev/admin privileges
+                    // Per Game Design Bible: Button-first gameplay, minimal slash commands
+                    const isDevCommand = interaction.commandName !== "start";
+                    if (isDevCommand && !isAdmin(interaction)) {
+                        await replyError(interaction, "🚫 This command is for developers only.\n\n🎮 **Players:** Use `/start` to begin your adventure!");
+                        return;
                     }
-                    else {
-                        await replyError(interaction, "This command must be used in a server.");
+                    // /start - The ONLY player-facing slash command
+                    // Opens homestead channel where all gameplay happens via buttons
+                    if (interaction.commandName === "start") {
+                        if (interaction.guildId) {
+                            // Open homestead and trigger starter selection if needed
+                            await openStartersHomestead(client, interaction.guildId, interaction.user);
+                            await replySuccess(interaction, "🏠 Welcome! Check your homestead channel to begin your Pokémon adventure.");
+                        }
+                        else {
+                            await replyError(interaction, "This command must be used in a server.");
+                        }
+                        return;
                     }
-                    return;
-                }
-                // Lazy-load commands on first interaction
-                const loadedCommands = await ensureCommandsLoaded();
-                const cmd = loadedCommands.get(interaction.commandName);
-                if (!cmd) {
-                    await replyError(interaction, `Unknown command: ${interaction.commandName}`);
-                    return;
-                }
-                // Small wiring for known commands to homestead flows
-                if (interaction.commandName === "starter") {
-                    if (interaction.guildId) {
-                        // Trigger open starter selection flow (800+ Pokémon choices)
-                        await openStartersHomestead(client, interaction.guildId, interaction.user);
-                        await replySuccess(interaction, "I sent your Starters to your homestead channel.");
+                    // Lazy-load commands on first interaction
+                    const loadedCommands = await ensureCommandsLoaded();
+                    const cmd = loadedCommands.get(interaction.commandName);
+                    if (!cmd) {
+                        await replyError(interaction, `Unknown command: ${interaction.commandName}`);
+                        return;
                     }
-                    else {
-                        await replyError(interaction, "This command must be used in a server.");
-                    }
-                    return;
-                }
-                if (interaction.commandName === "heal") {
-                    await handleHeal(interaction);
-                    return;
-                }
-                if (interaction.commandName === "daily") {
-                    const sub = interaction.options?.getSubcommand?.(false);
-                    if (sub === "claim") {
-                        const { handleDailyClaim } = await import("./daily/claim.js");
-                        await handleDailyClaim(interaction, { prisma });
-                    }
-                    else {
-                        await replyInfo(interaction, "Unknown daily subcommand. Try `/daily claim`.");
-                    }
-                    return;
-                }
-                if (interaction.commandName === "walk") {
-                    await handleWalk(interaction);
-                    return;
-                }
-                if (interaction.commandName === "battle") {
-                    const sub = interaction.options?.getSubcommand?.(false);
-                    if (sub === "challenge") {
-                        await handleBattleChallengeCommand(interaction);
-                    }
-                    else {
-                        await replyInfo(interaction, "Unknown battle subcommand. Try `/battle challenge @trainer`.");
-                    }
-                    return;
-                }
-                if (interaction.commandName === "ops") {
-                    await handleOpsCommand(interaction);
-                    return;
-                }
-                await cmd.execute(interaction);
-                return;
-            }
-            if (interaction.isButton()) {
-                const id = interaction.customId;
-                if (id.startsWith("BATTLE_ACCEPT_") || id.startsWith("BATTLE_DECLINE_")) {
-                    await handleBattleChallengeButton(interaction);
-                    return;
-                }
-                if (id.startsWith(MOVE_PREFIX) || id.startsWith(SWITCH_PREFIX) || id.startsWith(FORFEIT_PREFIX)) {
-                    await handleBattleActionButton(interaction);
-                    return;
-                }
-                switch (id) {
-                    case "HOME_HEAL":
-                        // Open heal screen per Game Design Bible § 6
-                        if (interaction.guildId) {
-                            await openHealScreen(interaction.client, interaction.guildId, interaction.user);
-                            await interaction.reply({ content: "💊 Opening Pokémon Center...", ephemeral: true });
-                        }
-                        else {
-                            await interaction.reply({ content: "This action must be used in a server.", ephemeral: true });
-                        }
-                        break;
-                    case "HEAL_CONFIRM":
-                        await handleHealConfirm(interaction);
-                        break;
-                    case "HEAL_CANCEL":
-                        await handleHealCancel(interaction);
-                        break;
-                    case "HOME_EXPLORE":
-                        // Open explore screen per Game Design Bible § 6
-                        if (interaction.guildId) {
-                            await openExploreScreen(interaction.client, interaction.guildId, interaction.user);
-                            await interaction.reply({ content: "🌲 Opening exploration options...", ephemeral: true });
-                        }
-                        else {
-                            await interaction.reply({ content: "This action must be used in a server.", ephemeral: true });
-                        }
-                        break;
-                    case "EXPLORE_WALK":
-                    case "EXPLORE_FISH":
-                    case "EXPLORE_BACK":
-                        await handleExploreButton(interaction);
-                        break;
-                    case "HOME_PARTY":
-                        // Open party screen per Game Design Bible § 6
-                        if (interaction.guildId) {
-                            await openPartyScreen(interaction.client, interaction.guildId, interaction.user);
-                            await interaction.reply({ content: "📋 Opening your party...", ephemeral: true });
-                        }
-                        else {
-                            await interaction.reply({ content: "This action must be used in a server.", ephemeral: true });
-                        }
-                        break;
-                    case "HOME_BOX":
-                        await openBoxView(interaction, { page: 1 });
-                        break;
-                    case "HOME_PROFILE":
-                        await openProfileView(interaction);
-                        break;
-                    case "HOME_BAG":
-                        // Open bag screen per Game Design Bible § 6
-                        if (interaction.guildId) {
-                            await openBagScreen(interaction.client, interaction.guildId, interaction.user);
-                            await interaction.reply({ content: "🎒 Opening your bag...", ephemeral: true });
-                        }
-                        else {
-                            await interaction.reply({ content: "This action must be used in a server.", ephemeral: true });
-                        }
-                        break;
-                    case "HOME_SHOP":
-                        // Open shop screen per Game Design Bible § 6
-                        if (interaction.guildId) {
-                            await openShopScreen(interaction.client, interaction.guildId, interaction.user);
-                            await interaction.reply({ content: "🛒 Opening the Poké Mart...", ephemeral: true });
-                        }
-                        else {
-                            await interaction.reply({ content: "This action must be used in a server.", ephemeral: true });
-                        }
-                        break;
-                    case "HOME_POKEDEX":
-                        // Open Pokédex screen per Game Design Bible § 6
-                        if (interaction.guildId) {
-                            await openPokedexScreen(interaction.client, interaction.guildId, interaction.user);
-                            await interaction.reply({ content: "📖 Opening your Pokédex...", ephemeral: true });
-                        }
-                        else {
-                            await interaction.reply({ content: "This action must be used in a server.", ephemeral: true });
-                        }
-                        break;
-                    case "HOME_STORAGE":
-                    case "STORAGE_HOME":
-                        // Open/return to storage screen per Game Design Bible § 6
-                        if (interaction.guildId) {
-                            await openStorageScreen(interaction.client, interaction.guildId, interaction.user);
-                            await interaction.reply({ content: "📦 Opening your storage...", ephemeral: true });
-                        }
-                        else {
-                            await interaction.reply({ content: "This action must be used in a server.", ephemeral: true });
-                        }
-                        break;
-                    case "HOME_SETTINGS":
-                    case "SETTINGS_BACK":
-                        // Open/return to settings screen per Game Design Bible § 6
-                        if (interaction.guildId) {
-                            await openSettingsScreen(interaction.client, interaction.guildId, interaction.user);
-                            await interaction.reply({ content: "⚙️ Opening settings...", ephemeral: true });
-                        }
-                        else {
-                            await interaction.reply({ content: "This action must be used in a server.", ephemeral: true });
-                        }
-                        break;
-                    case "HOME_DAILY":
-                    case "DAILY_BACK":
-                        // Open/return to daily rewards screen
-                        if (interaction.guildId) {
-                            await openDailyScreen(interaction.client, interaction.guildId, interaction.user);
-                            await interaction.reply({ content: "🎁 Opening daily rewards...", ephemeral: true });
-                        }
-                        else {
-                            await interaction.reply({ content: "This action must be used in a server.", ephemeral: true });
-                        }
-                        break;
-                    case "BAG_BACK":
-                    case "DEX_BACK":
-                        // Return to home screen - update with party view
-                        await openPartyView(interaction);
-                        break;
-                    case "HOME_STARTERS":
+                    // Small wiring for known commands to homestead flows
+                    if (interaction.commandName === "starter") {
                         if (interaction.guildId) {
                             // Trigger open starter selection flow (800+ Pokémon choices)
                             await openStartersHomestead(client, interaction.guildId, interaction.user);
-                            await interaction.reply({ content: "I sent your Starters to your homestead channel.", ephemeral: true });
+                            await replySuccess(interaction, "I sent your Starters to your homestead channel.");
                         }
                         else {
-                            await interaction.reply({ content: "This action must be used in a server.", ephemeral: true });
+                            await replyError(interaction, "This command must be used in a server.");
                         }
-                        break;
-                    default:
-                        if (id.startsWith(BOX_PAGE_PREFIX) && interaction.isButton()) {
-                            const rawPage = Number.parseInt(id.substring(BOX_PAGE_PREFIX.length), 10);
-                            const page = Number.isFinite(rawPage) && rawPage > 0 ? rawPage : 1;
-                            await openBoxView(interaction, { page, respond: "update" });
-                            break;
+                        return;
+                    }
+                    if (interaction.commandName === "heal") {
+                        await handleHeal(interaction);
+                        return;
+                    }
+                    if (interaction.commandName === "daily") {
+                        const sub = interaction.options?.getSubcommand?.(false);
+                        if (sub === "claim") {
+                            const { handleDailyClaim } = await import("./daily/claim.js");
+                            await handleDailyClaim(interaction, { prisma });
                         }
-                        // Bag button handlers: BAG_CAT_<category>, BAG_PAGE_<category>_<page>
-                        if (id.startsWith(BAG_CATEGORY_PREFIX) || id.startsWith(BAG_PAGE_PREFIX)) {
-                            await handleBagButton(interaction);
-                            break;
+                        else {
+                            await replyInfo(interaction, "Unknown daily subcommand. Try `/daily claim`.");
                         }
-                        // Shop button handlers: SHOP_CAT_<category>, SHOP_BUY_<item>, SHOP_BACK
-                        if (id.startsWith(SHOP_CATEGORY_PREFIX) || id.startsWith(SHOP_BUY_PREFIX) || id === "SHOP_BACK") {
-                            if (id === "SHOP_BACK" && interaction.guildId) {
-                                // Return to home screen
-                                await openPartyView(interaction);
-                            }
-                            else {
-                                const manager = new HomesteadChannelManager(interaction.client, interaction.guildId);
-                                await handleShopButton(interaction, manager);
-                            }
-                            break;
+                        return;
+                    }
+                    if (interaction.commandName === "walk") {
+                        await handleWalk(interaction);
+                        return;
+                    }
+                    if (interaction.commandName === "battle") {
+                        const sub = interaction.options?.getSubcommand?.(false);
+                        if (sub === "challenge") {
+                            await handleBattleChallengeCommand(interaction);
                         }
-                        // Pokédex button handlers: DEX_REGION_<region>, DEX_PAGE_<region>_<page>
-                        if (id.startsWith(DEX_REGION_PREFIX) || id.startsWith(DEX_PAGE_PREFIX)) {
-                            await handlePokedexButton(interaction);
-                            break;
+                        else {
+                            await replyInfo(interaction, "Unknown battle subcommand. Try `/battle challenge @trainer`.");
                         }
-                        // Party button handlers: PARTY_SLOT_<slot>, PARTY_SET_LEAD_<slot>, PARTY_BACK, PARTY_DETAIL_BACK
-                        if (id.startsWith(PARTY_SLOT_PREFIX) || id.startsWith(PARTY_SET_LEAD_PREFIX) || id === "PARTY_BACK" || id === "PARTY_DETAIL_BACK") {
-                            await handlePartyButton(interaction);
-                            break;
-                        }
-                        // Storage button handlers: STORAGE_MON_<id>, STORAGE_PAGE_<n>, STORAGE_TO_PARTY_<id>, STORAGE_BACK
-                        if (id.startsWith(STORAGE_MON_PREFIX) || id.startsWith(STORAGE_PAGE_PREFIX) || id.startsWith(STORAGE_TO_PARTY_PREFIX) || id === "STORAGE_BACK") {
-                            await handleStorageButton(interaction);
-                            break;
-                        } // Settings button handlers: SETTINGS_TOGGLE_<setting>
-                        if (id.startsWith(SETTINGS_TOGGLE_PREFIX)) {
-                            await handleSettingsButton(interaction);
-                            break;
-                        }
-                        // Daily button handlers: DAILY_CLAIM
-                        if (id === "DAILY_CLAIM") {
-                            await handleDailyButton(interaction);
-                            break;
-                        } // Legacy starter pick buttons: STARTER_PICK_<speciesId>
-                        // Note: New open starter selection uses message collector, not buttons
-                        // This handler is kept for backwards compatibility with any existing button messages
-                        if (id.startsWith("STARTER_PICK_")) {
-                            const sid = Number(id.substring("STARTER_PICK_".length));
-                            // Validate using starter-validation rules
-                            const { isForbiddenStarter } = await import("../core/starter-validation.js");
-                            if (isNaN(sid) || isForbiddenStarter(sid)) {
-                                await interaction.reply({ content: "That Pokémon can't be used as a starter.", ephemeral: true });
-                                return;
-                            }
-                            await handleStarterPick(interaction, sid);
-                        }
-                        // Encounter controls: ENCOUNTER_THROW_<id>, ENCOUNTER_RUN_<id>, ENCOUNTER_SWAP_<id>
-                        if (id.startsWith("ENCOUNTER_")) {
-                            await handleEncounterButton(interaction);
-                        }
-                        // Fishing controls: FISH_CAST, FISH_REEL_EARLY, FISH_REEL_BITE, FISH_TRY_AGAIN, FISH_BACK
-                        if (isFishingButton(id)) {
-                            await handleFishingButton(interaction);
-                        }
-                        // Trading controls: trade_accept, trade_decline, trade_select, trade_confirm, trade_cancel
-                        if (isTradeButton(id)) {
-                            await handleTradeButton(interaction);
-                        }
-                        // Leaderboard controls: LB_* buttons
-                        if (isLeaderboardButton(id)) {
-                            await handleLeaderboardButton(interaction);
-                        }
-                        // Achievement controls: ACH_* buttons
-                        if (isAchievementButton(id)) {
-                            await handleAchievementButton(interaction);
-                        }
-                        break;
-                }
-                return;
-            }
-            // Handle StringSelectMenu interactions (e.g., trade pokemon selection)
-            if (interaction.isStringSelectMenu()) {
-                const id = interaction.customId;
-                // Trade pokemon selection: trade_pokemon_select:<sessionId>
-                if (id.startsWith(TRADE_BUTTON_IDS.POKEMON_SELECT_MENU)) {
-                    await handlePokemonSelect(interaction);
+                        return;
+                    }
+                    if (interaction.commandName === "ops") {
+                        await handleOpsCommand(interaction);
+                        return;
+                    }
+                    await cmd.execute(interaction);
                     return;
                 }
-            }
-        }
-        catch (err) {
-            kernel.error('bot/index', `Interaction handler error: ${err?.message || String(err)}`, {}, err instanceof Error ? err : undefined);
-            if (interaction.isRepliable()) {
-                try {
-                    await safeReply(interaction, "Something went wrong.");
+                if (interaction.isButton()) {
+                    const id = interaction.customId;
+                    if (id.startsWith("BATTLE_ACCEPT_") || id.startsWith("BATTLE_DECLINE_")) {
+                        await handleBattleChallengeButton(interaction);
+                        return;
+                    }
+                    if (id.startsWith(MOVE_PREFIX) || id.startsWith(SWITCH_PREFIX) || id.startsWith(FORFEIT_PREFIX)) {
+                        await handleBattleActionButton(interaction);
+                        return;
+                    }
+                    switch (id) {
+                        case "HOME_HEAL":
+                            // Open heal screen per Game Design Bible § 6
+                            if (interaction.guildId) {
+                                await openHealScreen(interaction.client, interaction.guildId, interaction.user);
+                                await interaction.reply({ content: "💊 Opening Pokémon Center...", ephemeral: true });
+                            }
+                            else {
+                                await interaction.reply({ content: "This action must be used in a server.", ephemeral: true });
+                            }
+                            break;
+                        case "HEAL_CONFIRM":
+                            await handleHealConfirm(interaction);
+                            break;
+                        case "HEAL_CANCEL":
+                            await handleHealCancel(interaction);
+                            break;
+                        case "HOME_EXPLORE":
+                            // Open explore screen per Game Design Bible § 6
+                            if (interaction.guildId) {
+                                await openExploreScreen(interaction.client, interaction.guildId, interaction.user);
+                                await interaction.reply({ content: "🌲 Opening exploration options...", ephemeral: true });
+                            }
+                            else {
+                                await interaction.reply({ content: "This action must be used in a server.", ephemeral: true });
+                            }
+                            break;
+                        case "EXPLORE_WALK":
+                        case "EXPLORE_FISH":
+                        case "EXPLORE_BACK":
+                            await handleExploreButton(interaction);
+                            break;
+                        case "HOME_PARTY":
+                            // Open party screen per Game Design Bible § 6
+                            if (interaction.guildId) {
+                                await openPartyScreen(interaction.client, interaction.guildId, interaction.user);
+                                await interaction.reply({ content: "📋 Opening your party...", ephemeral: true });
+                            }
+                            else {
+                                await interaction.reply({ content: "This action must be used in a server.", ephemeral: true });
+                            }
+                            break;
+                        case "HOME_BOX":
+                            await openBoxView(interaction, { page: 1 });
+                            break;
+                        case "HOME_PROFILE":
+                            await openProfileView(interaction);
+                            break;
+                        case "HOME_BAG":
+                            // Open bag screen per Game Design Bible § 6
+                            if (interaction.guildId) {
+                                await openBagScreen(interaction.client, interaction.guildId, interaction.user);
+                                await interaction.reply({ content: "🎒 Opening your bag...", ephemeral: true });
+                            }
+                            else {
+                                await interaction.reply({ content: "This action must be used in a server.", ephemeral: true });
+                            }
+                            break;
+                        case "HOME_SHOP":
+                            // Open shop screen per Game Design Bible § 6
+                            if (interaction.guildId) {
+                                await openShopScreen(interaction.client, interaction.guildId, interaction.user);
+                                await interaction.reply({ content: "🛒 Opening the Poké Mart...", ephemeral: true });
+                            }
+                            else {
+                                await interaction.reply({ content: "This action must be used in a server.", ephemeral: true });
+                            }
+                            break;
+                        case "HOME_POKEDEX":
+                            // Open Pokédex screen per Game Design Bible § 6
+                            if (interaction.guildId) {
+                                await openPokedexScreen(interaction.client, interaction.guildId, interaction.user);
+                                await interaction.reply({ content: "📖 Opening your Pokédex...", ephemeral: true });
+                            }
+                            else {
+                                await interaction.reply({ content: "This action must be used in a server.", ephemeral: true });
+                            }
+                            break;
+                        case "HOME_STORAGE":
+                        case "STORAGE_HOME":
+                            // Open/return to storage screen per Game Design Bible § 6
+                            if (interaction.guildId) {
+                                await openStorageScreen(interaction.client, interaction.guildId, interaction.user);
+                                await interaction.reply({ content: "📦 Opening your storage...", ephemeral: true });
+                            }
+                            else {
+                                await interaction.reply({ content: "This action must be used in a server.", ephemeral: true });
+                            }
+                            break;
+                        case "HOME_SETTINGS":
+                        case "SETTINGS_BACK":
+                            // Open/return to settings screen per Game Design Bible § 6
+                            if (interaction.guildId) {
+                                await openSettingsScreen(interaction.client, interaction.guildId, interaction.user);
+                                await interaction.reply({ content: "⚙️ Opening settings...", ephemeral: true });
+                            }
+                            else {
+                                await interaction.reply({ content: "This action must be used in a server.", ephemeral: true });
+                            }
+                            break;
+                        case "HOME_DAILY":
+                        case "DAILY_BACK":
+                            // Open/return to daily rewards screen
+                            if (interaction.guildId) {
+                                await openDailyScreen(interaction.client, interaction.guildId, interaction.user);
+                                await interaction.reply({ content: "🎁 Opening daily rewards...", ephemeral: true });
+                            }
+                            else {
+                                await interaction.reply({ content: "This action must be used in a server.", ephemeral: true });
+                            }
+                            break;
+                        case "BAG_BACK":
+                        case "DEX_BACK":
+                            // Return to home screen - update with party view
+                            await openPartyView(interaction);
+                            break;
+                        case "HOME_STARTERS":
+                            if (interaction.guildId) {
+                                // Trigger open starter selection flow (800+ Pokémon choices)
+                                await openStartersHomestead(client, interaction.guildId, interaction.user);
+                                await interaction.reply({ content: "I sent your Starters to your homestead channel.", ephemeral: true });
+                            }
+                            else {
+                                await interaction.reply({ content: "This action must be used in a server.", ephemeral: true });
+                            }
+                            break;
+                        default:
+                            if (id.startsWith(BOX_PAGE_PREFIX) && interaction.isButton()) {
+                                const rawPage = Number.parseInt(id.substring(BOX_PAGE_PREFIX.length), 10);
+                                const page = Number.isFinite(rawPage) && rawPage > 0 ? rawPage : 1;
+                                await openBoxView(interaction, { page, respond: "update" });
+                                break;
+                            }
+                            // Bag button handlers: BAG_CAT_<category>, BAG_PAGE_<category>_<page>
+                            if (id.startsWith(BAG_CATEGORY_PREFIX) || id.startsWith(BAG_PAGE_PREFIX)) {
+                                await handleBagButton(interaction);
+                                break;
+                            }
+                            // Shop button handlers: SHOP_CAT_<category>, SHOP_BUY_<item>, SHOP_BACK
+                            if (id.startsWith(SHOP_CATEGORY_PREFIX) || id.startsWith(SHOP_BUY_PREFIX) || id === "SHOP_BACK") {
+                                if (id === "SHOP_BACK" && interaction.guildId) {
+                                    // Return to home screen
+                                    await openPartyView(interaction);
+                                }
+                                else {
+                                    const manager = new HomesteadChannelManager(interaction.client, interaction.guildId);
+                                    await handleShopButton(interaction, manager);
+                                }
+                                break;
+                            }
+                            // Pokédex button handlers: DEX_REGION_<region>, DEX_PAGE_<region>_<page>
+                            if (id.startsWith(DEX_REGION_PREFIX) || id.startsWith(DEX_PAGE_PREFIX)) {
+                                await handlePokedexButton(interaction);
+                                break;
+                            }
+                            // Party button handlers: PARTY_SLOT_<slot>, PARTY_SET_LEAD_<slot>, PARTY_BACK, PARTY_DETAIL_BACK
+                            if (id.startsWith(PARTY_SLOT_PREFIX) || id.startsWith(PARTY_SET_LEAD_PREFIX) || id === "PARTY_BACK" || id === "PARTY_DETAIL_BACK") {
+                                await handlePartyButton(interaction);
+                                break;
+                            }
+                            // Storage button handlers: STORAGE_MON_<id>, STORAGE_PAGE_<n>, STORAGE_TO_PARTY_<id>, STORAGE_BACK
+                            if (id.startsWith(STORAGE_MON_PREFIX) || id.startsWith(STORAGE_PAGE_PREFIX) || id.startsWith(STORAGE_TO_PARTY_PREFIX) || id === "STORAGE_BACK") {
+                                await handleStorageButton(interaction);
+                                break;
+                            } // Settings button handlers: SETTINGS_TOGGLE_<setting>
+                            if (id.startsWith(SETTINGS_TOGGLE_PREFIX)) {
+                                await handleSettingsButton(interaction);
+                                break;
+                            }
+                            // Daily button handlers: DAILY_CLAIM
+                            if (id === "DAILY_CLAIM") {
+                                await handleDailyButton(interaction);
+                                break;
+                            } // Legacy starter pick buttons: STARTER_PICK_<speciesId>
+                            // Note: New open starter selection uses message collector, not buttons
+                            // This handler is kept for backwards compatibility with any existing button messages
+                            if (id.startsWith("STARTER_PICK_")) {
+                                const sid = Number(id.substring("STARTER_PICK_".length));
+                                // Validate using starter-validation rules
+                                const { isForbiddenStarter } = await import("../core/starter-validation.js");
+                                if (isNaN(sid) || isForbiddenStarter(sid)) {
+                                    await interaction.reply({ content: "That Pokémon can't be used as a starter.", ephemeral: true });
+                                    return;
+                                }
+                                await handleStarterPick(interaction, sid);
+                            }
+                            // Encounter controls: ENCOUNTER_THROW_<id>, ENCOUNTER_RUN_<id>, ENCOUNTER_SWAP_<id>
+                            if (id.startsWith("ENCOUNTER_")) {
+                                await handleEncounterButton(interaction);
+                            }
+                            // Fishing controls: FISH_CAST, FISH_REEL_EARLY, FISH_REEL_BITE, FISH_TRY_AGAIN, FISH_BACK
+                            if (isFishingButton(id)) {
+                                await handleFishingButton(interaction);
+                            }
+                            // Trading controls: trade_accept, trade_decline, trade_select, trade_confirm, trade_cancel
+                            if (isTradeButton(id)) {
+                                await handleTradeButton(interaction);
+                            }
+                            // Leaderboard controls: LB_* buttons
+                            if (isLeaderboardButton(id)) {
+                                await handleLeaderboardButton(interaction);
+                            }
+                            // Achievement controls: ACH_* buttons
+                            if (isAchievementButton(id)) {
+                                await handleAchievementButton(interaction);
+                            }
+                            break;
+                    }
+                    return;
                 }
-                catch {
-                    // Ignore secondary reply errors; the primary failure is already logged.
+                // Handle StringSelectMenu interactions (e.g., trade pokemon selection)
+                if (interaction.isStringSelectMenu()) {
+                    const id = interaction.customId;
+                    // Trade pokemon selection: trade_pokemon_select:<sessionId>
+                    if (id.startsWith(TRADE_BUTTON_IDS.POKEMON_SELECT_MENU)) {
+                        await handlePokemonSelect(interaction);
+                        return;
+                    }
                 }
             }
-        }
+            catch (err) {
+                const correlationId = getCorrelationId();
+                appLog.error('bot/index', `Interaction handler error: ${err?.message || String(err)}`, { correlationId, stack: err instanceof Error ? err.stack : undefined });
+                if (interaction.isRepliable()) {
+                    try {
+                        await safeReply(interaction, "Something went wrong.");
+                    }
+                    catch {
+                        // Ignore secondary reply errors; the primary failure is already logged.
+                    }
+                }
+            }
+        } // end withDiscordTrace callback
+        ); // end withDiscordTrace
     });
     await Promise.all([client.login(token), readyPromise]);
     // MEMORY OPTIMIZATION (2025-11-17): Cache hygiene monitoring
@@ -441,11 +455,11 @@ export async function bootDiscord(opts = {}) {
             }, 0);
             // Only log if caches are growing beyond expected limits
             if (messageCount > 500 || memberCount > 500) {
-                kernel.warn('bot/index', `Discord cache above threshold: messages=${messageCount}, members=${memberCount}. Sweepers should be reducing this.`);
+                appLog.warn('bot/index', `Discord cache above threshold: messages=${messageCount}, members=${memberCount}. Sweepers should be reducing this.`);
             }
         }
         catch (err) {
-            kernel.warn('bot/index', `Cache monitor failed: ${err?.message || String(err)}`);
+            appLog.warn('bot/index', `Cache monitor failed: ${err?.message || String(err)}`);
         }
     }, 3600_000); // 1 hour
     // Cleanup on shutdown

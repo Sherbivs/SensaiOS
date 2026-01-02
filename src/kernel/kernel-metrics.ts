@@ -9,16 +9,37 @@
  * - Kernel internal metrics (logs, errors, phases)
  * - Observed application metrics (from hooks)
  * - Computed metrics (rates, trends, anomalies)
+ * - Infrastructure metrics (memory, CPU, disk, network)
  * 
  * Provides a unified view of the entire system health at any moment.
+ * 
+ * Metric Flow:
+ * ```
+ * [resource-monitor.ts] ──┐
+ * [prometheus-metrics.ts] ├──► [kernel-metrics.ts] ──► [kernel-observer.ts]
+ * [restart-metrics.ts] ───┘                                    │
+ *                                                              ▼
+ *                                                  [KernelStateExport]
+ * ```
  * 
  * @module kernel/metrics
  */
 
-import { getKernelUptime, getKernelLogStats } from './kernel-logger.js';
+import { kernel, getKernelUptime, getKernelLogStats } from './kernel-logger.js';
 import { getErrorStats, getPhase } from './kernel-error-detector.js';
 import { getMetrics as getObserverMetrics, getSystemHealth, getRegisteredSystems } from './kernel-observer.js';
-import type { LifecyclePhase, SystemHealth, SystemRegistration as _SystemRegistration } from './kernel-types.js';
+import type { 
+  LifecyclePhase, 
+  SystemHealth, 
+  SystemRegistration as _SystemRegistration,
+  MetricCategory,
+  MetricUnit,
+  MetricType,
+  MetricHook,
+  ResourceMetricObservation,
+  InfrastructureMetrics,
+  MetricDefinition,
+} from './kernel-types.js';
 
 // ============================================================================
 // TYPES
@@ -472,6 +493,7 @@ export function exportMetrics(): {
   anomalies: SystemAnomaly[];
   health: ReturnType<typeof getOverallHealth>;
   systems: SystemHealth[];
+  infrastructure: InfrastructureMetrics;
 } {
   return {
     dashboard: getDashboard(),
@@ -479,5 +501,531 @@ export function exportMetrics(): {
     anomalies: getAnomalies(),
     health: getOverallHealth(),
     systems: getSystemHealth(),
+    infrastructure: getInfrastructureMetrics(),
   };
 }
+
+// ============================================================================
+// INFRASTRUCTURE METRICS — Resource Tracking at Kernel Level
+// ============================================================================
+
+const MAX_METRIC_BUFFER = 500;           // Recent metric observations to keep
+const MAX_METRIC_DEFINITIONS = 200;      // Maximum registered metrics
+const _AGGREGATION_WINDOW_MS = 60_000;   // 1 minute aggregation window (reserved for future)
+
+// Infrastructure metric observation buffer (ring buffer)
+const infraMetricObservations: ResourceMetricObservation[] = [];
+
+// Registered metric definitions
+const metricDefinitions = new Map<string, MetricDefinition>();
+
+// Metric hooks (for real-time forwarding)
+const metricHooks: MetricHook[] = [];
+
+// Latest values by metric name (for quick access)
+const latestMetricValues = new Map<string, ResourceMetricObservation>();
+
+// Counters
+let totalInfraMetricObservations = 0;
+
+// Cached aggregation (updated periodically)
+let cachedInfrastructureMetrics: InfrastructureMetrics | null = null;
+let lastInfraAggregationTime = 0;
+
+/**
+ * Initialize the infrastructure metrics system
+ * Called automatically on module load
+ */
+function initializeInfrastructureMetrics(): void {
+  kernel.boot('metrics', 'Infrastructure Metrics initialized — resource tracking active');
+  registerCoreMetricDefinitions();
+}
+
+/**
+ * Register core infrastructure metric definitions
+ */
+function registerCoreMetricDefinitions(): void {
+  // Memory metrics
+  registerMetricDefinition({
+    name: 'memory_rss_bytes',
+    category: 'MEMORY',
+    type: 'gauge',
+    unit: 'bytes',
+    description: 'Resident Set Size (total memory allocated)',
+  });
+  
+  registerMetricDefinition({
+    name: 'memory_heap_used_bytes',
+    category: 'MEMORY',
+    type: 'gauge',
+    unit: 'bytes',
+    description: 'V8 heap used',
+  });
+  
+  registerMetricDefinition({
+    name: 'memory_heap_total_bytes',
+    category: 'MEMORY',
+    type: 'gauge',
+    unit: 'bytes',
+    description: 'V8 heap total',
+  });
+  
+  registerMetricDefinition({
+    name: 'memory_utilization_percent',
+    category: 'MEMORY',
+    type: 'gauge',
+    unit: 'percent',
+    description: 'Memory utilization percentage',
+  });
+  
+  // CPU metrics
+  registerMetricDefinition({
+    name: 'cpu_usage_percent',
+    category: 'CPU',
+    type: 'gauge',
+    unit: 'percent',
+    description: 'CPU utilization percentage',
+  });
+  
+  registerMetricDefinition({
+    name: 'event_loop_lag_ms',
+    category: 'CPU',
+    type: 'gauge',
+    unit: 'milliseconds',
+    description: 'Event loop lag',
+  });
+  
+  // Disk metrics
+  registerMetricDefinition({
+    name: 'disk_used_bytes',
+    category: 'DISK',
+    type: 'gauge',
+    unit: 'bytes',
+    description: 'Disk space used',
+  });
+  
+  registerMetricDefinition({
+    name: 'disk_utilization_percent',
+    category: 'DISK',
+    type: 'gauge',
+    unit: 'percent',
+    description: 'Disk utilization percentage',
+  });
+  
+  // Database metrics
+  registerMetricDefinition({
+    name: 'db_connections_active',
+    category: 'DATABASE',
+    type: 'gauge',
+    unit: 'count',
+    description: 'Active database connections',
+  });
+  
+  registerMetricDefinition({
+    name: 'db_query_duration_ms',
+    category: 'DATABASE',
+    type: 'histogram',
+    unit: 'milliseconds',
+    description: 'Database query duration',
+    labels: ['operation'],
+  });
+  
+  // Cache metrics
+  registerMetricDefinition({
+    name: 'cache_hit_rate',
+    category: 'CACHE',
+    type: 'gauge',
+    unit: 'ratio',
+    description: 'Cache hit rate (0-1)',
+  });
+  
+  registerMetricDefinition({
+    name: 'cache_size_bytes',
+    category: 'CACHE',
+    type: 'gauge',
+    unit: 'bytes',
+    description: 'Cache size in bytes',
+  });
+  
+  // Worker metrics
+  registerMetricDefinition({
+    name: 'worker_tasks_total',
+    category: 'WORKER',
+    type: 'counter',
+    unit: 'count',
+    description: 'Total worker tasks',
+    labels: ['worker', 'status'],
+  });
+  
+  registerMetricDefinition({
+    name: 'worker_task_duration_ms',
+    category: 'WORKER',
+    type: 'histogram',
+    unit: 'milliseconds',
+    description: 'Worker task duration',
+    labels: ['worker', 'task'],
+  });
+  
+  // Discord metrics
+  registerMetricDefinition({
+    name: 'discord_latency_ms',
+    category: 'DISCORD',
+    type: 'gauge',
+    unit: 'milliseconds',
+    description: 'Discord gateway latency',
+  });
+  
+  // System health
+  registerMetricDefinition({
+    name: 'system_health_score',
+    category: 'SYSTEM',
+    type: 'gauge',
+    unit: 'gauge',
+    description: 'Overall system health (0-100)',
+  });
+  
+  kernel.debug('metrics', `Registered ${metricDefinitions.size} core metric definitions`);
+}
+
+// ============================================================================
+// METRIC REGISTRATION
+// ============================================================================
+
+/**
+ * Register a new metric definition
+ */
+export function registerMetricDefinition(definition: MetricDefinition): void {
+  if (metricDefinitions.size >= MAX_METRIC_DEFINITIONS) {
+    kernel.warn('metrics', 'Maximum metric definitions reached, ignoring new registration', {
+      metric: definition.name,
+    });
+    return;
+  }
+  
+  metricDefinitions.set(definition.name, definition);
+}
+
+/**
+ * Get all registered metric definitions
+ */
+export function getMetricDefinitions(): MetricDefinition[] {
+  return Array.from(metricDefinitions.values());
+}
+
+// ============================================================================
+// METRIC OBSERVATION
+// ============================================================================
+
+/**
+ * Record a metric observation
+ * 
+ * Called by application monitors to report metrics to kernel.
+ * 
+ * @param observation - Partial observation (uptimeMs added automatically)
+ */
+export function observeInfraMetric(observation: Omit<ResourceMetricObservation, 'uptimeMs'>): void {
+  const fullObservation: ResourceMetricObservation = {
+    ...observation,
+    uptimeMs: getKernelUptime(),
+  };
+  
+  // Add to buffer (ring buffer behavior)
+  infraMetricObservations.push(fullObservation);
+  if (infraMetricObservations.length > MAX_METRIC_BUFFER) {
+    infraMetricObservations.shift();
+  }
+  
+  // Update latest value
+  latestMetricValues.set(observation.name, fullObservation);
+  
+  totalInfraMetricObservations++;
+  
+  // Forward to hooks
+  for (const hook of metricHooks) {
+    try {
+      hook(fullObservation);
+    } catch (error) {
+      kernel.error('metrics', 'Metric hook error', { error });
+    }
+  }
+  
+  // Invalidate cache
+  cachedInfrastructureMetrics = null;
+}
+
+/**
+ * Record multiple metrics at once (batch observation)
+ */
+export function observeInfraMetrics(observations: Omit<ResourceMetricObservation, 'uptimeMs'>[]): void {
+  for (const obs of observations) {
+    observeInfraMetric(obs);
+  }
+}
+
+// ============================================================================
+// METRIC HOOKS
+// ============================================================================
+
+/**
+ * Subscribe to metric observations
+ */
+export function onInfraMetric(hook: MetricHook): () => void {
+  metricHooks.push(hook);
+  return () => {
+    const index = metricHooks.indexOf(hook);
+    if (index !== -1) metricHooks.splice(index, 1);
+  };
+}
+
+// ============================================================================
+// METRIC QUERIES
+// ============================================================================
+
+/**
+ * Get recent infrastructure metric observations
+ */
+export function getRecentInfraMetrics(limit = 100): ResourceMetricObservation[] {
+  return infraMetricObservations.slice(-limit);
+}
+
+/**
+ * Get recent metrics by category
+ */
+export function getInfraMetricsByCategory(category: MetricCategory, limit = 50): ResourceMetricObservation[] {
+  return infraMetricObservations
+    .filter(m => m.category === category)
+    .slice(-limit);
+}
+
+/**
+ * Get latest value for a metric
+ */
+export function getLatestInfraMetric(name: string): ResourceMetricObservation | undefined {
+  return latestMetricValues.get(name);
+}
+
+/**
+ * Get all latest metric values
+ */
+export function getAllLatestInfraMetrics(): Map<string, ResourceMetricObservation> {
+  return new Map(latestMetricValues);
+}
+
+// ============================================================================
+// INFRASTRUCTURE AGGREGATION
+// ============================================================================
+
+/**
+ * Get aggregated infrastructure metrics
+ * 
+ * This provides a snapshot of all infrastructure metrics, aggregated and
+ * ready for display or export.
+ */
+export function getInfrastructureMetrics(): InfrastructureMetrics {
+  const now = getKernelUptime();
+  
+  // Return cached if recent (within 5 seconds)
+  if (cachedInfrastructureMetrics && now - lastInfraAggregationTime < 5000) {
+    return cachedInfrastructureMetrics;
+  }
+  
+  // Build aggregation from latest values
+  const metrics: InfrastructureMetrics = {
+    // Memory
+    memoryRssMB: getInfraMetricNumber('memory_rss_bytes', 0) / (1024 * 1024),
+    memoryHeapUsedMB: getInfraMetricNumber('memory_heap_used_bytes', 0) / (1024 * 1024),
+    memoryHeapTotalMB: getInfraMetricNumber('memory_heap_total_bytes', 0) / (1024 * 1024),
+    memoryExternalMB: getInfraMetricNumber('memory_external_bytes', 0) / (1024 * 1024),
+    memoryUtilizationPercent: getInfraMetricNumber('memory_utilization_percent', 0),
+    
+    // CPU
+    cpuUsagePercent: getInfraMetricNumber('cpu_usage_percent', 0),
+    eventLoopLagMs: getInfraMetricNumber('event_loop_lag_ms', 0),
+    
+    // Storage
+    diskUsedMB: getInfraMetricNumber('disk_used_bytes', 0) / (1024 * 1024),
+    diskFreeMB: getInfraMetricNumber('disk_free_bytes', 0) / (1024 * 1024),
+    diskUtilizationPercent: getInfraMetricNumber('disk_utilization_percent', 0),
+    
+    // Database
+    dbConnectionsActive: getInfraMetricNumber('db_connections_active', 0),
+    dbQueryLatencyMs: getInfraMetricNumber('db_query_duration_ms', 0),
+    dbQueryCount: getInfraMetricNumber('db_query_total', 0),
+    
+    // Cache
+    cacheHitRate: getInfraMetricNumber('cache_hit_rate', 0),
+    cacheSizeMB: getInfraMetricNumber('cache_size_bytes', 0) / (1024 * 1024),
+    cacheEntryCount: getInfraMetricNumber('cache_entries', 0),
+    
+    // Workers
+    workersActive: getInfraMetricNumber('workers_active', 0),
+    workersIdle: getInfraMetricNumber('workers_idle', 0),
+    workerTasksCompleted: getInfraMetricNumber('worker_tasks_completed', 0),
+    workerTasksFailed: getInfraMetricNumber('worker_tasks_failed', 0),
+    
+    // Discord
+    discordLatencyMs: getInfraMetricNumber('discord_latency_ms', 0),
+    discordGatewayStatus: getInfraMetricString('discord_gateway_status', 'UNKNOWN'),
+    
+    // Aggregated
+    healthScore: calculateInfraHealthScore(),
+    alertLevel: calculateInfraAlertLevel(),
+    lastUpdated: new Date(),
+  };
+  
+  // Cache the result
+  cachedInfrastructureMetrics = metrics;
+  lastInfraAggregationTime = now;
+  
+  return metrics;
+}
+
+/**
+ * Get a latest metric value as number
+ */
+function getInfraMetricNumber(name: string, defaultValue: number): number {
+  const metric = latestMetricValues.get(name);
+  return metric?.value ?? defaultValue;
+}
+
+/**
+ * Get a latest metric value from metadata as string
+ */
+function getInfraMetricString(name: string, defaultValue: string): string {
+  const metric = latestMetricValues.get(name);
+  return (metric?.metadata?.stringValue as string) ?? defaultValue;
+}
+
+/**
+ * Calculate overall system health score (0-100)
+ */
+function calculateInfraHealthScore(): number {
+  let score = 100;
+  
+  // Memory health (weight: 30)
+  const memUtil = getInfraMetricNumber('memory_utilization_percent', 0);
+  if (memUtil > 90) score -= 30;
+  else if (memUtil > 85) score -= 20;
+  else if (memUtil > 75) score -= 10;
+  else if (memUtil > 60) score -= 5;
+  
+  // CPU health (weight: 20)
+  const cpuUtil = getInfraMetricNumber('cpu_usage_percent', 0);
+  if (cpuUtil > 90) score -= 20;
+  else if (cpuUtil > 70) score -= 10;
+  else if (cpuUtil > 50) score -= 5;
+  
+  // Disk health (weight: 15)
+  const diskUtil = getInfraMetricNumber('disk_utilization_percent', 0);
+  if (diskUtil > 90) score -= 15;
+  else if (diskUtil > 75) score -= 8;
+  else if (diskUtil > 50) score -= 3;
+  
+  // Event loop lag (weight: 15)
+  const lag = getInfraMetricNumber('event_loop_lag_ms', 0);
+  if (lag > 1000) score -= 15;
+  else if (lag > 500) score -= 10;
+  else if (lag > 100) score -= 5;
+  
+  // Cache hit rate (weight: 10)
+  const hitRate = getInfraMetricNumber('cache_hit_rate', 1);
+  if (hitRate < 0.5) score -= 10;
+  else if (hitRate < 0.7) score -= 5;
+  
+  // Discord latency (weight: 10)
+  const discordLat = getInfraMetricNumber('discord_latency_ms', 0);
+  if (discordLat > 500) score -= 10;
+  else if (discordLat > 250) score -= 5;
+  
+  return Math.max(0, Math.min(100, score));
+}
+
+/**
+ * Calculate alert level based on current metrics
+ */
+function calculateInfraAlertLevel(): InfrastructureMetrics['alertLevel'] {
+  const memUtil = getInfraMetricNumber('memory_utilization_percent', 0);
+  const cpuUtil = getInfraMetricNumber('cpu_usage_percent', 0);
+  const diskUtil = getInfraMetricNumber('disk_utilization_percent', 0);
+  
+  // Emergency thresholds
+  if (memUtil > 90 || cpuUtil > 90 || diskUtil > 90) {
+    return 'EMERGENCY';
+  }
+  
+  // Critical thresholds
+  if (memUtil > 85 || cpuUtil > 70 || diskUtil > 75) {
+    return 'CRITICAL';
+  }
+  
+  // Warning thresholds
+  if (memUtil > 75 || cpuUtil > 50 || diskUtil > 50) {
+    return 'WARNING';
+  }
+  
+  return 'NORMAL';
+}
+
+// ============================================================================
+// INFRASTRUCTURE STATISTICS
+// ============================================================================
+
+/**
+ * Get infrastructure metric statistics
+ */
+export function getInfraMetricStats(): {
+  totalObservations: number;
+  uniqueMetrics: number;
+  metricsInBuffer: number;
+  definitionsRegistered: number;
+  categoryCounts: Record<MetricCategory, number>;
+} {
+  const categoryCounts: Record<MetricCategory, number> = {
+    MEMORY: 0,
+    CPU: 0,
+    DISK: 0,
+    NETWORK: 0,
+    DATABASE: 0,
+    CACHE: 0,
+    WORKER: 0,
+    DISCORD: 0,
+    GAME: 0,
+    SYSTEM: 0,
+  };
+  
+  for (const observation of infraMetricObservations) {
+    categoryCounts[observation.category]++;
+  }
+  
+  return {
+    totalObservations: totalInfraMetricObservations,
+    uniqueMetrics: latestMetricValues.size,
+    metricsInBuffer: infraMetricObservations.length,
+    definitionsRegistered: metricDefinitions.size,
+    categoryCounts,
+  };
+}
+
+// ============================================================================
+// SHUTDOWN
+// ============================================================================
+
+/**
+ * Shutdown the metrics system (clears hooks and buffers)
+ */
+export function shutdownMetrics(): void {
+  kernel.boot('metrics', 'Kernel Metrics shutting down');
+  
+  // Clear hooks
+  metricHooks.length = 0;
+  
+  // Clear buffers
+  infraMetricObservations.length = 0;
+  latestMetricValues.clear();
+}
+
+// ============================================================================
+// AUTO-INITIALIZE
+// ============================================================================
+
+initializeInfrastructureMetrics();

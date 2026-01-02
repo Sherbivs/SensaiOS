@@ -6,11 +6,14 @@
  * Converts ObservabilityEvent → LokiLogEntry and manages Loki-specific
  * infrastructure (queue, circuit breaker, workers).
  *
+ * This is an "installable service" in the Observability Layer, registered
+ * with the ObservabilityHub at startup.
+ *
  * @module observability/backends/loki/loki-backend
  * @since 2025-12-20
  */
 
-// KERNEL FIRST — Must be first import to monitor other system initialization
+// KERNEL DIRECT — Observability Layer is a peer to Application Layer
 import {
   createObservabilityHook,
   type ObservabilityHook,

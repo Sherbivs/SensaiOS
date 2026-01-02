@@ -43,19 +43,16 @@ src/sensaios/
 // Extend existing CorrelationContext pattern from kernel/correlation.ts
 // Use AsyncLocalStorage for scope propagation (matches existing pattern)
 
+// v1.1.2 Simplified TenantScope (see SENSAI-FINAL-ARCHITECTURE.md § 2.7)
 export interface TenantScope {
-  tenant: string;
-  environment: 'production' | 'staging' | 'development';
-  service: string;
-  component: string;
-  instance?: string;
-  region?: string;
+  tenantId: string;  // Bot instance: "prod", "staging", "dev"
+  guildId: string;   // Discord guild ID or "system"
 }
 
 // Factory functions
 export function scopeFromInteraction(interaction: Interaction): TenantScope;
-export function scopeFromGuild(guildId: string, component: string): TenantScope;
-export function systemScope(component: string): TenantScope;
+export function scopeFromGuild(guildId: string): TenantScope;
+export function systemScope(): TenantScope;
 
 // Context propagation (uses AsyncLocalStorage like kernel/correlation.ts)
 export function withScope<T>(scope: TenantScope, fn: () => T): T;

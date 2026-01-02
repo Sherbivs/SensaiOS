@@ -1,42 +1,81 @@
 # ROUTER
-Title: Observability Suite
-Purpose: Centralized observability infrastructure with pluggable backends
+Title: Observability Layer
+Purpose: Centralized observability infrastructure — parallel layer to Application Layer
 Owned Globs: src/observability/**
-Last Updated (UTC): 2025-12-20T00:00:00Z
+Last Updated (UTC): 2025-12-30T00:00:00Z
 
 Notes:
-- Observability Hub subscribes to Event Bus with '**' pattern
+- **ARCHITECTURE**: Observability Layer is a PEER to Application Layer (both import from kernel)
+- Observability Hub is the "service manager" where backends install themselves
+- Hub subscribes to Event Bus with '**' pattern for automatic event capture
 - Security Bot uses direct ingestion via hub.ingest() (bypasses Event Bus)
 - Loki backend is first implementation, more backends can be added
 - Complete isolation: Hub/backend failures never affect main application
+
+## Layer Architecture
+
+```
+                    KERNEL LAYER (Protected Core)
+           ┌───────────────────────────────────────────┐
+           │  kernel-hooks, correlation, boot-kernel,  │
+           │  kernel-observer, kernel-error-detector   │
+           └───────────────────────────────────────────┘
+                    ↑                      ↑
+          ┌─────────┴───────────┐ ┌────────┴────────────┐
+          │  APPLICATION LAYER  │ │  OBSERVABILITY LAYER│
+          │     (src/app/)      │ │  (src/observability)│
+          │                     │ │                     │
+          │ • Discord adapter   │ │ • Hub (services)    │
+          │ • Worker adapter    │ │ • Loki backend      │
+          │ • Infra adapter     │ │ • Envelope system   │
+          └─────────────────────┘ └─────────────────────┘
+                    ↑                      ↑
+                    └──────────┬───────────┘
+                               │
+           ┌───────────────────┴───────────────────────┐
+           │            APPLICATION SYSTEMS            │
+           │  bot/, workers/, shared/, services/       │
+           └───────────────────────────────────────────┘
+```
 
 ## Directory Structure
 
 ```
 src/observability/
-├── index.ts                      # Suite public API (start/stop/status)
+├── index.ts                      # Suite lifecycle (start/stop/status)
 ├── ROUTER.md                     # This file
 │
-├── hub/                          # Central Observability Hub
+├── layer/                        # LAYER ENTRY POINT (parallel to src/app/)
+│   ├── index.ts                  # Unified exports + kernel re-exports
+│   └── ROUTER.md                 # Layer documentation
+│
+├── hub/                          # Central Service Manager
 │   ├── index.ts                  # Hub exports
-│   ├── observability-hub.ts      # Hub implementation
-│   ├── observability-types.ts    # Core types
+│   ├── observability-hub.ts      # Hub implementation (backend installation)
+│   ├── observability-types.ts    # Core types (IObservabilityBackend)
 │   └── observability-config.ts   # Hub configuration
 │
-└── backends/                     # Pluggable backends
-    └── loki/                     # Loki/Grafana backend
-        ├── index.ts              # Loki exports
-        ├── loki-backend.ts       # IObservabilityBackend impl
-        ├── loki-types.ts         # Loki-specific types
-        ├── loki-config.ts        # Loki configuration
-        ├── loki-queue.ts         # Bounded queue with backpressure
-        ├── loki-circuit-breaker.ts # Hystrix-style circuit breaker
-        ├── loki-http-transport.ts  # HTTP client for Loki API
-        ├── loki-flush-worker.ts    # Queue drain worker (5s)
-        └── loki-health-worker.ts   # Health probe worker (60s)
+├── backends/                     # Installable Services (Backends)
+│   └── loki/                     # Loki/Grafana backend
+│       ├── index.ts              # Loki exports
+│       ├── loki-backend.ts       # IObservabilityBackend impl
+│       ├── loki-types.ts         # Loki-specific types
+│       ├── loki-config.ts        # Loki configuration
+│       ├── loki-queue.ts         # Bounded queue with backpressure
+│       ├── loki-circuit-breaker.ts # Hystrix-style circuit breaker
+│       ├── loki-http-transport.ts  # HTTP client for Loki API
+│       ├── loki-flush-worker.ts    # Queue drain worker (5s)
+│       └── loki-health-worker.ts   # Health probe worker (60s)
+│
+└── envelope/                     # Universal Event Format
+    ├── index.ts                  # Envelope exports
+    ├── types.ts                  # Envelope type definitions
+    ├── factory.ts                # Envelope creation helpers
+    ├── console.ts                # Safe scoped logging
+    └── serializer.ts             # JSON/JSONL serialization
 ```
 
-## Architecture
+## Data Flow
 
 ```
                     ┌─────────────────────┐
@@ -46,30 +85,32 @@ src/observability/
                                │ subscribe('**')
                                ▼
 ┌──────────────┐    ┌─────────────────────┐
-│ Security Bot │───▶│  Observability Hub  │
-│   (direct)   │    │    (src/observ...)  │
+│ Security Bot │───▶│  Observability Hub  │◀── register(backend)
+│   (direct)   │    │  (Service Manager)  │
 └──────────────┘    └──────────┬──────────┘
     ingest()                   │ fanOut()
                                ▼
                     ┌─────────────────────┐
-                    │   Loki Backend      │
-                    │  (backends/loki/)   │
-                    └──────────┬──────────┘
-                               │
-                               ▼
-                    ┌─────────────────────┐
-                    │   Local Loki        │
-                    │  (via ngrok tunnel) │
+                    │ Installed Backends  │
+                    │  • Loki             │
+                    │  • (Prometheus)     │
+                    │  • (Datadog)        │
                     └─────────────────────┘
 ```
 
 ## Key Components
 
+### Layer Entry Point (src/observability/layer/)
+
+| File | Purpose |
+|------|---------|
+| index.ts | Unified gateway — kernel re-exports + hub + backends + envelope |
+
 ### Hub (src/observability/hub/)
 
 | File | Lines | Purpose |
 |------|-------|---------|
-| observability-hub.ts | ~280 | Central hub with subscribe/ingest/fanOut |
+| observability-hub.ts | ~280 | Service manager with register/ingest/fanOut |
 | observability-types.ts | ~120 | ObservabilityEvent, IObservabilityBackend |
 | observability-config.ts | ~40 | OBSERVABILITY_HUB_ENABLED config |
 

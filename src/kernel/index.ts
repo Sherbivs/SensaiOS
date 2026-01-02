@@ -44,13 +44,47 @@ export {
   createWorkerHook,
   createCacheHook,
   createCustomHook,
+  createIntelligenceHook,
+  createObservabilityHook,
+  createInfrastructureHook,
   subscribeToLogs,
   subscribeToErrors,
   subscribeToServices,
   subscribeToEvents,
+  subscribeToMetrics,
   queryKernel,
   kernelLog,
 } from './kernel-hooks.js';
+
+// ─── Infrastructure Metrics (for resource tracking) ────────────────────────
+export {
+  getDashboard,
+  recordBootTime,
+  recordMetric,
+  getMetricTrend,
+  getAllTrends,
+  checkForAnomalies,
+  getAnomalies,
+  getActiveAnomalies,
+  clearAnomalies,
+  getOverallHealth,
+  exportMetrics,
+  registerMetricDefinition,
+  getMetricDefinitions,
+  observeInfraMetric,
+  observeInfraMetrics,
+  onInfraMetric,
+  getRecentInfraMetrics,
+  getInfraMetricsByCategory,
+  getLatestInfraMetric,
+  getAllLatestInfraMetrics,
+  getInfrastructureMetrics,
+  getInfraMetricStats,
+  shutdownMetrics,
+  type KernelDashboard,
+  type MetricTrend,
+  type SystemAnomaly,
+} from './kernel-metrics.js';
 
 // ─── Persistence (for data export and storage) ─────────────────────────────
 export {

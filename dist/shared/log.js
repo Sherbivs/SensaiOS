@@ -163,7 +163,7 @@ export function flushBufferedLogs(entries) {
     // Emit a summary header if multiple entries
     if (entries.length > 1) {
         const totalMessages = entries.reduce((sum, e) => sum + e.count, 0);
-        emitImmediate("info", `📦 Log buffer flush: ${entries.length} unique messages, ${totalMessages} total`);
+        emitImmediate("info", `[BUFFER] Log buffer flush: ${entries.length} unique messages, ${totalMessages} total`);
     }
     // Emit each buffered entry
     for (const entry of entries) {

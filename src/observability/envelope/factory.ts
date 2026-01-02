@@ -25,7 +25,7 @@
 
 import { randomUUID } from 'node:crypto';
 
-// USE existing kernel correlation — don't duplicate!
+// KERNEL DIRECT — Observability Layer is a peer to Application Layer
 import {
   getCurrentCorrelationId,
   getParentCorrelationId,

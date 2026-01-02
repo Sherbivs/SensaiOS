@@ -28,57 +28,60 @@ guidance_when_none: |
 auto_promote_if_empty: true
 
 # Main task queue (up to 3 concurrent tasks)
-# KERNEL-FIRST LOGGING INITIATIVE — Sprint 2: Output Plugin Architecture
-# Sprint 1 COMPLETE (2025-12-26): PREBOOT_QUEUE, TEST_UTILS, BOT_ENTRY all done
+# SENSAIOS RING SECURITY MODEL — Phase 1: Foundation (Weeks 1-2)
+# NEW PRIORITY INITIATIVE (2026-01-01): Transform SensaiOS into true OS with ring isolation
+# Design Doc: docs/projects/SensaiOS/architecture/06-os-security-model.md
 main_tasks:
-  - id: KERNEL.LOGGING.OUTPUT_PLUGINS
-    title: "Add output plugin system to Kernel"
+  - id: SENSAI.RING_SECURITY.SCHEMA
+    title: "Add ring security database schema"
     status: READY
-    effort: "3h"
-    sprint: "Sprint 2: Output Plugins"
+    effort: "4h"
+    phase: "Phase 1: Ring Security Foundation"
     files_hint:
-      - src/kernel/kernel-output-plugins.ts
-      - src/kernel/boot-kernel.ts
+      - prisma/schema.prisma
+      - src/sensaios/types.ts
+      - src/sensaios/component-context.ts
 
-  - id: KERNEL.LOGGING.PII_SCRUBBING
-    title: "Add PII scrubbing to Kernel output"
+  - id: SENSAI.RING_SECURITY.CAPABILITIES
+    title: "Implement capability assertion system"
+    status: READY
+    effort: "6h"
+    phase: "Phase 1: Ring Security Foundation"
+    depends_on: [SENSAI.RING_SECURITY.SCHEMA]
+    files_hint:
+      - src/kernel/primitives/db.ts
+      - src/kernel/primitives/exports.ts
+      - src/kernel/primitives/jobs.ts
+      - src/kernel/primitives/outbox.ts
+
+  - id: SENSAI.RING_SECURITY.ESLINT
+    title: "Add compile-time ring boundary enforcement"
     status: READY
     effort: "2h"
-    sprint: "Sprint 2: Output Plugins"
+    phase: "Phase 1: Ring Security Foundation"
     files_hint:
-      - src/kernel/pii-scrubber.ts
-      - src/kernel/kernel-logger.ts
-
-  - id: KERNEL.LOGGING.CORRELATION_IDS
-    title: "Add correlation ID tracking"
-    status: READY
-    effort: "2h"
-    sprint: "Sprint 2: Output Plugins"
-    files_hint:
-      - src/kernel/kernel-logger.ts
-      - src/kernel/correlation.ts
+      - eslint.config.js
 
 # Quick/hot task slot (1 concurrent quick task allowed)
+# PAUSED: Non-SensaiOS tasks deferred during Phase 1 implementation
 quick_task:
-  id: OBS.LOGGER.FIRST_IMPORTS
-  title: "Enforce logger-first imports in scripts"
-  status: DONE
-  effort: "20m"
-  files_hint:
-    - scripts/ops/bootstrap-onpremise-experiment.ts
-    - docs/ai-collaboration-guide.md
-    - Tasklist.md
-    - Prompt.md
+  id: null
+  title: "Quick task slot available"
+  status: PAUSED
+  effort: "—"
+  note: "Non-critical tasks paused while SensaiOS Ring Security Phase 1 is active"
+  files_hint: []
 
 # Legacy fields (maintained for backward compatibility)
-next_task_id: KERNEL.LOGGING.OUTPUT_PLUGINS
-reason: "Sprint 1 COMPLETE. Starting Sprint 2: Output Plugin Architecture"
+next_task_id: SENSAI.RING_SECURITY.SCHEMA
+reason: "ACTIVE PRIORITY: SensaiOS Ring Security Phase 1 — All 5 tasks READY with AI subagent checklists"
 files_hint:
-  - src/kernel/kernel-output-plugins.ts
-  - src/kernel/boot-kernel.ts
+  - prisma/schema.prisma
+  - src/sensaios/types.ts
+  - src/sensaios/component-context.ts
 
 queue: []
-timestamp_utc: 2025-12-28T12:46:37Z
+timestamp_utc: 2026-01-01T15:00:00Z
 router_version: 2
-last_notes_read_utc: 2025-12-28T12:46:37Z
-note: "Logger-first import order enforced for scripts; Sprint 2 output plugin tasks remain READY."
+last_notes_read_utc: 2026-01-01T15:00:00Z
+note: "Updated Tasklist.md with detailed AI subagent checklists for all 18 SensaiOS tasks; paused non-related tasks; Phase 1 Foundation (5 tasks) ready for execution."

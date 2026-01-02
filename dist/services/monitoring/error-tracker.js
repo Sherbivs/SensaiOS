@@ -12,9 +12,8 @@
  *
  * @module services/error-tracker
  */
-// KERNEL FIRST — Must be first import to monitor other system initialization
-import { createErrorTrackerHook } from '../../kernel/kernel-hooks.js';
-import { getCurrentCorrelationId } from '../../kernel/correlation.js';
+// APP LAYER FIRST — Isolated access to kernel through application layer
+import { createErrorTrackerHook, getCurrentCorrelationId } from '../../app/index.js';
 // LOGGER SECOND — Must be early import to capture initialization errors
 import { getLogger } from "../../shared/logging/index.js";
 const logger = getLogger();

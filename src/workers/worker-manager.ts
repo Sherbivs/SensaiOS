@@ -24,9 +24,9 @@
  * @module workers/worker-manager
  */
 
-// KERNEL FIRST — Must be first import to monitor other system initialization
-import type { WorkerHook } from '../kernel/kernel-hooks.js';
-import { createWorkerHook } from '../kernel/kernel-hooks.js';
+// APP LAYER FIRST — Isolated access to kernel through application layer
+import type { WorkerHook } from '../app/index.js';
+import { createWorkerHook } from '../app/index.js';
 
 // LOGGER SECOND — Must be early import to capture initialization errors
 import { getLogger, errorContext } from '../shared/logging/index.js';

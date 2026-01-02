@@ -10,7 +10,7 @@
  *
  * @module workers/database/base-worker
  */
-import { createDatabaseHook } from '../../kernel/kernel-hooks.js';
+import { createDatabaseHook } from '../../app/index.js';
 import { CircuitBreakerStrategy } from './strategies.js';
 // ============================================================================
 // KERNEL INTEGRATION (Lazy Hook Pattern)
