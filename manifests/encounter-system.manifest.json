@@ -1,0 +1,42 @@
+{
+  "id": "game.encounters",
+  "name": "Encounter System",
+  "version": "1.0.0",
+  "description": "Wild Pokémon encounter generation with seeded RNG",
+  "hosts": ["bot", "worker"],
+  "capabilities": {
+    "db": ["read", "write"],
+    "discord": ["read", "send"]
+  },
+  "owns": {
+    "canonical": ["encounters", "encounter_participants", "catch_attempts"],
+    "projections": ["encounter_stats", "spawn_rates"]
+  },
+  "dependencies": ["game.core", "discord.bot"],
+  "resources": {
+    "maxCacheMb": 30,
+    "maxQueueSize": 500,
+    "maxConcurrency": 10
+  },
+  "config": {
+    "baseEncounterRate": 0.3,
+    "rarityMultipliers": {
+      "common": 1.0,
+      "uncommon": 0.5,
+      "rare": 0.15,
+      "ultraRare": 0.05
+    },
+    "timeOfDayModifiers": {
+      "day": 1.0,
+      "night": 1.2
+    },
+    "weatherModifiers": {
+      "clear": 1.0,
+      "rain": 1.3,
+      "snow": 0.8
+    },
+    "maxEncounterLevel": 100,
+    "enableShinyPokemon": true,
+    "shinyRate": 0.001
+  }
+}

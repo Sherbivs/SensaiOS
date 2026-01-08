@@ -23,7 +23,8 @@ import {
   ButtonInteraction,
   User as DiscordUser,
 } from "discord.js";
-import { prisma } from "../../shared/prisma.js";
+import { getGameServer } from "../../sensaios/gameserver/singleton.js";
+import { StoredPokemon as ApiStoredPokemon } from "../../sensaios/gameserver/types.js";
 import { HomesteadChannelManager } from "../../services/homestead-manager.js";
 import { EMBED_COLORS } from "../shared/embed-colors.js";
 
@@ -31,6 +32,7 @@ import { EMBED_COLORS } from "../shared/embed-colors.js";
 // Types
 // ─────────────────────────────────────────────────────────────────────────────
 
+// UI-friendly version of StoredPokemon with field aliases
 interface StoredPokemon {
   id: string;
   speciesId: number;
@@ -42,6 +44,22 @@ interface StoredPokemon {
   isShiny: boolean;
   status: string | null;
   nature: string | null;
+}
+
+// Transform API StoredPokemon to UI StoredPokemon
+function toStoredPokemon(apiPokemon: ApiStoredPokemon): StoredPokemon {
+  return {
+    id: apiPokemon.pokemonId,
+    speciesId: apiPokemon.speciesId,
+    speciesName: apiPokemon.speciesName,
+    nickname: apiPokemon.nickname ?? null,
+    level: apiPokemon.level,
+    hp: apiPokemon.currentHp,
+    maxHp: apiPokemon.maxHp,
+    isShiny: apiPokemon.isShiny,
+    status: null, // API doesn't include status
+    nature: null, // API doesn't include nature
+  };
 }
 
 interface StorageData {
@@ -296,71 +314,32 @@ function buildDetailButtons(pokemonId: string, canAddToParty: boolean): ActionRo
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Load storage data for a user
+ * Load storage data for a user via GameServerAPI
  * Storage = all PokemonInstances owned by user that are NOT in a party slot
  */
 async function loadStorageData(discordId: string, page: number = 0): Promise<StorageData | null> {
-  const user = await prisma.user.findUnique({
-    where: { discordId },
-    include: {
-      parties: {
-        include: {
-          slots: {
-            select: { pokemonId: true },
-          },
-        },
-        take: 1,
-      },
-    },
-  });
-
-  if (!user) return null;
-
-  // Get IDs of Pokémon in party
-  const partyPokemonIds = new Set(
-    user.parties[0]?.slots.map(s => s.pokemonId) || []
-  );
-
-  // Count total stored Pokémon (not in party)
-  const totalCount = await prisma.pokemonInstance.count({
-    where: {
-      ownerId: user.id,
-      id: { notIn: Array.from(partyPokemonIds) },
-    },
-  });
-
+  const gameServer = getGameServer();
+  
+  // Get storage data from API
+  const storage = await gameServer.trainers.getStorage(discordId);
+  if (!storage) return null;
+  
+  // Get party count for display
+  const partyData = await gameServer.trainers.getDetailedParty(discordId);
+  const partyCount = partyData?.count ?? 0;
+  
+  // Apply client-side pagination
+  const totalCount = storage.totalCount;
   const totalPages = Math.max(1, Math.ceil(totalCount / POKEMON_PER_PAGE));
   const safePage = Math.max(0, Math.min(page, totalPages - 1));
-
-  // Fetch Pokémon for current page
-  const pokemonList = await prisma.pokemonInstance.findMany({
-    where: {
-      ownerId: user.id,
-      id: { notIn: Array.from(partyPokemonIds) },
-    },
-    include: {
-      species: true,
-    },
-    orderBy: [
-      { level: "desc" },
-      { createdAt: "desc" },
-    ],
-    skip: safePage * POKEMON_PER_PAGE,
-    take: POKEMON_PER_PAGE,
-  });
-
-  const pokemon: StoredPokemon[] = pokemonList.map(p => ({
-    id: p.id,
-    speciesId: p.speciesId,
-    speciesName: p.species?.name || null,
-    nickname: p.nickname,
-    level: p.level,
-    hp: p.hp,
-    maxHp: p.maxHp,
-    isShiny: p.isShiny,
-    status: p.status,
-    nature: p.nature,
-  }));
+  
+  // Slice the pokemon array for the current page
+  const startIndex = safePage * POKEMON_PER_PAGE;
+  const endIndex = startIndex + POKEMON_PER_PAGE;
+  const pagePokemons = storage.pokemon.slice(startIndex, endIndex);
+  
+  // Transform to UI format
+  const pokemon: StoredPokemon[] = pagePokemons.map(toStoredPokemon);
 
   return {
     username: discordId,
@@ -368,63 +347,32 @@ async function loadStorageData(discordId: string, page: number = 0): Promise<Sto
     totalCount,
     currentPage: safePage,
     totalPages,
-    partyCount: partyPokemonIds.size,
+    partyCount,
   };
 }
 
 /**
- * Load a specific Pokémon from storage
+ * Load a specific Pokémon from storage via GameServerAPI
  */
 async function loadStoredPokemon(pokemonId: string, discordId: string): Promise<StoredPokemon | null> {
-  const user = await prisma.user.findUnique({
-    where: { discordId },
-  });
-
-  if (!user) return null;
-
-  const pokemon = await prisma.pokemonInstance.findFirst({
-    where: {
-      id: pokemonId,
-      ownerId: user.id,
-    },
-    include: {
-      species: true,
-    },
-  });
-
-  if (!pokemon) return null;
-
-  return {
-    id: pokemon.id,
-    speciesId: pokemon.speciesId,
-    speciesName: pokemon.species?.name || null,
-    nickname: pokemon.nickname,
-    level: pokemon.level,
-    hp: pokemon.hp,
-    maxHp: pokemon.maxHp,
-    isShiny: pokemon.isShiny,
-    status: pokemon.status,
-    nature: pokemon.nature,
-  };
+  const gameServer = getGameServer();
+  const storage = await gameServer.trainers.getStorage(discordId);
+  
+  if (!storage) return null;
+  
+  const apiPokemon = storage.pokemon.find(p => p.pokemonId === pokemonId);
+  if (!apiPokemon) return null;
+  
+  return toStoredPokemon(apiPokemon);
 }
 
 /**
- * Get current party count for a user
+ * Get current party count for a user via GameServerAPI
  */
 async function getPartyCount(discordId: string): Promise<number> {
-  const user = await prisma.user.findUnique({
-    where: { discordId },
-    include: {
-      parties: {
-        include: {
-          slots: true,
-        },
-        take: 1,
-      },
-    },
-  });
-
-  return user?.parties[0]?.slots.length || 0;
+  const gameServer = getGameServer();
+  const partyData = await gameServer.trainers.getDetailedParty(discordId);
+  return partyData?.count ?? 0;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -518,121 +466,73 @@ async function handleViewPokemon(interaction: ButtonInteraction, pokemonId: stri
 }
 
 /**
- * Handle moving Pokémon to party
+ * Handle moving Pokémon to party via GameServerAPI
  */
 async function handleMoveToParty(interaction: ButtonInteraction, pokemonId: string): Promise<void> {
-  const user = await prisma.user.findUnique({
-    where: { discordId: interaction.user.id },
-    include: {
-      parties: {
-        include: {
-          slots: {
-            orderBy: { slot: "asc" },
-          },
-        },
-        take: 1,
-      },
-    },
-  });
-
-  if (!user) {
-    await interaction.reply({ content: "❌ User not found.", ephemeral: true });
-    return;
-  }
-
-  // Check the Pokémon exists and belongs to user
-  const pokemon = await prisma.pokemonInstance.findFirst({
-    where: {
-      id: pokemonId,
-      ownerId: user.id,
-    },
-    include: { species: true },
-  });
-
-  if (!pokemon) {
+  const gameServer = getGameServer();
+  
+  // First check if Pokemon exists in storage
+  const storedPokemon = await loadStoredPokemon(pokemonId, interaction.user.id);
+  if (!storedPokemon) {
     await interaction.reply({ 
       content: "❌ Could not find that Pokémon in your storage.", 
       ephemeral: true 
     });
     return;
   }
-
-  let party = user.parties[0];
-
-  // Create party if doesn't exist
-  if (!party) {
-    party = await prisma.party.create({
-      data: {
-        ownerId: user.id,
-        slots: {
-          create: {
-            slot: 0,
-            pokemonId: pokemonId,
-          },
-        },
-      },
-      include: {
-        slots: true,
-      },
-    });
-
-    await interaction.reply({
-      content: `✅ **${pokemon.nickname || pokemon.species?.name || "Pokémon"}** moved to party as your lead!`,
-      ephemeral: true,
-    });
-    return;
-  }
-
-  // Check party size
-  if (party.slots.length >= MAX_PARTY_SIZE) {
+  
+  // Check party count
+  const partyData = await gameServer.trainers.getDetailedParty(interaction.user.id);
+  if (partyData && partyData.count >= MAX_PARTY_SIZE) {
     await interaction.reply({
       content: "❌ Your party is full! Remove a Pokémon first.",
       ephemeral: true,
     });
     return;
   }
-
-  // Find first available slot
-  const usedSlots = new Set(party.slots.map(s => s.slot));
-  let nextSlot = 0;
-  for (let i = 0; i < MAX_PARTY_SIZE; i++) {
-    if (!usedSlots.has(i)) {
-      nextSlot = i;
-      break;
+  
+  // Move Pokemon to party via API
+  const result = await gameServer.trainers.movePokemon({
+    discordId: interaction.user.id,
+    pokemonId: pokemonId,
+    targetLocation: 'party',
+  });
+  
+  if (!result.success) {
+    // Handle specific error cases
+    if (result.error?.includes("full")) {
+      await interaction.reply({
+        content: "❌ Your party is full! Remove a Pokémon first.",
+        ephemeral: true,
+      });
+    } else if (result.error?.includes("already")) {
+      await interaction.reply({
+        content: "❌ That Pokémon is already in your party!",
+        ephemeral: true,
+      });
+    } else {
+      await interaction.reply({
+        content: result.error || "❌ Failed to move Pokémon.",
+        ephemeral: true,
+      });
     }
-  }
-
-  // Check if Pokémon is already in party
-  const alreadyInParty = party.slots.some(s => s.pokemonId === pokemonId);
-  if (alreadyInParty) {
-    await interaction.reply({
-      content: "❌ That Pokémon is already in your party!",
-      ephemeral: true,
-    });
     return;
   }
-
-  // Add to party
-  await prisma.partySlot.create({
-    data: {
-      partyId: party.id,
-      slot: nextSlot,
-      pokemonId: pokemonId,
-    },
-  });
+  
+  const pokemonName = storedPokemon.nickname || storedPokemon.speciesName || "Pokémon";
 
   // Return to storage view
   const data = await loadStorageData(interaction.user.id);
   if (!data) {
     await interaction.reply({
-      content: `✅ **${pokemon.nickname || pokemon.species?.name || "Pokémon"}** moved to party slot ${nextSlot + 1}!`,
+      content: `✅ **${pokemonName}** moved to party!`,
       ephemeral: true,
     });
     return;
   }
 
   const embed = buildStorageEmbed(data);
-  embed.setDescription(`✅ **${pokemon.nickname || pokemon.species?.name || "Pokémon"}** moved to party!\n\n` + embed.data.description);
+  embed.setDescription(`✅ **${pokemonName}** moved to party!\n\n` + embed.data.description);
   
   const pokemonButtons = buildPokemonButtons(data);
   const paginationRow = buildPaginationRow(data);

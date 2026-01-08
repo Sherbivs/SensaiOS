@@ -41,9 +41,9 @@ export async function attemptCatch(opts) {
         await invalidateEncounter(enc.id);
         return { ok: false, reason: "expired" };
     }
-    // Roll
+    // Roll - caller should provide deterministic roll from RNG context
     const p = catchChance(enc.level, ball);
-    const roll = Math.random();
+    const roll = opts.roll ?? 0.5; // Default to 50% if no roll provided (deterministic fallback)
     const success = roll < p;
     // Track attempts in dataJson
     const prev = enc.dataJson ?? {};

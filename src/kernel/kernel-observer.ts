@@ -22,8 +22,8 @@
  * @module kernel/observer
  */
 
-import { kernel, getKernelUptime } from './kernel-logger.js';
-import { captureError, getPhase } from './kernel-error-detector.js';
+import { kernel, getKernelUptime, getKernelLogStats } from './kernel-logger.js';
+import { captureError, getPhase, getErrorStats } from './kernel-error-detector.js';
 import type {
   SystemType,
   SystemRegistration,
@@ -420,11 +420,7 @@ export function getMetrics(): KernelMetrics {
     systemsByType[system.type]++;
   }
   
-  // Get kernel internal stats
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const { getKernelLogStats } = require('./kernel-logger.js');
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const { getErrorStats } = require('./kernel-error-detector.js');
+  // Get kernel internal stats (imported at top level)
   const logStats = getKernelLogStats();
   const errorStats = getErrorStats();
   
@@ -440,7 +436,7 @@ export function getMetrics(): KernelMetrics {
     totalServiceObservations,
     totalEventObservations,
     kernelLogEntries: logStats.totalEntries,
-    kernelErrorEntries: errorStats.totalCaptured,
+    kernelErrorEntries: errorStats.totalErrors,
     ringBufferUtilization: logStats.totalEntries / 10000, // Assuming 10k buffer
     observationsPerSecond,
     peakObservationsPerSecond,

@@ -29,12 +29,16 @@ const writePersistenceError = (message: string, error: unknown): void => {
 // ============================================================================
 
 export interface PersistenceConfig {
+  /** Enable/disable persistence entirely */
   enabled: boolean;
-  snapshotIntervalMs: number;    // How often to save snapshots (0 = disabled)
-  retentionDays: number;         // How long to keep old files
-  compressOldFiles: boolean;     // Compress files older than 1 day
-  maxSnapshotsPerDay: number;    // Limit snapshots per day
-  exportOnShutdown: boolean;     // Full export on graceful shutdown
+  /** How often to save periodic snapshots (0 = disabled) */
+  snapshotIntervalMs: number;
+  /** How long to keep old entries in database (days) */
+  retentionDays: number;
+  /** Maximum snapshots stored per day (prevents runaway) */
+  maxSnapshotsPerDay: number;
+  /** Whether to export full state on graceful shutdown */
+  exportOnShutdown: boolean;
 }
 
 export interface KernelSnapshot {
@@ -83,10 +87,17 @@ const DEFAULT_CONFIG: PersistenceConfig = {
   enabled: true,
   snapshotIntervalMs: 5 * 60 * 1000,  // Every 5 minutes
   retentionDays: 7,
-  compressOldFiles: false,  // TODO: Add compression support
   maxSnapshotsPerDay: 288,  // Every 5 min = 288 per day
   exportOnShutdown: true,
 };
+
+/** Maximum snapshots to keep in memory history */
+const MAX_SNAPSHOT_HISTORY = 100;
+
+/** Calculate expiration date based on retention config */
+function getExpirationDate(): Date {
+  return new Date(Date.now() + config.retentionDays * 24 * 60 * 60 * 1000);
+}
 
 // ============================================================================
 // STATE
@@ -142,6 +153,11 @@ export function initializePersistence(customConfig?: Partial<PersistenceConfig>)
 // SNAPSHOT SCHEDULER
 // ============================================================================
 
+/** Track consecutive failures for backoff */
+let consecutiveFailures = 0;
+const MAX_CONSECUTIVE_FAILURES = 3;
+const FAILURE_BACKOFF_MS = 30_000; // 30 seconds
+
 /**
  * Start the automatic snapshot scheduler
  */
@@ -150,10 +166,36 @@ function startSnapshotScheduler(): void {
     clearInterval(snapshotInterval);
   }
   
-  snapshotInterval = setInterval(() => {
-    saveSnapshot('PERIODIC').catch(error => {
-      kernel.error('persistence', `Periodic snapshot failed: ${error}`);
-    });
+  snapshotInterval = setInterval(async () => {
+    try {
+      // Check daily limit before attempting
+      const today = new Date().toDateString();
+      const todayCount = snapshotHistory.filter(
+        s => new Date(s.timestamp).toDateString() === today
+      ).length;
+      
+      if (todayCount >= config.maxSnapshotsPerDay) {
+        kernel.debug('persistence', 'Daily snapshot limit reached, skipping');
+        return;
+      }
+      
+      await saveSnapshot('PERIODIC');
+      consecutiveFailures = 0; // Reset on success
+    } catch (error) {
+      consecutiveFailures++;
+      kernel.error('persistence', `Periodic snapshot failed (${consecutiveFailures}/${MAX_CONSECUTIVE_FAILURES}): ${error}`);
+      
+      // Pause scheduler after too many consecutive failures
+      if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
+        kernel.warn('persistence', `Too many failures, pausing scheduler for ${FAILURE_BACKOFF_MS / 1000}s`);
+        stopSnapshotScheduler();
+        setTimeout(() => {
+          consecutiveFailures = 0;
+          startSnapshotScheduler();
+          kernel.info('persistence', 'Snapshot scheduler resumed after backoff');
+        }, FAILURE_BACKOFF_MS);
+      }
+    }
   }, config.snapshotIntervalMs);
   
   kernel.info('persistence', `Snapshot scheduler started (every ${config.snapshotIntervalMs / 1000}s)`);
@@ -228,7 +270,7 @@ export async function saveSnapshot(
           namespace: NAMESPACES.logs,
           value: logs as object,
           sizeBytes: JSON.stringify(logs).length,
-          expiresAt: new Date(Date.now() + config.retentionDays * 24 * 60 * 60 * 1000),
+          expiresAt: getExpirationDate(),
         },
       });
       snapshot.paths.logs = `db:${NAMESPACES.logs}/${id}-logs`;
@@ -246,7 +288,7 @@ export async function saveSnapshot(
           namespace: NAMESPACES.snapshots,
           value: errors as object,
           sizeBytes: JSON.stringify(errors).length,
-          expiresAt: new Date(Date.now() + config.retentionDays * 24 * 60 * 60 * 1000),
+          expiresAt: getExpirationDate(),
         },
       });
       snapshot.paths.errors = `db:${NAMESPACES.snapshots}/${id}-errors`;
@@ -263,7 +305,7 @@ export async function saveSnapshot(
           namespace: NAMESPACES.snapshots,
           value: state as object,
           sizeBytes: JSON.stringify(state).length,
-          expiresAt: new Date(Date.now() + config.retentionDays * 24 * 60 * 60 * 1000),
+          expiresAt: getExpirationDate(),
         },
       });
       snapshot.paths.state = `db:${NAMESPACES.snapshots}/${id}-state`;
@@ -277,7 +319,7 @@ export async function saveSnapshot(
           namespace: NAMESPACES.metrics,
           value: metrics as object,
           sizeBytes: JSON.stringify(metrics).length,
-          expiresAt: new Date(Date.now() + config.retentionDays * 24 * 60 * 60 * 1000),
+          expiresAt: getExpirationDate(),
         },
       });
       snapshot.paths.metrics = `db:${NAMESPACES.metrics}/${id}-metrics`;
@@ -288,8 +330,8 @@ export async function saveSnapshot(
     lastSnapshotTime = Date.now();
     snapshotHistory.push(snapshot);
     
-    // Keep history bounded
-    if (snapshotHistory.length > 100) {
+    // Keep history bounded (ring buffer behavior)
+    while (snapshotHistory.length > MAX_SNAPSHOT_HISTORY) {
       snapshotHistory.shift();
     }
     
@@ -538,10 +580,10 @@ export async function cleanupOldFiles(): Promise<{ deleted: number; errors: numb
 // ============================================================================
 
 /**
- * List available snapshots
+ * List available snapshots (most recent first)
  */
 export function listSnapshots(): KernelSnapshot[] {
-  return [...snapshotHistory];
+  return [...snapshotHistory].reverse();
 }
 
 /**
@@ -549,17 +591,27 @@ export function listSnapshots(): KernelSnapshot[] {
  */
 export function getPersistenceStats(): {
   enabled: boolean;
+  initialized: boolean;
   snapshotCount: number;
   lastSnapshotTime: string | null;
+  historySize: number;
+  maxHistorySize: number;
   registeredHooks: number;
+  schedulerActive: boolean;
+  consecutiveFailures: number;
   namespaces: typeof NAMESPACES;
   config: PersistenceConfig;
 } {
   return {
     enabled: config.enabled,
+    initialized,
     snapshotCount,
     lastSnapshotTime: lastSnapshotTime ? new Date(lastSnapshotTime).toISOString() : null,
+    historySize: snapshotHistory.length,
+    maxHistorySize: MAX_SNAPSHOT_HISTORY,
     registeredHooks: databaseHooks.length,
+    schedulerActive: snapshotInterval !== null,
+    consecutiveFailures,
     namespaces: NAMESPACES,
     config,
   };
@@ -595,14 +647,17 @@ export async function shutdownPersistence(): Promise<void> {
 
 /**
  * Create a Prisma database hook (primary persistence method)
- * @param _prisma - Prisma client instance (unused, uses global)
- * @param tableName - Namespace for kernel data
+ * 
+ * Creates a hook that exports kernel data to CacheEntry table.
+ * The global prisma client is used for all operations.
+ * 
+ * @param options - Configuration for the hook
+ * @returns DatabaseExportHook instance
  */
 export function createPrismaHook(
-  _prisma: unknown,
-  options?: { tableName?: string; enabled?: boolean }
+  options?: { namespace?: string; enabled?: boolean }
 ): DatabaseExportHook {
-  const namespace = options?.tableName ?? 'kernel-prisma';
+  const namespace = options?.namespace ?? 'kernel-prisma';
   
   return {
     name: `prisma-${namespace}`,

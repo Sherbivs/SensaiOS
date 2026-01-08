@@ -297,6 +297,3 @@ export type MetricsEventType =
   | 'error'
   | 'member_fetch_timeout'
   | 'restart';
-
-/** @deprecated Use MetricsEventType instead */
-export type MetricEventType = MetricsEventType;

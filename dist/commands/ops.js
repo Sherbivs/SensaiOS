@@ -21,6 +21,44 @@ const data = new SlashCommandBuilder()
     .setName('user')
     .setDescription('User to reset')
     .setRequired(true))))
+    // SensaiOS Ring Security dashboard commands
+    // Task: SENSAI.VISIBILITY.DASHBOARD
+    // Reference: docs/projects/SensaiOS/architecture/06-os-security-model.md
+    .addSubcommandGroup((grp) => grp
+    .setName('security')
+    .setDescription('SensaiOS Ring Security audit dashboard')
+    .addSubcommand((sub) => sub
+    .setName('capabilities')
+    .setDescription('List all granted capabilities')
+    .addStringOption((opt) => opt
+    .setName('component')
+    .setDescription('Filter by component name')
+    .setRequired(false))
+    .addBooleanOption((opt) => opt
+    .setName('expired')
+    .setDescription('Include expired/revoked capabilities')
+    .setRequired(false)))
+    .addSubcommand((sub) => sub
+    .setName('apps')
+    .setDescription('List installed apps with ring levels')
+    .addIntegerOption((opt) => opt
+    .setName('ring')
+    .setDescription('Filter by ring level (0=kernel, 1=sensaios, 3=apps)')
+    .setMinValue(0)
+    .setMaxValue(3)
+    .setRequired(false)))
+    .addSubcommand((sub) => sub
+    .setName('violations')
+    .setDescription('Show recent security violations')
+    .addIntegerOption((opt) => opt
+    .setName('limit')
+    .setDescription('Maximum violations to show (default: 10)')
+    .setMinValue(1)
+    .setMaxValue(50)
+    .setRequired(false)))
+    .addSubcommand((sub) => sub
+    .setName('export')
+    .setDescription('Export security audit report as JSON')))
     .addSubcommand((sub) => sub
     .setName('stats')
     .setDescription('Show basic usage stats')

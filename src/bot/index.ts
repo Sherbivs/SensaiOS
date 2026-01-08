@@ -20,6 +20,11 @@ import { Client, GatewayIntentBits, Partials, Interaction, Events, Options } fro
 // === Database ===
 import { prisma } from "../models/index.js";
 
+// === GameServer API ===
+// SensaiOS GameServerAPI singleton for Ring 3 app isolation
+// Provides controlled access to game systems with capability checking
+import { initializeGameServer } from "../sensaios/gameserver/singleton.js";
+
 // === Command Loader ===
 import { loadCommands, type CommandMap } from "../command-loader.js";
 import { handleBattleActionButton, MOVE_PREFIX, SWITCH_PREFIX, FORFEIT_PREFIX } from "./battle/actions.js";
@@ -103,6 +108,12 @@ export async function bootDiscord(opts: BotStartOptions = {}): Promise<Client> {
 			},
 		},
 	});
+
+	// GAMESERVER INITIALIZATION: Initialize GameServerAPI for Ring 3 app isolation
+	// This must happen before any interaction handlers use the API
+	// Provides controlled access to game systems with capability checking and rate limiting
+	await initializeGameServer(prisma);
+	appLog.info('bot/index', 'GameServerAPI initialized for Ring 3 app isolation');
 
 	// OPTIMIZATION: Lazy-load commands on first interaction (saves ~500-1000ms on startup)
 	// BEFORE: const commands = await loadCommands(); (blocking, loads 50+ command modules upfront)

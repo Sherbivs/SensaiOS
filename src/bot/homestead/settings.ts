@@ -20,7 +20,8 @@ import {
   ButtonInteraction,
   User as DiscordUser,
 } from "discord.js";
-import { prisma } from "../../shared/prisma.js";
+import { getGameServer } from "../../sensaios/gameserver/singleton.js";
+import { TrainerSettings, DEFAULT_TRAINER_SETTINGS } from "../../sensaios/gameserver/types.js";
 import { HomesteadChannelManager } from "../../services/homestead-manager.js";
 import { EMBED_COLORS } from "../shared/embed-colors.js";
 
@@ -28,20 +29,8 @@ import { EMBED_COLORS } from "../shared/embed-colors.js";
 // Types
 // ─────────────────────────────────────────────────────────────────────────────
 
-interface UserSettings {
-  // Notification preferences
-  battleNotifications: boolean;
-  encounterNotifications: boolean;
-  dailyReminder: boolean;
-  
-  // Display preferences
-  compactMode: boolean;
-  showShinySparkles: boolean;
-  
-  // Gameplay preferences
-  confirmCatch: boolean;
-  autoHeal: boolean;
-}
+// Use TrainerSettings from GameServerAPI types
+type UserSettings = TrainerSettings;
 
 interface SettingsData {
   username: string;
@@ -54,16 +43,8 @@ interface SettingsData {
 
 export const SETTINGS_TOGGLE_PREFIX = "SETTINGS_TOGGLE_";
 
-// Default settings for new users
-const DEFAULT_SETTINGS: UserSettings = {
-  battleNotifications: true,
-  encounterNotifications: true,
-  dailyReminder: true,
-  compactMode: false,
-  showShinySparkles: true,
-  confirmCatch: true,
-  autoHeal: false,
-};
+// Re-export default settings from GameServerAPI
+const DEFAULT_SETTINGS = DEFAULT_TRAINER_SETTINGS;
 
 // Setting metadata for display
 const SETTING_INFO: Record<keyof UserSettings, { label: string; emoji: string; description: string }> = {
@@ -218,71 +199,39 @@ function buildSettingsNavRow(): ActionRowBuilder<ButtonBuilder> {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Data Loading
+// Data Loading (via GameServerAPI)
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Load user settings from database
- * Uses User.settingsJson field to store preferences
+ * Load user settings via GameServerAPI
+ * Uses the trainers.getSettings() method which reads from User.settingsJson
  */
 async function loadSettings(discordId: string): Promise<SettingsData | null> {
-  const user = await prisma.user.findUnique({
-    where: { discordId },
-  });
+  const gameServer = getGameServer();
+  const result = await gameServer.trainers.getSettings(discordId);
 
-  if (!user) return null;
-
-  // Parse settings from database or use defaults
-  let settings: UserSettings = { ...DEFAULT_SETTINGS };
-  
-  if (user.settingsJson) {
-    // Parse the settings JSON from the user record
-    const stored = user.settingsJson as Record<string, boolean> | null;
-    if (stored) {
-      settings = {
-        battleNotifications: stored.battleNotifications ?? DEFAULT_SETTINGS.battleNotifications,
-        encounterNotifications: stored.encounterNotifications ?? DEFAULT_SETTINGS.encounterNotifications,
-        dailyReminder: stored.dailyReminder ?? DEFAULT_SETTINGS.dailyReminder,
-        compactMode: stored.compactMode ?? DEFAULT_SETTINGS.compactMode,
-        showShinySparkles: stored.showShinySparkles ?? DEFAULT_SETTINGS.showShinySparkles,
-        confirmCatch: stored.confirmCatch ?? DEFAULT_SETTINGS.confirmCatch,
-        autoHeal: stored.autoHeal ?? DEFAULT_SETTINGS.autoHeal,
-      };
-    }
+  if (!result.success || !result.settings) {
+    return null;
   }
 
   return {
     username: discordId,
-    settings,
+    settings: result.settings,
   };
 }
 
 /**
- * Save a single setting toggle
+ * Save a single setting toggle via GameServerAPI
  */
 async function saveSetting(discordId: string, key: keyof UserSettings, value: boolean): Promise<boolean> {
-  const user = await prisma.user.findUnique({
-    where: { discordId },
+  const gameServer = getGameServer();
+  const result = await gameServer.trainers.updateSettings({
+    discordId,
+    key,
+    value,
   });
 
-  if (!user) return false;
-
-  // Get current settings or use defaults
-  const currentSettings = (user.settingsJson as Record<string, boolean>) || {};
-  
-  const newSettings = {
-    ...DEFAULT_SETTINGS,
-    ...currentSettings,
-    [key]: value,
-  };
-
-  // Update user's settings JSON
-  await prisma.user.update({
-    where: { discordId },
-    data: { settingsJson: newSettings },
-  });
-
-  return true;
+  return result.success;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

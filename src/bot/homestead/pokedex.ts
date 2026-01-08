@@ -45,8 +45,11 @@ import { EMBED_COLORS } from "../shared/embed-colors.js";
 import { dangerButton, navButton } from "../shared/button-utils.js";
 import { safeReply } from "../shared/response-helpers.js";
 import { HomesteadChannelManager } from "../../services/homestead-manager.js";
-import { ensureUser } from "../../shared/models/user-queries-pg.js";
-import { prisma } from "../../shared/prisma.js";
+import { getGameServer } from "../../sensaios/gameserver/singleton.js";
+import { 
+  PokedexProgress as GameServerPokedexProgress,
+  RegionProgress as GameServerRegionProgress 
+} from "../../sensaios/gameserver/types.js";
 
 // ============================================================================
 // CONSTANTS
@@ -82,15 +85,8 @@ export interface PokedexEntry {
   isShiny?: boolean;
 }
 
-export interface RegionProgress {
-  regionId: string;
-  label: string;
-  emoji: string;
-  caught: number;
-  total: number;
-  percentage: number;
-  remaining: number;
-}
+// Re-export RegionProgress from API types for consistency
+export type RegionProgress = GameServerRegionProgress;
 
 export interface PokedexSnapshot {
   trainerId: string;
@@ -98,88 +94,48 @@ export interface PokedexSnapshot {
   totalSpecies: number;
   overallPercentage: number;
   regions: RegionProgress[];
-  entries: Map<number, PokedexEntry>;
+  /** Set of caught species IDs for quick lookup */
+  caughtSpeciesIds: Set<number>;
 }
 
 // ============================================================================
-// DATA FETCHING
+// DATA FETCHING (via GameServerAPI)
 // ============================================================================
 
 /**
- * Load player's Pokédex progress from database
+ * Load player's Pokédex progress via GameServerAPI
  */
 export async function loadPokedexSnapshot(discordId: string): Promise<PokedexSnapshot> {
-  // Ensure user exists
-  const user = await ensureUser(discordId);
-  
-  // Get trainer if exists
-  const trainer = await prisma.trainer.findFirst({
-    where: { userId: user.id },
-    select: { id: true },
-  });
+  const gameServer = getGameServer();
+  const progress = await gameServer.trainers.getPokedexProgress(discordId);
 
-  const entries = new Map<number, PokedexEntry>();
-  let totalCaught = 0;
-
-  if (trainer) {
-    // Get all caught Pokemon species (unique by speciesId)
-    const caughtPokemon = await prisma.pokemonInstance.findMany({
-      where: { ownerId: trainer.id },
-      select: {
-        speciesId: true,
-        isShiny: true,
-        createdAt: true, // Use createdAt as caught date
-      },
-      distinct: ["speciesId"],
-      orderBy: { speciesId: "asc" },
-    });
-
-    // Build entries map
-    for (const pokemon of caughtPokemon) {
-      entries.set(pokemon.speciesId, {
-        speciesId: pokemon.speciesId,
-        name: getSpeciesName(pokemon.speciesId),
-        caught: true,
-        caughtAt: pokemon.createdAt,
-        isShiny: pokemon.isShiny,
-      });
-    }
-
-    totalCaught = entries.size;
+  if (!progress) {
+    // Return empty progress for new users
+    return {
+      trainerId: "",
+      totalCaught: 0,
+      totalSpecies: 898, // Total species in dex
+      overallPercentage: 0,
+      regions: POKEDEX_REGIONS.map(region => ({
+        regionId: region.id,
+        label: region.label,
+        emoji: region.emoji,
+        caught: 0,
+        total: region.end - region.start + 1,
+        percentage: 0,
+        remaining: region.end - region.start + 1,
+      })),
+      caughtSpeciesIds: new Set(),
+    };
   }
 
-  // Calculate region progress
-  const regions: RegionProgress[] = POKEDEX_REGIONS.map(region => {
-    let caught = 0;
-    for (let i = region.start; i <= region.end; i++) {
-      if (entries.has(i)) caught++;
-    }
-    const total = region.end - region.start + 1;
-    const percentage = Math.round((caught / total) * 100);
-    
-    return {
-      regionId: region.id,
-      label: region.label,
-      emoji: region.emoji,
-      caught,
-      total,
-      percentage,
-      remaining: total - caught,
-    };
-  });
-
-  const totalSpecies = POKEDEX_REGIONS.reduce(
-    (sum, r) => sum + (r.end - r.start + 1),
-    0
-  );
-
   return {
-    trainerId: trainer?.id ?? "",
-    totalCaught,
-    totalSpecies,
-    overallPercentage: Math.round((totalCaught / totalSpecies) * 100),
-    regions,
-    entries,
+    trainerId: "", // Not exposed by API, but not used in this module
+    totalCaught: progress.totalCaught,
+    totalSpecies: progress.totalSpecies,
+    overallPercentage: progress.overallPercentage,
+    regions: progress.regions,
+    caughtSpeciesIds: progress.caughtSpeciesIds,
   };
 }
 
@@ -334,10 +290,10 @@ function buildRegionEmbed(
   // Build entry list
   const entryLines: string[] = [];
   for (let dexNum = startDex; dexNum <= endDex; dexNum++) {
-    const entry = snapshot.entries.get(dexNum);
-    if (entry?.caught) {
-      const shinyIcon = entry.isShiny ? "✨" : "";
-      entryLines.push(`✅ **#${dexNum}** ${entry.name} ${shinyIcon}`);
+    const isCaught = snapshot.caughtSpeciesIds.has(dexNum);
+    if (isCaught) {
+      const speciesName = getSpeciesName(dexNum);
+      entryLines.push(`✅ **#${dexNum}** ${speciesName}`);
     } else {
       entryLines.push(`❓ **#${dexNum}** ???`);
     }

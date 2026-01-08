@@ -35,47 +35,76 @@ Without tenant context:
 Every operation carries explicit tenant context:
 
 ```typescript
+/** TenantScope — Enhanced v1.1.2 (Updated 2026-01-05) */
 interface TenantScope {
   /**
-   * Bot instance identifier.
-   * Examples: "prod", "staging", "dev", "beta"
-   * Used for: Multi-instance deployments, A/B testing
+   * Tenant identifier
+   * - For Discord: guild ID (multi-tenant per guild)
+   * - For System: "system" or service name
+   * - For User: "user:{userId}" (homestead context)
+   * 
+   * Examples: "123456789012345678", "system", "user:563220840708177927"
    */
-  tenantId: string;
-  
+  tenant: string;
+
   /**
-   * Discord guild ID.
-   * Examples: "123456789012345678", "dm" (for direct messages)
-   * Used for: Guild-scoped queries, guild-specific config
+   * Deployment environment
+   * Controls routing and filtering of logs.
    */
-  guildId: string;
+  environment: 'production' | 'staging' | 'development';
+
+  /**
+   * Service name
+   * Which service is generating this data.
+   * 
+   * Examples: "infinity-gauntlet", "security-bot", "cache-worker"
+   */
+  service: string;
+
+  /**
+   * Component within the service
+   * More specific than service — the subsystem.
+   * 
+   * Examples: "battle-engine", "homestead", "database"
+   */
+  component: string;
+
+  /**
+   * Optional: Instance identifier
+   * For worker processes or multiple instances.
+   * 
+   * Examples: "worker-1", "srv-abc123"
+   */
+  instance?: string;
+
+  /**
+   * Optional: Region/zone
+   * For geographically distributed deployments.
+   * 
+   * Examples: "us-east-1", "virginia"
+   */
+  region?: string;
 }
 ```
 
 ### 2.3 Scope Extraction
 
-Extract scope from Discord interactions:
+Extract scope from Discord interactions using factory functions:
 
 ```typescript
-function extractScope(interaction: Interaction): TenantScope {
-  return {
-    tenantId: process.env.TENANT_ID ?? 'default',
-    guildId: interaction.guildId ?? 'dm',
-  };
-}
+import { scopeFromInteraction, scopeFromGuild, systemScope } from '../sensaios/tenant-scope.js';
 
-// For non-interaction contexts (jobs, exports)
-function extractScopeFromEnvelope(envelope: ExportEnvelope): TenantScope {
-  return envelope.scope;
-}
+// From Discord interaction (auto-extracts tenant, environment, service)
+const scope = scopeFromInteraction(interaction);
 
-// For CLI/admin contexts
-function createSystemScope(): TenantScope {
-  return {
-    tenantId: process.env.TENANT_ID ?? 'default',
-    guildId: 'system',
-  };
-}
+// From guild ID with component name
+const scope = scopeFromGuild(guildId, 'battle-engine');
+
+// For system/CLI operations
+const scope = systemScope('cli-tools');
+
+// For user-scoped operations (homestead)
+const scope = scopeFromUser(userId, 'homestead');
 ```
 
 ### 2.4 Scope in Envelopes

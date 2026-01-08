@@ -1,0 +1,65 @@
+name: security-tests
+
+on:
+  pull_request:
+    paths:
+      - "src/sensaios/**"
+      - "src/kernel/**"
+      - "tests/sensaios/**"
+      - ".github/workflows/security-tests.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "src/sensaios/**"
+      - "src/kernel/**"
+      - "tests/sensaios/**"
+      - ".github/workflows/security-tests.yml"
+
+jobs:
+  security-tests:
+    runs-on: ubuntu-latest
+    name: SensaiOS Ring Security Tests
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma client
+        run: npm run prebuild
+
+      - name: Build TypeScript
+        run: npm run build
+
+      - name: Run security test suite
+        run: |
+          echo "🔒 Running SensaiOS Ring Security Tests..."
+          npx vitest run tests/sensaios/security/ --reporter=verbose
+        env:
+          NODE_ENV: test
+
+      - name: Run all SensaiOS tests
+        run: |
+          echo "🧪 Running full SensaiOS test suite..."
+          npx vitest run tests/sensaios/ --reporter=verbose
+        env:
+          NODE_ENV: test
+
+      - name: Validate test count
+        run: |
+          echo "📊 Validating security test coverage..."
+          SECURITY_TESTS=$(npx vitest run tests/sensaios/security/ --reporter=json 2>/dev/null | jq -r '.numTotalTests // 0')
+          echo "Security tests found: $SECURITY_TESTS"
+          if [ "$SECURITY_TESTS" -lt 100 ]; then
+            echo "❌ FAIL: Security test suite must have at least 100 tests"
+            echo "   Found: $SECURITY_TESTS tests"
+            exit 1
+          fi
+          echo "✅ Security test suite meets 100+ test requirement"

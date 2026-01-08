@@ -60,18 +60,14 @@ export default [
     },
     settings: {
       'import/resolver': {
-        typescript: {
-          project: ['tsconfig.json', 'tsconfig.build.json'],
-          alwaysTryTypes: true
-        },
         node: {
           extensions: ['.js', '.ts', '.mjs', '.cjs'],
         },
       },
     },
   },
-  // === 3-LAYER ARCHITECTURE ENFORCEMENT (OS Architect Recommendation) ===
-  // Kernel Layer: CANNOT import from SensaiOS or Application layers
+  // === RING SECURITY MODEL ENFORCEMENT (Sensai OS v1.1.2) ===
+  // Ring 0 (Kernel): src/kernel/** — CANNOT import from any upper rings
   {
     files: ['src/kernel/**/*.ts'],
     plugins: { import: importPlugin },
@@ -81,35 +77,77 @@ export default [
           {
             target: './src/kernel',
             from: './src/sensaios',
-            message: '🚫 Kernel CANNOT import from SensaiOS layer. Kernel is the substrate - it must have zero dependencies on upper layers.'
+            message: '🚫 Ring 0 (Kernel) CANNOT import from Ring 1 (SensaiOS). Kernel is the substrate - it must have zero dependencies on upper rings.'
           },
           {
             target: './src/kernel',
             from: './src/app',
-            message: '🚫 Kernel CANNOT import from Application layer. Kernel must remain app-agnostic.'
+            message: '🚫 Ring 0 (Kernel) CANNOT import from Ring 3 (Apps). Kernel must remain app-agnostic.'
           },
           {
             target: './src/kernel',
             from: './src/observability',
-            message: '🚫 Kernel CANNOT import from Observability layer. Observability must not block correctness.'
+            message: '🚫 Ring 0 (Kernel) CANNOT import from Ring 3 (Apps). Kernel must remain app-agnostic.'
           },
           {
             target: './src/kernel',
             from: './src/bot',
-            message: '🚫 Kernel CANNOT import from Bot layer. Kernel must remain app-agnostic.'
+            message: '🚫 Ring 0 (Kernel) CANNOT import from Ring 3 (Apps). Kernel must remain app-agnostic.'
+          },
+          {
+            target: './src/kernel',
+            from: './src/core',
+            message: '🚫 Ring 0 (Kernel) CANNOT import from Ring 3 (Apps). Kernel must remain app-agnostic.'
           },
           {
             target: './src/kernel',
             from: './src/services',
-            message: '🚫 Kernel CANNOT import from Services layer. Keep kernel primitive and dependency-free.'
+            message: '🚫 Ring 0 (Kernel) CANNOT import from Ring 3 (Apps). Keep kernel primitive and dependency-free.'
           }
         ]
       }]
     }
   },
-  // Application/User-space Layer: CANNOT import Kernel directly (must go through SensaiOS)
+  // Ring 1 (SensaiOS): src/sensaios/** — CANNOT import from Ring 3 (Apps)
   {
-    files: ['src/app/**/*.ts', 'src/observability/**/*.ts', 'src/bot/**/*.ts'],
+    files: ['src/sensaios/**/*.ts'],
+    plugins: { import: importPlugin },
+    rules: {
+      'import/no-restricted-paths': ['error', {
+        zones: [
+          {
+            target: './src/sensaios',
+            from: './src/bot',
+            message: '🚫 Ring 1 (SensaiOS) CANNOT import from Ring 3 (Apps/Bot). SensaiOS is the OS layer - apps sit above it.'
+          },
+          {
+            target: './src/sensaios',
+            from: './src/core',
+            message: '🚫 Ring 1 (SensaiOS) CANNOT import from Ring 3 (Apps/Core). SensaiOS is the OS layer - apps sit above it.'
+          },
+          {
+            target: './src/sensaios',
+            from: './src/services',
+            message: '🚫 Ring 1 (SensaiOS) CANNOT import from Ring 3 (Apps/Services). SensaiOS is the OS layer - apps sit above it.'
+          },
+          {
+            target: './src/sensaios',
+            from: './src/app',
+            message: '🚫 Ring 1 (SensaiOS) CANNOT import from Ring 3 (Apps). SensaiOS is the OS layer - apps sit above it.'
+          },
+          {
+            target: './src/sensaios',
+            from: './src/observability',
+            message: '🚫 Ring 1 (SensaiOS) CANNOT import from Ring 3 (Apps/Observability). SensaiOS is the OS layer - apps sit above it.'
+          }
+        ]
+      }]
+    }
+  },
+  // Ring 3 (Apps): src/bot/**, src/core/**, src/services/** — CANNOT import from Ring 0 (Kernel) or Ring 1 (SensaiOS) directly
+  // Apps MUST use ComponentContext provided by SensaiOS, not raw kernel primitives
+  {
+    files: ['src/app/**/*.ts', 'src/observability/**/*.ts', 'src/bot/**/*.ts', 'src/core/**/*.ts', 'src/services/**/*.ts'],
     plugins: { import: importPlugin },
     rules: {
       'import/no-restricted-paths': ['error', {
@@ -117,17 +155,52 @@ export default [
           {
             target: './src/app',
             from: './src/kernel',
-            message: '🚫 Application MUST use SensaiOS adapters, not Kernel directly. Import from @sensai/* instead.'
+            message: '🚫 Ring 3 (Apps) MUST use ComponentContext from SensaiOS, not Ring 0 (Kernel) directly. Import via ComponentContext interface.'
+          },
+          {
+            target: './src/app',
+            from: './src/sensaios',
+            message: '🚫 Ring 3 (Apps) MUST use ComponentContext interface, not Ring 1 (SensaiOS) internals directly. Use ctx.db, ctx.exports, etc.'
           },
           {
             target: './src/observability',
             from: './src/kernel',
-            message: '🚫 Observability MUST use SensaiOS adapters, not Kernel directly. Import from @sensai/* instead.'
+            message: '🚫 Ring 3 (Apps) MUST use ComponentContext from SensaiOS, not Ring 0 (Kernel) directly. Import via ComponentContext interface.'
+          },
+          {
+            target: './src/observability',
+            from: './src/sensaios',
+            message: '🚫 Ring 3 (Apps) MUST use ComponentContext interface, not Ring 1 (SensaiOS) internals directly. Use ctx.obs, ctx.exports, etc.'
           },
           {
             target: './src/bot',
             from: './src/kernel',
-            message: '🚫 Bot layer MUST use SensaiOS adapters, not Kernel directly. Use ComponentContext from SensaiOS.'
+            message: '🚫 Ring 3 (Apps/Bot) MUST use ComponentContext from SensaiOS, not Ring 0 (Kernel) directly. Use ctx provided to handlers.'
+          },
+          {
+            target: './src/bot',
+            from: './src/sensaios',
+            message: '🚫 Ring 3 (Apps/Bot) MUST use ComponentContext interface, not Ring 1 (SensaiOS) internals directly. Use ctx.db, ctx.exports, etc.'
+          },
+          {
+            target: './src/core',
+            from: './src/kernel',
+            message: '🚫 Ring 3 (Apps/Core) MUST use ComponentContext from SensaiOS, not Ring 0 (Kernel) directly. Use ctx provided to handlers.'
+          },
+          {
+            target: './src/core',
+            from: './src/sensaios',
+            message: '🚫 Ring 3 (Apps/Core) MUST use ComponentContext interface, not Ring 1 (SensaiOS) internals directly. Use ctx.db, ctx.exports, etc.'
+          },
+          {
+            target: './src/services',
+            from: './src/kernel',
+            message: '🚫 Ring 3 (Apps/Services) MUST use ComponentContext from SensaiOS, not Ring 0 (Kernel) directly. Use ctx provided to handlers.'
+          },
+          {
+            target: './src/services',
+            from: './src/sensaios',
+            message: '🚫 Ring 3 (Apps/Services) MUST use ComponentContext interface, not Ring 1 (SensaiOS) internals directly. Use ctx.db, ctx.exports, etc.'
           }
         ]
       }]

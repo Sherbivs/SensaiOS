@@ -20,11 +20,10 @@ import {
   ButtonInteraction,
   User as DiscordUser,
 } from "discord.js";
-import { prisma } from "../../shared/prisma.js";
+import { getGameServer } from "../../sensaios/gameserver/singleton.js";
 import { HomesteadChannelManager } from "../../services/homestead-manager.js";
 import { EMBED_COLORS } from "../shared/embed-colors.js";
 import { claimDailyQuestReward } from "../../services/cache/recipes.js";
-import { evaluateDailyQuestStreak } from "../../models/index.js";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -224,52 +223,22 @@ function buildDailyButtons(canClaim: boolean): ActionRowBuilder<ButtonBuilder>[]
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Load daily rewards data for a user
+ * Load daily rewards data for a user via GameServerAPI
  */
 async function loadDailyData(discordId: string): Promise<DailyData | null> {
-  const user = await prisma.user.findUnique({
-    where: { discordId },
-    select: {
-      discordId: true,
-      coins: true,
-      dailyQuestStreak: true,
-      dailyQuestLastCompleted: true,
-      dailyQuestLastReset: true,
-    },
-  });
-
-  if (!user) return null;
-
-  // Evaluate streak state
-  const now = new Date();
-  const questState = evaluateDailyQuestStreak({
-    streak: user.dailyQuestStreak,
-    lastCompleted: user.dailyQuestLastCompleted,
-    lastReset: user.dailyQuestLastReset,
-    now,
-  });
-
-  // Check if can claim (24 hours since last claim)
-  let canClaim = true;
-  let nextClaimAt: Date | null = null;
+  const gameServer = getGameServer();
   
-  if (user.dailyQuestLastCompleted) {
-    const lastClaim = new Date(user.dailyQuestLastCompleted);
-    const nextClaim = new Date(lastClaim.getTime() + 24 * 60 * 60 * 1000);
-    
-    if (now < nextClaim) {
-      canClaim = false;
-      nextClaimAt = nextClaim;
-    }
-  }
-
+  // GameServerAPI accepts plain strings and handles them internally
+  const data = await gameServer.trainers.getDailyData(discordId);
+  if (!data) return null;
+  
   return {
     username: discordId,
-    streak: questState.streak,
-    canClaim,
-    nextClaimAt,
-    coins: user.coins ?? 0,
-    lastClaimed: user.dailyQuestLastCompleted,
+    streak: data.streak,
+    canClaim: data.canClaim,
+    nextClaimAt: data.nextClaimAt,
+    coins: data.coins,
+    lastClaimed: data.lastClaimed,
   };
 }
 
@@ -313,10 +282,9 @@ async function handleDailyClaim(interaction: ButtonInteraction): Promise<void> {
   const discordId = interaction.user.id;
   
   try {
-    // Attempt to claim
+    // Attempt to claim (service layer uses its own prisma instance)
     const result = await claimDailyQuestReward({
       discordId,
-      prisma,
       rewardCoins: BASE_REWARD,
       now: new Date(),
     });

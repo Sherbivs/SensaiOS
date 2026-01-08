@@ -1,8 +1,8 @@
 # ROUTER
 Title: Error Monitoring & Resource Management Services
-Purpose: Error tracking, pattern learning, resource monitoring (RAM + Disk), resource lifecycle management with centralized observability.
+Purpose: Error tracking, pattern learning, resource monitoring (RAM + Disk), resource lifecycle management, crash-resilient database operations with centralized observability.
 Owned Globs: src/services/monitoring/**
-Last Updated (UTC): 2025-12-19T02:00:00Z
+Last Updated (UTC): 2025-01-04T19:00:00Z
 
 ## Architecture Overview
 
@@ -19,31 +19,33 @@ Last Updated (UTC): 2025-12-19T02:00:00Z
 │  Single-import access to all services   │
 └──────────────┬──────────────────────────┘
                │
-      ┌────────┴────────┐
-      ▼                 ▼
-┌──────────┐      ┌──────────┐
-│ TRACKING │      │MANAGEMENT│
-│  LAYER   │      │  LAYER   │
-└─────┬────┘      └────┬─────┘
-      │                │
-      │ reads from     │ uses
-      ▼                ▼
-┌──────────┐      ┌──────────┐
-│ANALYTICS │      │MONITORING│
-│  LAYER   │      │  LAYER   │
-└──────────┘      └──────────┘
+      ┌────────┴────────┬────────────────┐
+      ▼                 ▼                ▼
+┌──────────┐      ┌──────────┐    ┌────────────┐
+│ TRACKING │      │MANAGEMENT│    │ RESILIENCE │
+│  LAYER   │      │  LAYER   │    │   LAYER    │
+└─────┬────┘      └────┬─────┘    └──────┬─────┘
+      │                │                 │
+      │ reads from     │ uses            │ provides
+      ▼                ▼                 ▼
+┌──────────┐      ┌──────────┐    ┌────────────┐
+│ANALYTICS │      │MONITORING│    │CRASH-SAFE  │
+│  LAYER   │      │  LAYER   │    │  WRITES    │
+└──────────┘      └──────────┘    └────────────┘
 ```
 
 **Service Dependencies:**
 - `resource-manager.ts` ← Foundation (no dependencies)
 - `resource-monitor.ts` ← Uses resource-manager
-- `error-tracker.ts` ← Uses resource-manager (optional)
+- `resilient-write-buffer.ts` ← Uses prisma (crash-safe database operations)
+- `error-tracker.ts` ← Uses resource-manager (optional), resilient-write-buffer
 - `error-learning.ts` ← Reads from error-tracker's database, uses shared/prisma.js and shared/logging
 - `monitoring-utils.ts` ← Shared by all (performance-optimized helpers)
 
 Notes:
+- **NEW: `resilient-write-buffer.ts` (550 lines)** — Crash-resilient database write operations. Provides at-least-once delivery guarantees even with sudden power loss. Features: in-memory write buffer with sequence numbers, checkpoint persistence to database, automatic recovery on startup, idempotent write deduplication, periodic flush timer (5s), retry logic with exponential backoff. APIs: `initializeWriteBuffer()`, `shutdownWriteBuffer()`, `queueWrite()`, `executeResilientWrite()`, `registerWriteExecutor()`, `flushBuffer()`, `getBufferStats()`, `cleanupWriteBuffer()`. Used by error-tracker.ts for AI reports, code context, and emergency logs.
 - **NEW: `monitoring-utils.ts` (350 lines)** — Performance-optimized shared utilities: ID generation with cache (10x faster), fingerprint generation with LRU cache (90% hit rate), memory/format utilities (delegates to `shared/utils/format-utils.ts` for formatBytes, formatTimestamp to eliminate duplication), statistical functions (percentile, average, stddev), threshold checking (fast-path optimization), deduplication/grouping, rate limiting. All hot paths optimized for <1ms overhead.
-- `error-tracker.ts` (1231 lines) — Core error tracking service: creates/updates ErrorLog entries in PostgreSQL, generates fingerprints using monitoring-utils (cached SHA-256), tracks occurrence counts, recovery attempts, learning metadata. Integrates with Event Bus for correlation tracking. **Phase 2D APIs:** getHotspots(), getErrorCallChain(), getErrorsByFile(), getFunctionErrorStats() for future `/ops` tooling. **Performance:** Uses cached fingerprinting for 10x faster duplicate detection.
+- `error-tracker.ts` (1588 lines) — Core error tracking service: creates/updates ErrorLog entries in PostgreSQL, generates fingerprints using monitoring-utils (cached SHA-256), tracks occurrence counts, recovery attempts, learning metadata. Integrates with Event Bus for correlation tracking. **Crash Resilience (2025-01-04):** Uses resilient-write-buffer for AI reports, code context persistence, and emergency logs. Provides `initialize()` and `shutdown()` methods for proper lifecycle management. **Phase 2D APIs:** getHotspots(), getErrorCallChain(), getErrorsByFile(), getFunctionErrorStats() for future `/ops` tooling. **Performance:** Uses cached fingerprinting for 10x faster duplicate detection.
 - `error-learning.ts` (1614 lines) — Pattern learning from error history: analyzes recent errors, identifies frequent patterns (time-of-day, correlations, cascades), suggests recovery strategies, updates knowledge base. **Phase 2A/2B/2C Integration:** Uses ErrorResolution, ErrorDependency, ErrorKnowledge tables for persistent learning. Consumed by error-learning-worker.ts for hourly analysis.
 - `resource-monitor.ts` (1700 lines) — **HIGH-LEVEL** resource monitoring + memory guardian + disk monitoring + EventBus metrics emission:
   - **Health Checks:** Runs periodic health checks (12h default)
@@ -52,7 +54,7 @@ Notes:
   - **EventBus Metrics (Phase 2, P4):** Emits `metrics.snapshot` event every 15 seconds for downstream consumers (Prometheus, historical storage). Features graceful degradation (degradedMode) after 3 consecutive failures, auto-recovery on success. Exports `MetricsSnapshotEvent` type. Exposes getDegradedStatus() API, setMetricsEmitEnabled(), forceRecoverFromDegradedMode().
   - **Performance:** Uses monitoring-utils for threshold checks and metric calculations.
 - `resource-manager.ts` (1080 lines) — **LOW-LEVEL** resource lifecycle management: tracks timers (interval/timeout), event listeners, database connections, disk caches, disk buffers, disk logs. Enforces per-owner limits (timers: 20, listeners: 30, connections: 10). Provides centralized cleanup on process exit. **Performance:** Uses monitoring-utils cached ID generation (<1ms registration overhead, 10x faster than before).
-- `index.ts` (70 lines) — Barrel exports with comprehensive type exports. Provides single-import access: `import { resourceManager, resourceMonitor, errorTracker, monitoring-utils } from './monitoring'`.
+- `index.ts` (85 lines) — Barrel exports with comprehensive type exports. Provides single-import access: `import { resourceManager, resourceMonitor, errorTracker, initializeWriteBuffer } from './monitoring'`.
 - Integration: Bot layer uses barrel exports (`from '../../services/monitoring'`). Admin commands expose monitoring stats via `/ops` command suite.
 
 ## Performance Improvements (2025-11-16)
@@ -72,6 +74,7 @@ Notes:
 - Memory footprint: -18% (shared utility code + deduplicated formatters)
 - Build time: -5% (smaller files, faster incremental compilation)
 - Code duplication: -3 functions (formatBytes, formatTimestamp eliminated)
+- **NEW (2025-01-04):** Crash resilience — Database writes survive sudden power loss via WAL-style buffer
 
 Linked Routers:
 - src/bot/ops/admin.ts — Admin commands display monitoring stats, error summaries, resource usage, Prometheus status.
@@ -83,10 +86,11 @@ Linked Routers:
 - tests/shared/error-tracker-mocks.ts — Centralized test mock factory (8 functions, 200+ lines).
 
 Areas:
+- `resilient-write-buffer.ts` — **NEW (2025-01-04)** Crash-resilient database write operations providing at-least-once delivery guarantees. Features: in-memory write buffer with monotonic sequence numbers, checkpoint persistence to CacheEntry table (namespace: `resilient-write-buffer`), automatic recovery on startup (replays uncommitted writes), idempotent write deduplication via idempotency keys, periodic flush timer (5s interval), retry logic with exponential backoff (3 attempts, 1s base delay, 2x factor). Buffer limits: 1000 pending writes max, 24h completed marker expiry, 7 day pending write expiry. APIs: `initializeWriteBuffer()`, `shutdownWriteBuffer()`, `queueWrite()`, `executeResilientWrite()`, `registerWriteExecutor()`, `flushBuffer()`, `getBufferStats()`, `cleanupWriteBuffer()`. Integrated into error-tracker.ts for AI reports, code context, and emergency logs.
 - `monitoring-utils.ts` — **NEW** Performance-optimized shared utilities: generateResourceId (cached), generateFingerprint (LRU cache), formatTimestamp (reuses Date formatter), formatBytes (cached common sizes), statistical functions (calculateAverage, calculateStdDev, calculatePercentile), threshold checking (fast-path), deduplication/grouping helpers, RateLimiter class. Used by all monitoring services for consistent, fast operations.
-- `error-tracker.ts` — Core error tracking: ErrorLog CRUD operations, fingerprint generation (uses monitoring-utils cached fingerprinting), occurrence counting, recovery tracking, learning metadata management. Used by 14+ files across bot layer, core engines, workers. **Performance:** 10x faster duplicate detection via cached fingerprints.
+- `error-tracker.ts` — Core error tracking: ErrorLog CRUD operations, fingerprint generation (uses monitoring-utils cached fingerprinting), occurrence counting, recovery tracking, learning metadata management. Used by 14+ files across bot layer, core engines, workers. **Performance:** 10x faster duplicate detection via cached fingerprints. **Crash Resilience (2025-01-04):** Uses resilient-write-buffer for AI reports, code context persistence, and emergency logs. Provides `initialize()` and `shutdown()` lifecycle methods with 4 registered write executors.
 - `error-learning.ts` — Pattern learning: analyzes error history, identifies frequent patterns (by category, severity, fingerprint), suggests recovery strategies based on success rates, updates knowledge base. Uses monitoring-utils for statistical analysis. Consulted by error-recovery service.
 - `resource-monitor.ts` — **HIGH-LEVEL** resource monitoring: Runs twice daily health checks + 30s memory guardian polling. Calls resource-manager.getStats() for data. Analyzes memory pressure (4 levels), triggers cache pruning, forces GC when needed. Integrates with logger for live dashboard. **NOT** responsible for resource tracking (that's resource-manager's job). Uses monitoring-utils for threshold checks and metric calculations.
 - `resource-manager.ts` — **LOW-LEVEL** resource lifecycle management: Registers/unregisters all resource types (timers, listeners, connections, disk resources). Maintains ownership tracking per service. Enforces limits automatically. Provides getStats() for monitor. **NOT** responsible for health monitoring (that's resource-monitor's job). Uses monitoring-utils for fast ID generation (10x performance boost).
-- `index.ts` — Barrel export: Clean single-import interface. Exports all services + types + utilities. Example: `import { resourceManager, resourceMonitor, errorTracker, generateResourceId, checkThreshold } from './monitoring'`.
+- `index.ts` — Barrel export: Clean single-import interface. Exports all services + types + utilities. Example: `import { resourceManager, resourceMonitor, errorTracker, initializeWriteBuffer, queueWrite } from './monitoring'`.
 

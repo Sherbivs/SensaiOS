@@ -64,6 +64,9 @@ import { getPrometheusStatus } from '../../services/prometheus-metrics.js';
 // Alert Dispatcher (Phase 1, P2)
 import { alertDispatcher, type AlertLevel } from '../../services/alert-dispatcher.js';
 
+// SensaiOS Ring Security (Task: SENSAI.VISIBILITY.DASHBOARD)
+import { prisma } from '../../shared/prisma.js';
+
 // Import state persistence modules (optional - bot/state may be in JS)
 let stateModules: any = null;
 async function getStateModules() {
@@ -1069,6 +1072,387 @@ export async function handleOpsCommand(
       await interaction.editReply(
         `Deleted ${count} cooldown entr${count === 1 ? "y" : "ies"} for <@${user.id}>.`
       );
+    }
+    return;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // SensaiOS Ring Security: /ops security [subcommand] — Security audit dashboard
+  // Task: SENSAI.VISIBILITY.DASHBOARD
+  // Reference: docs/projects/SensaiOS/architecture/06-os-security-model.md
+  // Subcommands:
+  //   capabilities  — List all granted capabilities
+  //   apps          — List installed apps with ring levels
+  //   violations    — Show recent security violations
+  //   export        — Export security audit report as JSON
+  // ═══════════════════════════════════════════════════════════════════════════
+  if (group === "security") {
+    await interaction.deferReply({ ephemeral: true });
+
+    try {
+      // ─────────────────────────────────────────────────────────────────────
+      // /ops security capabilities — List all granted capabilities
+      // ─────────────────────────────────────────────────────────────────────
+      if (sub === "capabilities") {
+        const componentFilter = interaction.options?.getString?.("component");
+        const includeExpired = interaction.options?.getBoolean?.("expired") ?? false;
+
+        const now = new Date();
+        const whereClause: any = {};
+        
+        if (componentFilter) {
+          whereClause.component = componentFilter;
+        }
+        
+        if (!includeExpired) {
+          whereClause.revokedAt = null;
+          whereClause.OR = [
+            { expiresAt: null },
+            { expiresAt: { gt: now } },
+          ];
+        }
+
+        const capabilities = await prisma.componentCapability.findMany({
+          where: whereClause,
+          orderBy: [
+            { component: 'asc' },
+            { type: 'asc' },
+          ],
+          take: 50, // Limit to prevent huge messages
+        });
+
+        if (capabilities.length === 0) {
+          await interaction.editReply({
+            content: "🔐 **SensaiOS Security — Capabilities**\n\n" +
+              "No capabilities found" +
+              (componentFilter ? ` for component \`${componentFilter}\`` : "") +
+              (includeExpired ? " (including expired/revoked)" : "") +
+              ".\n\n" +
+              "*Use `/ops security apps` to see installed applications.*",
+          });
+          return;
+        }
+
+        // Group capabilities by component
+        const byComponent = new Map<string, typeof capabilities>();
+        for (const cap of capabilities) {
+          const list = byComponent.get(cap.component) || [];
+          list.push(cap);
+          byComponent.set(cap.component, list);
+        }
+
+        const lines: string[] = [];
+        lines.push("🔐 **SensaiOS Security — Capabilities**");
+        lines.push(`Generated: ${toEasternString(new Date())}`);
+        if (componentFilter) lines.push(`Filter: \`${componentFilter}\``);
+        if (includeExpired) lines.push("*Including expired/revoked*");
+        lines.push("");
+
+        for (const [component, caps] of byComponent) {
+          lines.push(`**${component}**`);
+          for (const cap of caps) {
+            let status = "✅";
+            if (cap.revokedAt) status = "❌ revoked";
+            else if (cap.expiresAt && cap.expiresAt < now) status = "⏰ expired";
+            else if (cap.expiresAt) status = `⏳ expires ${formatTimeSince(cap.expiresAt)}`;
+            
+            lines.push(`  • \`${cap.type}\` ${status}`);
+            if (cap.reason) lines.push(`    └─ ${cap.reason}`);
+          }
+          lines.push("");
+        }
+
+        lines.push(`*Showing ${capabilities.length} capabilities*`);
+
+        const message = lines.join("\n");
+        await interaction.editReply({ 
+          content: message.length > 2000 ? message.substring(0, 1997) + "..." : message 
+        });
+        return;
+      }
+
+      // ─────────────────────────────────────────────────────────────────────
+      // /ops security apps — List installed apps with ring levels
+      // ─────────────────────────────────────────────────────────────────────
+      if (sub === "apps") {
+        const ringFilter = interaction.options?.getInteger?.("ring");
+
+        const whereClause: any = {};
+        if (ringFilter !== null && ringFilter !== undefined) {
+          whereClause.ringLevel = ringFilter;
+        }
+
+        const apps = await prisma.installedApp.findMany({
+          where: whereClause,
+          orderBy: [
+            { ringLevel: 'asc' },
+            { name: 'asc' },
+          ],
+        });
+
+        if (apps.length === 0) {
+          await interaction.editReply({
+            content: "🔐 **SensaiOS Security — Installed Apps**\n\n" +
+              "No installed apps found" +
+              (ringFilter !== null && ringFilter !== undefined ? ` at ring level ${ringFilter}` : "") +
+              ".\n\n" +
+              "*Apps are registered in `installed_apps` table via component installation.*",
+          });
+          return;
+        }
+
+        // Group by ring level
+        const byRing = new Map<number, typeof apps>();
+        for (const app of apps) {
+          const list = byRing.get(app.ringLevel) || [];
+          list.push(app);
+          byRing.set(app.ringLevel, list);
+        }
+
+        const ringLabels: Record<number, string> = {
+          0: "🔴 Ring 0 (Kernel)",
+          1: "🟠 Ring 1 (SensaiOS)",
+          3: "🟢 Ring 3 (Apps)",
+        };
+
+        const lines: string[] = [];
+        lines.push("🔐 **SensaiOS Security — Installed Apps**");
+        lines.push(`Generated: ${toEasternString(new Date())}`);
+        if (ringFilter !== null && ringFilter !== undefined) {
+          lines.push(`Filter: Ring ${ringFilter}`);
+        }
+        lines.push("");
+
+        // ASCII ring diagram
+        lines.push("```");
+        lines.push("┌───────────────────────────────────────────────┐");
+        lines.push("│           SensaiOS Ring Security              │");
+        lines.push("├───────────────────────────────────────────────┤");
+        lines.push("│  ┌─────────────────────────────────────────┐  │");
+        lines.push(`│  │  Ring 0 (Kernel): ${(byRing.get(0) || []).length} apps               │  │`);
+        lines.push("│  │  ┌─────────────────────────────────┐    │  │");
+        lines.push(`│  │  │  Ring 1 (SensaiOS): ${(byRing.get(1) || []).length} apps     │    │  │`);
+        lines.push("│  │  │  ┌─────────────────────────┐    │    │  │");
+        lines.push(`│  │  │  │  Ring 3 (Apps): ${(byRing.get(3) || []).length} apps  │    │    │  │`);
+        lines.push("│  │  │  └─────────────────────────┘    │    │  │");
+        lines.push("│  │  └─────────────────────────────────┘    │  │");
+        lines.push("│  └─────────────────────────────────────────┘  │");
+        lines.push("└───────────────────────────────────────────────┘");
+        lines.push("```");
+        lines.push("");
+
+        // Sort rings in order: 0, 1, 3
+        const sortedRings = Array.from(byRing.keys()).sort((a, b) => a - b);
+        for (const ring of sortedRings) {
+          const ringApps = byRing.get(ring) || [];
+          lines.push(ringLabels[ring] || `Ring ${ring}`);
+          for (const app of ringApps) {
+            const statusIcon = app.status === "enabled" ? "✅" : 
+                               app.status === "disabled" ? "⏸️" : "❌";
+            lines.push(`  ${statusIcon} **${app.name}** (v${app.version})`);
+            lines.push(`    └─ ID: \`${app.id}\` | Installed: ${formatTimeSince(app.installedAt)}`);
+          }
+          lines.push("");
+        }
+
+        lines.push(`*Total: ${apps.length} installed apps*`);
+
+        const message = lines.join("\n");
+        await interaction.editReply({ 
+          content: message.length > 2000 ? message.substring(0, 1997) + "..." : message 
+        });
+        return;
+      }
+
+      // ─────────────────────────────────────────────────────────────────────
+      // /ops security violations — Show recent security violations
+      // ─────────────────────────────────────────────────────────────────────
+      if (sub === "violations") {
+        const limit = interaction.options?.getInteger?.("limit") ?? 10;
+
+        // Query security violations from error logs
+        // Security violations are logged as errors with category 'SECURITY' or errorMessage containing 'violation'
+        const violations = await prisma.errorLog.findMany({
+          where: {
+            OR: [
+              { category: 'SECURITY' },
+              { errorMessage: { contains: 'violation', mode: 'insensitive' } },
+              { errorMessage: { contains: 'denied', mode: 'insensitive' } },
+              { errorMessage: { contains: 'unauthorized', mode: 'insensitive' } },
+            ],
+          },
+          orderBy: { lastSeen: 'desc' },
+          take: limit,
+        });
+
+        if (violations.length === 0) {
+          await interaction.editReply({
+            content: "🔐 **SensaiOS Security — Violations**\n\n" +
+              "✅ No security violations found!\n\n" +
+              "*Security violations are logged when capability checks fail or ring boundaries are crossed.*",
+          });
+          return;
+        }
+
+        const lines: string[] = [];
+        lines.push("🔐 **SensaiOS Security — Violations**");
+        lines.push(`Generated: ${toEasternString(new Date())}`);
+        lines.push(`Showing: Last ${violations.length} violations`);
+        lines.push("");
+
+        for (const v of violations) {
+          const severity = v.severity as string || 'UNKNOWN';
+          const severityIcon = 
+            severity === 'CRITICAL' ? '🔴' :
+            severity === 'HIGH' ? '🟠' :
+            severity === 'MEDIUM' ? '🟡' : '⚪';
+          
+          lines.push(`${severityIcon} **${severity}** — ${formatTimeSince(v.lastSeen)}`);
+          lines.push(`  Message: ${v.errorMessage.substring(0, 100)}${v.errorMessage.length > 100 ? '...' : ''}`);
+          // Extract userId and guildId from contextData if available
+          const context = v.contextData as { userId?: string; guildId?: string } | null;
+          if (context?.userId) lines.push(`  User: <@${context.userId}>`);
+          if (context?.guildId) lines.push(`  Guild: ${context.guildId}`);
+          lines.push(`  Occurrences: ${v.occurrenceCount}`);
+          lines.push("");
+        }
+
+        lines.push("*Use `/ops errors` for full error details*");
+
+        const message = lines.join("\n");
+        await interaction.editReply({ 
+          content: message.length > 2000 ? message.substring(0, 1997) + "..." : message 
+        });
+        return;
+      }
+
+      // ─────────────────────────────────────────────────────────────────────
+      // /ops security export — Export security audit report as JSON
+      // ─────────────────────────────────────────────────────────────────────
+      if (sub === "export") {
+        const now = new Date();
+
+        // Collect all security data
+        const [capabilities, apps, violations] = await Promise.all([
+          prisma.componentCapability.findMany({
+            orderBy: [{ component: 'asc' }, { type: 'asc' }],
+          }),
+          prisma.installedApp.findMany({
+            orderBy: [{ ringLevel: 'asc' }, { name: 'asc' }],
+          }),
+          prisma.errorLog.findMany({
+            where: {
+              OR: [
+                { category: 'SECURITY' },
+                { errorMessage: { contains: 'violation', mode: 'insensitive' } },
+              ],
+            },
+            orderBy: { lastSeen: 'desc' },
+            take: 100,
+          }),
+        ]);
+
+        const report = {
+          generatedAt: now.toISOString(),
+          guildId: interaction.guildId,
+          summary: {
+            totalCapabilities: capabilities.length,
+            activeCapabilities: capabilities.filter(c => !c.revokedAt && (!c.expiresAt || c.expiresAt > now)).length,
+            revokedCapabilities: capabilities.filter(c => c.revokedAt).length,
+            expiredCapabilities: capabilities.filter(c => c.expiresAt && c.expiresAt < now && !c.revokedAt).length,
+            totalApps: apps.length,
+            appsByRing: {
+              ring0: apps.filter(a => a.ringLevel === 0).length,
+              ring1: apps.filter(a => a.ringLevel === 1).length,
+              ring3: apps.filter(a => a.ringLevel === 3).length,
+            },
+            recentViolations: violations.length,
+          },
+          capabilities: capabilities.map(c => ({
+            id: c.id,
+            component: c.component,
+            type: c.type,
+            scope: c.scope,
+            reason: c.reason,
+            expiresAt: c.expiresAt?.toISOString() || null,
+            revokedAt: c.revokedAt?.toISOString() || null,
+            createdAt: c.createdAt.toISOString(),
+            grantedBy: c.grantedBy,
+            revokeReason: c.revokeReason,
+          })),
+          apps: apps.map(a => ({
+            id: a.id,
+            name: a.name,
+            version: a.version,
+            ringLevel: a.ringLevel,
+            status: a.status,
+            installedAt: a.installedAt.toISOString(),
+            updatedAt: a.updatedAt.toISOString(),
+          })),
+          violations: violations.map(v => {
+            const context = v.contextData as { userId?: string; guildId?: string } | null;
+            return {
+              errorId: v.errorId,
+              fingerprint: v.fingerprint,
+              severity: v.severity,
+              category: v.category,
+              errorMessage: v.errorMessage,
+              userId: context?.userId || null,
+              guildId: context?.guildId || null,
+              occurrenceCount: v.occurrenceCount,
+              firstSeen: v.firstSeen.toISOString(),
+              lastSeen: v.lastSeen.toISOString(),
+            };
+          }),
+        };
+
+        const jsonContent = JSON.stringify(report, null, 2);
+        
+        // Discord has 2000 char limit, use file attachment for large reports
+        if (jsonContent.length > 1900) {
+          // Create a text file with the JSON
+          const buffer = Buffer.from(jsonContent, 'utf-8');
+          await interaction.editReply({
+            content: "🔐 **SensaiOS Security — Export**\n\n" +
+              `✅ Security audit report generated at ${toEasternString(now)}\n\n` +
+              `**Summary:**\n` +
+              `• Capabilities: ${report.summary.activeCapabilities} active, ${report.summary.revokedCapabilities} revoked, ${report.summary.expiredCapabilities} expired\n` +
+              `• Apps: ${report.summary.appsByRing.ring0} Ring 0, ${report.summary.appsByRing.ring1} Ring 1, ${report.summary.appsByRing.ring3} Ring 3\n` +
+              `• Recent violations: ${report.summary.recentViolations}\n\n` +
+              `*Full JSON report attached below*`,
+            files: [{
+              attachment: buffer,
+              name: `security-audit-${now.toISOString().slice(0, 10)}.json`,
+            }],
+          });
+        } else {
+          await interaction.editReply({
+            content: "🔐 **SensaiOS Security — Export**\n\n" +
+              `\`\`\`json\n${jsonContent}\n\`\`\``,
+          });
+        }
+        return;
+      }
+
+      // Unknown security subcommand
+      await interaction.editReply({
+        content: "🔐 **SensaiOS Security**\n\n" +
+          "Unknown subcommand. Available commands:\n" +
+          "• `/ops security capabilities` — List all granted capabilities\n" +
+          "• `/ops security apps` — List installed apps with ring levels\n" +
+          "• `/ops security violations` — Show recent violations\n" +
+          "• `/ops security export` — Export security audit report",
+      });
+    } catch (err) {
+      await errorTracker.captureError(ensureError(err), {
+        category: 'ENGINE',
+        userId: interaction.user.id,
+        guildId: interaction.guildId || undefined,
+        commandName: `/ops security ${sub}`,
+        operation: 'securityDashboard',
+      });
+      const message = getErrorMessage(err);
+      await interaction.editReply({ content: `Security dashboard error: ${message}` });
     }
     return;
   }

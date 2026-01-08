@@ -1,6 +1,6 @@
 # Sensai OS — Quick Reference Card
 
-**Version:** 1.1.2 | **Status:** REFERENCE | **Last Updated:** December 28, 2025
+**Version:** 1.2.0 | **Status:** REFERENCE | **Last Updated:** January 8, 2026
 
 ---
 
@@ -15,15 +15,22 @@ EVERYTHING ELSE IS A VIEW.
 
 ---
 
-## 📐 Architecture Layers
+## 📐 Architecture Layers (v1.2.0)
 
 ```
-L4: SYSTEM SERVICES — RBAC, Audit, Quotas, Config
-L3: WORKER RUNTIME  — INGEST → PROJECT → DELIVER → GC
-L2: EXPORT LOG      — Append-only events with monotonic seq
-L1: OBJECT STORE    — Blobs in DB (content-addressable)
-L0: STORAGE         — PostgreSQL + SQLite buffer
+L5: v1.2.0 SUBSYSTEMS — Storage, Locks, Visualization, Delegation
+L4: SYSTEM SERVICES   — RBAC, Audit, Quotas, Config
+L3: WORKER RUNTIME    — INGEST → PROJECT → DELIVER → GC
+L2: EXPORT LOG        — Append-only events with monotonic seq
+L1: OBJECT STORE      — Blobs in DB (SHA-256 content-addressable)
+L0: STORAGE           — PostgreSQL + SQLite buffer
 ```
+
+**v1.2.0 Subsystems:**
+- **Storage:** Content-addressable SHA-256 blob storage with deduplication
+- **Concurrency:** Advisory lock manager with deadlock prevention  
+- **Visualization:** Multi-format dependency graph output (ASCII/Mermaid/JSON)
+- **Delegation:** Time-bounded capability grants (max 1h TTL, max 3 chain depth)
 
 ---
 

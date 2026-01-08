@@ -1,0 +1,28 @@
+{
+  "id": "discord.bot",
+  "name": "Discord Bot Core",
+  "version": "1.0.0",
+  "description": "Core Discord bot functionality for Pokémon Infinity Gauntlet",
+  "hosts": ["bot"],
+  "capabilities": {
+    "db": ["read", "write"],
+    "discord": ["read", "send"]
+  },
+  "owns": {
+    "canonical": ["users", "guilds", "channels"],
+    "projections": ["user_activity", "guild_stats"]
+  },
+  "dependencies": [],
+  "resources": {
+    "maxCacheMb": 100,
+    "maxQueueSize": 5000,
+    "maxConcurrency": 50
+  },
+  "config": {
+    "commandPrefix": "/",
+    "enableDMs": false,
+    "homesteadChannelPrefix": "homestead-",
+    "maxRetries": 3,
+    "rateLimitPerMinute": 60
+  }
+}

@@ -6,12 +6,14 @@
  * - errorLearning: Pattern detection and error analysis
  * - resourceMonitor: Resource monitoring with memory guardian
  * - resourceManager: Resource lifecycle management and cleanup
+ * - resilientWriteBuffer: Crash-safe database write operations
  *
  * Service Dependencies:
  * - resource-manager: Foundation service (no dependencies)
  * - resource-monitor: Standalone monitoring
- * - error-tracker: Depends on resource-manager
+ * - error-tracker: Depends on resource-manager, resilient-write-buffer
  * - error-learning: Depends on error-tracker
+ * - resilient-write-buffer: Depends on prisma
  *
  * Usage:
  * ```typescript
@@ -25,6 +27,8 @@
 export { resourceManager } from './resource-manager.js';
 // Error Tracking (default export + types)
 export { errorTracker } from './error-tracker.js';
+// Resilient Write Buffer (crash-safe database operations)
+export { initializeWriteBuffer, shutdownWriteBuffer, queueWrite, executeResilientWrite, registerWriteExecutor, getBufferStats, flushBuffer, cleanupWriteBuffer, } from './resilient-write-buffer.js';
 // Error Learning (namespace export to avoid name collisions)
 export * as errorLearning from './error-learning.js';
 // Resource Monitoring (default export + types)

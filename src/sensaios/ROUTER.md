@@ -2,7 +2,7 @@
 Title: SensaiOS Multi-Tenant Observability Layer
 Purpose: Multi-tenant observability-first architecture with scoped envelopes, guarded execution, kernel primitives, component lifecycle, and event dispatching
 Owned Globs: src/sensaios/**
-Last Updated (UTC): 2025-12-29T15:18:00Z
+Last Updated (UTC): 2026-01-04T00:00:00Z
 
 Notes:
 - Phase 1 COMPLETE: TenantScope, ExportEnvelope implemented
@@ -11,6 +11,7 @@ Notes:
 - Phase 4 COMPLETE: ComponentContext, kernel primitives, context factory implemented
 - Phase 5 COMPLETE: ComponentRegistry, ComponentSupervisor, lifecycle management implemented
 - Phase 6 COMPLETE: BootLogger, KernelBoot, Event Dispatchers implemented
+- Phase 7 IN PROGRESS: Ring Security with visibility enforcement via ESM loader hooks
 - Extends existing kernel/observability systems, does not replace them
 - Uses AsyncLocalStorage for scope propagation (same pattern as kernel/correlation.ts)
 - Documentation in docs/projects/SensaiOS/
@@ -108,6 +109,14 @@ Event Dispatchers (Phase 6):
 - createCliDispatcher() — Routes CLI commands to handlers
 - All dispatchers use runGuarded for observability and error capture
 - All dispatchers create ComponentContext for handler execution
+
+Module Loader Security (Phase 7):
+- loader/module-hook.ts — ESM loader hooks (resolve, load) for ring enforcement
+- loader/ring-resolver.ts — Path analysis and ring level detection with caching
+- loader/index.ts — Barrel exports for loader module
+- loader/ROUTER.md — Module loader documentation
+- Usage: `node --loader ./dist/sensaios/loader/module-hook.js src/index.js`
+- Environment: SENSAIOS_LOADER_DISABLED, SENSAIOS_LOADER_VERBOSE
 
 Integration Points:
 - kernel/correlation.ts — Uses same AsyncLocalStorage pattern

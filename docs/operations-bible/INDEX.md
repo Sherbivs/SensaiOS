@@ -11,7 +11,7 @@ Single source of truth for Infinity Gauntlet operational procedures, deployment 
 
 ---
 
-## Core Sections (01-13)
+## Core Sections (01-14)
 
 1. **[Service Matrix](01-service-matrix.md)** — Render service topology, worker responsibilities, service dependencies, scaling roadmap
 2. **[Database Operations](02-database-operations.md)** — **[CRITICAL]** URL selection, connections, naming, CLI tools, on-premise setup, optimization, **Prisma 7 configuration**
@@ -26,6 +26,7 @@ Single source of truth for Infinity Gauntlet operational procedures, deployment 
 11. **[Logging Storage](11-logging-storage.md)** — Log buffer configuration, storage limits, rotation policies
 12. **[Analytics Queries](12-analytics-queries.md)** — Common database queries, performance analytics, monitoring queries
 13. **[Memory Management](13-memory-management.md)** — **[CRITICAL]** Memory safety audit, bounded data structures, resource limits
+14. **[SensaiOS Operations](14-sensaios-operations.md)** — App management, capability administration, security monitoring, incident response
 
 ---
 
@@ -108,7 +109,7 @@ Homestead channel deployment and troubleshooting guides:
 
 ---
 
-**Last Updated**: 2025-12-20  
-**Revision**: 2.1 (December 2025 — Added NO-RESTART policy and Loki observability)  
-**Total Sections**: 13 core + 9 specialized guides  
-**Estimated Size**: ~5,000 lines consolidated from 30+ source documents
+**Last Updated**: 2026-01-05  
+**Revision**: 2.2 (January 2026 — Added SensaiOS Operations section 14)  
+**Total Sections**: 14 core + 9 specialized guides  
+**Estimated Size**: ~5,500 lines consolidated from 30+ source documents

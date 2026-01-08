@@ -1,6 +1,6 @@
 # /ops Commands Reference — Complete Guide
-**Version:** 1.0  
-**Last Updated:** 2025-12-02  
+**Version:** 1.1  
+**Last Updated:** 2025-12-28  
 **Scope:** Complete reference for ALL /ops command variations  
 **Target Audience:** Operations team, on-call engineers, administrators
 
@@ -21,6 +21,7 @@
    - [/ops state](#ops-state)
    - [/ops memory](#ops-memory)
    - [/ops cooldown reset](#ops-cooldown-reset)
+   - [/ops security](#ops-security)
 5. [Integration with Monitoring](#integration-with-monitoring)
 6. [Error Handling](#error-handling)
 7. [Best Practices](#best-practices)
@@ -39,11 +40,12 @@ The `/ops` command suite provides **real-time operational visibility** into the 
 - **Memory profiling** (heap usage, buffer analysis)
 - **Security bot state** (cumulative statistics, activity timeline)
 - **Cooldown management** (reset user rate limits)
+- **SensaiOS security** (Ring Security audit dashboard)
 
 ### Command Count
-- **8 primary commands** (stats, database, workers, logs, cache, engine, state, memory)
-- **1 subcommand group** (cooldown reset)
-- **50+ parameter combinations** (detailed, filters, time windows)
+- **9 primary commands** (stats, database, workers, logs, cache, engine, state, memory, security)
+- **2 subcommand groups** (cooldown reset, security)
+- **55+ parameter combinations** (detailed, filters, time windows)
 
 ### Execution Model
 - **Admin-only** — All commands restricted via `isAdmin()` check
@@ -1494,6 +1496,353 @@ Solution: Reset cooldowns for affected users
 #### Security Note
 
 ⚠️ **Admin only** — This command bypasses rate limiting and should be used sparingly. Abuse can enable exploit farming or spam.
+
+---
+
+### /ops security
+
+**Purpose:** View and export SensaiOS Ring Security audit information including capability grants, installed apps, and security violations.
+
+> **Architecture Reference:** See [sensai.instructions.md](../../.github/instructions/sensai.instructions.md) for complete Ring Security Model documentation.
+
+#### Subcommands
+
+| Subcommand | Purpose | Description |
+|------------|---------|-------------|
+| `capabilities` | View capability grants | Lists all ComponentCapability entries with status |
+| `apps` | View installed apps | Shows all registered apps with ring levels (ASCII diagram) |
+| `violations` | View security violations | Recent errors categorized as SECURITY violations |
+| `export` | Export audit report | Generates JSON report with all security data |
+
+---
+
+#### /ops security capabilities
+
+**Purpose:** Display all capability grants in the SensaiOS Ring Security system.
+
+##### Syntax
+```
+/ops security capabilities
+```
+
+##### Parameters
+*None*
+
+##### Example Output
+```
+🔐 SensaiOS Security — Capabilities
+
+📊 Summary:
+• Total: 12 capability grants
+• Active: 8 (currently valid)
+• Revoked: 2
+• Expired: 2
+
+🛡️ Capabilities (3 shown):
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🔹 game.battles → DATABASE_WRITE
+Scope: battles, trainers
+Reason: Core battle engine requires write access
+Status: ✅ Active
+Granted: Dec 15, 2025
+By: system
+
+🔹 game.encounters → DATABASE_READ
+Scope: pokemon, moves
+Reason: Encounter spawning requires species lookup
+Status: ✅ Active
+Granted: Dec 15, 2025
+By: system
+
+🔸 legacy.importer → DATABASE_WRITE
+Scope: users, trainers
+Reason: Revoked due to migration completion
+Status: ❌ Revoked (Dec 20, 2025)
+Revoke Reason: Migration complete, component deprecated
+
+View all with export: /ops security export
+```
+
+##### Field Descriptions
+
+| Field | Description |
+|-------|-------------|
+| Component | The SensaiOS component that holds the capability |
+| Type | Capability type (DATABASE_READ, DATABASE_WRITE, DISCORD_SEND, etc.) |
+| Scope | Specific tables/resources the capability applies to |
+| Reason | Why the capability was granted |
+| Status | ✅ Active, ⏰ Expired, or ❌ Revoked |
+| Granted | Date the capability was created |
+| By | Who granted the capability (usually "system") |
+| Revoke Reason | (If revoked) Why the capability was revoked |
+
+---
+
+#### /ops security apps
+
+**Purpose:** Display all installed apps in the SensaiOS Ring Security system with their ring levels.
+
+##### Syntax
+```
+/ops security apps
+```
+
+##### Parameters
+*None*
+
+##### Example Output
+```
+🔐 SensaiOS Security — Apps
+
+📊 Summary:
+• Total: 8 installed apps
+• Ring 0 (Kernel): 2
+• Ring 1 (SensaiOS): 3
+• Ring 3 (Apps): 3
+
+🔲 Ring Architecture:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+┌─────────────────────────────────┐
+│  RING 3 (Apps/User Space)       │
+│  ┌───────────────────────────┐  │
+│  │ game.battles              │  │
+│  │ game.encounters           │  │
+│  │ game.homestead            │  │
+│  └───────────────────────────┘  │
+├─────────────────────────────────┤
+│  RING 1 (SensaiOS)              │
+│  ┌───────────────────────────┐  │
+│  │ supervisor                │  │
+│  │ capabilities              │  │
+│  │ outbox                    │  │
+│  └───────────────────────────┘  │
+├─────────────────────────────────┤
+│  RING 0 (Kernel)                │
+│  ┌───────────────────────────┐  │
+│  │ kernel.db                 │  │
+│  │ kernel.exports            │  │
+│  └───────────────────────────┘  │
+└─────────────────────────────────┘
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🔹 Ring 0 — Kernel (2 apps):
+  • kernel.db v1.0.0 — ACTIVE
+  • kernel.exports v1.0.0 — ACTIVE
+
+🔹 Ring 1 — SensaiOS (3 apps):
+  • supervisor v1.1.2 — ACTIVE
+  • capabilities v1.1.2 — ACTIVE
+  • outbox v1.0.0 — ACTIVE
+
+🔹 Ring 3 — Apps (3 apps):
+  • game.battles v2.0.0 — ACTIVE
+  • game.encounters v1.5.0 — ACTIVE
+  • game.homestead v1.3.0 — ACTIVE
+```
+
+##### Ring Level Reference
+
+| Ring | Name | Purpose | Access |
+|------|------|---------|--------|
+| 0 | Kernel | Core primitives (db, exports, jobs, outbox) | Full system access |
+| 1 | SensaiOS | OS layer (supervisor, capabilities) | Can access Ring 0 |
+| 3 | Apps | User-space applications | Must use ComponentContext |
+
+---
+
+#### /ops security violations
+
+**Purpose:** Display recent security violations detected by the system.
+
+##### Syntax
+```
+/ops security violations
+```
+
+##### Parameters
+*None*
+
+##### Example Output (No Violations)
+```
+🔐 SensaiOS Security — Violations
+
+✅ No recent security violations detected!
+
+Last checked: Dec 28, 2025 2:30 PM EST
+```
+
+##### Example Output (With Violations)
+```
+🔐 SensaiOS Security — Violations
+
+⚠️ Recent Security Violations (24h):
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🔴 RING_BOUNDARY_VIOLATION
+Severity: critical
+Occurrences: 3
+Message: Ring 3 component attempted to import Ring 0 module
+User: 123456789012345678
+Guild: 987654321098765432
+Last Seen: Dec 28, 2025 2:15 PM EST
+
+🟡 CAPABILITY_DENIED
+Severity: warning
+Occurrences: 12
+Message: Component 'custom.plugin' lacks DATABASE_WRITE capability
+User: —
+Guild: —
+Last Seen: Dec 28, 2025 1:45 PM EST
+
+Total: 2 violation types (15 occurrences)
+```
+
+##### Severity Levels
+
+| Level | Emoji | Description |
+|-------|-------|-------------|
+| Critical | 🔴 | Serious security breach, requires immediate attention |
+| Warning | 🟡 | Potential issue, should be investigated |
+| Info | ⚪ | Informational, no action required |
+
+---
+
+#### /ops security export
+
+**Purpose:** Export a complete security audit report as JSON.
+
+##### Syntax
+```
+/ops security export
+```
+
+##### Parameters
+*None*
+
+##### Example Output (Small Report)
+```
+🔐 SensaiOS Security — Export
+
+```json
+{
+  "generatedAt": "2025-12-28T19:30:00.000Z",
+  "guildId": "123456789012345678",
+  "summary": {
+    "totalCapabilities": 12,
+    "activeCapabilities": 8,
+    "revokedCapabilities": 2,
+    "expiredCapabilities": 2,
+    "totalApps": 8,
+    "appsByRing": {
+      "ring0": 2,
+      "ring1": 3,
+      "ring3": 3
+    },
+    "recentViolations": 2
+  },
+  "capabilities": [...],
+  "apps": [...],
+  "violations": [...]
+}
+```
+
+##### Example Output (Large Report)
+```
+🔐 SensaiOS Security — Export
+
+✅ Security audit report generated at Dec 28, 2025 2:30 PM EST
+
+**Summary:**
+• Capabilities: 8 active, 2 revoked, 2 expired
+• Apps: 2 Ring 0, 3 Ring 1, 3 Ring 3
+• Recent violations: 2
+
+*Full JSON report attached below*
+
+📎 security-audit-2025-12-28.json
+```
+
+##### JSON Report Structure
+
+```json
+{
+  "generatedAt": "ISO8601 timestamp",
+  "guildId": "Discord guild ID",
+  "summary": {
+    "totalCapabilities": number,
+    "activeCapabilities": number,
+    "revokedCapabilities": number,
+    "expiredCapabilities": number,
+    "totalApps": number,
+    "appsByRing": {
+      "ring0": number,
+      "ring1": number,
+      "ring3": number
+    },
+    "recentViolations": number
+  },
+  "capabilities": [
+    {
+      "id": "UUID",
+      "component": "component.name",
+      "type": "DATABASE_WRITE",
+      "scope": "tables, resources",
+      "reason": "Why granted",
+      "expiresAt": "ISO8601 or null",
+      "revokedAt": "ISO8601 or null",
+      "createdAt": "ISO8601",
+      "grantedBy": "system",
+      "revokeReason": "string or null"
+    }
+  ],
+  "apps": [
+    {
+      "id": "UUID",
+      "name": "app.name",
+      "version": "1.0.0",
+      "ringLevel": 0|1|3,
+      "status": "ACTIVE|DISABLED",
+      "installedAt": "ISO8601",
+      "updatedAt": "ISO8601"
+    }
+  ],
+  "violations": [
+    {
+      "errorId": "UUID",
+      "fingerprint": "error hash",
+      "severity": "critical|warning|info",
+      "category": "SECURITY",
+      "errorMessage": "Description",
+      "userId": "Discord user ID or null",
+      "guildId": "Discord guild ID or null",
+      "occurrenceCount": number,
+      "firstSeen": "ISO8601",
+      "lastSeen": "ISO8601"
+    }
+  ]
+}
+```
+
+##### Use Cases
+
+**Scenario 1: Security Audit**
+```
+Quarterly security review required
+Solution: /ops security export → Save JSON for compliance records
+```
+
+**Scenario 2: Debugging Permission Issues**
+```
+Component reports "capability denied"
+Solution: /ops security capabilities → Check if capability is active
+```
+
+**Scenario 3: App Inventory**
+```
+Need to verify all installed components
+Solution: /ops security apps → Review ring architecture diagram
+```
 
 ---
 

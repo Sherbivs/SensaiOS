@@ -38,6 +38,8 @@ export type AttemptCatchOpts = {
   encounterId: string;
   ball?: BallType;
   prisma?: typeof prismaClient;
+  /** Deterministic roll [0, 1) - caller should provide from RNG context */
+  roll?: number;
 };
 
 export async function attemptCatch(opts: AttemptCatchOpts) {
@@ -59,9 +61,9 @@ export async function attemptCatch(opts: AttemptCatchOpts) {
     return { ok: false, reason: "expired" as const };
   }
 
-  // Roll
+  // Roll - caller should provide deterministic roll from RNG context
   const p = catchChance(enc.level, ball);
-  const roll = Math.random();
+  const roll = opts.roll ?? 0.5; // Default to 50% if no roll provided (deterministic fallback)
   const success = roll < p;
 
   // Track attempts in dataJson

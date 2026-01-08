@@ -59,7 +59,7 @@ This is the **ONE RULE** that makes the entire architecture work.
 4. **Transactional System Calls** — Every operation is an atomic transaction.
 5. **Explicit Data Ownership** — Each table has ONE owner component (only writer).
 6. **Safe Removability** — Disabling a component stops behavior without corrupting state.
-7. **Multi-Tenant by Default** — Every envelope carries `scope: { tenantId, guildId }` (v1.1.2)
+7. **Multi-Tenant by Default** — Every envelope carries TenantScope (v1.1.2)
 8. **Observability-First** — Boot logger starts before DB; all handlers wrapped via `runGuarded()` (v1.1.2)
 
 ---
@@ -71,10 +71,30 @@ This is the **ONE RULE** that makes the entire architecture work.
 Every envelope, log entry, and metric MUST include tenant scope:
 
 ```typescript
-/** TenantScope is MANDATORY in all envelopes */
+/** TenantScope is MANDATORY in all envelopes (v1.1.2 Enhanced) */
 interface TenantScope {
-  tenantId: string;   // Bot instance identifier (e.g., "prod", "staging")
-  guildId: string;    // Discord guild ID
+  /**
+   * Tenant identifier
+   * - For Discord: guild ID (multi-tenant per guild)
+   * - For System: "system" or service name
+   * - For User: "user:{userId}" (homestead context)
+   */
+  tenant: string;
+
+  /** Deployment environment */
+  environment: 'production' | 'staging' | 'development';
+
+  /** Service name (e.g., "infinity-gauntlet") */
+  service: string;
+
+  /** Component within the service (e.g., "battle-engine", "homestead") */
+  component: string;
+
+  /** Optional: Instance identifier (for worker processes) */
+  instance?: string;
+
+  /** Optional: Region/zone (for distributed deployments) */
+  region?: string;
 }
 
 /** Example envelope with scope */
@@ -88,11 +108,13 @@ interface ExportEnvelope {
   correlationId: string;
 }
 
-// Usage in handlers
+// Usage in handlers — use factory functions
+import { scopeFromInteraction, scopeFromGuild, systemScope } from '../sensaios/tenant-scope.js';
+
 await ctx.exports.append({
   source: 'game.battles',
   type: 'battle.completed',
-  scope: { tenantId: ctx.tenantId, guildId: interaction.guildId! },
+  scope: scopeFromInteraction(interaction),  // Auto-extracts tenant, env, service
   idempotencyKey: `battle-${battleId}`,
   payload: { battleId, winnerId, loserId },
   occurredAt: new Date(),
@@ -200,9 +222,12 @@ async function bootKernel(): Promise<void> {
 
 ---
 
-## 🏗️ LAYERED ARCHITECTURE
+## 🏗️ LAYERED ARCHITECTURE (v1.2.0)
 
 ```
+LAYER 5: v1.2.0 ADVANCED SUBSYSTEMS
+└── Storage (CAS), Concurrency (Locks), Visualization, Delegation
+
 LAYER 4: SYSTEM SERVICES (Control Plane)
 └── RBAC, Audit, Quotas, Schedule, Config
 
@@ -213,10 +238,65 @@ LAYER 2: EXPORT LOG (Ingestion Front Door)
 └── Append-only event log with monotonic seq
 
 LAYER 1: OBJECT STORE (Big Bytes)
-└── Blobs stored in DB (blobs, objects tables)
+└── Blobs stored in DB (SHA-256 content-addressable)
 
 LAYER 0: STORAGE (The Only Place That Writes)
 └── PostgreSQL with WAL + SQLite buffer
+```
+
+---
+
+## 🆕 v1.2.0 ADVANCED SUBSYSTEMS
+
+### Content-Addressable Storage
+```typescript
+// SHA-256 blob storage with deduplication
+interface ContentAddressableStorage {
+  put(data: Buffer): Promise<string>;  // Returns SHA-256 hash ID
+  get(id: string): Promise<Buffer | null>;
+  exists(id: string): Promise<boolean>;
+  delete(id: string): Promise<void>;
+  getStats(): Promise<StorageStats>;
+}
+// Implementation: src/sensaios/storage/content-addressable.ts (340 lines)
+```
+
+### Lock Manager (Deadlock Prevention)
+```typescript
+// Advisory locks with domains and automatic cleanup
+interface LockManager {
+  acquire(domain: LockDomain, key: string, scope: TenantScope): Promise<LockHandle>;
+  release(handle: LockHandle): Promise<void>;
+  isHeld(domain: LockDomain, key: string): Promise<boolean>;
+  getStats(): Promise<LockStats>;
+}
+// Domains: 'battle', 'encounter', 'trainer', 'guild', 'component'
+// Implementation: src/sensaios/concurrency/lock-manager.ts (410 lines)
+```
+
+### Dependency Graph Visualization
+```typescript
+// Multi-format output (ASCII, Mermaid, JSON)
+interface DependencyGraphVisualizer {
+  toAscii(data: GraphData): string;
+  toMermaid(data: GraphData): string;
+  toJson(data: GraphData): ComponentGraph;
+  calculateMaxDepth(data: GraphData): number;
+}
+// Implementation: src/sensaios/visualization/dependency-graph.ts (370 lines)
+```
+
+### Capability Delegation
+```typescript
+// Time-bounded grants with chain limits
+interface CapabilityDelegationManager {
+  delegate(req: DelegationRequest): Promise<DelegationToken>;
+  validate(tokenId: string, delegatee: string, scope: TenantScope): Promise<boolean>;
+  revoke(tokenId: string): Promise<void>;
+  getStats(): Promise<DelegationStats>;
+}
+// Max TTL: 3600s (1 hour) | Max chain depth: 3 | Cleanup interval: 5 min
+// Implementation: src/sensaios/capabilities/delegation.ts (490 lines)
 ```
 
 ---
@@ -689,6 +769,7 @@ UNINSTALLED → [install] → INSTALLED (disabled) → [enable] → ENABLED (act
 
 ### Primary Sources (SENSAI Architecture)
 - **Final Architecture Spec:** `docs/projects/SensaiOS/SENSAI-FINAL-ARCHITECTURE.md` — Master canonical specification
+- **OS Security Model:** `docs/projects/SensaiOS/architecture/06-os-security-model.md` — Ring security model, capability system, ESLint enforcement
 - **Component OS Blueprint:** `docs/projects/SensaiOS/SENSAI-COMPONENT-OS-BLUEPRINT.md` — Component model design
 - **Architecture Addendum (v1.1):** `docs/projects/SensaiOS/SENSAI-ARCHITECTURE-ADDENDUM.md` — Scalability patterns
 - **Multi-Tenant + Obs-First (v1.1.2):** `docs/projects/SensaiOS/SENSAI-MULTITENANT-OBS-FIRST-ADDENDUM.md` — TenantScope, runGuarded, SensaiError
@@ -700,6 +781,70 @@ UNINSTALLED → [install] → INSTALLED (disabled) → [enable] → ENABLED (act
 - **Database Operations:** `docs/operations-bible/database-operations-runbook-comprehensive.md`
 - **Architecture Bible:** `docs/architecture-bible/INDEX.md` — 27 sections covering complete system design
 - **Operations Bible:** `docs/operations-bible/INDEX.md` — 13 sections + 9 guides
+
+---
+
+## 🛡️ RING SECURITY MODEL (v1.1.2)
+
+### ESLint Enforcement (Compile-Time Boundary Checks)
+
+**Ring boundary violations are caught at compile-time via ESLint `import/no-restricted-paths` rules.**
+
+#### Ring Definitions
+
+| Ring Level | Code Paths | Purpose |
+|------------|------------|---------|
+| **Ring 0 (Kernel)** | `src/kernel/**` | Core primitives (db, exports, jobs, outbox, rng, storage) |
+| **Ring 1 (SensaiOS)** | `src/sensaios/**` | OS layer (component runtime, supervisor, capabilities) |
+| **Ring 3 (Apps)** | `src/bot/**`, `src/core/**`, `src/services/**` | User-space applications |
+
+#### Import Rules (ESLint Configuration)
+
+```javascript
+// eslint.config.js enforces these rules:
+
+// Ring 0 (Kernel): CANNOT import from any upper rings
+// - ❌ Ring 0 → Ring 1 (SensaiOS)
+// - ❌ Ring 0 → Ring 3 (Apps)
+
+// Ring 1 (SensaiOS): CANNOT import from Ring 3 (Apps)
+// - ✅ Ring 1 → Ring 0 (Kernel) — allowed
+// - ❌ Ring 1 → Ring 3 (Apps)
+
+// Ring 3 (Apps): CANNOT import from Ring 0 or Ring 1 directly
+// - ❌ Ring 3 → Ring 0 (Kernel) — use ComponentContext instead
+// - ❌ Ring 3 → Ring 1 (SensaiOS) — use ComponentContext interface
+// - ✅ Ring 3 → Ring 3 (Apps) — allowed
+```
+
+#### Violation Examples
+
+```typescript
+// ❌ BLOCKED: App importing Kernel
+import { DbPrimitive } from '../../kernel/primitives/db';
+// ESLint: 🚫 Ring 3 must use ComponentContext, not Ring 0 directly
+
+// ✅ CORRECT: Use ComponentContext
+export const handler = runGuarded('app.handler', async (ctx: ComponentContext) => {
+  await ctx.db.transaction(async (tx) => { /* ... */ });
+});
+
+// ❌ BLOCKED: SensaiOS importing Apps
+import { BattleEngine } from '../../bot/game/engine';
+// ESLint: 🚫 Ring 1 cannot import Ring 3 (SensaiOS is OS layer)
+
+// ✅ CORRECT: Apps register handlers via manifest
+export class Supervisor {
+  async loadComponent(manifest: AppManifest) {
+    const component = await import(manifest.entryPoint);
+    await component.onLoad(ctx);
+  }
+}
+```
+
+**Verification:** Run `npm run lint` to check for ring boundary violations.
+
+**Documentation:** See `docs/projects/SensaiOS/architecture/06-os-security-model.md` § 3 Visibility & Access Control.
 
 ---
 
@@ -722,11 +867,16 @@ When implementing ANY Sensai component:
 - [ ] **Tenant scope attached to all envelopes** (v1.1.2)
 - [ ] **Handlers registered via `runGuarded()` wrapper** (v1.1.2)
 - [ ] **Errors use `SensaiError` taxonomy** (v1.1.2)
+- [ ] **Ring boundaries respected** — No Ring 3 → Ring 0/1 imports (ESLint enforced)
+- [ ] **Content-addressable storage for blobs** (v1.2.0)
+- [ ] **Advisory locks for critical sections** (v1.2.0)
+- [ ] **Delegation tokens time-bounded** — Max 1h TTL (v1.2.0)
 
 ---
 
-**Document Version:** 1.2.0  
+**Document Version:** 1.4.0  
 **Created:** December 28, 2025  
-**Updated:** December 28, 2025 — Full v1.1.2 patterns with TenantScope, runGuarded, SensaiError, boot sequence  
+**Updated:** January 8, 2026 — Added v1.2.0 Advanced Subsystems (CAS, Locks, Visualization, Delegation)  
 **Purpose:** AI Agent guidance for Sensai OS development  
 **Authority:** Supersedes all previous architecture instructions
+

@@ -25,7 +25,7 @@ SensaiOS is a **multi-tenant observability-first operating layer** that extends 
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                            SensaiOS Architecture                             │
+│                       SensaiOS Architecture (v1.2.0)                         │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                             │
 │   ┌─────────────────────────────────────────────────────────────────────┐   │
@@ -35,25 +35,30 @@ SensaiOS is a **multi-tenant observability-first operating layer** that extends 
 │                                   │                                         │
 │   ┌───────────────────────────────▼─────────────────────────────────────┐   │
 │   │                     runGuarded() Kernel Wrapper                     │   │
-│   │   • Automatic error capture                                         │   │
-│   │   • Correlation ID injection                                        │   │
-│   │   • Tenant scope enforcement                                        │   │
-│   │   • Timing/metrics collection                                       │   │
+│   │   • Automatic error capture    • Timing/metrics collection          │   │
+│   │   • Correlation ID injection   • Tenant scope enforcement           │   │
+│   └───────────────────────────────┬─────────────────────────────────────┘   │
+│                                   │                                         │
+│   ┌───────────────────────────────▼─────────────────────────────────────┐   │
+│   │                 v1.2.0 Advanced Subsystems (NEW)                    │   │
+│   │  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────────┐   │   │
+│   │  │  Storage    │ │ Concurrency │ │Visualization│ │ Capabilities│   │   │
+│   │  │  SHA-256    │ │ Lock Mgr    │ │ Dep Graph   │ │ Delegation  │   │   │
+│   │  │  CAS Blobs  │ │ Deadlock    │ │ ASCII/Mermaid│ │ Time-bound │   │   │
+│   │  └─────────────┘ └─────────────┘ └─────────────┘ └─────────────┘   │   │
 │   └───────────────────────────────┬─────────────────────────────────────┘   │
 │                                   │                                         │
 │   ┌───────────────────────────────▼─────────────────────────────────────┐   │
 │   │                     ExportEnvelope (Scoped)                         │   │
-│   │   • scope.tenant (REQUIRED)                                         │   │
-│   │   • scope.environment                                               │   │
-│   │   • scope.service                                                   │   │
-│   │   • scope.component                                                 │   │
+│   │   • scope.tenantId (REQUIRED)  • scope.guildId (REQUIRED)           │   │
+│   │   • correlationId               • idempotencyKey                    │   │
 │   └───────────────────────────────┬─────────────────────────────────────┘   │
 │                                   │                                         │
 │   ┌───────────────────────────────▼─────────────────────────────────────┐   │
 │   │                     Error Detection Subsystem                       │   │
-│   │   • Canonical error shape                                           │   │
+│   │   • Canonical SensaiError shape (1xxx-6xxx codes)                   │   │
 │   │   • Fingerprinting & deduplication                                  │   │
-│   │   • Severity routing                                                │   │
+│   │   • Severity routing (low/medium/high/critical)                     │   │
 │   │   • Recovery suggestions                                            │   │
 │   └───────────────────────────────┬─────────────────────────────────────┘   │
 │                                   │                                         │

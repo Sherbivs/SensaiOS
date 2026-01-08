@@ -39,8 +39,7 @@ import { EMBED_COLORS } from "../shared/embed-colors.js";
 import { dangerButton, navButton, primaryButton } from "../shared/button-utils.js";
 import { safeReply } from "../shared/response-helpers.js";
 import { HomesteadChannelManager } from "../../services/homestead-manager.js";
-import { ensureUser } from "../../shared/models/user-queries-pg.js";
-import { prisma } from "../../shared/prisma.js";
+import { getGameServer } from "../../sensaios/gameserver/singleton.js";
 import { isUsableItem, getUsableTargets, useItemOnPokemon, getItemName } from "../../services/item-effects.js";
 import { getSpecies } from "../../data/dexpack.js";
 
@@ -101,19 +100,15 @@ export interface BagSnapshot {
 // ============================================================================
 
 /**
- * Load player's inventory from database
+ * Load player's inventory from database via GameServerAPI
  */
 export async function loadBagSnapshot(discordId: string): Promise<BagSnapshot> {
-  // Ensure user exists
-  const user = await ensureUser(discordId);
+  const gameServer = getGameServer();
   
-  // Get trainer if exists
-  const trainer = await prisma.trainer.findFirst({
-    where: { userId: user.id },
-    select: { id: true },
-  });
-
-  if (!trainer) {
+  // GameServerAPI accepts plain strings and handles them internally
+  const inventory = await gameServer.trainers.getInventory(discordId);
+  
+  if (!inventory) {
     return {
       trainerId: "",
       items: [],
@@ -121,43 +116,21 @@ export async function loadBagSnapshot(discordId: string): Promise<BagSnapshot> {
       uniqueItems: 0,
     };
   }
-
-  // Fetch inventory with item details
-  const inventory = await prisma.inventory.findMany({
-    where: { trainerId: trainer.id },
-    include: {
-      item: {
-        select: {
-          id: true,
-          name: true,
-          kind: true,
-          meta: true,
-        },
-      },
-    },
-    orderBy: [
-      { item: { kind: "asc" } },
-      { item: { name: "asc" } },
-    ],
-  });
-
-  const items: InventoryItem[] = inventory
-    .filter(inv => inv.qty > 0)
-    .map(inv => ({
-      itemId: inv.item.id,
-      name: inv.item.name,
-      kind: inv.item.kind,
-      qty: inv.qty,
-      meta: inv.item.meta as Record<string, unknown> | null,
-    }));
-
-  const totalItems = items.reduce((sum, item) => sum + item.qty, 0);
-
+  
+  // Map API response to local BagSnapshot format
+  const items: InventoryItem[] = inventory.items.map(item => ({
+    itemId: item.itemId,
+    name: item.name,
+    kind: item.category, // API uses 'category', local uses 'kind'
+    qty: item.quantity,  // API uses 'quantity', local uses 'qty'
+    meta: item.meta ?? null,
+  }));
+  
   return {
-    trainerId: trainer.id,
+    trainerId: "", // No longer needed - API doesn't expose internal IDs
     items,
-    totalItems,
-    uniqueItems: items.length,
+    totalItems: inventory.totalItems,
+    uniqueItems: inventory.uniqueItems,
   };
 }
 
@@ -188,32 +161,6 @@ export function buildCategoryButtons(activeCategory?: ItemCategory): ActionRowBu
   );
 
   return [row1, row2, row3];
-}
-
-/**
- * Build item list buttons with pagination
- * @deprecated Use buildSelectableItemButtons instead
- */
-function _buildItemListButtons(
-  category: ItemCategory,
-  page: number,
-  totalPages: number
-): ActionRowBuilder<ButtonBuilder>[] {
-  const navRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
-    new ButtonBuilder()
-      .setCustomId(`${BAG_PAGE_PREFIX}${category}_${Math.max(1, page - 1)}`)
-      .setLabel("⬅️ Prev")
-      .setStyle(2) // Secondary
-      .setDisabled(page <= 1),
-    new ButtonBuilder()
-      .setCustomId(`${BAG_PAGE_PREFIX}${category}_${Math.min(totalPages, page + 1)}`)
-      .setLabel("➡️ Next")
-      .setStyle(2) // Secondary
-      .setDisabled(page >= totalPages),
-    dangerButton("BAG_BACK", "🏠 Back"),
-  );
-
-  return [navRow];
 }
 
 // ============================================================================
@@ -253,42 +200,6 @@ function buildBagOverviewEmbed(snapshot: BagSnapshot): EmbedBuilder {
   }
 
   return embed;
-}
-
-/**
- * Build category view embed
- * @deprecated Logic moved inline to openBagCategory
- */
-function _buildCategoryEmbed(
-  snapshot: BagSnapshot,
-  category: ItemCategory,
-  page: number = 1
-): { embed: EmbedBuilder; totalPages: number } {
-  const categoryInfo = ITEM_CATEGORIES.find(c => c.id === category);
-  const categoryItems = snapshot.items.filter(item => item.kind === category);
-  
-  const totalPages = Math.max(1, Math.ceil(categoryItems.length / ITEMS_PER_PAGE));
-  const currentPage = Math.min(Math.max(1, page), totalPages);
-  const startIdx = (currentPage - 1) * ITEMS_PER_PAGE;
-  const pageItems = categoryItems.slice(startIdx, startIdx + ITEMS_PER_PAGE);
-
-  const embed = new EmbedBuilder()
-    .setTitle(`🎒 ${categoryInfo?.emoji || "📦"} ${categoryInfo?.label || category}`)
-    .setColor(EMBED_COLORS.INFO)
-    .setFooter({ text: `Page ${currentPage} of ${totalPages} • ${categoryItems.length} item types` });
-
-  if (pageItems.length === 0) {
-    embed.setDescription(`_No ${categoryInfo?.label?.toLowerCase() || "items"} in your bag._\n\nExplore to find more items!`);
-  } else {
-    const itemLines = pageItems.map(item => {
-      const emoji = getItemEmoji(item);
-      return `${emoji} **${item.name}** ×${item.qty}`;
-    }).join("\n");
-    
-    embed.setDescription(itemLines);
-  }
-
-  return { embed, totalPages };
 }
 
 /**

@@ -23,7 +23,8 @@ import {
   MessageActionRowComponentBuilder,
   User as DiscordUser,
 } from "discord.js";
-import { prisma } from "../../shared/prisma.js";
+import { getGameServer } from "../../sensaios/gameserver/singleton.js";
+import { DetailedPartySlot, StatBlock } from "../../sensaios/gameserver/types.js";
 import { HomesteadChannelManager } from "../../services/homestead-manager.js";
 import { EMBED_COLORS } from "../shared/embed-colors.js";
 
@@ -31,40 +32,37 @@ import { EMBED_COLORS } from "../shared/embed-colors.js";
 // Types
 // ─────────────────────────────────────────────────────────────────────────────
 
-interface IVsEVs {
-  hp?: number;
-  atk?: number;
-  def?: number;
-  spa?: number;
-  spd?: number;
-  spe?: number;
-}
-
-interface PartyPokemon {
-  id: string;
-  speciesId: number;
-  speciesName: string | null;
-  nickname: string | null;
-  level: number;
-  hp: number;  // Current HP (uses `hp` field from schema)
-  maxHp: number;
-  isShiny: boolean;
-  status: string | null;
-  slot: number;
-  // For detail view - computed from base + IVs + EVs
+// Use DetailedPartySlot from GameServerAPI
+// Extended type with UI-friendly aliases
+type PartyPokemon = DetailedPartySlot & {
+  // UI-friendly HP aliases (DetailedPartySlot has currentHp/maxHp)
+  hp: number;
+  maxHpStat: number;
+  
+  // Additional fields used by UI that aren't in the API type
   baseHp: number;
   baseAtk: number;
   baseDef: number;
   baseSpAtk: number;
   baseSpDef: number;
   baseSpe: number;
-  ivs: IVsEVs;
-  evs: IVsEVs;
-  moves: string[];
-  nature: string | null;
-  exp: number;
-  ability: string | null;
-  heldItem: string | null;
+};
+
+// Transform DetailedPartySlot to PartyPokemon for UI consumption
+function toPartyPokemon(slot: DetailedPartySlot): PartyPokemon {
+  return {
+    ...slot,
+    // Alias currentHp/maxHp to hp/maxHpStat for UI
+    hp: slot.currentHp,
+    maxHpStat: slot.maxHp,
+    // Map base stats for UI
+    baseHp: slot.baseStats.hp,
+    baseAtk: slot.baseStats.atk,
+    baseDef: slot.baseStats.def,
+    baseSpAtk: slot.baseStats.spa,
+    baseSpDef: slot.baseStats.spd,
+    baseSpe: slot.baseStats.spe,
+  };
 }
 
 interface PartyScreenData {
@@ -275,10 +273,8 @@ function buildPokemonDetailEmbed(pokemon: PartyPokemon, slot: number): EmbedBuil
     inline: true,
   });
 
-  // Extra info
+  // Extra info (status effects)
   const extras: string[] = [];
-  if (pokemon.ability) extras.push(`Ability: ${pokemon.ability}`);
-  if (pokemon.heldItem) extras.push(`Held Item: ${pokemon.heldItem}`);
   if (pokemon.status) extras.push(`Status: ${getStatusEmoji(pokemon.status)} ${pokemon.status}`);
   
   if (extras.length > 0) {
@@ -324,81 +320,27 @@ function buildDetailButtons(slot: number, isLead: boolean): ActionRowBuilder<But
 // ─────────────────────────────────────────────────────────────────────────────
 // Data Loading
 // ─────────────────────────────────────────────────────────────────────────────
+// Data Loading (via GameServerAPI)
+// ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Load party data for a user
- * Note: User has direct parties relation (one active party per user)
+ * Load party data for a user via GameServerAPI
  */
 async function loadPartyData(discordId: string): Promise<PartyScreenData | null> {
-  const user = await prisma.user.findUnique({
-    where: { discordId },
-    include: {
-      parties: {
-        include: {
-          slots: {
-            include: {
-              pokemon: {
-                include: {
-                  species: true,
-                },
-              },
-            },
-            orderBy: { slot: "asc" },
-          },
-        },
-        take: 1, // Get first/active party
-      },
-    },
-  });
+  const gameServer = getGameServer();
+  const result = await gameServer.trainers.getDetailedParty(discordId);
 
-  if (!user) return null;
-
-  const partyData = user.parties[0];
-  if (!partyData) {
-    // User has no party yet
-    return {
-      username: discordId,
-      party: Array(MAX_PARTY_SIZE).fill(null),
-    };
+  if (!result) {
+    return null;
   }
 
-  // Map party slots to our data structure
+  // Convert API slots to PartyPokemon with UI-friendly field aliases
   const party: (PartyPokemon | null)[] = Array(MAX_PARTY_SIZE).fill(null);
   
-  for (const slotData of partyData.slots) {
-    const pokemon = slotData.pokemon;
-    if (pokemon && slotData.slot >= 0 && slotData.slot < MAX_PARTY_SIZE) {
-      // Parse IVs/EVs from JSON if available
-      const ivs = (pokemon.ivsJson as IVsEVs) || {};
-      const evs = (pokemon.evsJson as IVsEVs) || {};
-      
-      party[slotData.slot] = {
-        id: pokemon.id,
-        speciesId: pokemon.speciesId,
-        speciesName: pokemon.species?.name || null,
-        nickname: pokemon.nickname,
-        level: pokemon.level,
-        hp: pokemon.hp,
-        maxHp: pokemon.maxHp,
-        isShiny: pokemon.isShiny,
-        status: pokemon.status,
-        slot: slotData.slot,
-        // Use base stats from species
-        baseHp: pokemon.species?.baseHp ?? 0,
-        baseAtk: pokemon.species?.baseAtk ?? 0,
-        baseDef: pokemon.species?.baseDef ?? 0,
-        baseSpAtk: pokemon.species?.baseSpAtk ?? 0,
-        baseSpDef: pokemon.species?.baseSpDef ?? 0,
-        baseSpe: pokemon.species?.baseSpe ?? 0,
-        // IVs and EVs
-        ivs,
-        evs,
-        moves: [], // TODO: Load actual moves when move system is implemented
-        ability: null, // TODO: Resolve ability name when ability system is implemented
-        heldItem: null, // TODO: Load held item when item system is implemented
-        nature: pokemon.nature,
-        exp: pokemon.exp,
-      };
+  for (let slot = 0; slot < MAX_PARTY_SIZE; slot++) {
+    const apiSlot = result.slots[slot];
+    if (apiSlot) {
+      party[slot] = toPartyPokemon(apiSlot);
     }
   }
 
@@ -491,48 +433,25 @@ export async function handleSetLead(interaction: ButtonInteraction): Promise<voi
     return;
   }
 
-  // Get user's party
-  const user = await prisma.user.findUnique({
-    where: { discordId: interaction.user.id },
-    include: {
-      parties: {
-        include: {
-          slots: true,
-        },
-        take: 1,
-      },
-    },
+  // Swap lead slot with target slot via GameServerAPI
+  const gameServer = getGameServer();
+  const result = await gameServer.trainers.swapPartySlots({
+    discordId: interaction.user.id,
+    slotA: 0,
+    slotB: slot,
   });
 
-  const partyData = user?.parties[0];
-  if (!partyData) {
-    await interaction.reply({ content: "Could not find your party.", ephemeral: true });
+  if (!result.success) {
+    // Handle specific error cases
+    if (result.error?.includes("empty")) {
+      await interaction.reply({ content: "Cannot set an empty slot as lead.", ephemeral: true });
+    } else if (result.error?.includes("party")) {
+      await interaction.reply({ content: "Could not find your party.", ephemeral: true });
+    } else {
+      await interaction.reply({ content: result.error || "Failed to update lead.", ephemeral: true });
+    }
     return;
   }
-
-  const partyId = partyData.id;
-  const slots = partyData.slots;
-  
-  const leadSlot = slots.find((s: { slot: number }) => s.slot === 0);
-  const targetSlot = slots.find((s: { slot: number }) => s.slot === slot);
-
-  if (!targetSlot?.pokemonId) {
-    await interaction.reply({ content: "Cannot set an empty slot as lead.", ephemeral: true });
-    return;
-  }
-
-  // Swap the pokemonIds between slots
-  // Note: We know both slots have valid pokemonIds since we checked above
-  await prisma.$transaction([
-    prisma.partySlot.update({
-      where: { partyId_slot: { partyId, slot: 0 } },
-      data: { pokemonId: targetSlot.pokemonId },
-    }),
-    prisma.partySlot.update({
-      where: { partyId_slot: { partyId, slot } },
-      data: { pokemonId: leadSlot!.pokemonId },
-    }),
-  ]);
 
   // Refresh and show updated party
   const data = await loadPartyData(interaction.user.id);

@@ -44,6 +44,8 @@ import type {
 import type { CanonicalError } from './canonical-error.js';
 import { scopedLogger } from '../observability/envelope/console.js';
 import { databaseError, DATABASE_ERRORS } from './sensai-error.js';
+import { assertCapability } from './capabilities/assert-capability.js';
+import type { CapabilityType } from './types.js';
 
 // ============================================================================
 // DETERMINISTIC RNG IMPLEMENTATION
@@ -121,19 +123,31 @@ function createDeterministicRng(seedParts: string[]): DeterministicRng {
 const log = scopedLogger('sensaios-context');
 
 /**
- * Create a stub database primitive
+ * Create a database primitive with capability checks
  * 
  * @param prisma - Prisma client instance
+ * @param component - Component name for capability checks
+ * @param scope - Tenant scope for capability checks
  */
-export function createDbPrimitive(prisma: PrismaClient): DbPrimitive {
+export function createDbPrimitive(
+  prisma: PrismaClient,
+  component: string,
+  scope: TenantScope
+): DbPrimitive {
   return {
     prisma,
 
     async transaction<T>(fn: (tx: PrismaClient) => Promise<T>): Promise<T> {
+      // Check for db.write capability (transactions typically involve writes)
+      await assertCapability(prisma, component, 'db.write', scope);
+      
       return prisma.$transaction(fn as Parameters<typeof prisma.$transaction>[0]) as Promise<T>;
     },
 
     async query<T>(sql: string, params?: unknown[]): Promise<T[]> {
+      // Raw SQL could be reads or writes - require db.write for safety
+      await assertCapability(prisma, component, 'db.write', scope);
+      
       return prisma.$queryRawUnsafe(sql, ...(params ?? [])) as Promise<T[]>;
     },
   };
@@ -141,14 +155,29 @@ export function createDbPrimitive(prisma: PrismaClient): DbPrimitive {
 
 /**
  * Create a stub exports primitive (logs operations, no persistence)
+ * 
+ * @param component - Component name for capability checks
+ * @param scope - Tenant scope
+ * @param correlationId - Correlation ID
+ * @param prisma - Optional Prisma client for capability checks
  */
-export function createExportsPrimitiveStub(_scope: TenantScope, _correlationId: string): ExportsPrimitive {
+export function createExportsPrimitiveStub(
+  component: string,
+  scope: TenantScope,
+  correlationId: string,
+  prisma?: PrismaClient
+): ExportsPrimitive {
   // In-memory sequence counter (stub)
   let seq = 0;
   const offsets = new Map<string, number>();
 
   return {
     async append(envelope: ExportEnvelopeData): Promise<AppendResult> {
+      // Check capability if Prisma client available
+      if (prisma) {
+        await assertCapability(prisma, component, 'exports.append', scope);
+      }
+      
       seq++;
       log.debug('exports.append', `[STUB] Export appended: ${envelope.type}`, {
         seq,
@@ -183,10 +212,25 @@ export function createExportsPrimitiveStub(_scope: TenantScope, _correlationId: 
 
 /**
  * Create a stub jobs primitive (logs operations, no queue)
+ * 
+ * @param component - Component name for capability checks
+ * @param scope - Tenant scope
+ * @param correlationId - Correlation ID
+ * @param prisma - Optional Prisma client for capability checks
  */
-export function createJobsPrimitiveStub(_scope: TenantScope, _correlationId: string): JobsPrimitive {
+export function createJobsPrimitiveStub(
+  component: string,
+  scope: TenantScope,
+  correlationId: string,
+  prisma?: PrismaClient
+): JobsPrimitive {
   return {
     async enqueue(envelope: JobEnvelope): Promise<string> {
+      // Check capability if Prisma client available
+      if (prisma) {
+        await assertCapability(prisma, component, 'jobs.enqueue', scope);
+      }
+      
       const jobId = randomUUID();
       log.debug('jobs.enqueue', `[STUB] Job enqueued: ${envelope.kind}`, {
         jobId,
@@ -221,10 +265,25 @@ export function createJobsPrimitiveStub(_scope: TenantScope, _correlationId: str
 
 /**
  * Create a stub outbox primitive (logs operations, no delivery)
+ * 
+ * @param component - Component name for capability checks
+ * @param scope - Tenant scope
+ * @param correlationId - Correlation ID
+ * @param prisma - Optional Prisma client for capability checks
  */
-export function createOutboxPrimitiveStub(_scope: TenantScope, _correlationId: string): OutboxPrimitive {
+export function createOutboxPrimitiveStub(
+  component: string,
+  scope: TenantScope,
+  correlationId: string,
+  prisma?: PrismaClient
+): OutboxPrimitive {
   return {
     async send(envelope: OutboxEnvelope): Promise<string> {
+      // Check capability if Prisma client available
+      if (prisma) {
+        await assertCapability(prisma, component, 'outbox.send', scope);
+      }
+      
       const messageId = randomUUID();
       log.debug('outbox.send', `[STUB] Outbox message: ${envelope.topic}`, {
         messageId,
@@ -528,10 +587,10 @@ export function createComponentContext(options: CreateContextOptions): Component
   const { scope, component, prisma, overrides = {} } = options;
 
   // Create default primitives (or use overrides)
-  const db = overrides.db ?? (prisma ? createDbPrimitive(prisma) : createDbPrimitiveStub());
-  const exports = overrides.exports ?? createExportsPrimitiveStub(scope, correlationId);
-  const jobs = overrides.jobs ?? createJobsPrimitiveStub(scope, correlationId);
-  const outbox = overrides.outbox ?? createOutboxPrimitiveStub(scope, correlationId);
+  const db = overrides.db ?? (prisma ? createDbPrimitive(prisma, component, scope) : createDbPrimitiveStub());
+  const exports = overrides.exports ?? createExportsPrimitiveStub(component, scope, correlationId, prisma);
+  const jobs = overrides.jobs ?? createJobsPrimitiveStub(component, scope, correlationId, prisma);
+  const outbox = overrides.outbox ?? createOutboxPrimitiveStub(component, scope, correlationId, prisma);
   const config = overrides.config ?? createConfigPrimitiveStub();
   const rbac = overrides.rbac ?? createRbacPrimitiveStub(scope, correlationId);
   const obs = overrides.obs ?? createObsPrimitive(scope, correlationId, component);

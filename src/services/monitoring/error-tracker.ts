@@ -9,6 +9,7 @@
  * 3. IMMEDIATE VISIBILITY: Console output before any async operations
  * 4. LIVE STREAM: Real-time event emission for logger integration
  * 5. KERNEL INTEGRATION: All errors report UP to kernel observation layer (2025-12-26)
+ * 6. CRASH RESILIENCE: Database writes buffered with recovery on power loss (2025-01-04)
  * 
  * @module services/error-tracker
  */
@@ -36,6 +37,16 @@ import {
 } from '../../utils/stack-trace-parser.js';
 // Error Brain — Local intelligence system for error pattern detection
 import * as ErrorBrain from '../error-brain/index.js';
+// Resilient Write Buffer — Crash-safe database operations
+import {
+  queueWrite,
+  executeResilientWrite,
+  registerWriteExecutor,
+  initializeWriteBuffer,
+  shutdownWriteBuffer,
+  getBufferStats,
+  type BufferStats,
+} from './resilient-write-buffer.js';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Kernel Integration — Reports UP to observation layer
@@ -312,6 +323,155 @@ export class ErrorTracker {
     queueSize: 0,
     lastCaptureTime: 0,
   };
+
+  /** Whether resilient write buffer has been initialized */
+  private _bufferInitialized = false;
+
+  /**
+   * Initialize crash-resilient write buffer.
+   * MUST be called on application startup to:
+   * 1. Register write executors for error tracking operations
+   * 2. Recover any uncommitted writes from previous crash
+   * 3. Start periodic flush timer
+   */
+  async initialize(): Promise<void> {
+    if (this._bufferInitialized) return;
+    
+    try {
+      // Register write executors for each operation type
+      this.registerWriteExecutors();
+      
+      // Initialize buffer and recover any pending writes
+      const { recovered } = await initializeWriteBuffer();
+      
+      if (recovered > 0) {
+        logger.info('error-tracker', 'init', 
+          `[ErrorTracker] Recovered ${recovered} uncommitted writes from previous session`);
+      }
+      
+      this._bufferInitialized = true;
+      logger.info('error-tracker', 'init', '[ErrorTracker] Resilient write buffer initialized');
+    } catch (error) {
+      logger.error('error-tracker', 'init', 
+        `[ErrorTracker] Buffer initialization failed: ${error}`);
+      // Continue without buffer - errors still captured via console + emergency fallback
+    }
+  }
+
+  /**
+   * Register write executors for crash-resilient operations.
+   * Called during initialization.
+   */
+  private registerWriteExecutors(): void {
+    // Executor for error resolution records
+    registerWriteExecutor('error-resolution', async (payload) => {
+      const p = payload as {
+        errorId: string;
+        strategy: string;
+        outcome: string;
+        triggeredBy?: string;
+        durationMs?: number;
+        notes?: string;
+        contextData?: Record<string, unknown>;
+      };
+      
+      await prisma.errorResolution.create({
+        data: {
+          errorId: p.errorId,
+          strategy: p.strategy,
+          outcome: p.outcome,
+          triggeredBy: p.triggeredBy,
+          durationMs: p.durationMs,
+          notes: p.notes,
+          contextData: p.contextData ? JSON.parse(JSON.stringify(p.contextData)) : undefined,
+        },
+      });
+    });
+
+    // Executor for code context persistence
+    registerWriteExecutor('code-context', async (payload) => {
+      const p = payload as {
+        records: Array<{
+          errorId: string;
+          frameIndex: number;
+          filePath: string;
+          lineNumber: number;
+          columnNumber: number | null;
+          functionName: string | undefined;
+          codeSnippet: string | null;
+        }>;
+      };
+      
+      await prisma.errorCodeContext.createMany({
+        data: p.records,
+        skipDuplicates: true,
+      });
+    });
+
+    // Executor for AI report storage
+    registerWriteExecutor('ai-report', async (payload) => {
+      const p = payload as {
+        key: string;
+        report: string;
+        fingerprint: string;
+        context: Record<string, unknown>;
+      };
+      
+      await prisma.cacheEntry.upsert({
+        where: { key: p.key },
+        update: {
+          value: { report: p.report, fingerprint: p.fingerprint, context: p.context } as object,
+          updatedAt: new Date(),
+        },
+        create: {
+          key: p.key,
+          namespace: 'error-reports',
+          value: { report: p.report, fingerprint: p.fingerprint, context: p.context } as object,
+          sizeBytes: p.report.length,
+          expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+        },
+      });
+    });
+
+    // Executor for emergency error logs
+    registerWriteExecutor('emergency-log', async (payload) => {
+      const p = payload as {
+        key: string;
+        entry: object;
+      };
+      
+      await prisma.cacheEntry.create({
+        data: {
+          key: p.key,
+          namespace: 'emergency-error-logs',
+          value: p.entry,
+          sizeBytes: JSON.stringify(p.entry).length,
+          expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
+        },
+      });
+    });
+  }
+
+  /**
+   * Shutdown the error tracker gracefully.
+   * Flushes all pending writes before returning.
+   */
+  async shutdown(): Promise<void> {
+    if (!this._bufferInitialized) return;
+    
+    logger.info('error-tracker', 'shutdown', '[ErrorTracker] Shutting down...');
+    await shutdownWriteBuffer();
+    this._bufferInitialized = false;
+    logger.info('error-tracker', 'shutdown', '[ErrorTracker] Shutdown complete');
+  }
+
+  /**
+   * Get resilient write buffer statistics.
+   */
+  getBufferStats(): BufferStats | null {
+    if (!this._bufferInitialized) return null;
+    return getBufferStats();
+  }
 
   /**
    * Get synchronous stats for health checks.
@@ -1046,26 +1206,36 @@ export class ErrorTracker {
       // Generate AI-optimized report
       const report = formatErrorReportForAI(snapshot);
       
-      // Store to database instead of /Store file
+      // Store to database via resilient write buffer
       const shortFingerprint = fingerprint.substring(0, 12);
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
       const cacheKey = `error-report:${shortFingerprint}:${timestamp}`;
       
-      await prisma.cacheEntry.upsert({
-        where: { key: cacheKey },
-        update: {
-          value: { report, fingerprint, context } as object,
-          updatedAt: new Date(),
-        },
-        create: {
-          key: cacheKey,
-          namespace: 'error-reports',
-          value: { report, fingerprint, context } as object,
-          sizeBytes: report.length,
-          expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+      // Queue write for crash resilience
+      await queueWrite({
+        operationType: 'ai-report',
+        payload: { key: cacheKey, report, fingerprint, context },
+        idempotencyKey: cacheKey,
+        execute: async (p) => {
+          const data = p as { key: string; report: string; fingerprint: string; context: Record<string, unknown> };
+          await prisma.cacheEntry.upsert({
+            where: { key: data.key },
+            update: {
+              value: { report: data.report, fingerprint: data.fingerprint, context: data.context } as object,
+              updatedAt: new Date(),
+            },
+            create: {
+              key: data.key,
+              namespace: 'error-reports',
+              value: { report: data.report, fingerprint: data.fingerprint, context: data.context } as object,
+              sizeBytes: data.report.length,
+              expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+            },
+          });
         },
       });
-      logger.error('error-tracker', 'ai-report', `   📊 AI Report: db:error-reports/${cacheKey}`);
+      
+      logger.error('error-tracker', 'ai-report', `   📊 AI Report queued: db:error-reports/${cacheKey}`);
     } catch (reportError) {
       // Report generation failed - not critical
       logger.warn('error-tracker', 'ai-report', '[ErrorTracker] AI report generation failed: ' + String(reportError));
@@ -1106,23 +1276,33 @@ export class ErrorTracker {
         frameIndex: index,
         filePath: frame.relativeFilePath || frame.filePath || '',
         lineNumber: frame.lineNumber || 0,
-        columnNumber: frame.columnNumber,
+        columnNumber: frame.columnNumber ?? null,
         functionName: frame.functionName,
         codeSnippet: frame.sourceSnippet 
           ? `${frame.sourceSnippet.before || ''}\n>>> ${frame.sourceSnippet.errorLine || ''}\n${frame.sourceSnippet.after || ''}`
           : null,
       }));
       
-      await prisma.errorCodeContext.createMany({
-        data: contextRecords,
-        skipDuplicates: true,
+      // Queue write via resilient buffer for crash safety
+      const idempotencyKey = `code-context:${errorId}`;
+      await queueWrite({
+        operationType: 'code-context',
+        payload: { records: contextRecords },
+        idempotencyKey,
+        execute: async (p) => {
+          const data = p as { records: typeof contextRecords };
+          await prisma.errorCodeContext.createMany({
+            data: data.records,
+            skipDuplicates: true,
+          });
+        },
       });
       
-      logger.info('error-tracker', 'persist-context', `[ErrorTracker] Persisted ${contextRecords.length} stack frames for error ${errorId.substring(0, 8)}...`);
+      logger.info('error-tracker', 'persist-context', `[ErrorTracker] Queued ${contextRecords.length} stack frames for error ${errorId.substring(0, 8)}...`);
       return contextRecords.length;
       
     } catch (error) {
-      logger.warn('error-tracker', 'persist-context', '[ErrorTracker] Failed to persist code context: ' + (error instanceof Error ? error.message : String(error)));
+      logger.warn('error-tracker', 'persist-context', '[ErrorTracker] Failed to queue code context: ' + (error instanceof Error ? error.message : String(error)));
       return 0;
     }
   }
@@ -1341,6 +1521,7 @@ export class ErrorTracker {
 
   /**
    * Write error to emergency log as last-resort fallback
+   * Uses resilient write buffer for crash safety
    * Stores to database - ensures ZERO false negatives even if main DB path fails
    */
   private async writeToEmergencyLog(
@@ -1381,16 +1562,26 @@ export class ErrorTracker {
         } : null,
       };
       
-      await prisma.cacheEntry.create({
-        data: {
-          key: cacheKey,
-          namespace: 'emergency-error-logs',
-          value: emergencyEntry as object,
-          sizeBytes: JSON.stringify(emergencyEntry).length,
-          expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
+      // Use resilient buffer for crash safety
+      await queueWrite({
+        operationType: 'emergency-log',
+        payload: { key: cacheKey, entry: emergencyEntry },
+        idempotencyKey: cacheKey,
+        execute: async (p) => {
+          const data = p as { key: string; entry: object };
+          await prisma.cacheEntry.create({
+            data: {
+              key: data.key,
+              namespace: 'emergency-error-logs',
+              value: data.entry,
+              sizeBytes: JSON.stringify(data.entry).length,
+              expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
+            },
+          });
         },
       });
-      logger.error('error-tracker', 'emergency', `   📝 Emergency log written: db:emergency-error-logs/${cacheKey}`);
+      
+      logger.error('error-tracker', 'emergency', `   📝 Emergency log queued: db:emergency-error-logs/${cacheKey}`);
     } catch (fileError) {
       // Absolute last resort: just log to console
       logger.error('error-tracker', 'emergency', '[ErrorTracker] Emergency file write also failed: ' + String(fileError));

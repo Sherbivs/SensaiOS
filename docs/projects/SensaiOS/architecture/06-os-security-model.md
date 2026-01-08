@@ -1,9 +1,28 @@
 # 06 — OS Security Model (Ring Architecture & Installation Primitives)
 
-**Version:** 1.0.0  
-**Status:** PROPOSED — Design Specification  
+**Version:** 1.2.0  
+**Status:** IMPLEMENTED — Architecture Review Complete (2026-01-06)  
 **Created:** January 1, 2026  
+**Updated:** January 6, 2026  
 **Purpose:** Define the security architecture for SensaiOS as a true OS-within-a-container
+
+---
+
+## Implementation Status
+
+| Feature | Status | Location |
+|---------|--------|----------|
+| **Ring Boundary ESLint Rules** | ✅ IMPLEMENTED | `eslint.config.js` lines 65-210 |
+| **Atomic Install Transactions** | ✅ IMPLEMENTED | `src/sensaios/install/install-app.ts` |
+| **Worker Health Monitoring** | ✅ IMPLEMENTED | `src/workers/worker-health.ts` |
+| **Capability Assertions** | ✅ IMPLEMENTED | `src/sensaios/capabilities/assert-capability.ts` |
+| **Capability Delegation** | ✅ IMPLEMENTED | `src/sensaios/capabilities/delegation.ts` |
+| **Component Supervisor** | ✅ IMPLEMENTED | `src/sensaios/component-supervisor.ts` |
+| **Content-Addressable Storage** | ✅ IMPLEMENTED | `src/sensaios/storage/content-addressable.ts` |
+| **Lock Manager (Deadlock Prevention)** | ✅ IMPLEMENTED | `src/sensaios/concurrency/lock-manager.ts` |
+| **Dependency Graph Visualization** | ✅ IMPLEMENTED | `src/sensaios/visualization/dependency-graph.ts` |
+
+**Verification:** Run `npm run lint` to check for ring boundary violations.
 
 ---
 
@@ -33,7 +52,7 @@ This document defines how SensaiOS becomes a **true operating system** with:
 
 ## 1. Container Nesting Model
 
-### The Complete Stack
+### The Complete Stack (v1.2.0)
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -44,15 +63,17 @@ This document defines how SensaiOS becomes a **true operating system** with:
 │  │  • PostgreSQL substrate                                      │ │
 │  │  • Observability primitives                                  │ │
 │  │  • Error detection & routing                                 │ │
-│  │  • Storage primitives                                        │ │
+│  │  • Storage primitives (SHA-256 CAS)                         │ │
 │  │                                                               │ │
 │  │  ┌───────────────────────────────────────────────────────┐  │ │
-│  │  │         SensaiOS (Ring 1)                              │  │ │
+│  │  │         SensaiOS (Ring 1) — v1.2.0                     │  │ │
 │  │  │  • Component supervisor                                │  │ │
 │  │  │  • Dependency injection                                │  │ │
 │  │  │  • Lifecycle management                                │  │ │
-│  │  │  • Capability enforcement                              │  │ │
+│  │  │  • Capability enforcement + delegation (v1.2.0)        │  │ │
 │  │  │  • Installation primitives                             │  │ │
+│  │  │  • Lock manager (deadlock prevention) (v1.2.0)         │  │ │
+│  │  │  • Dependency visualization (v1.2.0)                   │  │ │
 │  │  │                                                         │  │ │
 │  │  │  ┌─────────────────────────────────────────────────┐  │  │ │
 │  │  │  │   Applications (Ring 3)                         │  │  │ │
@@ -96,7 +117,7 @@ CEO (Node Container)
 ```
 Ring 0 (Kernel)     — Unrestricted access to all resources
   ↓
-Ring 1 (SensaiOS)   — Can manage components, enforce policies
+Ring 1 (SensaiOS)   — Can manage components, enforce policies, delegate capabilities
   ↓
 Ring 2 (Reserved)   — Future use (trusted services)
   ↓
@@ -241,43 +262,138 @@ export function assertImportAllowed(
 }
 ```
 
+### Ring Boundary Violation Examples
+
+#### ❌ BLOCKED: App Importing Kernel Directly
+
+```typescript
+// src/bot/commands/battle-turn.ts
+import { DbPrimitive } from '../../kernel/primitives/db'; // ❌ RING VIOLATION
+
+// ESLint error:
+// 🚫 Ring 3 (Apps/Bot) MUST use ComponentContext from SensaiOS, 
+//    not Ring 0 (Kernel) directly. Use ctx provided to handlers.
+
+// ✅ CORRECT: Use ComponentContext
+export const handleBattleCommand = runGuarded(
+  'discord.battle.command',
+  async (ctx: ComponentContext, interaction: CommandInteraction) => {
+    // Use ctx.db instead of importing DbPrimitive directly
+    await ctx.db.transaction(async (tx) => {
+      // ...
+    });
+  }
+);
+```
+
+#### ❌ BLOCKED: App Importing SensaiOS Internals
+
+```typescript
+// src/bot/homestead/heal.ts
+import { createDbPrimitive } from '../../sensaios/context-factory'; // ❌ RING VIOLATION
+
+// ESLint error:
+// 🚫 Ring 3 (Apps/Bot) MUST use ComponentContext interface, 
+//    not Ring 1 (SensaiOS) internals directly. Use ctx.db, ctx.exports, etc.
+
+// ✅ CORRECT: Use ComponentContext provided by handler wrapper
+export const handleHealCommand = runGuarded(
+  'homestead.heal.command',
+  async (ctx: ComponentContext, interaction: CommandInteraction) => {
+    // ctx already has all primitives ready to use
+    await ctx.db.transaction(async (tx) => {
+      // ...
+    });
+  }
+);
+```
+
+#### ❌ BLOCKED: Kernel Importing Upper Layers
+
+```typescript
+// src/kernel/primitives/exports.ts
+import { BattleResult } from '../../bot/types/battle'; // ❌ RING VIOLATION
+
+// ESLint error:
+// 🚫 Ring 0 (Kernel) CANNOT import from Ring 3 (Apps). 
+//    Kernel must remain app-agnostic.
+
+// ✅ CORRECT: Use generic interfaces in kernel
+export interface ExportsPrimitive {
+  append(envelope: ExportEnvelope): Promise<void>; // Generic interface
+}
+
+// Apps define their own types that conform to generic envelope
+interface BattleCompleteExport extends ExportEnvelope {
+  payload: BattleResult; // App-specific payload
+}
+```
+
+#### ❌ BLOCKED: SensaiOS Importing Apps
+
+```typescript
+// src/sensaios/components/supervisor.ts
+import { GameEngine } from '../../bot/game/engine'; // ❌ RING VIOLATION
+
+// ESLint error:
+// 🚫 Ring 1 (SensaiOS) CANNOT import from Ring 3 (Apps/Bot). 
+//    SensaiOS is the OS layer - apps sit above it.
+
+// ✅ CORRECT: Apps register handlers with SensaiOS
+export class Supervisor {
+  async loadComponent(manifest: AppManifest): Promise<void> {
+    // Component provides handlers via manifest
+    // SensaiOS invokes them via ComponentContext
+    const component = await import(manifest.entryPoint);
+    await component.onLoad(ctx);
+  }
+}
+```
+
 ### ESLint Enforcement (Compile-Time)
 
+**Configuration:** `eslint.config.js`
+
 ```javascript
-// eslint.config.js
-export default [
-  {
-    files: ['src/app/**/*.ts', 'src/bot/**/*.ts', 'src/observability/**/*.ts'],
-    rules: {
-      'no-restricted-imports': ['error', {
-        patterns: [
-          { group: ['**/kernel/**'], message: 'Apps cannot import Kernel (use SensaiOS primitives)' },
-          { group: ['**/sensaios/**'], message: 'Apps cannot import SensaiOS directly (use @sensai/* paths)' },
-        ]
-      }]
-    }
-  },
-  {
-    files: ['src/sensaios/**/*.ts'],
-    rules: {
-      'no-restricted-imports': ['error', {
-        patterns: [
-          { group: ['**/app/**', '**/bot/**', '**/observability/**'], message: 'SensaiOS cannot import Apps (layering violation)' },
-        ]
-      }]
-    }
-  },
-  {
-    files: ['src/kernel/**/*.ts'],
-    rules: {
-      'no-restricted-imports': ['error', {
-        patterns: [
-          { group: ['**/sensaios/**', '**/app/**', '**/bot/**'], message: 'Kernel cannot import upper layers' },
-        ]
-      }]
-    }
+// Ring 0 (Kernel): CANNOT import from any upper rings
+{
+  files: ['src/kernel/**/*.ts'],
+  rules: {
+    'import/no-restricted-paths': ['error', {
+      zones: [
+        { target: './src/kernel', from: './src/sensaios', message: '🚫 Ring 0 cannot import Ring 1' },
+        { target: './src/kernel', from: './src/bot', message: '🚫 Ring 0 cannot import Ring 3' },
+        { target: './src/kernel', from: './src/core', message: '🚫 Ring 0 cannot import Ring 3' },
+        { target: './src/kernel', from: './src/services', message: '🚫 Ring 0 cannot import Ring 3' },
+      ]
+    }]
   }
-];
+},
+// Ring 1 (SensaiOS): CANNOT import from Ring 3 (Apps)
+{
+  files: ['src/sensaios/**/*.ts'],
+  rules: {
+    'import/no-restricted-paths': ['error', {
+      zones: [
+        { target: './src/sensaios', from: './src/bot', message: '🚫 Ring 1 cannot import Ring 3' },
+        { target: './src/sensaios', from: './src/core', message: '🚫 Ring 1 cannot import Ring 3' },
+        { target: './src/sensaios', from: './src/services', message: '🚫 Ring 1 cannot import Ring 3' },
+      ]
+    }]
+  }
+},
+// Ring 3 (Apps): CANNOT import from Ring 0 or Ring 1 directly
+{
+  files: ['src/bot/**/*.ts', 'src/core/**/*.ts', 'src/services/**/*.ts'],
+  rules: {
+    'import/no-restricted-paths': ['error', {
+      zones: [
+        { target: './src/bot', from: './src/kernel', message: '🚫 Ring 3 must use ComponentContext, not Kernel' },
+        { target: './src/bot', from: './src/sensaios', message: '🚫 Ring 3 must use ComponentContext interface' },
+      ]
+    }]
+  }
+}
 ```
 
 ### Runtime Enforcement (Dynamic Imports)
@@ -321,65 +437,423 @@ export async function secureImport<T>(
 
 ### App Manifest Format
 
-Apps must provide a manifest defining their requirements:
+**Implementation:** `src/sensaios/install/app-manifest.ts`
+**Validation:** `src/sensaios/install/manifest-schema.ts` (Zod schema)
+**Examples:** `manifests/*.manifest.json`
+
+Apps must provide a manifest defining their requirements. The manifest is the contract between an app and SensaiOS.
+
+#### Complete AppManifest Interface
 
 ```typescript
 /**
- * Application manifest — like package.json for SensaiOS apps
+ * AppManifest — Complete app metadata for installation
+ * 
+ * Location: src/sensaios/install/app-manifest.ts
+ * Validation: validateManifest() in manifest-schema.ts (Zod)
  */
 export interface AppManifest {
-  /** Unique app identifier */
+  /**
+   * Unique app identifier
+   * Format: namespace.app (e.g., "game.battles", "discord.bot")
+   * MUST be unique across all installed apps
+   */
   id: string;
-  
-  /** Human-readable name */
+
+  /**
+   * Human-readable app name
+   * Example: "Battle Engine", "Discord Bot Core"
+   */
   name: string;
-  
-  /** Semantic version */
+
+  /**
+   * Semantic version (MAJOR.MINOR.PATCH)
+   * Example: "1.0.0", "2.3.1"
+   * See: https://semver.org/
+   */
   version: string;
-  
-  /** App description */
-  description: string;
-  
-  /** Required capabilities */
-  capabilities: Capability['type'][];
-  
-  /** Data ownership declarations */
+
+  /**
+   * Optional app description
+   * Brief summary of what the app does
+   */
+  description?: string;
+
+  /**
+   * Host environments where this app can run
+   * - bot: Discord bot runtime (handles interactions)
+   * - worker: Background worker (processes jobs)
+   * - cron: Scheduled job runner (periodic tasks)
+   * - cli: Command-line tool (operator scripts)
+   */
+  hosts: Array<'bot' | 'worker' | 'cron' | 'cli'>;
+
+  /**
+   * Required capabilities
+   * Apps MUST declare all capabilities they need
+   * Dangerous capabilities require operator approval:
+   * - db.migrate (schema changes)
+   * - discord.moderate (kick/ban/roles)
+   * - kernel.observe (read kernel state)
+   * - kernel.modify (change kernel config)
+   */
+  capabilities: {
+    /** Database capabilities: read, write, migrate */
+    db: Array<'read' | 'write' | 'migrate'>;
+    
+    /** Discord API capabilities: read, send, moderate */
+    discord?: Array<'read' | 'send' | 'moderate'>;
+    
+    /** Network capabilities: http-egress */
+    network?: Array<'http-egress'>;
+    
+    /** Kernel capabilities (DANGEROUS): observe, modify */
+    kernel?: Array<'observe' | 'modify'>;
+  };
+
+  /**
+   * Data ownership (optional)
+   * Declares which tables this app owns
+   * Only the owner app can write to canonical tables
+   */
   owns?: {
-    tables?: string[];      // DB tables this app owns
-    collections?: string[]; // MongoDB collections (future)
+    /** Canonical tables — App is authoritative writer */
+    canonical?: string[];
+    
+    /** Projection tables — App maintains derived views */
+    projections?: string[];
   };
-  
-  /** Dependencies on other apps */
-  dependencies?: {
-    [appId: string]: string; // semver range
+
+  /**
+   * App dependencies (optional)
+   * List of other app IDs that MUST be installed first
+   * Example: ["game.core", "discord.bot"]
+   */
+  dependencies?: string[];
+
+  /**
+   * Resource budgets (optional)
+   * Limits the app's resource consumption
+   */
+  resources?: {
+    /** Maximum cache size in MB (default: 50) */
+    maxCacheMb?: number;
+    
+    /** Maximum job queue size (default: 1000) */
+    maxQueueSize?: number;
+    
+    /** Maximum concurrent operations (default: 10) */
+    maxConcurrency?: number;
   };
-  
-  /** Lifecycle hooks */
-  lifecycle: {
-    install?: (ctx: ComponentContext) => Promise<void>;
-    enable?: (ctx: ComponentContext) => Promise<void>;
-    disable?: (ctx: ComponentContext) => Promise<void>;
-    uninstall?: (ctx: ComponentContext) => Promise<void>;
+
+  /**
+   * Lifecycle hooks (optional)
+   * Functions called during app lifecycle transitions
+   * - onLoad: Called when manifest loaded (installation)
+   * - onEnable: Called when app enabled
+   * - onDisable: Called when app disabled
+   * - onUnload: Called when app uninstalled
+   */
+  lifecycle?: {
+    onLoad?(ctx: ComponentContext): Promise<void>;
+    onEnable?(ctx: ComponentContext): Promise<void>;
+    onDisable?(ctx: ComponentContext): Promise<void>;
+    onUnload?(ctx: ComponentContext): Promise<void>;
   };
-  
-  /** Handler exports */
+
+  /**
+   * Event handlers (optional)
+   * Maps event sources to handler functions
+   */
   handlers?: {
+    /** Discord interaction handlers (key: command name) */
     discord?: Record<string, DiscordHandler>;
+    
+    /** Export event handlers (key: event type pattern) */
     exports?: Record<string, ExportHandler>;
+    
+    /** Job handlers (key: job kind) */
     jobs?: Record<string, JobHandler>;
+    
+    /** HTTP endpoint handlers (key: route pattern) */
     http?: Record<string, HttpHandler>;
+    
+    /** CLI command handlers (key: command name) */
     cli?: Record<string, CliHandler>;
   };
-  
-  /** Configuration schema */
-  config?: {
-    [key: string]: {
-      type: 'string' | 'number' | 'boolean' | 'json';
-      default?: unknown;
-      required?: boolean;
-      description?: string;
-    };
-  };
+
+  /**
+   * App-specific configuration (optional)
+   * Free-form JSON object for app settings
+   * Example: { maxRetries: 3, timeout: 5000 }
+   */
+  config?: Record<string, unknown>;
+}
+```
+
+#### Example Manifest: Battle Engine
+
+**File:** `manifests/battle-engine.manifest.json`
+
+```json
+{
+  "id": "game.battles",
+  "name": "Battle Engine",
+  "version": "1.0.0",
+  "description": "Deterministic Pokémon battle system with PBSL support",
+  "hosts": ["bot", "worker"],
+  "capabilities": {
+    "db": ["read", "write"],
+    "discord": ["read", "send"]
+  },
+  "owns": {
+    "canonical": ["battles", "battle_turns", "battle_participants"],
+    "projections": ["battle_stats", "leaderboard", "battle_history"]
+  },
+  "dependencies": ["game.core", "discord.bot"],
+  "resources": {
+    "maxCacheMb": 50,
+    "maxQueueSize": 1000,
+    "maxConcurrency": 20
+  },
+  "config": {
+    "maxBattleDuration": 3600000,
+    "turnTimeout": 60000,
+    "enableSpectators": true,
+    "enablePBSL": true,
+    "maxSimultaneousBattles": 100
+  }
+}
+```
+
+#### Manifest Validation
+
+**Implementation:** `src/sensaios/install/manifest-schema.ts`
+
+The manifest schema uses Zod for runtime validation:
+
+```typescript
+import { validateManifest, validateManifestJson } from './manifest-schema.js';
+
+// Validate from parsed object
+const manifest = validateManifest(jsonData);
+
+// Validate from JSON string
+const manifest = validateManifestJson(jsonString);
+
+// Check for dangerous capabilities
+import { getDangerousCapabilities } from './manifest-schema.js';
+const dangerous = getDangerousCapabilities(manifest);
+// Returns: ["db.migrate", "kernel.observe"] (requires approval)
+```
+
+#### Capability Classification
+
+**Safe Capabilities** (auto-approved):
+- `db.read` — SELECT queries
+- `db.write` — INSERT/UPDATE/DELETE
+- `discord.read` — Fetch guild/user data
+- `discord.send` — Send messages/embeds
+- `network.http-egress` — Outbound HTTP requests
+
+**Dangerous Capabilities** (require approval):
+- `db.migrate` — Schema changes (CREATE/ALTER/DROP)
+- `discord.moderate` — Kick/ban/timeout users, manage roles
+- `kernel.observe` — Read kernel state
+- `kernel.modify` — Change kernel configuration
+
+#### Data Ownership Semantics
+
+**Purpose:** Prevent data corruption from multiple writers
+
+**Canonical Tables** — App is authoritative writer:
+- Only ONE app can write to a canonical table
+- Other apps can read via queries
+- Example: `game.battles` owns `battles` table
+- Writes via: `ctx.db.prisma.battles.create()`
+- Others read: `ctx.db.prisma.battles.findMany()`
+
+**Projection Tables** — App maintains derived views:
+- Built by consuming the export log
+- Can be rebuilt from scratch (safe to delete)
+- Example: `battle_stats` = aggregation of `battles`
+- Maintained by: export handler consuming `battle.completed` events
+- Rebuilding: Replay export log from sequence 0
+
+**Why Ownership Matters:**
+```typescript
+// ✅ CORRECT: Owner app writes
+// In game.battles component
+await ctx.db.prisma.battles.create({
+  data: { /* battle data */ }
+});
+
+// ❌ VIOLATION: Non-owner writes directly
+// In analytics.dashboard component (NOT owner)
+await ctx.db.prisma.battles.update({ /* FORBIDDEN */ });
+
+// ✅ CORRECT: Non-owner requests via export
+// In analytics.dashboard component
+await ctx.exports.append({
+  source: 'analytics.dashboard',
+  type: 'battle.update-request',
+  payload: { battleId, updates },
+  // game.battles handles this export and does the write
+});
+```
+
+#### Lifecycle Hook Patterns
+
+**onLoad(ctx)** — Called during installation:
+```typescript
+lifecycle: {
+  async onLoad(ctx) {
+    // Validate environment
+    if (!process.env.REQUIRED_VAR) {
+      throw new Error('Missing REQUIRED_VAR');
+    }
+    
+    // Check dependencies available
+    const deps = await ctx.db.prisma.installed_app.count({
+      where: { id: { in: ['game.core'] }, status: 'enabled' }
+    });
+    if (deps === 0) throw new Error('game.core not installed');
+    
+    // Store manifest metadata
+    ctx.obs.log.info('App manifest loaded', { appId: 'game.battles' });
+  }
+}
+```
+
+**onEnable(ctx)** — Called when app started:
+```typescript
+lifecycle: {
+  async onEnable(ctx) {
+    // Start background workers
+    this.worker = startBattleWorker(ctx);
+    
+    // Register event handlers
+    await ctx.exports.subscribe('battle.*', this.handleBattleEvent);
+    
+    // Warm caches
+    await this.warmCache(ctx);
+    
+    ctx.obs.log.info('App enabled', { appId: 'game.battles' });
+  }
+}
+```
+
+**onDisable(ctx)** — Called when app paused:
+```typescript
+lifecycle: {
+  async onDisable(ctx) {
+    // Stop accepting new work
+    this.acceptingWork = false;
+    
+    // Drain existing work
+    await this.worker.drain();
+    
+    // Unregister handlers
+    await ctx.exports.unsubscribe('battle.*');
+    
+    // Flush caches
+    await this.flushCache(ctx);
+    
+    ctx.obs.log.info('App disabled', { appId: 'game.battles' });
+  }
+}
+```
+
+**onUnload(ctx)** — Called during uninstall:
+```typescript
+lifecycle: {
+  async onUnload(ctx) {
+    // Stop all workers
+    await this.worker.stop();
+    
+    // Cleanup resources
+    await this.cleanup(ctx);
+    
+    // Archive data (optional)
+    await this.archiveData(ctx);
+    
+    // NEVER drop tables in production
+    // Tables stay for audit trail
+    
+    ctx.obs.log.info('App unloaded', { appId: 'game.battles' });
+  }
+}
+```
+
+#### Host Types Explained
+
+**bot** — Discord interaction runtime:
+- Receives: Slash commands, buttons, select menus
+- Handlers: `handlers.discord`
+- Use when: App needs to respond to Discord users
+- Example: `game.battles` (handles `/battle` command)
+
+**worker** — Background job processor:
+- Receives: Jobs from queue
+- Handlers: `handlers.jobs`
+- Use when: App runs async work (exports, scheduled tasks)
+- Example: `outbox.deliverer` (sends Discord messages)
+
+**cron** — Scheduled task runner:
+- Receives: Timer events
+- Handlers: `handlers.jobs` with schedule config
+- Use when: App needs periodic execution
+- Example: `cache.maintainer` (hourly refresh)
+
+**cli** — Command-line operator tool:
+- Receives: CLI arguments
+- Handlers: `handlers.cli`
+- Use when: App provides admin commands
+- Example: `ops.cli-tools` (database operations)
+
+**Multi-Host Apps:**
+```json
+{
+  "id": "game.battles",
+  "hosts": ["bot", "worker"],
+  "handlers": {
+    "discord": {
+      "/battle": "handleBattleCommand"
+    },
+    "jobs": {
+      "battle.process-turn": "processTurnJob"
+    }
+  }
+}
+```
+Bot handles user commands, worker processes turns async.
+
+#### Resource Budgets Rationale
+
+**maxCacheMb** — Prevent memory leaks:
+- Default: 50 MB per app
+- Total RAM: 2 GB (Render Standard)
+- Budget: 10-20 apps @ 50 MB = 500-1000 MB cache max
+- Why: Apps share memory, unbounded caches = OOM kills
+
+**maxQueueSize** — Prevent queue overflow:
+- Default: 1000 jobs per app
+- Total: All apps share job queue
+- Why: Backpressure prevents cascading failures
+
+**maxConcurrency** — Prevent thread exhaustion:
+- Default: 10 concurrent operations per app
+- Total: Node.js thread pool limited
+- Why: Too many concurrent ops = slow for everyone
+
+**Example Constraints:**
+```json
+{
+  "resources": {
+    "maxCacheMb": 100,        // Battle engine needs more cache
+    "maxQueueSize": 5000,     // High throughput job processing
+    "maxConcurrency": 50      // Parallel battle turns
+  }
 }
 ```
 

@@ -40,9 +40,8 @@ import { EMBED_COLORS } from "../shared/embed-colors.js";
 import { dangerButton, navButton as _navButton, primaryButton as _primaryButton, secondaryButton } from "../shared/button-utils.js";
 import { safeReplyWithPayload } from "../shared/response-helpers.js";
 import { HomesteadChannelManager } from "../../services/homestead-manager.js";
-import { ensureUser } from "../../shared/models/user-queries-pg.js";
 import { addItems, ITEM_IDS } from "../../services/inventory.js";
-import { prisma } from "../../shared/prisma.js";
+import { getGameServer } from "../../sensaios/gameserver/singleton.js";
 
 // ============================================================================
 // CONSTANTS
@@ -121,11 +120,12 @@ export interface ShopSnapshot {
  * Load player's coins from database (coins are on User, not Trainer)
  */
 export async function loadShopSnapshot(discordId: string): Promise<ShopSnapshot> {
-  const user = await ensureUser(discordId);
+  const gameServer = getGameServer();
+  const trainer = await gameServer.trainers.get(discordId);
 
   return {
-    userId: user.id,
-    coins: user.coins ?? 0,
+    userId: trainer?.id ?? discordId,
+    coins: trainer?.money ?? 0,
   };
 }
 
@@ -138,7 +138,7 @@ export async function purchaseItem(
   itemId: number,
   quantity: number
 ): Promise<{ success: boolean; newBalance?: number; error?: string }> {
-  const user = await ensureUser(discordId);
+  const gameServer = getGameServer();
   
   // Find the item price
   let itemPrice = 0;
@@ -157,7 +157,10 @@ export async function purchaseItem(
   }
 
   const totalCost = itemPrice * quantity;
-  const currentCoins = user.coins ?? 0;
+  
+  // Get current coins from trainer data
+  const trainer = await gameServer.trainers.get(discordId);
+  const currentCoins = trainer?.money ?? 0;
 
   if (currentCoins < totalCost) {
     return { 
@@ -166,23 +169,26 @@ export async function purchaseItem(
     };
   }
 
-  // Deduct coins from User and add items to inventory
-  const newBalance = currentCoins - totalCost;
-  
-  await prisma.user.update({
-    where: { id: user.id },
-    data: { coins: newBalance },
+  // Deduct coins from User using GameServerAPI
+  const result = await gameServer.trainers.updateMoney({
+    discordId,
+    delta: -totalCost,
+    reason: `Shop purchase: ${quantity}x ${itemName}`,
   });
+  
+  if (!result.success) {
+    return { success: false, error: "Failed to deduct coins" };
+  }
 
   // addItems(userId, itemId, quantity, tenantId?)
   await addItems(discordId, itemId, quantity);
 
   logger.info("Shop", "purchaseItem", "Purchase completed", {
     userId: discordId,
-    metadata: { itemId, itemName, quantity, totalCost, newBalance },
+    metadata: { itemId, itemName, quantity, totalCost, newBalance: result.newBalance },
   });
 
-  return { success: true, newBalance };
+  return { success: true, newBalance: result.newBalance };
 }
 
 // ============================================================================

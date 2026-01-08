@@ -1,10 +1,10 @@
 # Sensai OS — Final Architecture Specification
 
-**Version:** 1.1.2  
+**Version:** 1.2.0  
 **Status:** CANONICAL — Authoritative System Design  
 **Authority:** Project Leadership (DRIPTVDD)  
 **Created:** December 28, 2025  
-**Last Updated:** December 28, 2025
+**Last Updated:** January 8, 2026
 
 ---
 
@@ -31,11 +31,12 @@ This document is the canonical, authoritative specification for all Sensai archi
 11. [Error Taxonomy](#11-error-taxonomy)
 12. [Guarded Execution](#12-guarded-execution)
 13. [Component Lifecycle](#13-component-lifecycle)
-14. [File Structure](#14-file-structure)
-15. [Non-Negotiables](#15-non-negotiables)
-16. [Implementation Checklist](#16-implementation-checklist)
-17. [Migration Guide](#17-migration-guide)
-18. [Reference Documentation](#18-reference-documentation)
+14. [Advanced Subsystems (v1.2.0)](#14-advanced-subsystems-v120)
+15. [File Structure](#15-file-structure)
+16. [Non-Negotiables](#16-non-negotiables)
+17. [Implementation Checklist](#17-implementation-checklist)
+18. [Migration Guide](#18-migration-guide)
+19. [Reference Documentation](#19-reference-documentation)
 
 ---
 
@@ -910,7 +911,355 @@ class ComponentSupervisor {
 
 ---
 
-## 14. File Structure
+## 14. Advanced Subsystems (v1.2.0)
+
+**Version:** 1.2.0  
+**Added:** January 2026  
+**Status:** PRODUCTION READY
+
+The v1.2.0 release adds four production-ready subsystems that enhance SensaiOS with enterprise-grade capabilities:
+
+### 14.1 Content-Addressable Storage
+
+**Purpose:** SHA-256 based blob storage with automatic deduplication and integrity verification.
+
+**Implementation:** `src/sensaios/storage/content-addressable.ts` (340 lines)
+
+**Key Features:**
+- SHA-256 content hashing for immutable blob IDs
+- Automatic deduplication (same content = same ID)
+- Reference counting for blob lifecycle management
+- Integrity verification on read with `verifyIntegrity()` and `verifyAll()`
+- Statistics tracking (deduplication savings, integrity check counts)
+
+**API:**
+
+```typescript
+interface ContentAddressableStorage {
+  /** Store blob, returns SHA-256 ID */
+  put(data: Buffer): Promise<string>;
+  
+  /** Retrieve blob by ID */
+  get(id: string): Promise<Buffer | null>;
+  
+  /** Check if blob exists */
+  has(id: string): Promise<boolean>;
+  
+  /** Delete blob (with reference counting) */
+  delete(id: string): Promise<void>;
+  
+  /** Verify blob integrity */
+  verifyIntegrity(id: string): Promise<boolean>;
+  
+  /** Verify all blobs */
+  verifyAll(): Promise<IntegrityReport>;
+  
+  /** Get statistics */
+  getStats(): Promise<StorageStats>;
+}
+```
+
+**Use Cases:**
+- Immutable asset storage (Pokemon sprites, move animations)
+- Cache optimization (deduplicated data)
+- Integrity verification (corruption detection)
+- Audit trail (content-based versioning)
+
+### 14.2 Lock Manager with Deadlock Prevention
+
+**Purpose:** Advisory lock management with PostgreSQL backend, timeout-based deadlock prevention, and contention monitoring.
+
+**Implementation:** `src/sensaios/concurrency/lock-manager.ts` (410 lines)
+
+**Key Features:**
+- PostgreSQL `pg_advisory_xact_lock()` and `pg_advisory_lock()` wrappers
+- Configurable timeouts (default 5s, max 60s)
+- 5 lock domains: battle, encounter, trainer, guild, component
+- Lock scopes: transaction vs session
+- Deadlock detection via `statement_timeout`
+- Active lock monitoring and stale lock detection
+- Statistics tracking (wait times, timeout/deadlock counts)
+
+**API:**
+
+```typescript
+interface LockManager {
+  /** Acquire advisory lock */
+  acquire(domain: LockDomain, resourceId: string, options?: LockOptions): Promise<LockHandle>;
+  
+  /** Release lock */
+  release(handle: LockHandle): Promise<void>;
+  
+  /** Execute function with lock held */
+  withLock<T>(
+    domain: LockDomain,
+    resourceId: string,
+    fn: () => Promise<T>,
+    options?: LockOptions
+  ): Promise<T>;
+  
+  /** Get lock statistics */
+  getStats(): Promise<LockStats>;
+  
+  /** Find stale locks */
+  getStaleLocks(): Promise<StaleLock[]>;
+}
+
+type LockDomain = 'battle' | 'encounter' | 'trainer' | 'guild' | 'component';
+```
+
+**Lock Key Generation:**
+- Namespace (high 32 bits) + FNV-1a hash of resourceId (low 32 bits) = 64-bit key
+- Ensures collision-free locking across domains
+
+**Use Cases:**
+- Battle state management (prevent concurrent turn processing)
+- Encounter handling (catch flow synchronization)
+- Trainer inventory operations (prevent duplicate items)
+- Guild configuration updates (prevent race conditions)
+
+### 14.3 Dependency Graph Visualization
+
+**Purpose:** Multi-format dependency graph visualization for component topology understanding and cycle detection.
+
+**Implementation:** `src/sensaios/visualization/dependency-graph.ts` (370 lines)
+
+**Key Features:**
+- 4 output formats: Mermaid, Graphviz DOT, ASCII tree, JSON
+- Circular dependency detection
+- Max depth calculation (longest dependency chain)
+- State visualization (enabled/installed/uninstalled indicators)
+- GitHub/Markdown compatible Mermaid output
+
+**API:**
+
+```typescript
+interface DependencyGraphVisualization {
+  /** Generate dependency graph in all formats */
+  visualizeDependencies(): Promise<GraphOutput>;
+  
+  /** Mermaid diagram (GitHub/Markdown) */
+  toMermaid(data: GraphData): string;
+  
+  /** Graphviz DOT format */
+  toDot(data: GraphData): string;
+  
+  /** ASCII tree (terminal display) */
+  toAscii(data: GraphData): string;
+  
+  /** JSON export (programmatic access) */
+  toJson(data: GraphData): ComponentGraph;
+  
+  /** Calculate max depth */
+  calculateMaxDepth(data: GraphData): number;
+}
+```
+
+**Mermaid Output Example (v1.2.0 Full Architecture):**
+
+```mermaid
+graph TD
+    subgraph "Ring 3 - Applications"
+        DISCORD[game.discord]
+        BATTLES[game.battles]
+        ENCOUNTERS[game.encounters]
+        HOMESTEAD[game.homestead]
+    end
+    
+    subgraph "Ring 1 - SensaiOS"
+        SUPERVISOR[component-supervisor]
+        INSTALLER[install-app]
+        CAPS[capabilities]
+        DELEGATION[delegation v1.2.0]
+        LOCKS[lock-manager v1.2.0]
+        DEPGRAPH[dependency-graph v1.2.0]
+    end
+    
+    subgraph "Ring 0 - Kernel"
+        DB[kernel.db]
+        EXPORTS[kernel.exports]
+        JOBS[kernel.jobs]
+        OUTBOX[kernel.outbox]
+        RNG[kernel.rng]
+        STORAGE[kernel.storage]
+        CAS[content-addressable v1.2.0]
+    end
+    
+    DISCORD --> SUPERVISOR
+    BATTLES --> SUPERVISOR
+    ENCOUNTERS --> SUPERVISOR
+    HOMESTEAD --> SUPERVISOR
+    
+    SUPERVISOR --> INSTALLER
+    SUPERVISOR --> CAPS
+    SUPERVISOR --> DEPGRAPH
+    
+    CAPS --> DELEGATION
+    INSTALLER --> LOCKS
+    
+    BATTLES --> DB
+    BATTLES --> EXPORTS
+    BATTLES --> RNG
+    BATTLES --> LOCKS
+    
+    ENCOUNTERS --> DB
+    ENCOUNTERS --> RNG
+    
+    DISCORD --> OUTBOX
+    
+    STORAGE --> CAS
+    DEPGRAPH --> DB
+```
+
+**ASCII Output Example (Component Dependencies):**
+
+```
+game.core
+├── kernel.db
+├── kernel.exports
+├── kernel.obs
+└── kernel.config
+
+game.battles
+├── game.core
+├── kernel.rng
+├── kernel.jobs
+└── sensaios/concurrency/lock-manager (v1.2.0)
+
+game.encounters
+├── game.core
+├── kernel.rng
+└── sensaios/storage/content-addressable (v1.2.0)
+```
+
+**Use Cases:**
+- Component topology documentation
+- Circular dependency debugging
+- Installation order planning
+- Architecture documentation
+
+### 14.4 Capability Delegation
+
+**Purpose:** Time-bounded capability grants for secure cross-ring access with automatic expiration and chain limits.
+
+**Implementation:** `src/sensaios/capabilities/delegation.ts` (490 lines)
+
+**Key Features:**
+- Delegation tokens (crypto.randomBytes(16) for secure IDs)
+- Time-bounded grants (TTL-based expiration, max 3600s / 1 hour)
+- Use limits (maxUses + useCount tracking)
+- Chain depth limit (max 3 levels to prevent infinite delegation chains)
+- Automatic cleanup every 5 minutes (expired token removal)
+- Verification (delegatee, scope, expiration, use count checks)
+- Audit trail (all delegations logged)
+
+**API:**
+
+```typescript
+interface CapabilityDelegationManager {
+  /** Delegate capability to another component */
+  delegate(req: DelegationRequest): Promise<DelegationToken>;
+  
+  /** Validate delegation token */
+  validate(tokenId: string, delegatee: string, scope: TenantScope): Promise<boolean>;
+  
+  /** Record token usage */
+  recordUse(tokenId: string): Promise<void>;
+  
+  /** Revoke delegation */
+  revoke(tokenId: string): Promise<void>;
+  
+  /** Get delegation statistics */
+  getStats(): Promise<DelegationStats>;
+}
+
+interface DelegationRequest {
+  delegator: string;      // Component granting capability
+  delegatee: string;      // Component receiving capability
+  capability: string;     // Capability being granted
+  scope: TenantScope;     // Tenant scope for grant
+  ttl: number;            // Time-to-live in seconds (max 3600)
+  maxUses?: number;       // Optional use limit
+  chainable?: boolean;    // Allow further delegation (default: false)
+}
+```
+
+**Token Structure:**
+
+```typescript
+interface DelegationToken {
+  id: string;              // Unique token ID (crypto.randomBytes(16))
+  delegator: string;       // Component that granted capability
+  delegatee: string;       // Component receiving capability
+  capability: string;      // Granted capability
+  scope: TenantScope;      // Tenant scope
+  createdAt: Date;         // Grant timestamp
+  expiresAt: Date;         // Expiration timestamp
+  maxUses?: number;        // Optional use limit
+  useCount: number;        // Current usage count
+  chainable: boolean;      // Allow further delegation
+  parentId?: string;       // Parent token if chained
+}
+```
+
+**Use Cases:**
+- Temporary elevated privileges (Ring 3 app needs Ring 1 access)
+- Short-lived API tokens (webhook verification)
+- Cross-component collaboration (time-bounded data sharing)
+- Emergency access grants (incident response)
+
+**Security Properties:**
+- **Time-bounded:** All tokens expire (max 1 hour TTL)
+- **Chain limits:** Max 3 delegation levels prevents infinite chains
+- **Use limits:** Optional maxUses prevents token abuse
+- **Automatic cleanup:** Expired tokens removed every 5 minutes
+- **Audit trail:** All delegations logged with correlation IDs
+
+### 14.5 Integration with Kernel Primitives
+
+All v1.2.0 subsystems integrate with existing kernel primitives:
+
+**Content-Addressable Storage:**
+- Extends `ctx.storage` primitive
+- Uses `ctx.db` for blob metadata
+- Emits metrics via `ctx.obs`
+
+**Lock Manager:**
+- Uses `ctx.db` for advisory locks
+- Integrates with transaction scope
+- Emits lock metrics via `ctx.obs`
+
+**Dependency Visualization:**
+- Reads from ComponentRegistry
+- Outputs to `ctx.obs` logs
+- Used by installation validation
+
+**Capability Delegation:**
+- Extends `ctx.rbac` primitive
+- Uses `ctx.db` for token storage
+- Audits via `ctx.exports`
+
+### 14.6 Barrel Exports
+
+All subsystems have clean barrel exports:
+
+```typescript
+// src/sensaios/storage/index.ts
+export * from './content-addressable.js';
+
+// src/sensaios/concurrency/index.ts
+export * from './lock-manager.js';
+
+// src/sensaios/visualization/index.ts
+export * from './dependency-graph.js';
+
+// src/sensaios/capabilities/index.ts (existing)
+export * from './delegation.js';
+```
+
+---
+
+## 15. File Structure
 
 ```
 src/sensai/
@@ -931,6 +1280,18 @@ src/sensai/
 │   ├── control-plane.ts      # Watcher for enable/disable
 │   ├── concurrency.ts        # Lock management
 │   └── guarded.ts            # runGuarded() wrapper (v1.1.2)
+├── storage/                  # v1.2.0 — Content-addressable storage
+│   ├── content-addressable.ts # SHA-256 blob storage (340 lines)
+│   └── index.ts              # Barrel export
+├── concurrency/              # v1.2.0 — Lock management
+│   ├── lock-manager.ts       # Advisory locks + deadlock prevention (410 lines)
+│   └── index.ts              # Barrel export
+├── visualization/            # v1.2.0 — Dependency graphs
+│   ├── dependency-graph.ts   # Multi-format graph output (370 lines)
+│   └── index.ts              # Barrel export
+├── capabilities/             # v1.2.0 — Enhanced delegation
+│   ├── delegation.ts         # Time-bounded grants (490 lines)
+│   └── index.ts              # Barrel export
 ├── components/
 │   ├── game/
 │   │   ├── core.ts           # game.core component
@@ -958,49 +1319,57 @@ src/sensai/
 
 ---
 
-## 15. Non-Negotiables
+## 16. Non-Negotiables
 
-### 15.1 From Database Architect
+### 16.1 From Database Architect
 
 - ❌ **No table can have multiple writers** — One owner component per table
 - ❌ **No uninstall drops tables** — In production, tables stay; data is sacred
 - ✅ **Schema migrations at deploy time** — Never runtime schema changes
 - ✅ **Exports use seq for ordering** — UUIDs don't define clean order
 
-### 15.2 From Distributed Systems Engineer
+### 16.2 From Distributed Systems Engineer
 
 - ❌ **No handler direct calls** — Components communicate via exports/jobs/outbox
 - ✅ **All handlers must be idempotent** — Safe to retry
 - ✅ **Discord I/O tiered** — Immediate/deferred/outbox pattern
 
-### 15.3 From TypeScript Specialist
+### 16.3 From TypeScript Specialist
 
 - ❌ **No `Math.random()` in gameplay** — Use kernel RNG service
 - ❌ **No `fs.writeFile`** — Use storage primitive or SQLite buffer
 - ✅ **All caches must be bounded** — LRU with hard caps
 
-### 15.4 From Security Engineer
+### 16.4 From Security Engineer
 
 - ✅ **Every privileged action → audit event** — Append-only audit log
 - ✅ **Capabilities declared in manifest** — No implicit permissions
 - ❌ **No hardcoded admin checks** — Use RBAC primitive
 
-### 15.5 From Game Designer
+### 16.5 From Game Designer
 
 - ✅ **Critical state = strong consistency** — Battles, captures, inventory
 - ✅ **Telemetry = eventual/async** — Logs, metrics, analytics
 - ✅ **All RNG seeds logged** — Audit/replay capability
 
-### 15.6 From v1.1.2 Addendum
+### 16.6 From v1.1.2 Addendum
 
 - ✅ **Every envelope has scope** — TenantScope mandatory
 - ✅ **All handlers wrapped** — runGuarded() required
 - ✅ **Errors use taxonomy** — SensaiError with codes
 - ✅ **Boot logger first** — Observability before DB
 
+### 16.7 From v1.2.0 Advanced Subsystems
+
+- ✅ **Content-addressable storage** — SHA-256 blob IDs, deduplication
+- ✅ **Advisory locks with timeouts** — Deadlock prevention via statement_timeout
+- ✅ **Lock domains enforced** — Battle, encounter, trainer, guild, component
+- ✅ **Delegation tokens time-bounded** — Max 1 hour TTL, max 3 chain depth
+- ✅ **Automatic cleanup** — Expired delegations removed every 5 minutes
+
 ---
 
-## 16. Implementation Checklist
+## 17. Implementation Checklist
 
 When implementing ANY Sensai component:
 
@@ -1040,11 +1409,19 @@ When implementing ANY Sensai component:
 - [ ] All operations logged with correlation IDs
 - [ ] Metrics emitted for key operations
 
+### Advanced Subsystems (v1.2.0)
+- [ ] Content-addressable storage used for immutable blobs
+- [ ] SHA-256 blob IDs for deduplication
+- [ ] Advisory locks with domains for critical sections
+- [ ] Delegation tokens time-bounded (max 1 hour TTL)
+- [ ] Dependency graphs generated for component topology
+- [ ] Ring boundaries respected (ESLint enforced)
+
 ---
 
-## 17. Migration Guide
+## 18. Migration Guide
 
-### 17.1 Migrating Existing Code to Sensai
+### 18.1 Migrating Existing Code to Sensai
 
 1. **Identify Component Boundaries**
    - Group related functionality
@@ -1147,24 +1524,26 @@ const coreComponent: SensaiComponent = {
 
 ---
 
-## 18. Reference Documentation
+## 19. Reference Documentation
 
-### 18.1 Primary Sources
+### 19.1 Primary Sources
 
-- **This Document:** `docs/projects/SENSAI-FINAL-ARCHITECTURE.md` — Canonical specification
-- **Component OS Blueprint:** `docs/projects/SENSAI-COMPONENT-OS-BLUEPRINT.md` — Detailed component model
-- **Architecture Addendum (v1.1):** `docs/projects/SENSAI-ARCHITECTURE-ADDENDUM.md` — Future-proofing considerations
-- **Multi-Tenant + Obs-First (v1.1.2):** `docs/projects/SENSAI-MULTITENANT-OBS-FIRST-ADDENDUM.md` — Multi-tenant scope and observability-first patterns
-- **Quick Reference:** `docs/projects/SENSAI-QUICK-REFERENCE.md` — Cheat sheet
+- **This Document:** `docs/projects/SensaiOS/SENSAI-FINAL-ARCHITECTURE.md` — Canonical specification
+- **Component OS Blueprint:** `docs/projects/SensaiOS/SENSAI-COMPONENT-OS-BLUEPRINT.md` — Detailed component model
+- **Architecture Addendum (v1.1):** `docs/projects/SensaiOS/SENSAI-ARCHITECTURE-ADDENDUM.md` — Future-proofing considerations
+- **Multi-Tenant + Obs-First (v1.1.2):** `docs/projects/SensaiOS/SENSAI-MULTITENANT-OBS-FIRST-ADDENDUM.md` — Multi-tenant scope and observability-first patterns
+- **OS Security Model (v1.2.0):** `docs/projects/SensaiOS/architecture/06-os-security-model.md` — Advanced subsystems architecture
+- **Quick Reference:** `docs/projects/SensaiOS/SENSAI-QUICK-REFERENCE.md` — Cheat sheet
 
-### 18.2 Implementation References
+### 19.2 Implementation References
 
 - **Store Write Elimination:** `docs/projects/STORE-WRITE-ELIMINATION.md` — Database-first file storage
 - **Prisma 7 Bible:** `docs/prisma-7-bible.md` — Database configuration
 - **Database Operations:** `docs/operations-bible/02-database-operations.md` — Operational procedures
 - **Architecture Bible:** `docs/architecture-bible/INDEX.md` — System architecture
+- **Architecture Bible § 28:** `docs/architecture-bible/28-sensaios-security-model.md` — SensaiOS security model
 
-### 18.3 AI Agent Guidance
+### 19.3 AI Agent Guidance
 
 - **Sensai Instructions:** `.github/instructions/sensai.instructions.md` — AI agent guidelines
 - **Copilot Instructions:** `.github/copilot-instructions.md` — General development guidelines
@@ -1180,6 +1559,7 @@ const coreComponent: SensaiComponent = {
 | 1.1.0 | 2025-12-27 | Added component lifecycle details |
 | 1.1.1 | 2025-12-28 | Added migration guide |
 | 1.1.2 | 2025-12-28 | Added multi-tenant scope, observability-first boot, SensaiError taxonomy, runGuarded wrapper |
+| 1.2.0 | 2026-01-08 | Added Advanced Subsystems (Content-Addressable Storage, Lock Manager, Dependency Visualization, Capability Delegation) |
 
 ---
 

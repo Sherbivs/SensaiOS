@@ -156,13 +156,15 @@ export function chooseSpeciesId(): number {
 
 /**
  * Choose level based on rarity (rarer = potentially higher level)
+ * @param rarity - The rarity tier
+ * @param roll - Random roll [0, 1) - caller should provide from deterministic RNG
  */
-export function chooseLevel(rarity: RarityTier = "common"): number {
+export function chooseLevel(rarity: RarityTier = "common", roll: number = 0.5): number {
   const baseLevel = 2;
   const levelRange = rarity === "ultra-rare" ? 10 : 
                      rarity === "rare" ? 8 : 
                      rarity === "uncommon" ? 6 : 5;
-  return baseLevel + Math.floor(Math.random() * levelRange);
+  return baseLevel + Math.floor(roll * levelRange);
 }
 
 export type SpawnOpts = {

@@ -1,0 +1,28 @@
+{
+  "id": "game.battles",
+  "name": "Battle Engine",
+  "version": "1.0.0",
+  "description": "Deterministic Pokémon battle system with PBSL support",
+  "hosts": ["bot", "worker"],
+  "capabilities": {
+    "db": ["read", "write"],
+    "discord": ["read", "send"]
+  },
+  "owns": {
+    "canonical": ["battles", "battle_turns", "battle_participants"],
+    "projections": ["battle_stats", "leaderboard", "battle_history"]
+  },
+  "dependencies": ["game.core", "discord.bot"],
+  "resources": {
+    "maxCacheMb": 50,
+    "maxQueueSize": 1000,
+    "maxConcurrency": 20
+  },
+  "config": {
+    "maxBattleDuration": 3600000,
+    "turnTimeout": 60000,
+    "enableSpectators": true,
+    "enablePBSL": true,
+    "maxSimultaneousBattles": 100
+  }
+}

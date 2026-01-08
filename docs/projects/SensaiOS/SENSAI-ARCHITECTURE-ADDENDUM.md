@@ -27,39 +27,42 @@ While Sensai is designed for single-process operation, the architecture supports
 
 **Current Model (Single Process):**
 ```
-┌─────────────────────────────────────┐
-│           Sensai Process            │
-│  ┌─────┐ ┌─────┐ ┌─────┐ ┌─────┐   │
-│  │ Bot │ │Worker│ │Cron │ │ CLI │   │
-│  └──┬──┘ └──┬──┘ └──┬──┘ └──┬──┘   │
-│     │       │       │       │       │
-│     └───────┴───────┴───────┘       │
-│                 │                   │
-│         ┌──────┴──────┐             │
-│         │  PostgreSQL │             │
-│         └─────────────┘             │
-└─────────────────────────────────────┘
+┌───────────────────────────────────────────────────┐
+│          Sensai Process (v1.2.0)                  │
+│  ┌─────┐ ┌─────┐ ┌─────┐ ┌─────┐ ┌─────────┐   │
+│  │ Bot │ │Worker│ │Cron │ │ CLI │ │ Lock Mgr│   │
+│  └──┬──┘ └──┬──┘ └──┬──┘ └──┬──┘ └────┬────┘   │
+│     │       │       │       │         │         │
+│     └───────┴───────┴───────┴─────────┘         │
+│                 │                               │
+│         ┌──────┴──────┐  ┌────────────────┐     │
+│         │  PostgreSQL │  │ CAS Blob Store │     │
+│         │   (shared)  │  │   (SHA-256)    │     │
+│         └─────────────┘  └────────────────┘     │
+└───────────────────────────────────────────────────┘
 ```
 
-**Future Model (Multi-Process):**
+**Future Model (Multi-Process with v1.2.0):**
 ```
-┌─────────┐ ┌─────────┐ ┌─────────┐
-│  Bot 1  │ │  Bot 2  │ │ Worker  │
-└────┬────┘ └────┬────┘ └────┬────┘
-     │           │           │
-     └───────────┼───────────┘
-                 │
-         ┌──────┴──────┐
-         │  PostgreSQL │
-         │  (shared)   │
-         └─────────────┘
+┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐
+│  Bot 1  │ │  Bot 2  │ │ Worker  │ │Lock Mgr │
+└────┬────┘ └────┬────┘ └────┬────┘ └────┬────┘
+     │           │           │           │
+     └───────────┼───────────┼───────────┘
+                 │           │
+         ┌──────┴──────┐  ┌──┴──────────┐
+         │  PostgreSQL │  │ CAS Storage │
+         │  (shared)   │  │  (SHA-256)  │
+         └─────────────┘  └─────────────┘
 ```
 
 **Why This Works:**
 - Export log is append-only with monotonic seq
-- Advisory locks prevent concurrent mutations
+- Advisory locks prevent concurrent mutations (v1.2.0 Lock Manager)
+- Content-addressable storage deduplicates blobs (v1.2.0)
 - Outbox pattern ensures exactly-once delivery
 - Component handlers are idempotent by design
+- Capability delegation enables cross-ring access (v1.2.0)
 
 ### 2.2 Sharding Strategy
 
@@ -89,15 +92,15 @@ function getShardForGuild(guildId: string, shardCount: number): number {
 For read-heavy workloads:
 
 ```
-┌─────────────────────────────────────────────────┐
-│                   Sensai                         │
-│                                                 │
-│  ┌─────────────┐    ┌─────────────────────────┐ │
-│  │   Writes    │    │         Reads           │ │
-│  │  (Primary)  │    │  (Read Replicas)        │ │
-│  │     │       │    │   ┌───┐ ┌───┐ ┌───┐    │ │
-│  │     ▼       │    │   │ R │ │ R │ │ R │    │ │
-│  │ ┌───────┐   │    │   └───┘ └───┘ └───┘    │ │
+┌───────────────────────────────────────────────────────┐
+│                 Sensai (v1.2.0)                        │
+│                                                       │
+│  ┌─────────────────┐    ┌───────────────────────────┐ │
+│  │     Writes      │    │          Reads            │ │
+│  │   (Primary)     │    │     (Read Replicas)       │ │
+│  │      │          │    │    ┌───┐ ┌───┐ ┌───┐     │ │
+│  │      ▼          │    │    │ R │ │ R │ │ R │     │ │
+│  │  ┌───────┐      │    │    └───┘ └───┘ └───┘     │ │
 │  │ │Primary│───┼────┼──►  (async replication) │ │
 │  │ │  DB   │   │    │                         │ │
 │  │ └───────┘   │    │                         │ │
