@@ -1,229 +1,394 @@
-# Infinity Gauntlet Pokémon Suite
+# SensaiOS
 
-Infinity Gauntlet is a Discord-first Pokémon adventure for Dripcord. Players use
-**private guild channels (homestead-{username})**, explore the Wilds together, battle in public arenas, and progress through a
-live-service economy powered by workers and data pipelines.
+A **database-first operating system** that makes PostgreSQL behave as the system substrate. Build applications where the database is the single source of truth, workers transform state, and everything else is just a view.
 
-**HOMESTEAD MIGRATION COMPLETE (2025-06-15):** All gameplay migrated from Discord DMs to private guild channels. Each user gets a dedicated "homestead" channel within the guild. `src/bot/dm/` directory DELETED. See `docs/architecture-bible/18-private-channel-architecture.md` for complete specification.
-
-**Cross-References**:
-- See `AGENTS.md` for comprehensive operations guide, database setup, worker architecture
-- See `OPERATIONS.md` for service matrix, deployment procedures, monitoring
-- See `docs/architecture-bible/` for authoritative system design (27 sections)
-- See `docs/operations-bible/` for deployment and operations (13 sections + 9 guides)
-- See `docs/development-bible/` for development workflows (10 sections)
-- See `ops/PRODUCTION-DEPLOYMENT-CHECKLIST.md` for deployment readiness validation
-
-## Current Status & Goals
-
-**Phase 9+ Complete** (2025-12-18): Repository is production-ready, centralized, standardized, and scalable. All quality metrics optimized:
-- ✅ **Zero linter warnings** across TypeScript codebase
-- ✅ **Zero npm vulnerabilities**, all dependencies current
-- ✅ **Prisma 7.1.0** with direct PostgreSQL connections (`engineType = "library"`)
-- ✅ **Homestead Architecture**: Private guild channels replace DMs (migration complete)
-- ✅ **Unified Render PostgreSQL**: Single managed database for all services
-- ✅ **Worker architecture**: Comprehensive scaling roadmap (see `docs/architecture-bible/03-worker-architecture.md`)
-- ✅ **Bible System**: 27 architecture + 13 operations + 10 development sections
-
-**See `ops/REPO-OPTIMIZATION-REPORT.md` for comprehensive Phase 9 achievements.**
-
-**Short-term focus**:
-- Database replication architecture (Phase 16: Unified→Multi-DB expansion when infrastructure allows)
-- Worker scaling & cost optimization (Phase 10+: battle pool, encounter generator)
-- Operational hardening (monitoring, alerting via `/ops stats` + `/ops cache`)
-
-**Near horizon**: Structured guild playtests, advanced battle mechanics (weather/terrain/abilities), trainer progression systems.
-
-## Architecture Snapshot
-
-- **Discord Bot Layer:** `src/bot/**` manages slash commands, **homestead channels** (private guild channels), arena threads, ops tooling, and router-driven routing metadata.
-- **Core Engine:** `src/core/**` executes deterministic battle and encounter logic, keeping shared math and status systems separate from the Discord layer.
-- **Data & Persistence:** Prisma 7 schema (`prisma/schema.prisma`) persists trainers, parties, encounters, and battles; unified Render-managed PostgreSQL (infinity-gauntlet-db) provides reliable cloud database with automatic migrations; worker scripts refresh cached reference data under `/data`.
-- **Automation & Guardrails:** `Patch.md`, `Tasklist.md`, and `Prompt.md` define the contract; scripts in `/ops` and `/scripts` enforce Refresh Vision, router indexes, and contract version gates.
-
-## PBSL (Pokémon Buddy System Logics)
-
-The project ships a PBSL scaffold under `src/core/pbsl/**` that implements seeded RNG helpers, audit trails, battle phase ordering, and deterministic encounter generators. The official manifesto, provenance policy, and compliance checklist live in [`docs/architecture-bible/08-pbsl.md`](docs/architecture-bible/08-pbsl.md). PBSL modules are re-exported via `src/core/pbsl/index.ts` and covered by focused tests in `tests/pbsl/**`, with a dedicated GitHub Action (`.github/workflows/pbsl-oracle.yml`) running lint and `npm run test:pbsl` on every change.
-
-## Key Capabilities
-
-- **Homestead Channels:** `/home`, heal, starter selection, party/box management, player profile—all in private guild channels (`homestead-{username}`) via `src/bot/homestead/**` (16 files). Better moderation, audit trail, no DM delivery failures.
-- **Wild Encounters:** `/walk` spawns public `#wilds` threads while homestead controls handle throws, swaps, and escapes via `src/bot/wilds/**` plus `src/core/encounter/**` mechanics.
-- **Arena Battles:** `/battle challenge` coordinates arena threads, homestead menus, and announcer summaries; Discord orchestration lives in `src/bot/battle/**`, while resolution flows through `src/core/battle/**`.
-- **Admin Operations:** `/ops` exposes cooldown reset tools, `/ops stats` filtering (limit/after/participant), and `/ops cache` for hit/miss metrics plus optional cleanup so staff validate health without direct DB access.
-- **Persistence & Data:** Prisma 7 schema (`prisma/schema.prisma`) keeps trainer state; cached PokéAPI reference data is refreshed through `scripts/fetch_pokemon.mjs` and `scripts/build-data.ts`.
-- **Automation:** Render workers and guard scripts enforce Refresh Vision, router hygiene, contract version gates, and Tasklist coupling to keep the repo deterministic.
-
-## Documentation Bible System
-
-```
-docs/
-├── architecture-bible/    # 27 sections (system design, database, workers, game engine, security, game design)
-│   └── INDEX.md          # Navigation hub
-├── operations-bible/      # 13 sections + 9 comprehensive guides (deployment, monitoring, database)
-│   └── INDEX.md          # Navigation hub
-└── development-bible/     # 10 sections (local setup, testing, debugging, profiling, database onboarding, dead code analysis)
-    └── INDEX.md          # Navigation hub
-```
-
-**Quick Reference:**
-- **[Architecture Bible](docs/architecture-bible/INDEX.md)** — 27 sections: system design, database, workers, game engine, security bot, game design, trading, leaderboards
-- **[Operations Bible](docs/operations-bible/INDEX.md)** — 13 sections + 9 guides: deployment, monitoring, database operations
-- **[Development Bible](docs/development-bible/INDEX.md)** — 10 sections: local setup, testing, debugging, profiling, database onboarding, dead code analysis
-
-## Repository Layout
-
-```
-├─ src/                    # TypeScript source (bot, core engines, data pipeline)
-│  ├─ bot/                 # Discord interactions (homestead, wilds, arena, ops, alerts)
-│  │  └─ homestead/        # Private guild channel gameplay (16 files)
-│  ├─ core/                # Deterministic battle + encounter logic
-│  ├─ workers/             # Background workers (17 files: engine-workers, heap-pruner, etc.)
-│  ├─ data_pipeline/       # Fetch + normalize PokéAPI payloads
-│  ├─ shared/              # Config, logging, Prisma helpers, shared utils
-│  └─ index.ts             # Boot entry (Discord + Prisma wiring)
-├─ scripts/                # Automation (refresh vision, data jobs, guards, workers)
-├─ tests/                  # Vitest suites for core engines, pipeline, ops, UI
-├─ prisma/schema.prisma    # Database schema for persistent state (Prisma 7)
-├─ ops/                    # Meta governance: Tasklist, routers, NEXT, hotfix plan
-├─ data/                   # Cached reference data shards checked in by workers
-└─ README.md               # This guide
-```
-
-## Requirements
-
-- Node.js 22+
-- npm 9+ (or pnpm/yarn if you wire equivalent scripts)
-- Postgres 14+ reachable via direct PostgreSQL connection
-- Render-managed deployments should set `PROD_DATABASE_URL` (Render-managed PostgreSQL) as PRIMARY
-- Discord bot token with **applications.commands** and **guilds** intents
-
-Optional services:
-
-- Render Jobs API token (for automated data refresh)
-- GitHub token with `contents:write` if you mirror data snapshots to another repo
-
-## Getting Started (Development)
-
-1. Install dependencies:
-   ```powershell
-   npm install
-   ```
-2. Configure environment variables:
-   ```powershell
-   $env:IG_ENV_FILE="secrets/Infinity-Gauntlet.env"
-   ```
-   Use `secrets/Infinity-Gauntlet.env` as the **single consolidated environment file** for all local development and testing. This file contains all required keys: BOT_TOKEN, PROD_DATABASE_URL (Render-managed), DATABASE_ONPREMISE_DEV_PRIMARY (local workstation), and POKEMON_BOT_TOKEN. **No other key files are needed.**
-   
-   Run `pwsh -File scripts/setup_ai_env.ps1 -EnvFile "secrets/Infinity-Gauntlet.env" -Persist` to register the value for future shells (see `docs/ai-env-setup.md` and `docs/db-control-suite.md`). 
-   
-   The runtime checks `IG_ENV_FILE` (and `DOTENV_CONFIG_PATH`) before falling back to `.env` in the repository root; keep the repo copy empty so local secrets always come from the external file.
-   On production (`NODE_ENV=production`), the fallback is disabled unless `IG_ALLOW_REPO_ENV=1` is set.
-3. Apply Prisma migrations and generate the client:
-   ```powershell
-   npx prisma migrate deploy
-   npm run build:ci  # or npm run build
-   ```
-4. Run the bot in watch mode:
-   ```powershell
-   npm run dev
-   ```
-
-`src/index.ts` verifies database connectivity before logging in to Discord. All
-interactions are slash-based, so the Message Content intent is not required.
-
-### Common Dev Commands
-
-- Test suites: `npm test`
-- Linting: `npm run lint`
-- Production build: `npm run build`
-- Refresh cached Pokémon data: `npm run data:build`
-- Refresh Vision (routers + recovery metadata): `npm run refresh:vision`
-- Archive older Tasklist DONE entries: `npm run tasks:archive`
-- Database control suite: `npm run db:cli -- status`
-
-## Data Pipeline & Workers
-
-Reference data is mirrored into `/data` via scripted jobs:
-
-- `scripts/fetch_pokemon.mjs` pulls fresh PokéAPI payloads.
-- `scripts/build-data.ts` normalizes and shards JSON for the bot runtime.
-- `scripts/worker.mjs` coordinates refresh jobs when running inside Render.
-- `/ops cache` reports live cache metrics (hit/miss counters, disk usage, sweep cadence) and can trigger a one-off cleanup.
-
-`render.yaml` wires build and run commands for Render services. On boot the worker queues a refresh job and respects `POKE_REFRESH_CRON` / `POKE_REFRESH_TZ` for scheduled updates.
-
-## Deployment Notes
-
-1. Build commands:
-   ```bash
-   npm ci
-   npm run build
-   npm run data:build
-   ```
-2. Required environment variables:
-   - `PROD_DATABASE_URL` — Render-managed PostgreSQL (PRIMARY for all operations)
-   - `DISCORD_BOT_TOKEN` (or legacy `POKEMON_BOT_TOKEN` fallback)
-3. Optional: `DATABASE_ONPREMISE_DEV_PRIMARY` for local workstation development
-4. Additional feature flags in `src/config/env.js` tune rate limits, alerts, and remediation behaviors.
-
-## Deploying on Render (Web + Background Worker)
-
-- Provision the bot runner as a **Background Worker** service so Prisma connects over Render's private network without HTTP timeouts.
-- In `render.yaml` (or the Render dashboard), attach your managed Postgres and map `envVars.PROD_DATABASE_URL` for every web and worker service.
-- Re-deploy after updating environment variables; no extra code changes are required because `src/env/ensure-db-url.ts` preloads Prisma with the connection string at boot.
-
-## Operational Guardrails & Meta Workflow
-
-### 🚨 NO-RESTART POLICY (ABSOLUTE)
-**NEVER restart, stop, redeploy, or take any service offline without EXPLICIT operator permission.**
-- Always ask first and wait for manual verification
-- The operator needs time to manually check service state before anything goes offline
-- This applies to: Render services, Docker containers, database connections, workers, cron jobs
-
-### Production Log Observability (Loki)
-**Canonical method to check production logs:** Local Loki service (localhost:3100)
-
-```powershell
-# Query production logs
-$now = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds() * 1000000
-$start = ([DateTimeOffset]::UtcNow.AddHours(-3)).ToUnixTimeMilliseconds() * 1000000
-$r = Invoke-RestMethod "http://localhost:3100/loki/api/v1/query_range?query=%7Bservice%3D%22stats-logger%22%7D&limit=50&start=$start&end=$now"
-$r.data.result | ForEach-Object { $_.values.Count }  # Log count per stream
-```
-
-**Grafana UI:** http://localhost:3000/explore → Query: `{service="stats-logger"}`
-
-### Router & Contract Guardrails
-
-- `scripts/refresh_vision.sh` regenerates router indexes, stamps recovery metadata, and refreshes Prompt.md's change ledger.
-- `scripts/guard_meta.sh` enforces Prompt/Tasklist coupling and checks router hygiene during CI.
-- `ops/RECOVERY.yaml` and `ops/NEXT.yaml` coordinate the next actionable task, ensuring deterministic resumes across workers.
-- `ops/HOTFIX_PLAN.yaml` defines the hotfix queue and bootstrap template for emergency work outside the PATCH loop.
-
-### Router & Meta Index
-
-The contract-driven routing system keeps every meta document discoverable:
-
-- `masterroutetable.md` acts as the router-of-routers index, listing each `ROUTER.md` and the domains it maps.
-- `ops/ROUTER.yaml` and `ops/ROUTER_INDEX.yaml` mirror those routes in machine-readable form.
-- `ops/TOUCHMAP.yaml` links Tasklist IDs to the paths they are allowed to modify so the patch engine scopes edits correctly.
-- `Patch.md`, `Prompt.md`, and `Tasklist.md` stay in lockstep; guard scripts verify PATCHSET echoes, header bumps, and READY queue pointers on every change.
-
-## Legacy Bots (Reference Only)
-
-- `security-bot.ts` / `src/bot/main.js` retain the original security role-healing logic.
-- Legacy message-based prototype was migrated to TypeScript.
-
-They are not part of the TypeScript production path but remain for historical context.
-
-## Roadmap Highlights
-
-- **Homestead Architecture:** ✅ COMPLETE (2025-06-15) — All gameplay in private guild channels
-- **Prisma 7:** ✅ COMPLETE (2025-12-18) — Direct PostgreSQL with `engineType = "library"`
-- **Bible System:** ✅ COMPLETE — 22 architecture + 22 operations + 9 development sections
-- **Community Playtests:** Ready to plan structured guild sessions after fresh backlog is prioritized
+[![Build](https://img.shields.io/badge/build-passing-brightgreen)]()
+[![Version](https://img.shields.io/badge/version-1.2.0-orange)]()
+[![Node](https://img.shields.io/badge/node-22%2B-blue)]()
+[![Prisma](https://img.shields.io/badge/prisma-7.2.0-blueviolet)]()
+[![License](https://img.shields.io/badge/license-MIT-green)]()
 
 ---
 
-**Last Updated:** 2025-12-18 | **Prisma:** 7.1.0 | **Node:** 22+
+## 🧠 What Is SensaiOS?
+
+SensaiOS is an **operating system architecture** for building reliable, observable, multi-tenant applications. It treats PostgreSQL as the kernel's memory — all state lives in the database, workers are kernel services, and applications run in user-space with strict capability boundaries.
+
+### The Golden Invariant
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  CLIENTS APPEND EXPORTS.  WORKERS TRANSFORM EXPORTS.        │
+│  POSTGRES IS THE TRUTH.   EVERYTHING ELSE IS A VIEW.        │
+└─────────────────────────────────────────────────────────────┘
+```
+
+This single rule eliminates entire categories of bugs: race conditions, stale caches, distributed state inconsistencies, and audit gaps.
+
+### Why SensaiOS?
+
+| Problem | SensaiOS Solution |
+|---------|-------------------|
+| **Distributed state chaos** | Single source of truth in PostgreSQL |
+| **Hard to debug production** | Append-only export log with full audit trail |
+| **Component coupling** | Handlers communicate only via exports/jobs/outbox |
+| **Multi-tenant complexity** | TenantScope in every envelope by design |
+| **Observability gaps** | `runGuarded()` wrapper captures all handler metrics |
+| **Capability creep** | Ring-based security model with ESLint enforcement |
+
+---
+
+## 🏗️ Architecture
+
+### Layered Design
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ LAYER 5: ADVANCED SUBSYSTEMS                                                 │
+│ └── Content-Addressable Storage, Lock Manager, Capability Delegation        │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ LAYER 4: SYSTEM SERVICES (Control Plane)                                     │
+│ └── RBAC, Audit, Quotas, Schedule, Config                                   │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ LAYER 3: WORKER RUNTIME (Kernel Services)                                    │
+│ └── INGEST → PROJECT → DELIVER → GC                                         │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ LAYER 2: EXPORT LOG (Append-Only Events)                                     │
+│ └── Immutable fact log with monotonic sequence                              │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ LAYER 1: OBJECT STORE (Big Bytes)                                            │
+│ └── SHA-256 content-addressable blobs                                       │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ LAYER 0: STORAGE (The Only Writer)                                           │
+│ └── PostgreSQL with WAL + SQLite buffer                                     │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Ring Security Model
+
+SensaiOS enforces strict boundaries between kernel and user-space code:
+
+| Ring | Code Path | Access |
+|------|-----------|--------|
+| **Ring 0 (Kernel)** | `src/kernel/**` | Database primitives, exports, jobs, outbox |
+| **Ring 1 (OS)** | `src/sensaios/**` | Component runtime, supervisor, capabilities |
+| **Ring 3 (Apps)** | `src/bot/**`, `src/core/**` | User-space via `ComponentContext` only |
+
+**Enforcement:** ESLint `import/no-restricted-paths` rules catch violations at compile-time.
+
+### v1.2.0 Advanced Subsystems
+
+| Subsystem | Purpose | Implementation |
+|-----------|---------|----------------|
+| **Content-Addressable Storage** | SHA-256 blob storage with deduplication | 340 lines |
+| **Lock Manager** | Advisory locks with deadlock prevention | 410 lines |
+| **Dependency Visualization** | Multi-format graph output (ASCII, Mermaid, JSON) | 370 lines |
+| **Capability Delegation** | Time-bounded grants with chain limits | 490 lines |
+
+---
+
+## 🔧 Core Patterns
+
+### TenantScope — Multi-Tenant by Design
+
+Every envelope carries tenant context, enabling safe multi-tenant operation:
+
+```typescript
+interface TenantScope {
+  tenant: string;       // Guild ID, user ID, or "system"
+  environment: 'production' | 'staging' | 'development';
+  service: string;      // e.g., "my-app"
+  component: string;    // e.g., "payment-processor"
+  instance?: string;    // Worker instance ID
+  region?: string;      // Deployment region
+}
+```
+
+### runGuarded() — Observability-First Handlers
+
+All handlers are wrapped for automatic correlation tracking, error capture, and metrics:
+
+```typescript
+import { runGuarded } from '../kernel/guarded.js';
+
+export const handlePayment = runGuarded(
+  'payments.process',
+  async (ctx: ComponentContext, request: PaymentRequest) => {
+    // Automatic correlation ID in ctx.obs.correlationId
+    // Automatic error capture if this throws
+    // Automatic timing metrics emitted
+    
+    const result = await ctx.db.transaction(async (tx) => {
+      return processPayment(tx, request);
+    });
+    
+    ctx.obs.log.info('Payment processed', { 
+      amount: result.amount,
+      transactionId: result.id 
+    });
+    
+    return result;
+  }
+);
+```
+
+### SensaiError — Typed Error Taxonomy
+
+Errors are categorized by code ranges for structured handling:
+
+```typescript
+import { SensaiError } from '../kernel/errors.js';
+
+// Error code ranges:
+// 1xxx = KERNEL errors (boot, shutdown, primitives)
+// 2xxx = DATABASE errors (connection, transaction, query)
+// 3xxx = COMPONENT errors (lifecycle, handlers, manifest)
+// 4xxx = VALIDATION errors (input, schema, business rules)
+// 5xxx = EXTERNAL errors (APIs, HTTP, third-party)
+// 6xxx = APPLICATION errors (domain-specific)
+
+throw new SensaiError({
+  code: 4001,
+  message: 'Invalid payment amount',
+  context: { amount, currency, userId },
+  cause: originalError,
+});
+```
+
+### Component Communication
+
+Components **never** call handlers directly. They communicate through:
+
+```typescript
+// EXPORTS — Immutable facts (append-only event log)
+await ctx.exports.append({
+  source: 'payments',
+  type: 'payment.completed',
+  scope: tenantScope,
+  idempotencyKey: `payment-${paymentId}`,
+  payload: { paymentId, amount, status: 'completed' },
+  occurredAt: new Date(),
+  correlationId: ctx.obs.correlationId,
+});
+
+// JOBS — Background work with retry semantics
+await ctx.jobs.enqueue({
+  kind: 'send-receipt',
+  scope: tenantScope,
+  payload: { paymentId, email },
+  scheduledFor: new Date(Date.now() + 5000), // 5s delay
+  correlationId: ctx.obs.correlationId,
+});
+
+// OUTBOX — External side effects
+await ctx.outbox.send({
+  destination: 'email',
+  topic: 'receipts',
+  key: paymentId,
+  scope: tenantScope,
+  payload: { to: email, template: 'receipt', data: receiptData },
+  correlationId: ctx.obs.correlationId,
+});
+```
+
+---
+
+## 🎮 Reference Implementation: Pokémon Infinity Gauntlet
+
+SensaiOS was developed alongside **Pokémon Infinity Gauntlet**, a Discord-based Pokémon game that serves as the reference implementation. This real-world application validates every architectural decision.
+
+### Infinity Gauntlet Features
+
+| Feature | SensaiOS Pattern Used |
+|---------|----------------------|
+| **Homestead Channels** | TenantScope per guild/user |
+| **Wild Encounters** | Deterministic RNG via `ctx.rng` |
+| **Arena Battles** | Advisory locks, export log for audit |
+| **PBSL Engine** | Content-addressable storage for snapshots |
+| **Role Management** | RBAC + capability delegation |
+
+### Game-Specific Code
+
+```
+src/bot/         # Discord bot (Ring 3 user-space)
+src/core/        # Game engines (battle, encounter, PBSL)
+assets/          # Pokémon data (dexpack.v1.json, dexpack.v2.json)
+```
+
+---
+
+## 📁 Repository Structure
+
+```
+├── src/
+│   ├── kernel/              # Ring 0: Core primitives
+│   │   ├── primitives/      # db, exports, jobs, outbox, rng, storage
+│   │   ├── guarded.ts       # runGuarded() wrapper
+│   │   └── errors.ts        # SensaiError taxonomy
+│   ├── sensaios/            # Ring 1: OS layer
+│   │   ├── supervisor.ts    # Component lifecycle manager
+│   │   ├── control-plane.ts # Enable/disable watcher
+│   │   ├── storage/         # Content-addressable storage
+│   │   ├── concurrency/     # Lock manager
+│   │   ├── capabilities/    # Delegation system
+│   │   └── visualization/   # Dependency graphs
+│   ├── bot/                 # Ring 3: Discord application
+│   ├── core/                # Ring 3: Game engines
+│   ├── workers/             # Background processors
+│   └── observability/       # Envelope logging system
+├── prisma/                  # Database schema (Prisma 7.2.0)
+├── docs/
+│   ├── projects/SensaiOS/   # OS specification (v1.2.0)
+│   ├── architecture-bible/  # 28 sections
+│   ├── operations-bible/    # 14 sections + 9 guides
+│   └── development-bible/   # 10 sections
+├── ops/                     # Governance (tasks, routers)
+├── scripts/                 # Automation & guards
+└── tests/                   # Vitest suites
+```
+
+---
+
+## 📚 Documentation
+
+### SensaiOS Specification
+
+| Document | Purpose |
+|----------|---------|
+| [**SENSAI-FINAL-ARCHITECTURE.md**](docs/projects/SensaiOS/SENSAI-FINAL-ARCHITECTURE.md) | Complete v1.2.0 specification |
+| [**SENSAI-QUICK-REFERENCE.md**](docs/projects/SensaiOS/SENSAI-QUICK-REFERENCE.md) | Pattern cheat sheet |
+| [**SENSAI-MULTITENANT-OBS-FIRST-ADDENDUM.md**](docs/projects/SensaiOS/SENSAI-MULTITENANT-OBS-FIRST-ADDENDUM.md) | v1.1.2 patterns (TenantScope, runGuarded, SensaiError) |
+| [**sensai.instructions.md**](.github/instructions/sensai.instructions.md) | AI agent guidance |
+
+### Reference Implementation Docs
+
+| Bible | Sections | Purpose |
+|-------|----------|---------|
+| [**Architecture Bible**](docs/architecture-bible/INDEX.md) | 28 | System design, database, workers, game engine |
+| [**Operations Bible**](docs/operations-bible/INDEX.md) | 14 + 9 guides | Deployment, monitoring, recovery |
+| [**Development Bible**](docs/development-bible/INDEX.md) | 10 | Local setup, testing, debugging |
+| [**Prisma 7 Bible**](docs/prisma-7-bible.md) | — | Database configuration playbook |
+
+---
+
+## 🚀 Quick Start
+
+### Prerequisites
+
+- **Node.js 22+**
+- **PostgreSQL 14+**
+
+### Installation
+
+```bash
+# Clone the repository
+git clone https://github.com/Sherbivs/SensaiOS.git
+cd SensaiOS
+
+# Install dependencies
+npm install
+
+# Configure environment
+cp secrets/example.env secrets/SensaiOS.env
+# Edit secrets/SensaiOS.env with your database URL
+
+# Apply migrations & generate Prisma client
+npx prisma migrate deploy
+npm run build
+
+# Start development server
+npm run dev
+```
+
+### Environment Variables
+
+| Variable | Required | Purpose |
+|----------|----------|---------|
+| `PROD_DATABASE_URL` | ✅ | PostgreSQL connection string |
+| `DATABASE_ONPREMISE_DEV_PRIMARY` | ❌ | Local development fallback |
+| `DATABASE_ONPREMISE_DEV_EXPERIMENT` | ❌ | Migration testing |
+
+---
+
+## 🔧 Development Commands
+
+```bash
+# Development
+npm run dev              # Watch mode with hot reload
+npm test                 # Vitest suite
+npm run lint             # ESLint check
+npm run build            # Production build
+
+# Database
+npm run db:cli -- status  # Connection info + counts
+npm run db:cli -- query "SELECT COUNT(*) FROM \"User\";"
+
+# Documentation
+npm run docs:update-routers  # Rebuild router indexes
+npm run refresh:vision       # Full metadata refresh
+```
+
+---
+
+## 🏗️ Production Deployment (Infinity Gauntlet)
+
+The reference implementation runs on Render with 7 services:
+
+| Service | Type | Purpose |
+|---------|------|---------|
+| `Infinity-Gauntlet` | Worker | Main Discord bot |
+| `infinity-gauntlet-security` | Worker | Role sweeps, alerts |
+| `infinity-gauntlet-outbox` | Worker | Async message delivery |
+| `infinity-gauntlet-cache` | Worker | Cache maintenance |
+| `infinity-gauntlet-data-pipeline` | Worker | Reference data updates |
+| `pokedex-cache-worker` | Worker | External data sync |
+| `pokedex-cache-failsafe` | Cron | Weekly fallback |
+
+See [Operations Bible](docs/operations-bible/INDEX.md) for deployment details.
+
+---
+
+## 🎯 Version History
+
+| Version | Date | Highlights |
+|---------|------|------------|
+| **v1.2.0** | 2026-01-08 | Advanced Subsystems: CAS, Lock Manager, Visualization, Delegation |
+| **v1.1.2** | 2025-12-28 | Mandatory patterns: TenantScope, runGuarded(), SensaiError |
+| **v1.1.0** | 2025-12-20 | Multi-tenant architecture, observability-first boot |
+| **v1.0.0** | 2025-11-07 | Initial release with kernel primitives |
+
+---
+
+## 🤝 Contributing
+
+1. **Read [Patch.md](Patch.md)** — Understand workflow contract and Absolutes
+2. **Check [Tasklist.md](Tasklist.md)** — Review backlog and dependencies
+3. **Follow router discipline** — Update ROUTER.md files with structural changes
+4. **Run guards** — `npm run lint && npm test` before committing
+
+### Router Navigation
+
+Every directory has a `ROUTER.md` documenting purpose and ownership:
+- **[masterroutetable.md](masterroutetable.md)** — Router-of-routers index
+- **[ops/ROUTER.yaml](ops/ROUTER.yaml)** — Machine-readable routes
+
+---
+
+## 📜 License
+
+See [LICENSE](LICENSE) for details.
+
+---
+
+## 👤 Project Leadership
+
+**Creator & CEO:** DRIPTVDD  
+**Discord ID:** `563220840708177927` (immutable identifier)
+
+---
+
+<p align="center">
+  <strong>SensaiOS</strong> — Database-first. Append-only. Observable by default.
+</p>
+
+**Last Updated:** 2026-01-08 | **Version:** 1.2.0 | **Node:** 22+ | **Prisma:** 7.2.0
