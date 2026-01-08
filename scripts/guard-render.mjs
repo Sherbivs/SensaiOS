@@ -43,8 +43,8 @@ async function main() {
   }
 
   if (issues.length > 0) {
-    console.error("Render configuration guard failed:\n" + issues.map((msg) => ` - ${msg}`).join("\n"));
-    console.error(
+    console.log("[HALT] Render configuration guard did not pass:\n" + issues.map((msg) => ` - ${msg}`).join("\n"));
+    console.log(
       "Hint: Render's fromDatabase.connectionString exposes the private-network URL for services on the same Render account."
     );
     process.exit(1);

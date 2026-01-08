@@ -126,6 +126,27 @@ export {
 } from './os-console.js';
 
 // ═══════════════════════════════════════════════════════════════════════════
+// Render-Safe Output — Prevents false-positive red highlighting
+// ═══════════════════════════════════════════════════════════════════════════
+
+export {
+  // Sanitization
+  sanitizeForRender,
+  
+  // Global interceptor (call at boot)
+  installRenderSafeOutput,
+  uninstallRenderSafeOutput,
+  
+  // Environment detection
+  isRenderEnvironment,
+  shouldSanitize,
+  isInterceptorInstalled,
+  
+  // Neutral vocabulary constants
+  NEUTRAL,
+} from './render-safe.js';
+
+// ═══════════════════════════════════════════════════════════════════════════
 // Usage Examples
 // ═══════════════════════════════════════════════════════════════════════════
 //

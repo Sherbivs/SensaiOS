@@ -13,7 +13,7 @@ BACKUP_FILE="$BACKUP_DIR/infinity-gauntlet-db-$TIMESTAMP.dump"
 DATABASE_URL="${RENDER_DB_EXTERNAL_URL:-$PROD_DATABASE_URL}"
 
 if [ -z "$DATABASE_URL" ]; then
-  echo "❌ Error: Neither RENDER_DB_EXTERNAL_URL nor PROD_DATABASE_URL is set"
+  echo "[HALT] Neither RENDER_DB_EXTERNAL_URL nor PROD_DATABASE_URL is set"
   echo "   Load environment: pwsh -File scripts/setup_ai_env.ps1 -EnvFile \"secrets/Infinity-Gauntlet.env\""
   exit 1
 fi

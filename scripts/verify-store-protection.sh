@@ -12,7 +12,7 @@ echo ""
 TRACKED_STORE_FILES=$(git ls-files Store/ | grep -v -E "(ROUTER\.md|\.gitignore|README\.md)$" || true)
 
 if [ -n "$TRACKED_STORE_FILES" ]; then
-  echo "❌ CRITICAL: Store data files are tracked by git!"
+  echo "[HALT] ISSUE: Store data files are tracked by git!"
   echo ""
   echo "The following Store files should NOT be committed:"
   echo "$TRACKED_STORE_FILES"
@@ -28,7 +28,7 @@ fi
 STAGED_STORE_FILES=$(git diff --cached --name-only | grep "^Store/" | grep -v -E "(ROUTER\.md|\.gitignore|README\.md)$" || true)
 
 if [ -n "$STAGED_STORE_FILES" ]; then
-  echo "⚠️  WARNING: Store data files are staged for commit!"
+  echo "[NOTE] Store data files are staged for commit!"
   echo ""
   echo "Staged files:"
   echo "$STAGED_STORE_FILES"

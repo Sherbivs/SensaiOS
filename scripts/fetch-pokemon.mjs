@@ -149,9 +149,9 @@ const invokedDirectly = (() => {
 })();
 
 if (invokedDirectly) {
-  main().catch((error) => {
-    console.log(formatStatus('fetch_pokemon failed', 'error'));
-    console.error(error);
+  main().catch((e) => {
+    console.log(formatStatus('fetch_pokemon did not complete', 'halt'));
+    console.log(e);
     process.exit(1);
   });
 }

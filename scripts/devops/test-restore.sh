@@ -9,19 +9,19 @@ BACKUP_FILE="${1:-$(ls -t backups/pre-timescale-poc/infinity-gauntlet-db-*.dump 
 TEST_DB="infinity_gauntlet_test_restore"
 
 if [ -z "$BACKUP_FILE" ]; then
-  echo "❌ Error: No backup file found"
+  echo "[HALT] No backup file found"
   echo "   Usage: $0 [backup-file]"
   echo "   Example: $0 backups/pre-timescale-poc/infinity-gauntlet-db-20251201_143022.dump"
   exit 1
 fi
 
 if [ ! -f "$BACKUP_FILE" ]; then
-  echo "❌ Error: Backup file not found: $BACKUP_FILE"
+  echo "[HALT] Backup file not found: $BACKUP_FILE"
   exit 1
 fi
 
 if [ -z "$DATABASE_ONPREMISE_DEV_PRIMARY" ]; then
-  echo "❌ Error: DATABASE_ONPREMISE_DEV_PRIMARY is not set"
+  echo "[HALT] DATABASE_ONPREMISE_DEV_PRIMARY is not set"
   echo "   Load environment: pwsh -File scripts/setup_ai_env.ps1 -EnvFile \"secrets/Infinity-Gauntlet.env\""
   exit 1
 fi

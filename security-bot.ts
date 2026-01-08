@@ -6,6 +6,10 @@
  * @module security-bot
  */
 
+// LOGGER FIRST — Import logging before any other modules for observability-first boot
+import { scopedLogger } from './src/observability/envelope/console.js';
+const log = scopedLogger('security-bot');
+
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
@@ -16,9 +20,9 @@ const entryHref: string | null = process.argv[1]
   : null;
 
 if (entryHref && import.meta.url === entryHref) {
+  log.info('startup', 'Initializing security bot');
   startSecurityBot().catch((error: unknown) => {
-    // eslint-disable-next-line no-console
-    console.error('[Security Bot] Startup failed:', error);
+    log.error('startup', 'Startup failed', { error: error instanceof Error ? error.message : String(error) });
     process.exit(1);
   });
 }

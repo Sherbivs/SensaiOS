@@ -21,6 +21,10 @@ const STATUS_ICONS = {
     warning: '⚠️',
     error: '❌',
     info: 'ℹ️',
+    // Neutral aliases (for Render console - avoids red highlighting)
+    ok: '✅',
+    note: '⚠️',
+    halt: '❌',
 };
 const DEFAULT_WIDTH = 75;
 const DEFAULT_KEY_WIDTH = 20;

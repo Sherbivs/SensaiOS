@@ -79,6 +79,12 @@ import {
   type PreBootStats as _PreBootStats,
 } from './kernel-logger.js';
 
+// Step 1.5: Install Render-safe output interceptor (BEFORE any other output)
+// This prevents Render's log viewer from false-positively highlighting
+// normal status messages (like "0 errors") in red.
+import { installRenderSafeOutput } from '../shared/logging/render-safe.js';
+installRenderSafeOutput();
+
 // Step 2: Initialize error detector (installs global handlers)
 import {
   installErrorHandlers,

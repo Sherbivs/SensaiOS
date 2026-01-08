@@ -148,18 +148,18 @@ try {
     process.exit(0);
   }, 1000);
   
-} catch (error) {
-  console.error('');
-  console.error('='.repeat(80));
-  console.error('BOOT FAILED');
-  console.error('='.repeat(80));
-  console.error('');
-  console.error('Error:', error instanceof Error ? error.message : String(error));
-  if (error instanceof Error && error.stack) {
-    console.error('');
-    console.error('Stack Trace:');
-    console.error(error.stack);
+} catch (e) {
+  console.log('');
+  console.log('='.repeat(80));
+  console.log('[HALT] BOOT DID NOT COMPLETE');
+  console.log('='.repeat(80));
+  console.log('');
+  console.log('Cause:', e instanceof Error ? e.message : String(e));
+  if (e instanceof Error && e.stack) {
+    console.log('');
+    console.log('Stack Trace:');
+    console.log(e.stack);
   }
-  console.error('');
+  console.log('');
   process.exit(1);
 }

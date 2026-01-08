@@ -35,7 +35,14 @@ export interface SectionOptions {
   addSpacing?: boolean;
 }
 
-export type StatusType = 'success' | 'warning' | 'error' | 'info';
+/** 
+ * Status type for formatStatus. Neutral aliases available to avoid Render red-highlighting.
+ * - 'ok' | 'success' → green check
+ * - 'note' | 'warning' → yellow warning
+ * - 'halt' | 'error' → red X
+ * - 'info' → blue info
+ */
+export type StatusType = 'success' | 'warning' | 'error' | 'info' | 'ok' | 'note' | 'halt';
 
 export interface OutputSection {
   header: string;
@@ -64,6 +71,10 @@ const STATUS_ICONS = {
   warning: '⚠️',
   error: '❌',
   info: 'ℹ️',
+  // Neutral aliases (for Render console - avoids red highlighting)
+  ok: '✅',
+  note: '⚠️',
+  halt: '❌',
 } as const;
 
 const DEFAULT_WIDTH = 75;

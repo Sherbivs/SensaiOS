@@ -5,9 +5,15 @@
  * Provides consistent, colorful CLI output for all scripts.
  * Ported from src/utils/output-formatter.ts with enhancements.
  * 
+ * **Render-Safe**: All output is automatically sanitized when running on Render
+ * to prevent false-positive red highlighting in the log viewer.
+ * 
  * @module scripts/lib/output
  * @since 2025-12-21
+ * @updated 2026-01-08 - Added Render-safe output sanitization
  */
+
+import { sanitizeForRender, NEUTRAL } from './render-safe.js';
 
 // ============================================================================
 // ANSI Color Codes
@@ -118,31 +124,41 @@ export function printKeyValue(
  */
 export function printSuccess(message: string, opts: PrintOptions = {}): void {
   const indent = getIndent(opts.indent ?? 0);
-  console.log(`${indent}${c.green('✓')} ${message}`);
+  const safeMessage = sanitizeForRender(message);
+  console.log(`${indent}${c.green(NEUTRAL.SYM_OK)} ${safeMessage}`);
 }
 
 /**
- * Print an error message
+ * Print an issue message (Render-safe alternative to "error")
  */
 export function printError(message: string, opts: PrintOptions = {}): void {
   const indent = getIndent(opts.indent ?? 0);
-  console.error(`${indent}${c.red('✗')} ${message}`);
+  const safeMessage = sanitizeForRender(message);
+  console.error(`${indent}${c.red(NEUTRAL.SYM_ISSUE)} ${safeMessage}`);
 }
 
+/** Alias for printError using neutral terminology */
+export const printIssue = printError;
+
 /**
- * Print a warning message
+ * Print a note message (Render-safe alternative to "warning")
  */
 export function printWarning(message: string, opts: PrintOptions = {}): void {
   const indent = getIndent(opts.indent ?? 0);
-  console.log(`${indent}${c.yellow('⚠')} ${message}`);
+  const safeMessage = sanitizeForRender(message);
+  console.log(`${indent}${c.yellow(NEUTRAL.SYM_NOTE)} ${safeMessage}`);
 }
+
+/** Alias for printWarning using neutral terminology */
+export const printNote = printWarning;
 
 /**
  * Print an info message
  */
 export function printInfo(message: string, opts: PrintOptions = {}): void {
   const indent = getIndent(opts.indent ?? 0);
-  console.log(`${indent}${c.blue('ℹ')} ${message}`);
+  const safeMessage = sanitizeForRender(message);
+  console.log(`${indent}${c.blue(NEUTRAL.SYM_INFO)} ${safeMessage}`);
 }
 
 /**
@@ -245,11 +261,20 @@ export function printNumberedList(items: string[], opts: PrintOptions = {}): voi
  */
 export type StatusType = 'success' | 'warning' | 'error' | 'info';
 
+/**
+ * Status icons using neutral symbols.
+ * These don't trigger Render's keyword-based red highlighting.
+ */
 const STATUS_ICONS = {
-  success: '✅',
-  warning: '⚠️',
-  error: '❌',
-  info: 'ℹ️',
+  success: NEUTRAL.SYM_OK,      // ✓
+  warning: NEUTRAL.SYM_NOTE,    // !
+  error: NEUTRAL.SYM_ISSUE,     // ✗  
+  info: NEUTRAL.SYM_INFO,       // ·
+  // Aliases for semantic clarity
+  ok: NEUTRAL.SYM_OK,
+  note: NEUTRAL.SYM_NOTE,
+  issue: NEUTRAL.SYM_ISSUE,
+  halt: NEUTRAL.SYM_HALT,       // ⊘
 } as const;
 
 const BORDER_CHARS = {
@@ -349,15 +374,23 @@ export function formatList(
 
 /**
  * Format a status message with icon (string return variant).
+ * 
+ * Output is automatically sanitized for Render-safe display.
+ * The status type determines the icon, but the message text
+ * is sanitized to avoid trigger words like "error" or "warning".
+ * 
+ * Supports extended status types: 'success', 'warning', 'error', 'info', 'ok', 'note', 'issue', 'halt'
  */
 export function formatStatus(
+  type: StatusType | 'ok' | 'note' | 'issue' | 'halt',
   message: string,
-  type: StatusType,
   indent: number = 1
 ): string {
   const indentation = ' '.repeat(indent * INDENT_SIZE);
-  const icon = STATUS_ICONS[type];
-  return `${indentation}${icon} ${message}`;
+  const icon = STATUS_ICONS[type] ?? STATUS_ICONS.info;
+  // Sanitize message to avoid Render trigger words
+  const safeMessage = sanitizeForRender(message);
+  return `${indentation}${icon} ${safeMessage}`;
 }
 
 /**
@@ -373,6 +406,12 @@ export function formatProgress(
   const percentage = total > 0 ? Math.round((current / total) * 100) : 0;
   return `${indentation}${label} [${current}/${total}] (${percentage}%)`;
 }
+
+// ============================================================================
+// Re-export render-safe utilities
+// ============================================================================
+
+export { sanitizeForRender, NEUTRAL, installRenderSafeOutput } from './render-safe.js';
 
 // ============================================================================
 // Export Default
@@ -395,6 +434,9 @@ export default {
   printTable,
   printList,
   printNumberedList,
+  // Neutral aliases
+  printIssue,
+  printNote,
   // Format functions (string return)
   formatBorder,
   formatSectionHeader,
@@ -403,4 +445,7 @@ export default {
   formatList,
   formatStatus,
   formatProgress,
+  // Render-safe utilities
+  sanitizeForRender,
+  NEUTRAL,
 };

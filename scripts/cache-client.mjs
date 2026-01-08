@@ -46,13 +46,13 @@ export async function getPokemonData() {
   try {
     return await readLocal();
   } catch (error) {
-    console.log(formatStatus(`Local cache unavailable: ${error instanceof Error ? error.message : error}`, 'warning'));
+    console.log(formatStatus(`Local cache unavailable: ${error instanceof Error ? error.message : error}`, 'note'));
   }
 
   try {
     return await readGitHub();
   } catch (error) {
-    console.log(formatStatus(`GitHub cache unavailable: ${error instanceof Error ? error.message : error}`, 'warning'));
+    console.log(formatStatus(`GitHub cache unavailable: ${error instanceof Error ? error.message : error}`, 'note'));
   }
 
   return readFromAPIAndRebuild();

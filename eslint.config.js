@@ -214,7 +214,7 @@ export default [
     },
   },
   {
-    files: ['src/utils/logger.js', 'src/shared/log.ts', 'src/shared/logBuffer.ts', 'src/utils/output-formatter.ts'],
+    files: ['src/utils/logger.js', 'src/shared/log.ts', 'src/shared/logBuffer.ts', 'src/utils/output-formatter.ts', 'src/shared/logging/render-safe.ts', 'scripts/lib/render-safe.ts', 'scripts/lib/output.ts', 'src/sensaios/loader/module-hook.ts'],
     rules: {
       'no-console': 'off', // Logging infrastructure needs console access
     },

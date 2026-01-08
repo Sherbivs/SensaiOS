@@ -7,7 +7,7 @@ echo "[Hotfix] Engine Entry"
 echo "Reading ops/HOTFIX_PLAN.yaml ..."
 
 if [[ ! -f ops/HOTFIX_PLAN.yaml ]]; then
-  echo "[ERROR] Missing ops/HOTFIX_PLAN.yaml. Aborting."
+  echo "[HALT] Missing ops/HOTFIX_PLAN.yaml. Aborting."
   exit 1
 fi
 

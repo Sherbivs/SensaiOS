@@ -88,6 +88,7 @@ interface ParsedArgs {
 
 /**
  * CLI context with database access
+ * Implements ComponentContext interface for CLI operations
  */
 interface CliContext {
   db: {
@@ -95,6 +96,12 @@ interface CliContext {
   };
   exports: {
     append: (envelope: unknown) => Promise<{ seq: number }>;
+  };
+  jobs: {
+    enqueue: (job: unknown) => Promise<string>;
+  };
+  outbox: {
+    send: (message: unknown) => Promise<string>;
   };
   obs: {
     log: {
@@ -240,6 +247,20 @@ async function createContext(): Promise<CliContext> {
         return { seq: Date.now() };
       },
     },
+    jobs: {
+      enqueue: async (job: unknown) => {
+        // For CLI, jobs are logged but not actually enqueued
+        console.log('[JOB]', JSON.stringify(job, null, 2));
+        return `job-${Date.now()}`;
+      },
+    },
+    outbox: {
+      send: async (message: unknown) => {
+        // For CLI, messages are logged but not actually sent
+        console.log('[OUTBOX]', JSON.stringify(message, null, 2));
+        return `msg-${Date.now()}`;
+      },
+    },
     obs: {
       log: {
         info: (msg: string, data?: unknown) => {
@@ -248,10 +269,10 @@ async function createContext(): Promise<CliContext> {
           }
         },
         warn: (msg: string, data?: unknown) => {
-          console.warn(`[WARN] ${msg}`, data ? JSON.stringify(data) : '');
+          console.log(`[NOTE] ${msg}`, data ? JSON.stringify(data) : '');
         },
         error: (msg: string, data?: unknown) => {
-          console.error(`[ERROR] ${msg}`, data ? JSON.stringify(data) : '');
+          console.log(`[HALT] ${msg}`, data ? JSON.stringify(data) : '');
         },
       },
       correlationId: `cli-${Date.now()}`,
@@ -322,15 +343,15 @@ async function handleInstall(
   ctx: CliContext
 ): Promise<void> {
   if (!target) {
-    console.error('Error: Missing manifest path');
-    console.error('Usage: npm run sensaios install <path>');
+    console.log('[HALT] Missing manifest path');
+    console.log('Usage: npm run sensaios install <path>');
     process.exit(1);
   }
 
   // Resolve manifest path
   const manifestPath = path.resolve(process.cwd(), target);
   if (!fs.existsSync(manifestPath)) {
-    console.error(`Error: Manifest file not found: ${manifestPath}`);
+    console.log(`[HALT] Manifest file not found: ${manifestPath}`);
     process.exit(1);
   }
 
@@ -339,8 +360,8 @@ async function handleInstall(
   try {
     const content = fs.readFileSync(manifestPath, 'utf-8');
     manifest = JSON.parse(content);
-  } catch (error) {
-    console.error(`Error: Failed to parse manifest: ${(error as Error).message}`);
+  } catch (e) {
+    console.log(`[HALT] Could not parse manifest: ${(e as Error).message}`);
     process.exit(1);
   }
 
@@ -348,8 +369,8 @@ async function handleInstall(
   let validatedManifest: AppManifest;
   try {
     validatedManifest = validateManifest(manifest);
-  } catch (error) {
-    console.error(`Error: Invalid manifest: ${(error as Error).message}`);
+  } catch (e) {
+    console.log(`[HALT] Invalid manifest: ${(e as Error).message}`);
     process.exit(1);
   }
 
@@ -395,7 +416,7 @@ async function handleInstall(
       }
     }
     console.log('');
-    console.log(formatStatus('success', 'Dry run complete — manifest is valid'));
+    console.log(formatStatus('Dry run complete — manifest is valid', 'success'));
     return;
   }
 
@@ -410,16 +431,16 @@ async function handleInstall(
 
   console.log('');
   if (result.success) {
-    console.log(formatStatus('success', `Installed ${result.appId}`));
+    console.log(formatStatus(`Installed ${result.appId}`, 'success'));
     console.log(result.message);
   } else {
-    console.log(formatStatus('error', `Failed to install ${result.appId}`));
+    console.log(formatStatus(`Could not install ${result.appId}`, 'error'));
     console.log(result.message);
     if (result.errors && result.errors.length > 0) {
       console.log('');
-      console.log('Errors:');
-      for (const error of result.errors) {
-        console.log(`  - ${error}`);
+      console.log('Issues:');
+      for (const issue of result.errors) {
+        console.log(`  - ${issue}`);
       }
     }
     if (result.pendingApprovals && result.pendingApprovals.length > 0) {
@@ -452,11 +473,11 @@ async function handleList(
         installedAt: true,
       },
     });
-  } catch (error) {
-    const errorMessage = (error as Error).message;
-    if (errorMessage.includes('does not exist in the current database')) {
+  } catch (e) {
+    const msg = (e as Error).message;
+    if (msg.includes('does not exist in the current database')) {
       console.log('');
-      console.log(formatStatus('warning', 'SensaiOS tables not found'));
+      console.log(formatStatus('SensaiOS tables not found', 'info'));
       console.log('');
       console.log('The SensaiOS schema tables have not been created yet.');
       console.log('Run database migrations to create the required tables:');
@@ -465,7 +486,7 @@ async function handleList(
       console.log('');
       return;
     }
-    throw error;
+    throw e;
   }
 
   if (options.json) {
@@ -480,21 +501,19 @@ async function handleList(
   if (apps.length === 0) {
     console.log('  No apps installed.');
   } else {
-    console.log(
-      formatTable(
-        [
-          ['ID', 'Name', 'Version', 'Status', 'Installed'],
-          ...apps.map((app) => [
-            app.id,
-            app.name,
-            app.version,
-            formatAppStatus(app.status),
-            formatDate(app.installedAt),
-          ]),
-        ],
-        { columnWidths: [25, 20, 10, 10, 20] }
-      )
+    // formatTable returns string[], join with newlines
+    const tableLines = formatTable(
+      ['ID', 'Name', 'Version', 'Status', 'Installed'],
+      apps.map((app) => [
+        app.id,
+        app.name,
+        app.version,
+        formatAppStatus(app.status),
+        formatDate(app.installedAt),
+      ]),
+      { columnWidths: [25, 20, 10, 10, 20] }
     );
+    console.log(tableLines.join('\n'));
   }
   console.log('');
   console.log(`Total: ${apps.length} app(s)`);
@@ -509,8 +528,8 @@ async function handleStatus(
   ctx: CliContext
 ): Promise<void> {
   if (!target) {
-    console.error('Error: Missing app ID');
-    console.error('Usage: npm run sensaios status <appId>');
+    console.log('[HALT] Missing app ID');
+    console.log('Usage: npm run sensaios status <appId>');
     process.exit(1);
   }
 
@@ -519,7 +538,7 @@ async function handleStatus(
   });
 
   if (!app) {
-    console.error(`Error: App not found: ${target}`);
+    console.log(`[HALT] App not found: ${target}`);
     process.exit(1);
   }
 
@@ -600,8 +619,8 @@ async function handleEnable(
   ctx: CliContext
 ): Promise<void> {
   if (!target) {
-    console.error('Error: Missing app ID');
-    console.error('Usage: npm run sensaios enable <appId>');
+    console.log('[HALT] Missing app ID');
+    console.log('Usage: npm run sensaios enable <appId>');
     process.exit(1);
   }
 
@@ -611,7 +630,7 @@ async function handleEnable(
   });
 
   if (!app) {
-    console.error(`Error: App not found: ${target}`);
+    console.log(`[HALT] App not found: ${target}`);
     process.exit(1);
   }
 
@@ -651,7 +670,7 @@ async function handleEnable(
     console.log(JSON.stringify({ success: true, appId: target, status: 'enabled' }));
   } else {
     console.log('');
-    console.log(formatStatus('success', `Enabled ${target}`));
+    console.log(formatStatus(`Enabled ${target}`, 'success'));
   }
 }
 
@@ -664,8 +683,8 @@ async function handleDisable(
   ctx: CliContext
 ): Promise<void> {
   if (!target) {
-    console.error('Error: Missing app ID');
-    console.error('Usage: npm run sensaios disable <appId>');
+    console.log('[HALT] Missing app ID');
+    console.log('Usage: npm run sensaios disable <appId>');
     process.exit(1);
   }
 
@@ -675,7 +694,7 @@ async function handleDisable(
   });
 
   if (!app) {
-    console.error(`Error: App not found: ${target}`);
+    console.log(`[HALT] App not found: ${target}`);
     process.exit(1);
   }
 
@@ -687,13 +706,13 @@ async function handleDisable(
   // Check for dependents
   const dependents = await listDependents(target, ctx);
   if (dependents.length > 0 && !options.force) {
-    console.error('');
-    console.error(`Error: Cannot disable ${target} — other apps depend on it:`);
+    console.log('');
+    console.log(`[HALT] Cannot disable ${target} — other apps depend on it:`);
     for (const dep of dependents) {
-      console.error(`  - ${dep}`);
+      console.log(`  - ${dep}`);
     }
-    console.error('');
-    console.error('Use --force to disable anyway (may break dependent apps).');
+    console.log('');
+    console.log('Use --force to disable anyway (may break dependent apps).');
     process.exit(1);
   }
 
@@ -735,10 +754,10 @@ async function handleDisable(
     console.log(JSON.stringify({ success: true, appId: target, status: 'disabled' }));
   } else {
     console.log('');
-    console.log(formatStatus('success', `Disabled ${target}`));
+    console.log(formatStatus(`Disabled ${target}`, 'success'));
     if (options.force && dependents.length > 0) {
       console.log('');
-      console.log('⚠️  Warning: The following apps may be broken:');
+      console.log('[NOTE] The following apps may be broken:');
       for (const dep of dependents) {
         console.log(`     - ${dep}`);
       }
@@ -755,8 +774,8 @@ async function handleUninstall(
   ctx: CliContext
 ): Promise<void> {
   if (!target) {
-    console.error('Error: Missing app ID');
-    console.error('Usage: npm run sensaios uninstall <appId>');
+    console.log('[HALT] Missing app ID');
+    console.log('Usage: npm run sensaios uninstall <appId>');
     process.exit(1);
   }
 
@@ -767,7 +786,7 @@ async function handleUninstall(
     });
 
     if (!app) {
-      console.error(`Error: App not found: ${target}`);
+      console.log(`[HALT] App not found: ${target}`);
       process.exit(1);
     }
 
@@ -781,7 +800,7 @@ async function handleUninstall(
 
     if (dependents.length > 0) {
       console.log('');
-      console.log('⚠️  Warning: The following apps depend on this app:');
+      console.log('[NOTE] The following apps depend on this app:');
       for (const dep of dependents) {
         console.log(`     - ${dep}`);
       }
@@ -801,10 +820,10 @@ async function handleUninstall(
 
   console.log('');
   if (result.success) {
-    console.log(formatStatus('success', `Uninstalled ${result.appId}`));
+    console.log(formatStatus(`Uninstalled ${result.appId}`, 'success'));
     console.log(result.message);
   } else {
-    console.log(formatStatus('error', `Failed to uninstall ${result.appId}`));
+    console.log(formatStatus(`Could not uninstall ${result.appId}`, 'error'));
     console.log(result.message);
 
     if (result.blockedByDependents && result.blockedByDependents.length > 0) {
@@ -819,9 +838,9 @@ async function handleUninstall(
 
     if (result.errors && result.errors.length > 0) {
       console.log('');
-      console.log('Errors:');
-      for (const error of result.errors) {
-        console.log(`  - ${error}`);
+      console.log('Issues:');
+      for (const issue of result.errors) {
+        console.log(`  - ${issue}`);
       }
     }
     process.exit(1);
@@ -838,8 +857,8 @@ async function handleGrant(
   ctx: CliContext
 ): Promise<void> {
   if (!target || !extra) {
-    console.error('Error: Missing app ID or capability');
-    console.error('Usage: npm run sensaios grant <appId> <capability>');
+    console.log('[HALT] Missing app ID or capability');
+    console.log('Usage: npm run sensaios grant <appId> <capability>');
     process.exit(1);
   }
 
@@ -853,7 +872,7 @@ async function handleGrant(
   });
 
   if (!app) {
-    console.error(`Error: App not found: ${appId}`);
+    console.log(`[HALT] App not found: ${appId}`);
     process.exit(1);
   }
 
@@ -918,7 +937,7 @@ async function handleGrant(
     console.log(JSON.stringify({ success: true, appId, capability, granted: true }));
   } else {
     console.log('');
-    console.log(formatStatus('success', `Granted ${capability} to ${appId}`));
+    console.log(formatStatus(`Granted ${capability} to ${appId}`, 'success'));
   }
 }
 
@@ -932,8 +951,8 @@ async function handleRevoke(
   ctx: CliContext
 ): Promise<void> {
   if (!target || !extra) {
-    console.error('Error: Missing app ID or capability');
-    console.error('Usage: npm run sensaios revoke <appId> <capability>');
+    console.log('[HALT] Missing app ID or capability');
+    console.log('Usage: npm run sensaios revoke <appId> <capability>');
     process.exit(1);
   }
 
@@ -947,7 +966,7 @@ async function handleRevoke(
   });
 
   if (!app) {
-    console.error(`Error: App not found: ${appId}`);
+    console.log(`[HALT] App not found: ${appId}`);
     process.exit(1);
   }
 
@@ -991,7 +1010,7 @@ async function handleRevoke(
     console.log(JSON.stringify({ success: true, appId, capability, revoked: true }));
   } else {
     console.log('');
-    console.log(formatStatus('success', `Revoked ${capability} from ${appId}`));
+    console.log(formatStatus(`Revoked ${capability} from ${appId}`, 'success'));
   }
 }
 
@@ -1071,22 +1090,22 @@ async function main(): Promise<void> {
         await handleRevoke(args.target, args.extra, args.options, ctx);
         break;
       default:
-        console.error(`Unknown command: ${args.command}`);
-        console.error(HELP_TEXT);
+        console.log(`Unknown command: ${args.command}`);
+        console.log(HELP_TEXT);
         process.exit(1);
     }
-  } catch (error) {
-    console.error('');
-    console.error(formatStatus('error', 'Command failed'));
-    console.error((error as Error).message);
+  } catch (e) {
+    console.log('');
+    console.log(formatStatus('Command did not complete', 'error'));
+    console.log((e as Error).message);
     if (process.env.DEBUG) {
-      console.error((error as Error).stack);
+      console.log((e as Error).stack);
     }
     process.exit(1);
   }
 }
 
-main().catch((error) => {
-  console.error('Fatal error:', error);
+main().catch((e) => {
+  console.log('[HALT]', e);
   process.exit(1);
 });

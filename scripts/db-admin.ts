@@ -305,10 +305,10 @@ async function showStatus(ctx: DbContext, target: string): Promise<void> {
         ["User records", userCount],
       ], { indent: 1 }));
     }
-  } catch (error) {
-    console.log(formatStatus("Failed to read sample counts", "warning"));
-    const errorMsg = error instanceof Error ? error.message : String(error);
-    console.log(formatKeyValueList([["Error", errorMsg]], { indent: 1 }));
+  } catch (e) {
+    console.log(formatStatus("Could not read sample counts", "note"));
+    const msg = e instanceof Error ? e.message : String(e);
+    console.log(formatKeyValueList([["Cause", msg]], { indent: 1 }));
   }
 }
 
@@ -443,11 +443,11 @@ async function showIndexUsage(ctx: DbContext, outputJson: boolean): Promise<void
     for (const idx of indexes) {
       const scans = parseInt(idx.idx_scan, 10);
       const status = scans === 0 ? "UNUSED" : scans < 10 ? "LOW" : "OK";
-      const statusLevel = scans === 0 ? "error" : scans < 10 ? "warning" : "success";
+      const statusLevel = scans === 0 ? "halt" : scans < 10 ? "note" : "ok";
 
       console.log(formatKeyValueList([
         ["Index", idx.indexname],
-        ["Status", formatStatus(status, statusLevel as "error" | "warning" | "success" | "info")],
+        ["Status", formatStatus(status, statusLevel as "halt" | "note" | "ok" | "info")],
         ["Scans", idx.idx_scan],
         ["Tuples Read", idx.idx_tup_read],
         ["Tuples Fetched", idx.idx_tup_fetch],
@@ -462,14 +462,14 @@ async function showIndexUsage(ctx: DbContext, outputJson: boolean): Promise<void
   }
 
   if (warnings.length > 0) {
-    console.log(formatStatus("WARNINGS:", "warning"));
+    console.log(formatStatus("[NOTE]:", "note"));
     console.log(formatList(warnings, { indent: 1 }));
     console.log(formatKeyValueList([
       ["Total unused indexes", String(unusedCount)]
     ]));
     console.log(formatStatus("Consider dropping unused indexes to reduce storage and maintenance overhead.", "info"));
   } else {
-    console.log(formatStatus("All indexes are being used.", "success"));
+    console.log(formatStatus("All indexes are being used.", "ok"));
   }
 }
 
@@ -546,7 +546,7 @@ async function showTableBloat(ctx: DbContext, outputJson: boolean): Promise<void
 
     console.log(formatSectionHeader(tableKey, 1));
     console.log(formatKeyValueList([
-      ["Status", formatStatus(statusText, statusLevel as "error" | "warning" | "success")],
+      ["Status", formatStatus(statusText, statusLevel as "halt" | "note" | "ok")],
       ["Live Tuples", row.n_live_tup],
       ["Dead Tuples", row.n_dead_tup],
       ["Bloat", `${deadPct}%`],
@@ -556,7 +556,7 @@ async function showTableBloat(ctx: DbContext, outputJson: boolean): Promise<void
   }
 
   if (critical.length > 0) {
-    console.log(formatStatus("CRITICAL BLOAT (>50%):", "error"));
+    console.log(formatStatus("[ALERT] CRITICAL BLOAT (>50%):", "halt"));
     console.log(formatList(critical, { indent: 1 }));
     console.log(formatStatus("Recommendation: Run VACUUM ANALYZE immediately on these tables.", "info"));
     console.log(formatKeyValueList([
@@ -565,13 +565,13 @@ async function showTableBloat(ctx: DbContext, outputJson: boolean): Promise<void
   }
 
   if (warnings.length > 0) {
-    console.log(formatStatus("WARNING BLOAT (>20%):", "warning"));
+    console.log(formatStatus("[NOTE] BLOAT (>20%):", "note"));
     console.log(formatList(warnings, { indent: 1 }));
     console.log(formatStatus("Recommendation: Schedule VACUUM ANALYZE during low-traffic period.", "info"));
   }
 
   if (critical.length === 0 && warnings.length === 0) {
-    console.log(formatStatus("All tables have healthy bloat levels (<20%).", "success"));
+    console.log(formatStatus("All tables have healthy bloat levels (<20%).", "ok"));
   }
 }
 
@@ -596,7 +596,7 @@ async function showSlowQueries(ctx: DbContext, outputJson: boolean): Promise<voi
   );
 
   if (!extensionCheck.rows[0]?.exists) {
-    console.log(formatStatus("pg_stat_statements extension not installed.", "warning"));
+    console.log(formatStatus("pg_stat_statements extension not installed.", "note"));
     console.log(formatStatus("To enable slow query tracking, run:", "info"));
     console.log(formatKeyValueList([
       ["SQL", "CREATE EXTENSION IF NOT EXISTS pg_stat_statements;"]
@@ -652,7 +652,7 @@ async function showSlowQueries(ctx: DbContext, outputJson: boolean): Promise<voi
 
     console.log(formatSectionHeader(`Query #${i + 1}`, 1));
     console.log(formatKeyValueList([
-      ["Status", formatStatus(statusText, statusLevel as "error" | "warning" | "success")],
+      ["Status", formatStatus(statusText, statusLevel as "halt" | "note" | "ok")],
       ["Query", `${row.query}...`],
       ["Calls", row.calls],
       ["Mean Time", `${meanTime}ms`],
@@ -662,7 +662,7 @@ async function showSlowQueries(ctx: DbContext, outputJson: boolean): Promise<voi
   }
 
   if (critical.length > 0) {
-    console.log(formatStatus("CRITICAL QUERIES (>2s mean time):", "error"));
+    console.log(formatStatus("[ALERT] CRITICAL QUERIES (>2s mean time):", "halt"));
     console.log(formatList(critical, { indent: 1 }));
     console.log(formatStatus("Recommendation: Review these queries immediately. Consider:", "info"));
     console.log(formatList([
@@ -673,13 +673,13 @@ async function showSlowQueries(ctx: DbContext, outputJson: boolean): Promise<voi
   }
 
   if (warnings.length > 0) {
-    console.log(formatStatus("SLOW QUERIES (>500ms mean time):", "warning"));
+    console.log(formatStatus("[NOTE] SLOW QUERIES (>500ms mean time):", "note"));
     console.log(formatList(warnings, { indent: 1 }));
     console.log(formatStatus("Recommendation: Investigate these queries for optimization opportunities.", "info"));
   }
 
   if (critical.length === 0 && warnings.length === 0) {
-    console.log(formatStatus("All queries are performing well (<500ms mean time).", "success"));
+    console.log(formatStatus("All queries are performing well (<500ms mean time).", "ok"));
   }
 }
 
@@ -753,8 +753,8 @@ async function showCacheStats(ctx: DbContext, outputJson: boolean): Promise<void
     totalIdxRead += parseInt(row.idx_blks_read, 10);
     totalIdxHit += parseInt(row.idx_blks_hit, 10);
 
-    const statusLevel = (heapRate < 60 || idxRate < 60) ? "error" : (heapRate < 80 || idxRate < 80) ? "warning" : "success";
-    const statusText = (heapRate < 60 || idxRate < 60) ? "CRITICAL" : (heapRate < 80 || idxRate < 80) ? "WARNING" : "HEALTHY";
+    const statusLevel = (heapRate < 60 || idxRate < 60) ? "halt" : (heapRate < 80 || idxRate < 80) ? "note" : "ok";
+    const statusText = (heapRate < 60 || idxRate < 60) ? "CRITICAL" : (heapRate < 80 || idxRate < 80) ? "LOW" : "HEALTHY";
     
     if (heapRate < 60 || idxRate < 60) {
       critical.push(`${tableKey}: Heap ${heapRate}%, Index ${idxRate}%`);
@@ -764,7 +764,7 @@ async function showCacheStats(ctx: DbContext, outputJson: boolean): Promise<void
 
     console.log(formatSectionHeader(tableKey, 1));
     console.log(formatKeyValueList([
-      ["Status", formatStatus(statusText, statusLevel as "error" | "warning" | "success")],
+      ["Status", formatStatus(statusText, statusLevel as "halt" | "note" | "ok")],
       ["Heap Blocks Read", row.heap_blks_read],
       ["Heap Blocks Hit", row.heap_blks_hit],
       ["Heap Hit Rate", `${heapRate}%`],
@@ -787,7 +787,7 @@ async function showCacheStats(ctx: DbContext, outputJson: boolean): Promise<void
   ], { indent: 1 }));
 
   if (critical.length > 0) {
-    console.log(formatStatus("CRITICAL CACHE PERFORMANCE (<60%):", "error"));
+    console.log(formatStatus("[ALERT] CRITICAL CACHE PERFORMANCE (<60%):", "halt"));
     console.log(formatList(critical, { indent: 1 }));
     console.log(formatStatus("Recommendation: Investigate immediately. Possible causes:", "info"));
     console.log(formatList([
@@ -798,13 +798,13 @@ async function showCacheStats(ctx: DbContext, outputJson: boolean): Promise<void
   }
 
   if (warnings.length > 0) {
-    console.log(formatStatus("LOW CACHE HIT RATE (<80%):", "warning"));
+    console.log(formatStatus("[NOTE] LOW CACHE HIT RATE (<80%):", "note"));
     console.log(formatList(warnings, { indent: 1 }));
     console.log(formatStatus("Recommendation: Consider increasing shared_buffers or optimizing queries.", "info"));
   }
 
   if (critical.length === 0 && warnings.length === 0) {
-    console.log(formatStatus("All tables have healthy cache hit rates (>80%).", "success"));
+    console.log(formatStatus("All tables have healthy cache hit rates (>80%).", "ok"));
   }
 }
 
