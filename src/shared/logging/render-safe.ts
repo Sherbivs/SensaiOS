@@ -49,33 +49,42 @@ interface ReplacementRule {
 
 /**
  * Render trigger words and their neutral replacements.
+ * 
+ * NOTE: Patterns use negative lookbehind/lookahead to PRESERVE:
+ * - Hyphenated technical names: error-tracker, error-learning, error-handler
+ * - Compound identifiers: ErrorTracker, errorContext, isError
+ * 
+ * Only standalone words in human-readable messages are replaced.
  */
 const TRIGGER_REPLACEMENTS: ReplacementRule[] = [
-  // Error variants → "issue" or symbol
-  { pattern: /\berror\b/gi, replacement: 'issue', casePreserving: true },
-  { pattern: /\berrors\b/gi, replacement: 'issues', casePreserving: true },
+  // Error variants → "issue" (PRESERVE hyphenated and camelCase forms)
+  // (?<!-) = not preceded by hyphen, (?!-) = not followed by hyphen
+  // (?<![A-Za-z]) = not preceded by letter (preserve ErrorTracker)
+  // (?![A-Za-z]) = not followed by letter (preserve errorContext)
+  { pattern: /(?<![-A-Za-z])error(?![-A-Za-z])/gi, replacement: 'issue', casePreserving: true },
+  { pattern: /(?<![-A-Za-z])errors(?![-A-Za-z])/gi, replacement: 'issues', casePreserving: true },
   
-  // Warning variants → "note" or "caution"
-  { pattern: /\bwarning\b/gi, replacement: 'note', casePreserving: true },
-  { pattern: /\bwarnings\b/gi, replacement: 'notes', casePreserving: true },
-  { pattern: /\bwarn\b/gi, replacement: 'note', casePreserving: true },
+  // Warning variants → "note" (PRESERVE hyphenated and camelCase forms)
+  { pattern: /(?<![-A-Za-z])warning(?![-A-Za-z])/gi, replacement: 'note', casePreserving: true },
+  { pattern: /(?<![-A-Za-z])warnings(?![-A-Za-z])/gi, replacement: 'notes', casePreserving: true },
+  { pattern: /(?<![-A-Za-z])warn(?![-A-Za-z])/gi, replacement: 'note', casePreserving: true },
   
   // Fatal/Critical → "halt" or "stop"
-  { pattern: /\bFATAL\b/g, replacement: '[HALT]' },
-  { pattern: /\bfatal\b/g, replacement: 'halt' },
-  { pattern: /\bCRITICAL\b/g, replacement: '[STOP]' },
-  { pattern: /\bcritical\b/gi, replacement: 'severe', casePreserving: true },
+  { pattern: /(?<![-A-Za-z])FATAL(?![-A-Za-z])/g, replacement: '[HALT]' },
+  { pattern: /(?<![-A-Za-z])fatal(?![-A-Za-z])/g, replacement: 'halt' },
+  { pattern: /(?<![-A-Za-z])CRITICAL(?![-A-Za-z])/g, replacement: '[STOP]' },
+  { pattern: /(?<![-A-Za-z])critical(?![-A-Za-z])/gi, replacement: 'severe', casePreserving: true },
   
   // Fail variants → "stop" or "unsuccessful"
-  { pattern: /\bfailed\b/gi, replacement: 'stopped', casePreserving: true },
-  { pattern: /\bfail\b/gi, replacement: 'stop', casePreserving: true },
-  { pattern: /\bfailure\b/gi, replacement: 'stoppage', casePreserving: true },
+  { pattern: /(?<![-A-Za-z])failed(?![-A-Za-z])/gi, replacement: 'stopped', casePreserving: true },
+  { pattern: /(?<![-A-Za-z])fail(?![-A-Za-z])/gi, replacement: 'stop', casePreserving: true },
+  { pattern: /(?<![-A-Za-z])failure(?![-A-Za-z])/gi, replacement: 'stoppage', casePreserving: true },
   
   // Exception → "incident"
-  { pattern: /\bexception\b/gi, replacement: 'incident', casePreserving: true },
+  { pattern: /(?<![-A-Za-z])exception(?![-A-Za-z])/gi, replacement: 'incident', casePreserving: true },
   
   // Panic → "abort"
-  { pattern: /\bpanic\b/gi, replacement: 'abort', casePreserving: true },
+  { pattern: /(?<![-A-Za-z])panic(?![-A-Za-z])/gi, replacement: 'abort', casePreserving: true },
 ];
 
 /**
@@ -194,7 +203,8 @@ export function installRenderSafeOutput(): void {
     callback?: (err?: Error | null) => void
   ): boolean {
     const text = typeof chunk === 'string' ? chunk : chunk.toString();
-    const sanitized = sanitizeForRender(text, { renderOnly: false });
+    // Note: renderOnly defaults to true, so sanitization only happens on Render
+    const sanitized = sanitizeForRender(text);
     
     if (typeof encodingOrCallback === 'function') {
       return originalStdoutWrite(sanitized, encodingOrCallback);
@@ -208,7 +218,8 @@ export function installRenderSafeOutput(): void {
     callback?: (err?: Error | null) => void
   ): boolean {
     const text = typeof chunk === 'string' ? chunk : chunk.toString();
-    const sanitized = sanitizeForRender(text, { renderOnly: false });
+    // Note: renderOnly defaults to true, so sanitization only happens on Render
+    const sanitized = sanitizeForRender(text);
     
     if (typeof encodingOrCallback === 'function') {
       return originalStderrWrite(sanitized, encodingOrCallback);

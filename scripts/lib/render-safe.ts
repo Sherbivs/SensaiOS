@@ -57,13 +57,14 @@ interface ReplacementRule {
  */
 const TRIGGER_REPLACEMENTS: ReplacementRule[] = [
   // Error variants → "issue" or symbol
-  { pattern: /\berror\b/gi, replacement: 'issue', casePreserving: true },
-  { pattern: /\berrors\b/gi, replacement: 'issues', casePreserving: true },
+  // Use negative lookbehind/lookahead to preserve hyphenated identifiers like "error-tracker"
+  { pattern: /(?<![-A-Za-z])error(?![-A-Za-z])/gi, replacement: 'issue', casePreserving: true },
+  { pattern: /(?<![-A-Za-z])errors(?![-A-Za-z])/gi, replacement: 'issues', casePreserving: true },
   
   // Warning variants → "note" or "caution"
-  { pattern: /\bwarning\b/gi, replacement: 'note', casePreserving: true },
-  { pattern: /\bwarnings\b/gi, replacement: 'notes', casePreserving: true },
-  { pattern: /\bwarn\b/gi, replacement: 'note', casePreserving: true },
+  { pattern: /(?<![-A-Za-z])warning(?![-A-Za-z])/gi, replacement: 'note', casePreserving: true },
+  { pattern: /(?<![-A-Za-z])warnings(?![-A-Za-z])/gi, replacement: 'notes', casePreserving: true },
+  { pattern: /(?<![-A-Za-z])warn(?![-A-Za-z])/gi, replacement: 'note', casePreserving: true },
   
   // Fatal/Critical → "halt" or "stop"
   { pattern: /\bFATAL\b/g, replacement: '[HALT]' },
@@ -263,7 +264,7 @@ export function installRenderSafeOutput(): void {
     callback?: (err?: Error | null | undefined) => void
   ): boolean {
     const text = typeof chunk === 'string' ? chunk : chunk.toString();
-    const sanitized = sanitizeForRender(text, { renderOnly: false });
+    const sanitized = sanitizeForRender(text);
     
     if (typeof encodingOrCallback === 'function') {
       // Type assertion needed due to Node.js write() overload complexity
@@ -280,7 +281,7 @@ export function installRenderSafeOutput(): void {
     callback?: (err?: Error | null | undefined) => void
   ): boolean {
     const text = typeof chunk === 'string' ? chunk : chunk.toString();
-    const sanitized = sanitizeForRender(text, { renderOnly: false });
+    const sanitized = sanitizeForRender(text);
     
     if (typeof encodingOrCallback === 'function') {
       // Type assertion needed due to Node.js write() overload complexity
