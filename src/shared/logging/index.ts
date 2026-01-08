@@ -107,6 +107,25 @@ export {
 } from './console-renderer.js';
 
 // ═══════════════════════════════════════════════════════════════════════════
+// OS Console — Streamlined Output System (NEW)
+// ═══════════════════════════════════════════════════════════════════════════
+
+export {
+  // Main API
+  osConsole,
+  OS_CONSOLE_ENABLED,
+  
+  // Formatting functions
+  bootBanner,
+  bootComplete,
+  formatEvent,
+  statusLine,
+  progress,
+  done,
+  errorLine,
+} from './os-console.js';
+
+// ═══════════════════════════════════════════════════════════════════════════
 // Usage Examples
 // ═══════════════════════════════════════════════════════════════════════════
 //
@@ -126,9 +145,13 @@ export {
 //   report();  // Display stats once
 //   startAutoRefresh();  // Start periodic stats updates
 //
-// Infinity Console (visual dashboard):
+// OS Console (streamlined output — default):
+//   import { osConsole } from '../shared/logging/index.js';
+//   osConsole.ok('DB', 'Connected', '23ms');
+//   osConsole.status({ db: 'online', ram: 45, cpu: 12, uptime: 3600 });
+//
+// Infinity Console (visual dashboard — set SENSAI_CONSOLE=classic):
 //   import { renderDashboard, ConsoleRenderer } from '../shared/logging/index.js';
 //   console.log(renderDashboard({ version: '2.5.0', databases, resources }));
-//   console.log(ConsoleRenderer.success('Operation complete', 'context'));
 //
 // ═══════════════════════════════════════════════════════════════════════════

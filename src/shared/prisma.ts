@@ -4,8 +4,10 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import pg from "pg";
 
 import { loadConfig, recordDatabaseConnectionSuccess, type DatabaseCandidate } from "./config.js";
-import { log } from "./log.js";
+import { scopedLogger } from '../observability/envelope/console.js';
 import { delayWithJitter, getErrorMessage, ensureError } from "./utils/index.js";
+
+const log = scopedLogger('prisma');
 
 export type PrismaHeartbeatEvent = {
   ok: boolean;
@@ -79,8 +81,8 @@ function emitHeartbeat(event: PrismaHeartbeatEvent): void {
     try {
       listener(event);
     } catch (error) {
-      log.warn("Prisma heartbeat listener threw", {
-        listenerError: getErrorMessage(error),
+      log.warn('listener', 'Prisma heartbeat listener threw', {
+        error: getErrorMessage(error),
       });
     }
   }
@@ -114,12 +116,12 @@ async function performHeartbeat(state: HeartbeatState, options: Required<Heartbe
     const latencyMs = Number(process.hrtime.bigint() - start) / 1_000_000;
     const slow = latencyMs >= options.warnThresholdMs;
     if (slow) {
-      log.warn("Prisma heartbeat slow", {
+      log.warn('heartbeat', 'Prisma heartbeat slow', {
         latencyMs: Number(latencyMs.toFixed(2)),
         thresholdMs: options.warnThresholdMs,
       });
     } else {
-      log.debug("Prisma heartbeat ok", {
+      log.debug('heartbeat', 'Prisma heartbeat ok', {
         latencyMs: Number(latencyMs.toFixed(2)),
       });
     }
@@ -144,9 +146,9 @@ async function performHeartbeat(state: HeartbeatState, options: Required<Heartbe
     };
 
     if (state.consecutiveFailures >= options.errorThreshold) {
-      log.error("Prisma heartbeat failed", error, meta);
+      log.error('heartbeat', 'Prisma heartbeat failed', { ...meta, error: error.message });
     } else {
-      log.warn("Prisma heartbeat failed", {
+      log.warn('heartbeat', 'Prisma heartbeat failed', {
         ...meta,
         error: error.message,
       });
@@ -180,7 +182,7 @@ function scheduleHeartbeat(state: HeartbeatState): void {
 
 export function startPrismaHeartbeat(options?: HeartbeatOptions): () => void {
   if (process.env.DISABLE_PRISMA_HEARTBEAT === "true") {
-    log.info("Prisma heartbeat disabled via environment variable");
+    log.info('heartbeat', 'Prisma heartbeat disabled via environment variable');
     return () => {};
   }
 
@@ -262,11 +264,11 @@ function createClient(candidate: DatabaseCandidate, nodeEnv: string): PrismaClie
   
   // Pool event listeners for observability
   pool.on('error', (err) => {
-    log.error('Postgres pool error', err);
+    log.error('pool', 'Postgres pool error', { error: String(err) });
   });
   
   pool.on('connect', () => {
-    log.debug('Postgres pool: new client connected');
+    log.debug('pool', 'Postgres pool: new client connected');
   });
   
   const adapter = new PrismaPg(pool);
@@ -329,7 +331,7 @@ function createClient(candidate: DatabaseCandidate, nodeEnv: string): PrismaClie
     
     if (duration > 100) {
       // Slow query detected
-      log.warn('Slow query detected', {
+      log.warn('query', 'Slow query detected', {
         duration,
         query: e.query,
         params: e.params,
@@ -377,9 +379,9 @@ async function attemptCandidateConnection(candidate: DatabaseCandidate, attempt:
   }
 
   if (attempt > 0) {
-    log.info("Prisma connected after retry", meta);
+    log.info('connect', 'Prisma connected after retry', meta);
   } else {
-    log.info("Prisma connected", meta);
+    log.info('connect', 'Prisma connected', meta);
   }
 
   emitHeartbeat({
@@ -399,7 +401,7 @@ async function disconnectPrismaClient(): Promise<void> {
     try {
       await prismaClient.$disconnect();
     } catch (error) {
-      log.warn("Ignoring Prisma disconnect error during datasource switch", {
+      log.warn('disconnect', 'Ignoring Prisma disconnect error during datasource switch', {
         error: getErrorMessage(error),
       });
     }
@@ -454,7 +456,7 @@ async function connectAcrossCandidates(): Promise<void> {
       const err = ensureError(error);
       lastError = err;
       const nextCandidate = candidates[(attempt + 1) % candidates.length]?.source ?? "none";
-      log.warn("Prisma connection attempt failed; switching candidate", {
+      log.warn('connect', 'Prisma connection attempt failed; switching candidate', {
         attempt,
         candidateSource: candidate.source,
         candidateFallback: Boolean(candidate.isFallback),
@@ -475,7 +477,8 @@ async function connectAcrossCandidates(): Promise<void> {
     }
   }
 
-  log.error("Prisma connection failed after alternating candidates", lastError ?? new Error("No candidates attempted"), {
+  log.error('connect', 'Prisma connection failed after alternating candidates', {
+    error: lastError?.message ?? 'No candidates attempted',
     attempts: attempt,
     candidates: candidates.map((candidate) => ({ source: candidate.source, fallback: Boolean(candidate.isFallback) })),
   });
@@ -598,7 +601,7 @@ export function getDatabaseStats(): TripleDatabaseStats {
 async function initializeOnPremiseDevClient(): Promise<void> {
   const onPremiseDevUrl = process.env.DATABASE_ONPREMISE_DEV_PRIMARY?.trim();
   if (!onPremiseDevUrl) {
-    log.info("LOCAL database connection skipped", { reason: "no DATABASE_ONPREMISE_DEV_PRIMARY" });
+    log.info('connect', 'LOCAL database connection skipped', { reason: 'no DATABASE_ONPREMISE_DEV_PRIMARY' });
     return;
   }
   
@@ -633,7 +636,7 @@ async function initializeOnPremiseDevClient(): Promise<void> {
       source: "startup",
     };
     
-    log.info("LOCAL Prisma client connected (workstation development)", {
+    log.info('connect', 'LOCAL Prisma client connected (workstation development)', {
       latencyMs: Number(latencyMs.toFixed(2)),
       transport: onPremiseDevTransport,
     });
@@ -668,7 +671,7 @@ async function initializeOnPremiseDevClient(): Promise<void> {
     }, HEARTBEAT_DEFAULTS.intervalMs).unref();
     
   } catch (error) {
-    log.warn("LOCAL Prisma client connection failed", {
+    log.warn('connect', 'LOCAL Prisma client connection failed', {
       error: getErrorMessage(error),
     });
     lastOnPremiseDevHeartbeatEvent = {
@@ -687,7 +690,7 @@ async function initializeOnPremiseDevClient(): Promise<void> {
 async function initializeOnPremiseExperimentClient(): Promise<void> {
   const onPremiseExperimentUrl = process.env.DATABASE_ONPREMISE_DEV_EXPERIMENT?.trim();
   if (!onPremiseExperimentUrl) {
-    log.info("ONPREMISE-DEV-EXPERIMENT database connection skipped", { reason: "no DATABASE_ONPREMISE_DEV_EXPERIMENT" });
+    log.info('connect', 'ONPREMISE-DEV-EXPERIMENT database connection skipped', { reason: 'no DATABASE_ONPREMISE_DEV_EXPERIMENT' });
     return;
   }
   
@@ -722,7 +725,7 @@ async function initializeOnPremiseExperimentClient(): Promise<void> {
       source: "startup",
     };
     
-    log.info("ONPREMISE-DEV-EXPERIMENT Prisma client connected", {
+    log.info('connect', 'ONPREMISE-DEV-EXPERIMENT Prisma client connected', {
       latencyMs: Number(latencyMs.toFixed(2)),
       transport: onPremiseExperimentTransport,
     });
@@ -757,7 +760,7 @@ async function initializeOnPremiseExperimentClient(): Promise<void> {
     }, HEARTBEAT_DEFAULTS.intervalMs).unref();
     
   } catch (error) {
-    log.warn("ONPREMISE-DEV-EXPERIMENT Prisma client connection failed", {
+    log.warn('connect', 'ONPREMISE-DEV-EXPERIMENT Prisma client connection failed', {
       error: getErrorMessage(error),
     });
     lastOnPremiseExperimentHeartbeatEvent = {
@@ -776,8 +779,8 @@ async function initializeOnPremiseExperimentClient(): Promise<void> {
 if (!globalPrisma.prismaConnectPromise) {
   const skipInitialConnect = process.env.PRISMA_SKIP_INITIAL_CONNECT === "true";
   if (skipInitialConnect) {
-    log.info("Skipping Prisma initial connection", {
-      reason: "PRISMA_SKIP_INITIAL_CONNECT",
+    log.info('connect', 'Skipping Prisma initial connection', {
+      reason: 'PRISMA_SKIP_INITIAL_CONNECT',
     });
     globalPrisma.prismaConnectPromise = Promise.resolve();
   } else {

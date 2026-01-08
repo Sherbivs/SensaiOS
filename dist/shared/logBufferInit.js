@@ -5,7 +5,41 @@
  * based on environment and user preferences.
  */
 import { initLogBuffer } from "./logBuffer.js";
-import { flushBufferedLogs } from "./log.js";
+import { scopedLogger } from "../observability/envelope/console.js";
+const log = scopedLogger('log-buffer');
+/**
+ * Flush buffered log entries using the envelope logger
+ * Replacement for the removed flushBufferedLogs from log.js
+ */
+function flushBufferedLogs(entries) {
+    if (entries.length === 0)
+        return;
+    // Emit summary if multiple unique messages
+    if (entries.length > 1) {
+        const totalMessages = entries.reduce((sum, e) => sum + e.count, 0);
+        log.info('flush', `Log buffer flush: ${entries.length} unique messages, ${totalMessages} total`);
+    }
+    // Emit each buffered entry at its original level
+    for (const entry of entries) {
+        const data = {
+            ...(entry.context ?? {}),
+            ...(entry.count > 1 ? { repeatCount: entry.count, lastSeen: new Date(entry.lastSeen).toISOString() } : {}),
+        };
+        switch (entry.level) {
+            case 'error':
+                log.error('buffered', entry.message, data);
+                break;
+            case 'warn':
+                log.warn('buffered', entry.message, data);
+                break;
+            case 'debug':
+                log.debug('buffered', entry.message, data);
+                break;
+            default:
+                log.info('buffered', entry.message, data);
+        }
+    }
+}
 /**
  * Initialize log buffering for the application
  *

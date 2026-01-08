@@ -11,7 +11,8 @@
  * - Timeout handling
  * - Type-safe callback interface
  */
-import { log } from './log.js';
+import { scopedLogger } from '../observability/envelope/console.js';
+const log = scopedLogger('pg-transaction');
 // ============================================================================
 // Transaction Executor
 // ============================================================================
@@ -63,7 +64,7 @@ export async function transaction(pool, callback, options) {
             await client.query('ROLLBACK');
         }
         catch (rollbackError) {
-            log.error('[pg-transaction] Rollback failed:', rollbackError);
+            log.error('rollback', 'Rollback failed', { error: String(rollbackError) });
         }
         throw error;
     }

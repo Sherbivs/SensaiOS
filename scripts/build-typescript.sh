@@ -25,9 +25,9 @@ cd ..
 
 # Verify output
 if [ -f "dist/index.js" ]; then
-  echo "✅ Build successful!"
+  echo "[OK] Build successful!"
   echo "   Output: $(pwd)/dist/index.js"
 else
-  echo "❌ ERROR: dist/index.js not created"
+  echo "[HALT] dist/index.js not created"
   exit 1
 fi

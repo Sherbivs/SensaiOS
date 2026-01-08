@@ -80,14 +80,14 @@ console.log(formatKeyValueList([["Environment", nodeEnv]]).join('\n'));
 if (nodeEnv === 'production') {
   const hasProdUrl = process.env.PROD_DATABASE_URL || process.env.RENDER_DB_INTERNAL_URL;
   if (!hasProdUrl) {
-    console.log(formatStatus("CRITICAL: PROD_DATABASE_URL or RENDER_DB_INTERNAL_URL not set", "error"));
+    console.log(formatStatus("[HALT] PROD_DATABASE_URL or RENDER_DB_INTERNAL_URL not set", "error"));
     console.log(formatKeyValueList([["Required", "Direct PostgreSQL connection to Render"]], { indent: 1 }).join('\n'));
     failures++;
   }
 } else {
   const hasProdUrl = process.env.PROD_DATABASE_URL || process.env.RENDER_DB_EXTERNAL_URL;
   if (!hasProdUrl) {
-    console.log(formatStatus("PROD_DATABASE_URL or RENDER_DB_EXTERNAL_URL not set", "warning"));
+    console.log(formatStatus("[NOTE] PROD_DATABASE_URL or RENDER_DB_EXTERNAL_URL not set", "warning"));
     console.log(formatKeyValueList([["Recommended", "Connection to Render database"]], { indent: 1 }).join('\n'));
     warnings++;
   }
@@ -102,13 +102,13 @@ if (failures === 0 && warnings === 0) {
   console.log(formatStatus("Prisma client ready for direct PostgreSQL", "success"));
   process.exit(0);
 } else if (failures === 0) {
-  console.log(formatStatus(`${warnings} warning(s) - build will continue`, "warning"));
-  console.log(formatKeyValueList([["Action", "Review warnings above"]], { indent: 1 }).join('\n'));
+  console.log(formatStatus(`${warnings} note(s) - build will continue`, "warning"));
+  console.log(formatKeyValueList([["Action", "Review notes above"]], { indent: 1 }).join('\n'));
   process.exit(0);
 } else {
-  console.log(formatStatus(`${failures} critical issue(s) detected`, "error"));
+  console.log(formatStatus(`${failures} issue(s) detected`, "error"));
   if (warnings > 0) {
-    console.log(formatStatus(`${warnings} warning(s)`, "warning"));
+    console.log(formatStatus(`${warnings} note(s)`, "warning"));
   }
   console.log();
   console.log(formatSectionHeader("Action Required", 1));

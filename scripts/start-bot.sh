@@ -17,7 +17,7 @@ elif [ -f "../../package.json" ]; then
 elif [ -d "/opt/render/project" ] && [ -f "/opt/render/project/package.json" ]; then
   PROJECT_ROOT="/opt/render/project"
 else
-  echo "❌ ERROR: Cannot find project root (package.json not found)"
+  echo "[HALT] Cannot find project root (package.json not found)"
   exit 1
 fi
 
@@ -26,12 +26,12 @@ echo "Project root: $PROJECT_ROOT"
 # Verify dist/index.js exists
 DIST_PATH="$PROJECT_ROOT/dist/index.js"
 if [ ! -f "$DIST_PATH" ]; then
-  echo "❌ ERROR: dist/index.js not found!"
+  echo "[HALT] dist/index.js not found!"
   echo "   Expected: $DIST_PATH"
   echo ""
   echo "Checking for dist/ in other locations:"
   ls -la "$PROJECT_ROOT/dist/" 2>/dev/null || echo "  - $PROJECT_ROOT/dist/ doesn't exist"
-  ls -la "$PROJECT_ROOT/src/dist/" 2>/dev/null && echo "  - FOUND at $PROJECT_ROOT/src/dist/ (WRONG LOCATION!)"
+  ls -la "$PROJECT_ROOT/src/dist/" 2>/dev/null && echo "  - Found at $PROJECT_ROOT/src/dist/ (WRONG LOCATION!)"
   exit 1
 fi
 

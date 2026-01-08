@@ -3,13 +3,13 @@
 **Purpose:** Canonical import path for all logging operations  
 **Owner:** Cleanup-Agent  
 **Created:** 2025-12-20  
-**Last Updated (UTC):** 2025-12-20T22:00:00Z
+**Last Updated (UTC):** 2025-01-09T00:00:00Z
 
 ---
 
 ## Overview
 
-This directory provides the unified logger facade for the Pokemon Infinity Gauntlet codebase. It consolidates multiple logger implementations under a single canonical import path, featuring the "Infinity Console" visual output system.
+This directory provides the unified logger facade for the Pokemon Infinity Gauntlet codebase. It consolidates multiple logger implementations under a single canonical import path, featuring both the "Infinity Console" visual output system and the new "OS Console" streamlined output mode.
 
 ## Migration Status
 
@@ -19,6 +19,32 @@ This directory provides the unified logger facade for the Pokemon Infinity Gaunt
 | Phase 2 | ✅ COMPLETE | 41 files migrated (Meeting #9) |
 | Phase 3 | ✅ COMPLETE | Visual overhaul (Meeting #10) |
 | Phase 4 | ✅ COMPLETE | intelligent-logger.ts DELETED (Meeting #11) |
+| Phase 5 | ✅ COMPLETE | OS Console streamlined mode added |
+
+## Console Modes
+
+### OS Console Mode (Default — Streamlined)
+
+Minimal, event-driven output designed for SensaiOS. Set `SENSAI_CONSOLE=classic` to disable.
+
+```
+SensaiOS v2.5.0
+▸ Booting kernel...
+
+✓ Ready [✓ DB ✓ Discord ⚙ 4 workers]
+
+○ 4h23m | DB ✓ | RAM 45% | CPU 12% | 5 guilds
+```
+
+### Infinity Console Mode (Classic — Visual)
+
+Full visual dashboard with ASCII boxes. Enable with `SENSAI_CONSOLE=classic`.
+
+```
+╔══════════════════════════════════════════════════════════════════════════════╗
+║  ∞  I N F I N I T Y   G A U N T L E T                              v2.5.0  ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+```
 
 ## Architecture
 
@@ -26,28 +52,11 @@ This directory provides the unified logger facade for the Pokemon Infinity Gaunt
 src/shared/logging/
 ├── index.ts              ← Unified facade (exports)
 ├── console-renderer.ts   ← "Infinity Console" visual system
+├── os-console.ts         ← "OS Console" streamlined system (NEW)
 │
 └── Delegates to:
     ├── ../logger.ts          ← DB-first logging (canonical)
     └── ../../utils/logger.ts ← Stats display + auto-refresh
-```
-
-## Infinity Console Design
-
-Visual output system designed by Creative Specialist Zara Okonkwo (Meeting #10):
-
-```
-╔══════════════════════════════════════════════════════════════════════════════╗
-║  ∞  I N F I N I T Y   G A U N T L E T                              v2.5.0  ║
-╚══════════════════════════════════════════════════════════════════════════════╝
-
-┌─ 💾 DATABASE ────────────────────────────────────────────────────────────────┐
-│  ● CLOUD-PROD    ✓ Online   │  23ms │ Direct PostgreSQL                     │
-└──────────────────────────────────────────────────────────────────────────────┘
-
-┌─ 📊 RESOURCES ───────────────────────────────────────────────────────────────┐
-│  RAM  ▓▓▓░░░░░░░░░░░░░  337 MB / 2 GB  (17%)                                │
-└──────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ## Import Paths
@@ -69,7 +78,8 @@ import { log } from '../shared/logger.js';       // 0 files (MIGRATED!)
 | File | Lines | Purpose |
 |------|-------|---------|
 | `index.ts` | ~130 | Unified facade with re-exports |
-| `console-renderer.ts` | ~400 | Infinity Console visual system |
+| `console-renderer.ts` | ~515 | Infinity Console visual system |
+| `os-console.ts` | ~250 | OS Console streamlined system (NEW) |
 
 ## Exports
 
@@ -86,6 +96,7 @@ import { log } from '../shared/logger.js';       // 0 files (MIGRATED!)
 - `startAutoRefresh()` — Start periodic updates
 - `stopAutoRefresh()` — Stop periodic updates
 - `getFormattedStats()` — Get stats as string
+- `osConsole` — OS Console API (NEW)
 - `LOG_LABEL` — Log level labels
 
 ### From `console-renderer.ts` (Infinity Console)
@@ -95,6 +106,15 @@ import { log } from '../shared/logger.js';       // 0 files (MIGRATED!)
 - `progressBar()` — ASCII progress bar
 - `formatLogEntry()` — Format log stream entry
 - `success/info/warn/error()` — Quick log formatters
+
+### From `os-console.ts` (OS Console — NEW)
+- `osConsole` — Main API object
+- `osConsole.boot(version)` — Boot banner
+- `osConsole.ready(services)` — Ready status
+- `osConsole.ok/info/warn/err(component, message)` — Event logging
+- `osConsole.status(snapshot)` — Single-line status
+- `osConsole.progress/done(task, count)` — Progress indicators
+- `OS_CONSOLE_ENABLED` — Feature flag
 
 ## Usage Examples
 

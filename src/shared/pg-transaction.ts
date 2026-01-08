@@ -13,7 +13,9 @@
  */
 
 import type pg from 'pg';
-import { log } from './log.js';
+import { scopedLogger } from '../observability/envelope/console.js';
+
+const log = scopedLogger('pg-transaction');
 
 // ============================================================================
 // Types
@@ -84,7 +86,7 @@ export async function transaction<T>(
     try {
       await client.query('ROLLBACK');
     } catch (rollbackError) {
-      log.error('[pg-transaction] Rollback failed:', rollbackError);
+      log.error('rollback', 'Rollback failed', { error: String(rollbackError) });
     }
 
     throw error;

@@ -22,6 +22,7 @@ import {
   type DashboardConfig,
 } from '../shared/logging/console-renderer.js';
 import { lokiTransport } from '../shared/logging/loki-transport.js';
+import { osConsole, OS_CONSOLE_ENABLED } from '../shared/logging/os-console.js';
 
 const writeStdout = (line: string): void => {
   process.stdout.write(`${line}\n`);
@@ -195,9 +196,13 @@ const LOG_LABEL: Readonly<Record<LogLevel | string, string>> = Object.freeze({
 const REFRESH_INTERVAL_MS = 15_000;
 const LATENCY_CHANGE_THRESHOLD_MS = 5;
 
-// Feature flag for Infinity Console visual output
+// Feature flag for Infinity Console visual output (legacy)
 const INFINITY_CONSOLE_ENABLED = process.env.INFINITY_CONSOLE_ENABLED?.toLowerCase() !== 'false'
-  && process.env.NODE_ENV !== 'test';
+  && process.env.NODE_ENV !== 'test'
+  && !OS_CONSOLE_ENABLED;  // OS console takes precedence
+
+// OS Console uses event-driven output, not periodic refresh
+const OS_REFRESH_INTERVAL_MS = OS_CONSOLE_ENABLED ? 60_000 : REFRESH_INTERVAL_MS;
 
 const METRIC_UNAVAILABLE = Object.freeze({
   NOT_QUERIED_YET: 'not-queried-yet',
@@ -852,6 +857,72 @@ async function refreshStats(): Promise<void> {
 }
 
 /**
+ * Renders minimal OS Console status line
+ * Only outputs when meaningful changes occur
+ */
+function printOsConsoleStatus(): void {
+  if (!statsCache.databases || !statsCache.node || !statsCache.cache) {
+    return;
+  }
+
+  // Parse memory for percentage
+  const parseMemoryMB = (str: string): number => {
+    const match = str.match(/([\d.]+)\s*(MB|GB|KB)?/i);
+    if (!match) return 0;
+    const value = parseFloat(match[1]);
+    const unit = (match[2] || 'MB').toUpperCase();
+    if (unit === 'GB') return value * 1024;
+    if (unit === 'KB') return value / 1024;
+    return value;
+  };
+
+  const ramUsedMB = parseMemoryMB(statsCache.node.memory.rss);
+  const ramTotalMB = 2048; // Render Standard: 2 GB
+  const ramPercent = Math.round((ramUsedMB / ramTotalMB) * 100);
+  
+  // CPU percentage
+  const cpuPercent = calculateCpuPercent();
+  
+  // Uptime in seconds
+  const parseUptimeSeconds = (str: string): number => {
+    let seconds = 0;
+    const hourMatch = str.match(/(\d+)h/);
+    const minMatch = str.match(/(\d+)m/);
+    const secMatch = str.match(/(\d+)s/);
+    if (hourMatch) seconds += parseInt(hourMatch[1]) * 3600;
+    if (minMatch) seconds += parseInt(minMatch[1]) * 60;
+    if (secMatch) seconds += parseInt(secMatch[1]);
+    return seconds;
+  };
+  const uptimeSeconds = parseUptimeSeconds(statsCache.node.uptime);
+  
+  // DB status
+  const dbStatus = statsCache.databases.master.status === 'online' ? 'online' :
+                   statsCache.databases.master.status === 'degraded' ? 'degraded' : 'offline';
+  
+  // Guilds (if available)
+  const guilds = statsCache.security?.guilds;
+  
+  // Output single status line
+  osConsole.status({
+    db: dbStatus as 'online' | 'offline' | 'degraded',
+    ram: ramPercent,
+    cpu: cpuPercent,
+    uptime: uptimeSeconds,
+    guilds,
+  });
+  
+  // Forward to Loki (silent)
+  forwardToLoki('info', 'OS status', {
+    dbStatus,
+    ramPercent,
+    cpuPercent,
+    uptimeSeconds,
+    guilds,
+  });
+}
+
+/**
  * Renders the Infinity Console visual dashboard
  */
 function printInfinityConsole(): void {
@@ -1023,6 +1094,12 @@ async function printStats(): Promise<void> {
   }
   
   previousStats = { ...statsCache };
+
+  // OS Console mode - minimal single-line status
+  if (OS_CONSOLE_ENABLED) {
+    printOsConsoleStatus();
+    return;
+  }
 
   // Use Infinity Console if enabled
   if (INFINITY_CONSOLE_ENABLED) {
@@ -1341,17 +1418,38 @@ function report(title: string, meta: Record<string, unknown> = {}, level: LogLev
 function startAutoRefresh(): void {
   if (logIntervalHandle) return;
   
+  // OS Console shows boot message instead of initial stats dump
+  if (OS_CONSOLE_ENABLED) {
+    const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, '../../package.json'), 'utf-8'));
+    osConsole.boot(pkg.version || '1.0.0');
+  }
+  
   refreshStats()
-    .then(() => printStats())
+    .then(() => {
+      if (OS_CONSOLE_ENABLED) {
+        // Show ready status after initial refresh
+        const dbStatus = statsCache.databases?.master.status === 'online' ? 'online' :
+                         statsCache.databases?.master.status === 'degraded' ? 'degraded' : 'offline';
+        osConsole.ready({
+          db: dbStatus as 'online' | 'offline' | 'degraded',
+          discord: statsCache.security?.status === 'online' ? 'online' : 'offline',
+        });
+      } else {
+        return printStats();
+      }
+    })
     .catch(err => {
       writeStderr(`[logger] Initial stats failed: ${(err as Error).message}`);
     });
+  
+  // OS Console uses longer refresh interval (event-driven is preferred)
+  const refreshMs = OS_CONSOLE_ENABLED ? OS_REFRESH_INTERVAL_MS : REFRESH_INTERVAL_MS;
   
   logIntervalHandle = setInterval(() => {
     printStats().catch(err => {
       writeStderr(`[logger] Stats refresh failed: ${(err as Error).message}`);
     });
-  }, REFRESH_INTERVAL_MS);
+  }, refreshMs);
   
   if (logIntervalHandle.unref) {
     logIntervalHandle.unref();
@@ -1369,6 +1467,6 @@ function stopAutoRefresh(): void {
 // Exports
 // ─────────────────────────────────────────────────────────────────────────────
 
-export { LOG_LABEL, log, report, startAutoRefresh, stopAutoRefresh, getFormattedStats };
+export { LOG_LABEL, log, report, startAutoRefresh, stopAutoRefresh, getFormattedStats, osConsole };
 
-export default { LOG_LABEL, log, report, startAutoRefresh, stopAutoRefresh, getFormattedStats };
+export default { LOG_LABEL, log, report, startAutoRefresh, stopAutoRefresh, getFormattedStats, osConsole };

@@ -16,8 +16,10 @@
  */
 
 import pg from 'pg';
-import { log } from './log.js';
+import { scopedLogger } from '../observability/envelope/console.js';
 import { getErrorMessage } from './utils/error-utils.js';
+
+const log = scopedLogger('pg-connection');
 
 const { Pool } = pg;
 
@@ -88,11 +90,10 @@ export class PostgresConnection {
     // Start heartbeat monitoring (every 15 seconds)
     this.startHeartbeat();
 
-    log.info('');
-    log.info('[PostgreSQL] Connection pools initialized');
-    log.info(`  PROD:  ${this.prodPool ? 'enabled' : 'disabled'}`);
-    log.info(`  LOCAL: ${this.localPool ? 'enabled' : 'disabled'}`);
-    log.info('');
+    log.info('init', 'Connection pools initialized', {
+      prod: this.prodPool ? 'enabled' : 'disabled',
+      local: this.localPool ? 'enabled' : 'disabled',
+    });
   }
 
   /**
@@ -146,7 +147,7 @@ export class PostgresConnection {
 
       return result.rows[0].health === 1 && latency < 5000; // 5s timeout
     } catch (error) {
-      log.error('[pg-connection] Health check failed:', error);
+      log.error('health-check', 'Health check failed', { error: getErrorMessage(error) });
       return false;
     }
   }
@@ -157,8 +158,7 @@ export class PostgresConnection {
    * Drains active connections, stops heartbeat monitoring, and closes pools.
    */
   async shutdown(): Promise<void> {
-    log.info('');
-    log.info('[PostgreSQL] Shutting down connection pools...');
+    log.info('shutdown', 'Shutting down connection pools...');
 
     // Stop heartbeat
     if (this.heartbeatInterval) {
@@ -178,8 +178,7 @@ export class PostgresConnection {
 
     await Promise.all(closePromises);
 
-    log.info('[PostgreSQL] Shutdown complete');
-    log.info('');
+    log.info('shutdown', 'Shutdown complete');
   }
 
   // ==========================================================================
@@ -221,7 +220,7 @@ export class PostgresConnection {
         lastCheck: new Date(),
       };
 
-      log.info(`[PostgreSQL] ${type.toUpperCase()} → Connected to "${result.rows[0].db}" (${latency}ms)`);
+      log.info('connect', `${type.toUpperCase()} connected`, { database: result.rows[0].db, latencyMs: latency });
     } catch (error) {
       this.stats[type] = {
         status: 'error',
@@ -232,7 +231,7 @@ export class PostgresConnection {
         lastCheck: new Date(),
       };
 
-      log.error(`[pg-connection] ${type.toUpperCase()} connection failed:`, error);
+      log.error('connect', `${type.toUpperCase()} connection failed`, { error: getErrorMessage(error) });
       throw error;
     }
   }
@@ -278,7 +277,7 @@ export class PostgresConnection {
         lastCheck: new Date(),
       };
 
-      log.error(`[pg-connection] Heartbeat failed for ${type.toUpperCase()}:`, error);
+      log.error('heartbeat', `Heartbeat failed for ${type.toUpperCase()}`, { error: getErrorMessage(error) });
     }
   }
 
@@ -309,7 +308,7 @@ let connection: PostgresConnection | null = null;
  */
 export async function initializeConnection(): Promise<void> {
   if (connection) {
-    log.warn('[pg-connection] Already initialized, skipping...');
+    log.warn('init', 'Already initialized, skipping...');
     return;
   }
 

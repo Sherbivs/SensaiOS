@@ -11,7 +11,8 @@
  * - Scalable: Bounded memory usage with automatic buffer overflow handling
  */
 
-import type { LogLevel } from "./log.js";
+// LogLevel now defined locally (shared/log.js removed)
+export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 
 export type BufferedLogEntry = {
   level: LogLevel;
