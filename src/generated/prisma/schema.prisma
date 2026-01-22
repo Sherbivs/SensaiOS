@@ -1,0 +1,1411 @@
+// Prisma schema for Infinity Gauntlet — MVP entities
+// Prisma 7 Configuration: Uses library engine (direct PostgreSQL)
+// NORTHSTAR OPTIMIZATION (2025-12-21): Full-text search indexes and optimized generator
+generator client {
+  provider        = "prisma-client-js"
+  output          = "../src/generated/prisma"
+  engineType      = "library"
+  binaryTargets   = ["native", "debian-openssl-3.0.x"]
+  // OPTIMIZATION: Pre-generate all relation types for faster queries
+  previewFeatures = ["fullTextSearchPostgres"]
+}
+
+// Database URL configured via prisma.config.ts for CLI operations
+// Runtime connections use @prisma/adapter-pg in src/shared/prisma.ts
+datasource db {
+  provider = "postgresql"
+}
+
+/// ---- Dex Reference Enums ----
+enum MoveCategory {
+  physical
+  special
+  status
+}
+
+enum LearnMethod {
+  level
+  machine
+  tutor
+  egg
+}
+
+/// ---- Tenant & Trainer Core ----
+model Tenant {
+  id        String   @id
+  createdAt DateTime @default(now())
+
+  trainers        Trainer[]
+  auditLog        AuditLog[]
+  PokemonInstance PokemonInstance[]
+  Encounter       Encounter[]
+  Battle          Battle[]
+}
+
+model Trainer {
+  id        String   @id @default(cuid())
+  tenantId  String
+  userId    String
+  nickname  String?
+  createdAt DateTime @default(now())
+
+  tenant      Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user        User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  settings    TrainerSettings?
+  mons        PokemonInstance[]
+  encounters  Encounter[]
+  battlesAsP1 Battle[]          @relation("BattleTrainer1")
+  battlesAsP2 Battle[]          @relation("BattleTrainer2")
+  parties     Party[]
+  inventory   Inventory[]
+
+  @@unique([tenantId, userId])
+  @@index([userId])
+  @@index([tenantId, createdAt(sort: Desc)], map: "idx_trainer_tenant_newest") // Newest trainers per tenant
+}
+
+model DexPack {
+  packHash  String   @id
+  schemaVer Int      @db.SmallInt
+  gen       Int      @db.SmallInt
+  signedAt  DateTime
+  metaJson  Json
+
+  trainerSettings TrainerSettings[]
+  mons            PokemonInstance[]
+  encounters      Encounter[]
+  battles         Battle[]
+  items           Item[]
+}
+
+model TrainerSettings {
+  trainerId  String   @id
+  activePack String
+  prefsJson  Json
+  updatedAt  DateTime @default(now())
+
+  trainer   Trainer @relation(fields: [trainerId], references: [id], onDelete: Cascade)
+  activeDex DexPack @relation(fields: [activePack], references: [packHash], onDelete: Restrict)
+}
+
+/// ---- Core Dex Tables ----
+model Type {
+  id   Int    @id @db.SmallInt
+  slug String @unique
+  name String
+
+  moves        Move[]        @relation("MoveType")
+  atk          TypeChart[]   @relation("AtkType")
+  def          TypeChart[]   @relation("DefType")
+  speciesTypes SpeciesType[]
+}
+
+model Ability {
+  id   Int     @id @db.SmallInt
+  slug String  @unique
+  name String
+  desc String?
+
+  speciesAbilities SpeciesAbility[]
+}
+
+model Item {
+  id       Int     @id @db.SmallInt
+  slug     String  @unique
+  name     String
+  kind     String
+  meta     Json?
+  packHash String?
+
+  learnsetUsages    SpeciesLearnset[] @relation("LearnsetMachine")
+  evolutionTriggers EvolutionStep[]   @relation("EvolutionItem")
+  dexPack           DexPack?          @relation(fields: [packHash], references: [packHash], onDelete: SetNull)
+  Inventory         Inventory[]
+
+  @@index([kind]) // Item category lookups (balls, potions, berries, etc.)
+}
+
+model Move {
+  id       Int          @id @db.SmallInt
+  slug     String       @unique
+  name     String
+  typeId   Int          @db.SmallInt
+  type     Type         @relation("MoveType", fields: [typeId], references: [id])
+  power    Int?         @db.SmallInt
+  accuracy Int?         @db.SmallInt
+  pp       Int          @db.SmallInt
+  priority Int          @default(0) @db.SmallInt
+  category MoveCategory
+  meta     Json?
+
+  learnset SpeciesLearnset[]
+
+  @@index([typeId])
+  @@index([name]) // Fast move name lookups
+  @@index([category]) // Filter by physical/special/status
+}
+
+model Species {
+  id          Int    @id @db.SmallInt
+  slug        String @unique
+  name        String
+  baseHp      Int    @db.SmallInt
+  baseAtk     Int    @db.SmallInt
+  baseDef     Int    @db.SmallInt
+  baseSpAtk   Int    @db.SmallInt
+  baseSpDef   Int    @db.SmallInt
+  baseSpe     Int    @db.SmallInt
+  growth      String
+  captureRate Int    @db.SmallInt
+  maleRate    Int?   @db.SmallInt
+  hatchSteps  Int?   @db.SmallInt
+  meta        Json?
+
+  types          SpeciesType[]
+  abilities      SpeciesAbility[]
+  learnset       SpeciesLearnset[]
+  evolutionsFrom EvolutionStep[]   @relation("EvoFrom")
+  evolutionsTo   EvolutionStep[]   @relation("EvoTo")
+  mons           PokemonInstance[]
+  encounters     Encounter[]
+
+  @@index([slug])
+  @@index([name]) // Fast name lookups for Pokedex search
+}
+
+/// ---- Classification / Junctions ----
+model SpeciesType {
+  speciesId Int @db.SmallInt
+  typeId    Int @db.SmallInt
+  slot      Int @db.SmallInt
+
+  species Species @relation(fields: [speciesId], references: [id], onDelete: Cascade)
+  type    Type    @relation(fields: [typeId], references: [id], onDelete: Restrict)
+
+  @@id([speciesId, slot])
+  @@index([typeId])
+}
+
+model SpeciesAbility {
+  speciesId Int @db.SmallInt
+  abilityId Int @db.SmallInt
+  slot      Int @db.SmallInt
+
+  species Species @relation(fields: [speciesId], references: [id], onDelete: Cascade)
+  ability Ability @relation(fields: [abilityId], references: [id], onDelete: Restrict)
+
+  @@id([speciesId, slot])
+  @@index([abilityId])
+}
+
+model SpeciesLearnset {
+  speciesId Int         @db.SmallInt
+  moveId    Int         @db.SmallInt
+  method    LearnMethod
+  level     Int         @default(0) @db.SmallInt
+  machineId Int?        @db.SmallInt
+
+  species Species @relation(fields: [speciesId], references: [id], onDelete: Cascade)
+  move    Move    @relation(fields: [moveId], references: [id], onDelete: Cascade)
+  machine Item?   @relation("LearnsetMachine", fields: [machineId], references: [id], onDelete: Restrict)
+
+  @@id([speciesId, moveId, method, level])
+  @@index([moveId])
+  @@index([method, level])
+}
+
+model EvolutionStep {
+  fromId  Int    @db.SmallInt
+  toId    Int    @db.SmallInt
+  trigger String
+  level   Int?   @db.SmallInt
+  itemId  Int?   @db.SmallInt
+  meta    Json?
+
+  from Species @relation("EvoFrom", fields: [fromId], references: [id], onDelete: Cascade)
+  to   Species @relation("EvoTo", fields: [toId], references: [id], onDelete: Cascade)
+  item Item?   @relation("EvolutionItem", fields: [itemId], references: [id], onDelete: Restrict)
+
+  @@id([fromId, toId])
+  @@index([toId])
+}
+
+model TypeChart {
+  atkTypeId Int @db.SmallInt
+  defTypeId Int @db.SmallInt
+  mult      Int @db.SmallInt
+
+  atkType Type @relation("AtkType", fields: [atkTypeId], references: [id], onDelete: Cascade)
+  defType Type @relation("DefType", fields: [defTypeId], references: [id], onDelete: Cascade)
+
+  @@id([atkTypeId, defTypeId])
+  @@index([defTypeId])
+}
+
+model NameVariant {
+  id         String @id @default(cuid())
+  kind       String
+  refIntId   Int    @db.SmallInt
+  locale     String
+  nameType   String
+  value      String
+  normalized String
+
+  @@index([kind, refIntId])
+  @@index([locale, normalized])
+}
+
+model User {
+  id                      String             @id @default(cuid())
+  discordId               String             @unique
+  platformId              String?            @unique
+  createdAt               DateTime           @default(now())
+  updatedAt               DateTime           @updatedAt
+  coins                   Int                @default(0)
+  settingsJson            Json?
+  parties                 Party[]
+  pokemon                 PokemonInstance[]
+  encounters              Encounter[]
+  battlesP1               Battle[]           @relation("BattlesAsP1")
+  battlesP2               Battle[]           @relation("BattlesAsP2")
+  cooldowns               Cooldown[]
+  dailyQuestStreak        Int                @default(0)
+  dailyQuestLastCompleted DateTime?
+  dailyQuestLastReset     DateTime?
+  trainers                Trainer[]
+  homesteadChannels       HomesteadChannel[]
+
+  @@index([dailyQuestStreak(sort: Desc)], map: "idx_user_streak_leaderboard") // Streak leaderboard
+  @@index([coins(sort: Desc)], map: "idx_user_coins_leaderboard") // Wealth leaderboard
+  @@index([createdAt(sort: Desc)], map: "idx_user_newest") // Recent players
+}
+
+/// ---- Homestead Channel (Private Guild Channel per User) ----
+/// Enhanced schema supporting multi-guild, admin visibility, and operational metadata
+model HomesteadChannel {
+  id             String   @id @default(cuid())
+  userId         String // User can have multiple homesteads (one per guild)
+  guildId        String // Discord guild this homestead belongs to
+  channelId      String   @unique // Discord channel snowflake
+  createdAt      DateTime @default(now())
+  lastAccessedAt DateTime @updatedAt
+
+  // Operational metadata (Phase 2 enhancements)
+  status              String    @default("active") // active | suspended | archived
+  createdBy           String    @default("system") // system | admin | migration
+  securityFingerprint String? // SHA-256 hash of creation context
+  lastHealthCheck     DateTime? // Last verification timestamp
+  verifiedAt          DateTime? // Last successful verification timestamp
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, guildId]) // One homestead per user per guild (multi-guild support)
+  @@index([guildId]) // Fast guild-wide queries
+  @@index([channelId]) // Fast channel → user lookup
+  @@index([status]) // Filter by status
+  @@index([lastHealthCheck]) // Find channels needing health check
+  @@map("homestead_channels")
+}
+
+/// ---- Discord Identity Cache (Security Bot Data Pool) ----
+/// Synced by security bot periodic sweeps - CANONICAL source for Discord identities
+
+model DiscordGuild {
+  id                String    @id @default(cuid())
+  name              String // Guild name
+  ownerId           String    @map("owner_id") // Owner's Discord user ID
+  icon              String? // Icon hash
+  memberCount       Int       @map("member_count") // Approximate member count
+  roleCount         Int       @map("role_count") // Role count
+  channelCount      Int       @map("channel_count") // Channel count
+  monitoringEnabled Boolean   @default(true) @map("monitoring_enabled") // Security monitoring enabled
+  lastSweepAt       DateTime? @map("last_sweep_at") @db.Timestamptz(6) // Last security sweep
+  sweepCount        Int       @default(0) @map("sweep_count") // Total sweep count
+  firstSeenAt       DateTime  @default(now()) @map("first_seen_at") @db.Timestamptz(6)
+  lastUpdatedAt     DateTime  @default(now()) @map("last_updated_at") @db.Timestamptz(6)
+
+  @@index([lastSweepAt(sort: Desc)], map: "idx_discord_guilds_last_sweep")
+  @@index([monitoringEnabled], map: "idx_discord_guilds_monitoring")
+  @@index([ownerId], map: "idx_discord_guilds_owner")
+  @@map("discord_guilds")
+}
+
+model DiscordMember {
+  id                         String    @id @default(dbgenerated("(gen_random_uuid())::text"))
+  discordUserId              String    @map("discord_user_id") // Discord user snowflake
+  guildId                    String    @map("guild_id") // Discord guild snowflake
+  username                   String // Current Discord username
+  discriminator              String? // Legacy discriminator
+  displayName                String?   @map("display_name") // Guild-specific nickname
+  avatar                     String? // Avatar hash
+  bot                        Boolean   @default(false) // Bot account flag
+  roles                      String[]  @default([]) // Role IDs
+  joinedAt                   DateTime? @map("joined_at") @db.Timestamptz(6) // Guild join timestamp
+  premiumSince               DateTime? @map("premium_since") @db.Timestamptz(6) // Nitro boost timestamp
+  pending                    Boolean   @default(false) // Pending membership
+  communicationDisabledUntil DateTime? @map("communication_disabled_until") @db.Timestamptz(6)
+  roleCount                  Int       @map("role_count") // Number of roles
+  highestRolePosition        Int       @map("highest_role_position") // Highest role position
+  isAdministrator            Boolean   @default(false) @map("is_administrator") // Has ADMINISTRATOR permission
+  isOwner                    Boolean   @default(false) @map("is_owner") // Is guild owner
+  lastActivityAt             DateTime? @map("last_activity_at") @db.Timestamptz(6) // Last activity timestamp
+  securityFlags              String[]  @default([]) @map("security_flags") // Security flags
+  riskScore                  Float?    @map("risk_score") // Security risk score (0.0-1.0)
+  firstSeenAt                DateTime  @default(now()) @map("first_seen_at") @db.Timestamptz(6)
+  lastUpdatedAt              DateTime  @default(now()) @map("last_updated_at") @db.Timestamptz(6)
+
+  @@unique([discordUserId, guildId]) // One entry per user per guild
+  @@index([guildId], map: "idx_discord_members_guild") // CRITICAL: Guild sweeps (security bot)
+  @@index([guildId, isAdministrator], map: "idx_discord_members_admin_lookup") // Admin queries
+  @@index([riskScore(sort: Desc)], map: "idx_discord_members_risk") // High-risk user detection
+  @@map("discord_members")
+}
+
+model PokemonInstance {
+  id         String      @id @default(cuid())
+  owner      User        @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  ownerId    String
+  speciesId  Int         @db.SmallInt
+  species    Species     @relation(fields: [speciesId], references: [id], onDelete: Restrict)
+  form       String? // e.g., "alolan", "galarian"
+  level      Int         @default(1)
+  exp        Int         @default(0)
+  nature     String?
+  ivsJson    Json // {hp, atk, def, spa, spd, spe}
+  evsJson    Json // same shape
+  movesJson  Json // array of {id, pp, maxPP}
+  status     String? // major status (burn, para, etc.)
+  hp         Int
+  maxHp      Int
+  isShiny    Boolean     @default(false)
+  nickname   String?
+  boxSlot    Int?
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+  tenantId   String?
+  trainerId  String?
+  packHash   String?
+  partySlots PartySlot[]
+
+  // Trading fields (OT = Original Trainer)
+  originalTrainerId String? // Discord ID of who first caught/received this Pokémon
+  tradedAt          DateTime? // When this Pokémon was last traded (null = never traded)
+
+  tenant  Tenant?  @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+  trainer Trainer? @relation(fields: [trainerId], references: [id], onDelete: SetNull)
+  dexPack DexPack? @relation(fields: [packHash], references: [packHash], onDelete: SetNull)
+
+  @@index([ownerId])
+  @@index([speciesId])
+  @@index([trainerId])
+  @@index([tenantId])
+  @@index([ownerId, createdAt(sort: Desc)], map: "idx_pokemon_owner_created") // Recent Pokemon
+  @@index([ownerId, isShiny], map: "idx_pokemon_owner_shiny") // Shiny collection
+  @@index([ownerId, level(sort: Desc)], map: "idx_pokemon_owner_level") // Strongest Pokemon
+}
+
+model Party {
+  id        String      @id @default(cuid())
+  owner     User        @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  ownerId   String
+  trainerId String?
+  slots     PartySlot[]
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  trainer Trainer? @relation(fields: [trainerId], references: [id], onDelete: SetNull)
+
+  @@unique([ownerId])
+  @@index([ownerId])
+  @@index([trainerId])
+}
+
+model PartySlot {
+  id        String          @id @default(cuid())
+  party     Party           @relation(fields: [partyId], references: [id], onDelete: Cascade)
+  partyId   String
+  slot      Int
+  pokemon   PokemonInstance @relation(fields: [pokemonId], references: [id], onDelete: Cascade)
+  pokemonId String
+  updatedAt DateTime        @updatedAt
+
+  @@unique([partyId, slot])
+  @@unique([pokemonId])
+  @@index([partyId])
+}
+
+model Inventory {
+  trainerId String
+  itemId    Int    @db.SmallInt
+  qty       Int    @default(0)
+
+  trainer Trainer @relation(fields: [trainerId], references: [id], onDelete: Cascade)
+  item    Item    @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@id([trainerId, itemId])
+  @@index([itemId])
+}
+
+model Encounter {
+  id              String    @id @default(cuid())
+  owner           User      @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  ownerId         String
+  speciesId       Int       @db.SmallInt
+  species         Species   @relation(fields: [speciesId], references: [id], onDelete: Restrict)
+  level           Int
+  state           String // Idle|Spawned|Caught|Fled|Fainted|Expired
+  threadChannelId String?
+  startedAt       DateTime  @default(now())
+  expiresAt       DateTime?
+  dataJson        Json?
+  tenantId        String?
+  trainerId       String?
+  packHash        String?
+
+  tenant  Tenant?  @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+  trainer Trainer? @relation(fields: [trainerId], references: [id], onDelete: SetNull)
+  dexPack DexPack? @relation(fields: [packHash], references: [packHash], onDelete: SetNull)
+
+  @@index([ownerId, state])
+  @@index([state, startedAt(sort: Desc)], map: "idx_encounter_state_time") // Recent by state
+  @@index([threadChannelId])
+  @@index([expiresAt])
+  @@index([tenantId, startedAt(sort: Desc)], map: "idx_encounter_tenant_time") // Tenant timeline
+  @@index([ownerId, startedAt(sort: Desc)], map: "idx_encounter_owner_time") // User timeline
+}
+
+model Battle {
+  id            String    @id @default(cuid())
+  p1            User      @relation("BattlesAsP1", fields: [p1Id], references: [id])
+  p1Id          String
+  p2            User      @relation("BattlesAsP2", fields: [p2Id], references: [id])
+  p2Id          String
+  arenaThreadId String?
+  state         String // Pending|Active|Finished|Aborted
+  rngSeed       String
+  ruleset       String
+  logCompact    Json?
+  logFull       Json?
+  resultJson    Json?
+  startedAt     DateTime  @default(now())
+  endedAt       DateTime?
+  updatedAt     DateTime  @updatedAt
+  tenantId      String?
+  packHash      String?
+  trainer1Id    String?
+  trainer2Id    String?
+
+  tenant   Tenant?  @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+  dexPack  DexPack? @relation(fields: [packHash], references: [packHash], onDelete: SetNull)
+  trainer1 Trainer? @relation("BattleTrainer1", fields: [trainer1Id], references: [id], onDelete: SetNull)
+  trainer2 Trainer? @relation("BattleTrainer2", fields: [trainer2Id], references: [id], onDelete: SetNull)
+
+  @@index([state, endedAt(sort: Desc)], map: "idx_battle_state_ended") // Active/recent battles
+  @@index([p1Id, state, endedAt(sort: Desc)], map: "idx_battle_p1_history") // Player 1 history
+  @@index([p2Id, state, endedAt(sort: Desc)], map: "idx_battle_p2_history") // Player 2 history
+  @@index([arenaThreadId])
+  @@index([tenantId, state, endedAt(sort: Desc)], map: "idx_battle_tenant_history") // Tenant history
+}
+
+model Cooldown {
+  id        String   @id @default(cuid())
+  owner     User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  ownerId   String
+  kind      String // e.g., "walk", "battle", etc.
+  readyAt   DateTime
+  metaJson  Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([ownerId, kind])
+  @@index([ownerId, readyAt(sort: Asc)], map: "idx_cooldown_owner_ready") // Next available action
+  @@index([kind, readyAt], map: "idx_cooldown_kind_ready") // Cooldown type queries
+}
+
+enum BusKind {
+  event
+  command
+}
+
+enum BusStatus {
+  pending
+  processing
+  done
+  error
+}
+
+enum BusPriority {
+  high
+  normal
+  low
+}
+
+model BusMessage {
+  id             String      @id @default(cuid())
+  kind           BusKind     @default(event)
+  topic          String
+  priority       BusPriority @default(normal)
+  shardKey       String?
+  idempotencyKey String
+  payload        Json
+  createdAt      DateTime    @default(now())
+  availableAt    DateTime    @default(now())
+  status         BusStatus   @default(pending)
+  attempts       Int         @default(0)
+  error          String?
+  processedAt    DateTime?
+  updatedAt      DateTime    @updatedAt
+
+  @@unique([topic, idempotencyKey])
+  @@index([status, availableAt, priority])
+  @@index([topic, status, availableAt])
+  @@index([shardKey, status])
+}
+
+model BusIdemToken {
+  key       String   @id
+  createdAt DateTime @default(now())
+  ttl       Int      @default(604800)
+}
+
+model AuditLog {
+  id          BigInt   @id @default(autoincrement())
+  tenantId    String?
+  actorUserId String?
+  action      String
+  entityType  String
+  entityId    String?
+  beforeJson  Json?
+  afterJson   Json?
+  at          DateTime @default(now())
+
+  tenant Tenant? @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, at])
+}
+
+/// ---- Database Replication Tracking ----
+model DbVersion {
+  id                     Int      @id @default(autoincrement())
+  versionFingerprint     String
+  migrationCount         Int
+  lastMigrationName      String
+  lastMigrationAppliedAt DateTime
+  syncSource             String?
+  createdAt              DateTime @default(now())
+
+  @@index([versionFingerprint])
+  @@map("db_version")
+}
+
+model DbSyncState {
+  id                 Int       @id @default(autoincrement())
+  source             String
+  target             String
+  status             String
+  lastSyncAt         DateTime?
+  lastDuration       Int?
+  lastError          String?
+  lastIntegrityCheck Json?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  @@unique([source, target])
+  @@index([status])
+  @@map("db_sync_state")
+}
+
+/// ---- Log Ingestion System (TimescaleDB Hypertable) ----
+/// Centralized log storage for Event Bus logs, service logs, and monitoring data
+/// Note: This is a TimescaleDB hypertable with composite primary key
+model LogEntry {
+  id            BigInt   @default(autoincrement())
+  timestamp     DateTime @db.Timestamptz(6)
+  level         String // info, warn, error, debug
+  category      String // battle, encounter, security, system, etc.
+  message       String?  @db.Text // Log message content
+  metadata      Json? // Additional structured data
+  correlationId String?  @map("correlation_id") @db.Uuid // Request/operation tracking
+  serviceName   String?  @map("service_name") // Origin service (bot, worker, etc.)
+  userId        String?  @map("user_id") // Associated user if applicable
+  traceContext  String?  @map("trace_context") // Distributed tracing context
+  component     String? // Component name for filtering
+  operation     String? // Operation name for tracing
+  durationMs    Int?     @map("duration_ms") // Operation duration in milliseconds
+
+  @@id([id, timestamp]) // Composite key required by TimescaleDB
+  @@index([category, timestamp(sort: Desc)], map: "idx_log_category_time")
+  @@index([correlationId], map: "idx_log_correlation")
+  @@index([level, component, timestamp(sort: Desc)], map: "idx_log_entries_level_component")
+  @@index([level, timestamp(sort: Desc)], map: "idx_log_level_time")
+  @@map("log_entries")
+}
+
+/// ---- Error Detection & Learning System ----
+model ErrorLog {
+  errorId     String @id @default(uuid())
+  fingerprint String @unique
+  category    String
+  severity    String
+
+  // Occurrence tracking
+  firstSeen       DateTime @default(now())
+  lastSeen        DateTime @default(now())
+  occurrenceCount Int      @default(1)
+
+  // Error details
+  errorName    String
+  errorMessage String  @db.Text
+  stackTrace   String? @db.Text
+
+  // Context (JSONB for flexibility)
+  contextData Json?
+
+  // Recovery tracking
+  recoveryAttempted    Int     @default(0)
+  recoverySuccess      Int     @default(0)
+  lastRecoveryStrategy String?
+  lastRecoveryOutcome  String?
+
+  // Impact assessment
+  impactedFeatures    String[]
+  estimatedUserImpact Int?
+
+  // Learning metadata (JSONB for ML features)
+  learningMetadata Json?
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  alerts         ErrorAlert[]
+  resolutions    ErrorResolution[]
+  codeContexts   ErrorCodeContext[]
+  parentCascades ErrorDependency[]  @relation("ParentCascade")
+  childCascades  ErrorDependency[]  @relation("ChildCascade")
+
+  @@index([fingerprint])
+  @@index([category])
+  @@index([severity])
+  @@index([lastSeen(sort: Desc)])
+  @@index([occurrenceCount(sort: Desc)])
+  @@map("ErrorLog")
+}
+
+model ErrorAlert {
+  alertId        String    @id @default(uuid())
+  errorId        String
+  alertType      String
+  recipientId    String?
+  sentAt         DateTime  @default(now())
+  acknowledged   Boolean   @default(false)
+  acknowledgedAt DateTime?
+  acknowledgedBy String?
+
+  error ErrorLog @relation(fields: [errorId], references: [errorId], onDelete: Cascade)
+
+  @@index([errorId])
+  @@index([sentAt(sort: Desc)])
+  @@map("ErrorAlert")
+}
+
+/// ---- Error Learning System (Phase 1) ----
+/// Specialist Team Design Session — December 21, 2025
+/// Enables ML pattern detection, resolution tracking, and cascade analysis
+
+/// ErrorKnowledge — Stores learned patterns separately from errors
+/// Patterns expire and refresh via ErrorLearningWorker
+model ErrorKnowledge {
+  knowledgeId String @id @default(uuid())
+  patternType String // 'TIME_CLUSTER' | 'CORRELATION' | 'CASCADE' | 'RECOVERY'
+
+  // Pattern data (flexible JSONB for ML features)
+  patternData Json
+
+  // Confidence and validity
+  confidence    Float // 0.0 to 1.0
+  validUntil    DateTime // Patterns expire and need refresh
+  observedCount Int      @default(1) // How many times pattern observed
+
+  // Related errors (optional fingerprints)
+  relatedFingerprints String[] // Fingerprints involved in this pattern
+
+  // Metadata
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([patternType, confidence(sort: Desc)])
+  @@index([validUntil])
+  @@index([patternType, validUntil])
+  @@map("ErrorKnowledge")
+}
+
+/// ErrorResolution — Tracks fix attempts and outcomes for learning
+/// Enables "what worked before" queries and success rate calculation
+model ErrorResolution {
+  resolutionId String @id @default(uuid())
+  errorId      String
+
+  // Resolution details
+  strategy   String // 'RETRY' | 'FALLBACK' | 'RESTART' | 'ESCALATE' | 'IGNORE'
+  attempted  DateTime @default(now())
+  durationMs Int? // How long the resolution took
+
+  // Outcome tracking
+  outcome String // 'SUCCESS' | 'PARTIAL' | 'FAILED' | 'ESCALATED'
+
+  // Context and notes
+  notes       String? @db.Text // AI-generated or human notes
+  contextData Json? // Additional context at resolution time
+
+  // Who/what triggered resolution
+  triggeredBy String? // 'AUTO' | 'MANUAL' | userId
+
+  // Relation to error
+  error ErrorLog @relation(fields: [errorId], references: [errorId], onDelete: Cascade)
+
+  @@index([errorId, outcome])
+  @@index([strategy, outcome])
+  @@index([attempted(sort: Desc)])
+  @@index([strategy, attempted(sort: Desc)])
+  @@map("ErrorResolution")
+}
+
+/// ErrorDependency — Tracks which errors trigger other errors
+/// Enables root cause analysis and cascade prediction
+model ErrorDependency {
+  dependencyId String @id @default(uuid())
+
+  // Parent = root cause, Child = cascaded error
+  parentErrorId String
+  childErrorId  String
+
+  // Statistical tracking
+  observedCount  Int   @default(1) // How many times this cascade observed
+  avgTimeDeltaMs Float @default(0) // Average ms between parent→child
+  confidence     Float @default(0) // 0.0 to 1.0 confidence score
+
+  // Timestamps
+  firstObserved DateTime @default(now())
+  lastObserved  DateTime @default(now())
+
+  // Relations
+  parentError ErrorLog @relation("ParentCascade", fields: [parentErrorId], references: [errorId], onDelete: Cascade)
+  childError  ErrorLog @relation("ChildCascade", fields: [childErrorId], references: [errorId], onDelete: Cascade)
+
+  @@unique([parentErrorId, childErrorId])
+  @@index([parentErrorId])
+  @@index([childErrorId])
+  @@index([confidence(sort: Desc)])
+  @@map("ErrorDependency")
+}
+
+/// ErrorCodeContext — Preserves stack frame details for debugging
+/// Enables "show me where this error occurred" queries
+model ErrorCodeContext {
+  contextId String @id @default(uuid())
+  errorId   String
+
+  // Stack frame details
+  frameIndex   Int // 0 = top of stack
+  filePath     String
+  lineNumber   Int
+  columnNumber Int?
+  functionName String?
+
+  // Code snippet (5 lines around error)
+  codeSnippet String? @db.Text
+
+  // Relation to error
+  error ErrorLog @relation(fields: [errorId], references: [errorId], onDelete: Cascade)
+
+  @@index([errorId])
+  @@index([filePath, lineNumber])
+  @@index([functionName])
+  @@map("ErrorCodeContext")
+}
+
+/// ---- TimescaleDB Analytics Tables ----
+/// These tables store time-series data for analytics and monitoring
+
+model BattleAnalytics {
+  id               BigInt   @default(autoincrement())
+  timestamp        DateTime @db.Timestamptz(6)
+  battleId         String   @map("battle_id") @db.Uuid
+  trainerId        String   @map("trainer_id")
+  opponentId       String?  @map("opponent_id")
+  outcome          String
+  durationSeconds  Int?     @map("duration_seconds")
+  turns            Int?
+  partyComposition Json?    @map("party_composition")
+  moveUsage        Json?    @map("move_usage")
+  correlationId    String?  @map("correlation_id") @db.Uuid
+
+  @@id([id, timestamp])
+  @@index([timestamp(sort: Desc)])
+  @@index([partyComposition(ops: JsonbPathOps)], map: "idx_battle_composition_gin", type: Gin)
+  @@index([correlationId], map: "idx_battle_correlation")
+  @@index([battleId], map: "idx_battle_id")
+  @@index([moveUsage(ops: JsonbPathOps)], map: "idx_battle_moves_gin", type: Gin)
+  @@index([outcome, timestamp(sort: Desc)], map: "idx_battle_outcome_time")
+  @@index([trainerId, timestamp(sort: Desc)], map: "idx_battle_trainer_time")
+  @@map("battle_analytics")
+}
+
+model ConsoleOutput {
+  id            BigInt   @default(autoincrement())
+  timestamp     DateTime @default(now()) @db.Timestamptz(6)
+  serviceName   String   @map("service_name")
+  outputType    String   @map("output_type")
+  outputLevel   String   @default("info") @map("output_level")
+  rawOutput     String   @map("raw_output")
+  parsedData    Json?    @map("parsed_data")
+  correlationId String?  @map("correlation_id") @db.Uuid
+  sessionId     String?  @map("session_id")
+
+  @@id([id, timestamp])
+  @@index([outputLevel, timestamp(sort: Desc)], map: "idx_console_outputs_level")
+  @@index([serviceName, timestamp(sort: Desc)], map: "idx_console_outputs_service")
+  @@index([outputType, timestamp(sort: Desc)], map: "idx_console_outputs_type")
+  @@map("console_outputs")
+}
+
+model DataPoolSyncStatus {
+  id                String    @id
+  lastFullSyncAt    DateTime? @map("last_full_sync_at") @db.Timestamptz(6)
+  lastIncrementalAt DateTime? @map("last_incremental_at") @db.Timestamptz(6)
+  totalEntities     Int       @default(0) @map("total_entities")
+  entitiesSynced    Int       @default(0) @map("entities_synced")
+  entitiesFailed    Int       @default(0) @map("entities_failed")
+  lastError         String?   @map("last_error")
+  lastErrorAt       DateTime? @map("last_error_at") @db.Timestamptz(6)
+  consecutiveErrors Int       @default(0) @map("consecutive_errors")
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
+
+  @@map("data_pool_sync_status")
+}
+
+model DiscordRole {
+  id            String   @id @default(dbgenerated("(gen_random_uuid())::text"))
+  discordRoleId String   @map("discord_role_id")
+  guildId       String   @map("guild_id")
+  name          String
+  color         Int      @default(0)
+  hoist         Boolean  @default(false)
+  position      Int
+  permissions   String
+  mentionable   Boolean  @default(false)
+  managed       Boolean  @default(false)
+  isAdmin       Boolean  @default(false) @map("is_admin")
+  isDangerous   Boolean  @default(false) @map("is_dangerous")
+  memberCount   Int      @default(0) @map("member_count")
+  firstSeenAt   DateTime @default(now()) @map("first_seen_at") @db.Timestamptz(6)
+  lastUpdatedAt DateTime @default(now()) @map("last_updated_at") @db.Timestamptz(6)
+
+  @@unique([discordRoleId, guildId])
+  @@map("discord_roles")
+}
+
+model EventHistory {
+  id                  BigInt   @default(autoincrement())
+  timestamp           DateTime @db.Timestamptz(6)
+  topic               String
+  payload             Json
+  correlationId       String   @map("correlation_id") @db.Uuid
+  parentCorrelationId String?  @map("parent_correlation_id") @db.Uuid
+  emitter             String?
+
+  @@id([id, timestamp])
+  @@index([timestamp(sort: Desc)])
+  @@index([correlationId], map: "idx_event_correlation")
+  @@index([payload(ops: JsonbPathOps)], map: "idx_event_payload_gin", type: Gin)
+  @@index([topic, timestamp(sort: Desc)], map: "idx_event_topic_time")
+  @@map("event_history")
+}
+
+model MemberRoleHistory {
+  id            BigInt   @id @default(autoincrement())
+  discordUserId String   @map("discord_user_id")
+  guildId       String   @map("guild_id")
+  memberTag     String   @map("member_tag")
+  discordRoleId String   @map("discord_role_id")
+  roleName      String   @map("role_name")
+  action        String
+  executorId    String?  @map("executor_id")
+  executorTag   String?  @map("executor_tag")
+  source        String
+  previousRoles String[] @default([]) @map("previous_roles")
+  newRoles      String[] @default([]) @map("new_roles")
+  changedAt     DateTime @default(now()) @map("changed_at") @db.Timestamptz(6)
+
+  @@map("member_role_history")
+}
+
+model SecurityEvent {
+  id           BigInt   @id @default(autoincrement())
+  eventType    String   @map("event_type")
+  severity     String
+  guildId      String   @map("guild_id")
+  guildName    String   @map("guild_name")
+  memberId     String?  @map("member_id")
+  memberTag    String?  @map("member_tag")
+  roleId       String?  @map("role_id")
+  roleName     String?  @map("role_name")
+  executorId   String?  @map("executor_id")
+  executorTag  String?  @map("executor_tag")
+  origin       String
+  metadata     Json?
+  signature    String?
+  checksum     String
+  previousHash String?  @map("previous_hash")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([guildId, createdAt(sort: Desc)], map: "idx_security_events_guild_time")
+  @@index([eventType], map: "idx_security_events_type")
+  @@index([severity], map: "idx_security_events_severity")
+  @@map("security_events")
+}
+
+/// Role change audit trail — detailed tracking of every role modification
+model RoleChangeAudit {
+  id BigInt @id @default(autoincrement())
+
+  // Guild context
+  guildId   String @map("guild_id")
+  guildName String @map("guild_name")
+
+  // Target member
+  memberId  String @map("member_id")
+  memberTag String @map("member_tag")
+
+  // Change details
+  changeType   String @map("change_type") // addition, removal
+  roleId       String @map("role_id")
+  roleName     String @map("role_name")
+  rolePosition Int?   @map("role_position") // Role hierarchy position at time of change
+
+  // Executor context
+  executorId    String   @map("executor_id")
+  executorTag   String   @map("executor_tag")
+  executorRoles String[] @map("executor_roles") // Executor's roles at time of action
+
+  // Authorization
+  authorized Boolean // Was this change authorized?
+  authReason String? @map("auth_reason") // Why authorized/unauthorized
+
+  // Reversion tracking
+  reverted     Boolean   @default(false)
+  revertedAt   DateTime? @map("reverted_at") @db.Timestamptz(6)
+  revertedBy   String?   @map("reverted_by")
+  revertReason String?   @map("revert_reason")
+
+  // Source tracking
+  origin String // sweep, member-join, admin-manual, security-bot-revert, role-reaction
+
+  // Integrity
+  checksum String
+
+  // Metadata
+  metadata  Json?
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([guildId, createdAt(sort: Desc)], map: "idx_role_change_audit_guild_time")
+  @@index([memberId, createdAt(sort: Desc)], map: "idx_role_change_audit_member_time")
+  @@index([executorId, createdAt(sort: Desc)], map: "idx_role_change_audit_executor_time")
+  @@index([authorized, createdAt(sort: Desc)], map: "idx_role_change_audit_authorized")
+  @@index([reverted], map: "idx_role_change_audit_reverted")
+  @@map("role_change_audit")
+}
+
+/// Threat detection history — forensics and incident response
+model ThreatDetection {
+  id BigInt @id @default(autoincrement())
+
+  // Threat classification
+  threatType String @map("threat_type") // rapid_role_changes, unusual_origin, mass_role_removal, off_hours_activity, single_member_anomaly
+  severity   String // CRITICAL, HIGH, MEDIUM
+  confidence Float // 0.0 - 1.0 confidence score
+
+  // Context
+  guildId   String @map("guild_id")
+  guildName String @map("guild_name")
+
+  // Details
+  description       String
+  evidence          Json // Detailed evidence for forensics
+  triggeringEntryId BigInt? @map("triggering_entry_id") // ID of RoleChangeAudit that triggered detection
+
+  // MITRE ATT&CK mapping
+  mitreAttack String? @map("mitre_attack") // T1098.003, T1078, T1531, etc.
+  mitreTactic String? @map("mitre_tactic") // Persistence, Privilege Escalation, etc.
+
+  // Recommended response
+  recommendedAction String  @map("recommended_action")
+  autoMitigated     Boolean @default(false) @map("auto_mitigated")
+  mitigationAction  String? @map("mitigation_action") // What automatic action was taken
+
+  // Resolution tracking
+  resolved        Boolean   @default(false)
+  resolvedBy      String?   @map("resolved_by")
+  resolvedAt      DateTime? @map("resolved_at") @db.Timestamptz(6)
+  resolutionNotes String?   @map("resolution_notes")
+  falsePositive   Boolean   @default(false) @map("false_positive")
+
+  // Timestamps
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([threatType, createdAt(sort: Desc)], map: "idx_threat_detections_type_time")
+  @@index([guildId, createdAt(sort: Desc)], map: "idx_threat_detections_guild_time")
+  @@index([severity, createdAt(sort: Desc)], map: "idx_threat_detections_severity_time")
+  @@index([resolved], map: "idx_threat_detections_resolved")
+  @@index([falsePositive], map: "idx_threat_detections_false_positive")
+  @@map("threat_detections")
+}
+
+/// Security baselines — per-guild behavioral patterns
+model SecurityBaseline {
+  id BigInt @id @default(autoincrement())
+
+  // Guild identification
+  guildId   String @unique @map("guild_id")
+  guildName String @map("guild_name")
+
+  // Activity metrics
+  averageChangesPerHour Float @map("average_changes_per_hour")
+  averageChangesPerDay  Float @map("average_changes_per_day")
+  peakActivityHours     Int[] @map("peak_activity_hours") // Array of hours (0-23) with high activity
+
+  // Thresholds
+  rapidChangeThreshold Int @map("rapid_change_threshold") // Changes/minute that triggers alert
+  maxChangesPerMember  Int @map("max_changes_per_member") // Per-member limit per hour
+
+  // Expected patterns
+  expectedOrigins String[] @map("expected_origins") // Whitelist of normal change origins
+
+  // Confidence
+  confidenceLevel Float @map("confidence_level") // 0.0 - 1.0 based on data quantity
+  dataPointCount  Int   @map("data_point_count") // Number of entries used for computation
+
+  // Timestamps
+  computedAt DateTime @map("computed_at") @db.Timestamptz(6) // When baseline was last computed
+  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([guildId], map: "idx_security_baselines_guild")
+  @@map("security_baselines")
+}
+
+/// Permission snapshots — point-in-time role permission capture
+model PermissionSnapshot {
+  id BigInt @id @default(autoincrement())
+
+  // Role identification
+  guildId   String @map("guild_id")
+  guildName String @map("guild_name")
+  roleId    String @map("role_id")
+  roleName  String @map("role_name")
+
+  // Permission state
+  permissions String[] // Array of Discord permission flags
+  position    Int // Role hierarchy position
+  color       Int? // Role color (for display)
+  hoist       Boolean // Whether role is displayed separately
+  mentionable Boolean // Whether role can be mentioned
+
+  // Integrity
+  signature String // HMAC signature of permissions array
+
+  // Timestamp
+  capturedAt DateTime @default(now()) @map("captured_at") @db.Timestamptz(6)
+
+  @@unique([guildId, roleId, capturedAt], map: "unq_permission_snapshots_guild_role_time")
+  @@index([guildId, roleId], map: "idx_permission_snapshots_guild_role")
+  @@index([capturedAt(sort: Desc)], map: "idx_permission_snapshots_time")
+  @@map("permission_snapshots")
+}
+
+model WorkerMetrics {
+  id                   BigInt   @default(autoincrement())
+  timestamp            DateTime @default(now()) @db.Timestamptz(6)
+  workerId             String   @map("worker_id")
+  workerName           String   @map("worker_name")
+  operationCount       BigInt?  @default(0) @map("operation_count")
+  successCount         BigInt?  @default(0) @map("success_count")
+  failureCount         BigInt?  @default(0) @map("failure_count")
+  avgLatencyMs         Float?   @map("avg_latency_ms")
+  peakLatencyMs        Float?   @map("peak_latency_ms")
+  throughput           Float?
+  bufferSize           Int?     @map("buffer_size")
+  bufferUtilizationPct Float?   @map("buffer_utilization_pct")
+  flushCount           Int?     @map("flush_count")
+  backpressureEvents   Int?     @map("backpressure_events")
+  memoryUsedBytes      BigInt?  @map("memory_used_bytes")
+  cpuPercent           Float?   @map("cpu_percent")
+  healthStatus         String?  @map("health_status")
+  lastError            String?  @map("last_error")
+
+  @@id([id, timestamp])
+  @@index([workerId, timestamp(sort: Desc)], map: "idx_worker_metrics_worker_time")
+  @@map("worker_metrics")
+}
+
+// ============================================================================
+// TRADING SYSTEM
+// ============================================================================
+
+/// Records completed trades for history, audit, and analytics
+model TradeLog {
+  id        String @id @default(cuid())
+  sessionId String // Client-side session ID for correlation
+
+  // Participants (Discord IDs)
+  senderId   String @map("sender_id")
+  receiverId String @map("receiver_id")
+
+  // Traded Pokémon
+  senderPokemonId   String @map("sender_pokemon_id")
+  receiverPokemonId String @map("receiver_pokemon_id")
+
+  // Pokémon details at time of trade (for audit)
+  senderPokemonSpeciesId   Int     @map("sender_pokemon_species_id") @db.SmallInt
+  receiverPokemonSpeciesId Int     @map("receiver_pokemon_species_id") @db.SmallInt
+  senderPokemonLevel       Int     @map("sender_pokemon_level")
+  receiverPokemonLevel     Int     @map("receiver_pokemon_level")
+  senderPokemonShiny       Boolean @map("sender_pokemon_shiny")
+  receiverPokemonShiny     Boolean @map("receiver_pokemon_shiny")
+
+  // Timestamps
+  completedAt DateTime @default(now()) @map("completed_at")
+
+  @@index([senderId, completedAt(sort: Desc)], map: "idx_trade_log_sender")
+  @@index([receiverId, completedAt(sort: Desc)], map: "idx_trade_log_receiver")
+  @@index([completedAt(sort: Desc)], map: "idx_trade_log_time")
+  @@map("trade_logs")
+}
+
+// ============================================================================
+// LEADERBOARDS & ACHIEVEMENTS SYSTEM
+// ============================================================================
+
+/// Player statistics tracking for leaderboards
+model PlayerStats {
+  id        String @id @default(cuid())
+  discordId String @unique @map("discord_id")
+
+  // Lifetime stats
+  totalCatches      Int   @default(0) @map("total_catches")
+  totalBattleWins   Int   @default(0) @map("total_battle_wins")
+  totalBattleLosses Int   @default(0) @map("total_battle_losses")
+  totalTrades       Int   @default(0) @map("total_trades")
+  totalFishCaught   Int   @default(0) @map("total_fish_caught")
+  totalWalks        Int   @default(0) @map("total_walks")
+  totalShinies      Int   @default(0) @map("total_shinies")
+  totalEvolutions   Int   @default(0) @map("total_evolutions")
+  pokedexPercent    Float @default(0) @map("pokedex_percent")
+
+  // Unique tracking (for social achievements)
+  uniqueTradePartners Int @default(0) @map("unique_trade_partners")
+  uniqueTypesCaught   Int @default(0) @map("unique_types_caught")
+
+  // Current streaks
+  currentWinStreak Int       @default(0) @map("current_win_streak")
+  bestWinStreak    Int       @default(0) @map("best_win_streak")
+  dailyStreak      Int       @default(0) @map("daily_streak")
+  bestDailyStreak  Int       @default(0) @map("best_daily_streak")
+  lastDailyClaimAt DateTime? @map("last_daily_claim_at")
+
+  // Weekly stats (reset each week)
+  weeklyCatches Int      @default(0) @map("weekly_catches")
+  weeklyFish    Int      @default(0) @map("weekly_fish")
+  weeklyBattles Int      @default(0) @map("weekly_battles")
+  weekStartedAt DateTime @default(now()) @map("week_started_at")
+
+  // Season stats
+  seasonWins   Int @default(0) @map("season_wins")
+  seasonNumber Int @default(1) @map("season_number")
+
+  // Timestamps
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Indexes for leaderboard queries
+  @@index([totalCatches(sort: Desc)], map: "idx_stats_total_catches")
+  @@index([weeklyCatches(sort: Desc)], map: "idx_stats_weekly_catches")
+  @@index([totalShinies(sort: Desc)], map: "idx_stats_shinies")
+  @@index([totalBattleWins(sort: Desc)], map: "idx_stats_battle_wins")
+  @@index([seasonWins(sort: Desc)], map: "idx_stats_season_wins")
+  @@index([totalFishCaught(sort: Desc)], map: "idx_stats_fish")
+  @@index([totalTrades(sort: Desc)], map: "idx_stats_trades")
+  @@index([pokedexPercent(sort: Desc)], map: "idx_stats_pokedex")
+  @@map("player_stats")
+}
+
+/// Achievement definitions
+model AchievementDef {
+  id          String  @id @default(cuid())
+  code        String  @unique // "FIRST_CATCH", "CENTURY_CLUB", etc.
+  name        String
+  description String
+  category    String // collection, battle, social, exploration, mastery, special
+  rarity      String // bronze, silver, gold, diamond, legendary
+  requirement Int // Target number to unlock
+  rewardMoney Int     @default(0) @map("reward_money")
+  rewardBadge String? @map("reward_badge") // Badge code if applicable
+
+  // Display ordering
+  sortOrder Int @default(0) @map("sort_order")
+
+  // Relations
+  unlocks AchievementUnlock[]
+
+  @@index([category], map: "idx_achievement_category")
+  @@index([rarity], map: "idx_achievement_rarity")
+  @@map("achievement_defs")
+}
+
+/// Player achievement unlocks
+model AchievementUnlock {
+  id            String   @id @default(cuid())
+  discordId     String   @map("discord_id")
+  achievementId String   @map("achievement_id")
+  unlockedAt    DateTime @default(now()) @map("unlocked_at")
+  rewardClaimed Boolean  @default(false) @map("reward_claimed")
+
+  achievement AchievementDef @relation(fields: [achievementId], references: [id])
+
+  @@unique([discordId, achievementId])
+  @@index([discordId], map: "idx_unlock_discord")
+  @@index([unlockedAt(sort: Desc)], map: "idx_unlock_time")
+  @@map("achievement_unlocks")
+}
+
+/// Weekly leaderboard snapshots for history and rewards
+model LeaderboardSnapshot {
+  id        String   @id @default(cuid())
+  boardType String   @map("board_type") // weekly_catches, weekly_fish, etc.
+  weekOf    DateTime @map("week_of")
+  rankings  Json // Array of {rank, discordId, value, username}
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([boardType, weekOf])
+  @@index([boardType], map: "idx_snapshot_type")
+  @@index([weekOf(sort: Desc)], map: "idx_snapshot_week")
+  @@map("leaderboard_snapshots")
+}
+
+// ============================================================================
+// /Store Write Elimination - Database-First Architecture (2025-12-27)
+// ============================================================================
+// These tables replace file writes to /Store directory
+// Reference: docs/projects/STORE-WRITE-ELIMINATION.md
+// Note: Cooldown model already exists above (lines 508-521)
+// ============================================================================
+
+/// Runtime metrics (replaces /Store/restart-metrics.json)
+model RuntimeMetric {
+  id           String   @id @default(cuid())
+  metricType   String   @map("metric_type") // 'restart', 'crash', 'shutdown'
+  timestamp    DateTime @default(now())
+  trigger      String? // SIGTERM, SIGINT, EXIT, PM2_RESTART, etc.
+  uptimeMs     BigInt?  @map("uptime_ms")
+  errorMessage String?  @map("error_message")
+  stackTrace   String?  @map("stack_trace")
+  metadata     Json?
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@index([metricType, timestamp(sort: Desc)], map: "idx_runtime_metric_type_time")
+  @@map("runtime_metrics")
+}
+
+/// Alert queue (replaces /Store/alerts/)
+model AlertQueue {
+  id            String    @id @default(cuid())
+  alertId       String    @map("alert_id")
+  alertType     String    @map("alert_type")
+  level         String // 'EMERGENCY', 'CRITICAL', 'WARNING', 'INFO'
+  message       String
+  source        String?
+  correlationId String?   @map("correlation_id")
+  payload       Json?
+  routedChannel Boolean   @default(false) @map("routed_channel")
+  routedDm      Boolean   @default(false) @map("routed_dm")
+  processed     Boolean   @default(false)
+  processedAt   DateTime? @map("processed_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+
+  @@index([createdAt(sort: Desc)], map: "idx_alert_created")
+  @@index([processed, createdAt], map: "idx_alert_pending")
+  @@map("alert_queue")
+}
+
+/// Guild configuration (replaces /Store/guild-member-timeout-config.json)
+model GuildConfig {
+  guildId     String   @id @map("guild_id")
+  configKey   String   @map("config_key")
+  configValue Json     @map("config_value")
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@index([configKey], map: "idx_guild_config_key")
+  @@map("guild_config")
+}
+
+/// Cache entries (replaces /Store/runtime-cache/, /Store/discord-cache/, /Store/pokemon-cache/)
+model CacheEntry {
+  key            String    @id @map("cache_key")
+  namespace      String
+  value          Json
+  sizeBytes      Int       @default(0) @map("size_bytes")
+  accessCount    Int       @default(0) @map("access_count")
+  lastAccessedAt DateTime? @map("last_accessed_at")
+  expiresAt      DateTime? @map("expires_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @default(now()) @updatedAt @map("updated_at")
+
+  @@index([namespace], map: "idx_cache_namespace")
+  @@index([expiresAt], map: "idx_cache_expires")
+  @@index([lastAccessedAt], map: "idx_cache_access")
+  @@map("cache_entries")
+}
+
+// ============================================================================
+// SENSAIOS RING SECURITY MODEL
+// Reference: docs/projects/SensaiOS/architecture/06-os-security-model.md
+// Added: 2026-01-01 (SENSAI.RING_SECURITY.SCHEMA)
+// ============================================================================
+
+/// Component capability grants (Ring 0-3 security model)
+model ComponentCapability {
+  id           String    @id @default(cuid())
+  component    String // Component name (e.g., "discord.bot", "battle.engine")
+  type         String // Capability type (e.g., "db.read", "db.write", "discord.send")
+  scope        Json // TenantScope: { tenantId: string, guildId: string }
+  reason       String // Justification for capability grant
+  expiresAt    DateTime? @map("expires_at") // Optional expiration
+  revokedAt    DateTime? @map("revoked_at") // null = active, non-null = revoked
+  createdAt    DateTime  @default(now()) @map("created_at")
+  grantedBy    String?   @map("granted_by") // Operator/admin who granted
+  revokeReason String?   @map("revoke_reason") // Why was it revoked
+
+  @@index([component, type], map: "idx_capability_component_type")
+  @@index([expiresAt], map: "idx_capability_expires")
+  @@index([revokedAt], map: "idx_capability_revoked")
+  @@map("component_capabilities")
+}
+
+/// Installed applications in the SensaiOS environment
+model InstalledApp {
+  id          String   @id // App identifier (e.g., "discord.bot", "game.core")
+  name        String // Human-readable name
+  version     String // Semver version
+  ringLevel   Int      @default(3) @map("ring_level") @db.SmallInt // 0=kernel, 1=sensaios, 3=apps
+  manifest    Json // Complete AppManifest
+  installedAt DateTime @default(now()) @map("installed_at")
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at")
+  status      String   @default("enabled") // enabled, disabled, failed
+
+  @@index([status, ringLevel], map: "idx_installed_app_status_ring")
+  @@index([installedAt(sort: Desc)], map: "idx_installed_app_installed")
+  @@map("installed_apps")
+}

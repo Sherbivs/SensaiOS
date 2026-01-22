@@ -1,9 +1,11 @@
 # Master Router Table
-Last Updated (UTC): 2025-12-23T03:00:00Z
+Last Updated (UTC): 2026-01-21T00:00:00Z
 Purpose: Text-only reference of every router, its downstream routers, and the primary files/routes they cover for hotfix navigation when automation is unavailable.
 Muted callouts note local-only tooling that never ships to prod/cloud runtimes.
 
 **HOMESTEAD MIGRATION COMPLETE (2025-06-15):** All DM gameplay migrated to private guild channels. `src/bot/dm/` DELETED.
+
+**TEST ENVIRONMENT (TE) ESTABLISHED (2026-01-21):** Isolated test environment at `E:\SensaiOS\TE` with Stage Members database (500 simulated guild members).
 
 ---
 
@@ -25,6 +27,26 @@ Muted callouts note local-only tooling that never ships to prod/cloud runtimes.
 | `Store/` | Runtime cache & local DB | ✅ |
 | `tests/` | Test suites | ✅ |
 | `tools/` | Vendored binaries | ✅ |
+
+---
+
+## External Test Environment (E:\SensaiOS\TE)
+
+| Directory | Purpose | ROUTER.md |
+|-----------|---------|-----------|
+| `E:\SensaiOS\TE\` | Test Environment root | ✅ |
+| `E:\SensaiOS\TE\config\` | TE configuration | ❌ (in root ROUTER) |
+| `E:\SensaiOS\TE\database\seed\` | Database seeding | ✅ |
+| `E:\SensaiOS\TE\fixtures\discord\` | Discord mocks | ✅ |
+| `E:\SensaiOS\TE\fixtures\gameplay\` | Gameplay state factories | ✅ |
+| `E:\SensaiOS\TE\fixtures\pbsl\` | PBSL battle snapshots | ✅ |
+| `E:\SensaiOS\TE\runners\` | Test execution scripts | ❌ (in root ROUTER) |
+
+**TE Quick Reference:**
+- **Location:** `E:\SensaiOS\TE` (secondary drive backup)
+- **Database:** `postgresql://localhost:55435/sensaios_te`
+- **Stage Members:** 500 (100 new + 150 casual + 125 active + 100 veteran + 25 champion)
+- **Setup:** `cd E:\SensaiOS\TE && .\runners\validate-environment.ps1`
 
 ---
 

@@ -1,0 +1,18 @@
+{
+	"folders": [
+		{
+			"path": "."
+		},
+		{
+			"path": "E:/SensaiOS/TE"
+		}
+	],
+	"settings": {
+		"terminal.integrated.defaultProfile.windows": "PowerShell",
+		"files.associations": {
+			"*.yaml": "yaml",
+			"render.yaml": "yaml"
+		},
+		"java.configuration.updateBuildConfiguration": "automatic"
+	}
+}

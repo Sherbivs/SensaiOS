@@ -104,12 +104,12 @@ export const ModelName = {
 /*
  * Enums
  */
-export const TransactionIsolationLevel = {
+export const TransactionIsolationLevel = runtime.makeStrictEnum({
     ReadUncommitted: 'ReadUncommitted',
     ReadCommitted: 'ReadCommitted',
     RepeatableRead: 'RepeatableRead',
     Serializable: 'Serializable'
-};
+});
 export const TenantScalarFieldEnum = {
     id: 'id',
     createdAt: 'createdAt'
@@ -842,11 +842,11 @@ export const SortOrder = {
     desc: 'desc'
 };
 export const JsonNullValueInput = {
-    JsonNull: 'JsonNull'
+    JsonNull: JsonNull
 };
 export const NullableJsonNullValueInput = {
-    DbNull: 'DbNull',
-    JsonNull: 'JsonNull'
+    DbNull: DbNull,
+    JsonNull: JsonNull
 };
 export const QueryMode = {
     default: 'default',
@@ -866,9 +866,9 @@ export const TrainerOrderByRelevanceFieldEnum = {
     nickname: 'nickname'
 };
 export const JsonNullValueFilter = {
-    DbNull: 'DbNull',
-    JsonNull: 'JsonNull',
-    AnyNull: 'AnyNull'
+    DbNull: DbNull,
+    JsonNull: JsonNull,
+    AnyNull: AnyNull
 };
 export const DexPackOrderByRelevanceFieldEnum = {
     packHash: 'packHash'

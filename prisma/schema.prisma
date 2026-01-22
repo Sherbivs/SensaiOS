@@ -1,9 +1,11 @@
 // Prisma schema for Infinity Gauntlet — MVP entities
-// Prisma 7 Configuration: Uses driver adapters (no Rust engine)
+// Prisma 7 Configuration: Uses library engine (direct PostgreSQL)
 // NORTHSTAR OPTIMIZATION (2025-12-21): Full-text search indexes and optimized generator
 generator client {
-  provider        = "prisma-client"
+  provider        = "prisma-client-js"
   output          = "../src/generated/prisma"
+  engineType      = "library"
+  binaryTargets   = ["native", "debian-openssl-3.0.x"]
   // OPTIMIZATION: Pre-generate all relation types for faster queries
   previewFeatures = ["fullTextSearchPostgres"]
 }
