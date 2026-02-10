@@ -133,6 +133,7 @@ export class PlayerResolver {
   // Resolution cache (short TTL for per-interaction freshness)
   private cache: Map<string, { data: ResolvedPlayer; expiresAt: number }> = new Map();
   private readonly CACHE_TTL_MS = 30_000; // 30 seconds
+  private readonly MAX_CACHE_SIZE = 1000;
   
   private constructor() {}
   
@@ -171,8 +172,13 @@ export class PlayerResolver {
     
     // Check cache
     const cached = this.cache.get(cacheKey);
-    if (cached && cached.expiresAt > Date.now()) {
-      return cached.data;
+    if (cached) {
+      if (cached.expiresAt > Date.now()) {
+        this.cache.delete(cacheKey);
+        this.cache.set(cacheKey, cached);
+        return cached.data;
+      }
+      this.cache.delete(cacheKey);
     }
     
     const startTime = Date.now();
@@ -235,7 +241,13 @@ export class PlayerResolver {
         resolvedAt: new Date(),
       };
       
-      // Cache result
+      // Cache result (LRU eviction)
+      if (this.cache.size >= this.MAX_CACHE_SIZE) {
+        const oldestKey = this.cache.keys().next().value as string | undefined;
+        if (oldestKey) {
+          this.cache.delete(oldestKey);
+        }
+      }
       this.cache.set(cacheKey, {
         data: resolved,
         expiresAt: Date.now() + this.CACHE_TTL_MS,
@@ -415,10 +427,13 @@ export class PlayerResolver {
   /**
    * Get cache statistics
    */
-  getCacheStats(): { size: number; hitRate: string } {
+  getCacheStats(): { size: number; max: number; utilization: number } {
     return {
       size: this.cache.size,
-      hitRate: 'N/A', // Would need hit/miss tracking
+      max: this.MAX_CACHE_SIZE,
+      utilization: this.MAX_CACHE_SIZE > 0
+        ? (this.cache.size / this.MAX_CACHE_SIZE) * 100
+        : 0,
     };
   }
   

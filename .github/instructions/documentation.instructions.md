@@ -227,5 +227,5 @@ npm run refresh:vision
 
 - **Bible Indexes:** `docs/*/INDEX.md`
 - **Projects Guide:** `docs/projects/README.md`
-- **Router Script:** `scripts/update-routers.ts`
+- **Router Script:** `scripts/update-routers.ps1`
 - **Archive Location:** `ops/ARCHIVE/`

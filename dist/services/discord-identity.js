@@ -45,6 +45,8 @@ export class DiscordIdentityService {
     userCache = new Map();
     guildCache = new Map();
     CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+    MAX_USER_CACHE_SIZE = 500;
+    MAX_GUILD_CACHE_SIZE = 500;
     constructor() {
         // Private constructor for singleton
     }
@@ -77,8 +79,12 @@ export class DiscordIdentityService {
         const cacheKey = `${discordUserId}:${guildId}`;
         // Check cache first
         const cached = this.userCache.get(cacheKey);
-        if (cached && cached.expiresAt > Date.now()) {
-            return cached.data;
+        if (cached) {
+            if (cached.expiresAt > Date.now()) {
+                this.refreshUserCache(cacheKey, cached);
+                return cached.data;
+            }
+            this.userCache.delete(cacheKey);
         }
         try {
             const member = await prisma.discordMember.findUnique({
@@ -93,7 +99,8 @@ export class DiscordIdentityService {
                 return null;
             }
             const identity = this.mapMemberToIdentity(member);
-            // Cache the result
+            // Cache the result (LRU eviction)
+            this.evictUserCacheIfNeeded();
             this.userCache.set(cacheKey, {
                 data: identity,
                 expiresAt: Date.now() + this.CACHE_TTL_MS,
@@ -131,8 +138,9 @@ export class DiscordIdentityService {
                 return null;
             }
             const identity = this.mapMemberToIdentity(member);
-            // Cache by Discord ID
+            // Cache by Discord ID (LRU eviction)
             const cacheKey = `${member.discordUserId}:${guildId}`;
+            this.evictUserCacheIfNeeded();
             this.userCache.set(cacheKey, {
                 data: identity,
                 expiresAt: Date.now() + this.CACHE_TTL_MS,
@@ -162,8 +170,13 @@ export class DiscordIdentityService {
         for (const discordUserId of discordUserIds) {
             const cacheKey = `${discordUserId}:${guildId}`;
             const cached = this.userCache.get(cacheKey);
-            if (cached && cached.expiresAt > Date.now()) {
-                found.set(discordUserId, cached.data);
+            if (cached) {
+                if (cached.expiresAt > Date.now()) {
+                    this.refreshUserCache(cacheKey, cached);
+                    found.set(discordUserId, cached.data);
+                    continue;
+                }
+                this.userCache.delete(cacheKey);
             }
             else {
                 toFetch.push(discordUserId);
@@ -183,8 +196,9 @@ export class DiscordIdentityService {
                     const identity = this.mapMemberToIdentity(member);
                     found.set(member.discordUserId, identity);
                     foundIds.add(member.discordUserId);
-                    // Cache
+                    // Cache (LRU eviction)
                     const cacheKey = `${member.discordUserId}:${guildId}`;
+                    this.evictUserCacheIfNeeded();
                     this.userCache.set(cacheKey, {
                         data: identity,
                         expiresAt: Date.now() + this.CACHE_TTL_MS,
@@ -297,8 +311,12 @@ export class DiscordIdentityService {
     async getGuild(guildId) {
         // Check cache first
         const cached = this.guildCache.get(guildId);
-        if (cached && cached.expiresAt > Date.now()) {
-            return cached.data;
+        if (cached) {
+            if (cached.expiresAt > Date.now()) {
+                this.refreshGuildCache(guildId, cached);
+                return cached.data;
+            }
+            this.guildCache.delete(guildId);
         }
         try {
             const guild = await prisma.discordGuild.findUnique({
@@ -308,7 +326,8 @@ export class DiscordIdentityService {
                 return null;
             }
             const identity = this.mapGuildToIdentity(guild);
-            // Cache the result
+            // Cache the result (LRU eviction)
+            this.evictGuildCacheIfNeeded();
             this.guildCache.set(guildId, {
                 data: identity,
                 expiresAt: Date.now() + this.CACHE_TTL_MS,
@@ -427,9 +446,50 @@ export class DiscordIdentityService {
      */
     getCacheStats() {
         return {
-            users: this.userCache.size,
-            guilds: this.guildCache.size,
+            users: {
+                size: this.userCache.size,
+                max: this.MAX_USER_CACHE_SIZE,
+                utilization: this.MAX_USER_CACHE_SIZE > 0
+                    ? (this.userCache.size / this.MAX_USER_CACHE_SIZE) * 100
+                    : 0,
+            },
+            guilds: {
+                size: this.guildCache.size,
+                max: this.MAX_GUILD_CACHE_SIZE,
+                utilization: this.MAX_GUILD_CACHE_SIZE > 0
+                    ? (this.guildCache.size / this.MAX_GUILD_CACHE_SIZE) * 100
+                    : 0,
+            },
         };
+    }
+    // --------------------------------------------------------------------------
+    // Cache Helpers
+    // --------------------------------------------------------------------------
+    refreshUserCache(key, entry) {
+        this.userCache.delete(key);
+        this.userCache.set(key, entry);
+    }
+    refreshGuildCache(key, entry) {
+        this.guildCache.delete(key);
+        this.guildCache.set(key, entry);
+    }
+    evictUserCacheIfNeeded() {
+        if (this.userCache.size < this.MAX_USER_CACHE_SIZE) {
+            return;
+        }
+        const oldestKey = this.userCache.keys().next().value;
+        if (oldestKey) {
+            this.userCache.delete(oldestKey);
+        }
+    }
+    evictGuildCacheIfNeeded() {
+        if (this.guildCache.size < this.MAX_GUILD_CACHE_SIZE) {
+            return;
+        }
+        const oldestKey = this.guildCache.keys().next().value;
+        if (oldestKey) {
+            this.guildCache.delete(oldestKey);
+        }
     }
     // --------------------------------------------------------------------------
     // Private Helpers

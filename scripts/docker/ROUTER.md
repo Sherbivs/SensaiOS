@@ -1,11 +1,10 @@
-# ROUTER.md — Docker Domain
+# ROUTER
+Title: Docker Management CLI
+Purpose: TypeScript CLI for Docker container management, building, and compose operations.
+Owned Globs: scripts/docker/**
+Last Updated (UTC): 2026-02-10T16:40:00Z
 
-**Title:** Docker Management CLI  
-**Purpose:** TypeScript CLI for Docker container management, building, and compose operations  
-**Owned Globs:** `scripts/docker/**`  
-**Last Updated (UTC):** 2025-12-21T00:00:00Z
 
----
 
 ## Overview
 

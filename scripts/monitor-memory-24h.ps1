@@ -43,7 +43,7 @@ function Get-ProcessMemory {
     param([string]$ServiceId)
     
     try {
-        $result = & wsl bash -c "render ssh $ServiceId --command 'ps aux'" 2>&1
+        $result = Invoke-RenderSsh -ServiceId $ServiceId -Command "ps aux"
         
         if ($LASTEXITCODE -ne 0) {
             return @{
@@ -106,7 +106,7 @@ function Get-ProcessDetails {
     param([string]$ServiceId)
     
     try {
-        $result = & wsl bash -c "render ssh $ServiceId --command 'cat /proc/`$(pgrep node)/status | grep -E ""VmRSS|Threads|FDSize""'" 2>&1
+        $result = Invoke-RenderSsh -ServiceId $ServiceId -Command "cat /proc/`$(pgrep node)/status | grep -E ""VmRSS|Threads|FDSize"""
         
         if ($LASTEXITCODE -eq 0) {
             $vmrss = ($result | Where-Object { $_ -match "VmRSS" }) -replace '.*:\s+(\d+)\s+kB', '$1'
@@ -128,6 +128,44 @@ function Get-ProcessDetails {
     }
 }
 
+function Invoke-RenderSsh {
+    param(
+        [string]$ServiceId,
+        [string]$Command
+    )
+
+    $renderCmd = Get-Command render -ErrorAction SilentlyContinue
+    if ($renderCmd) {
+        return & render ssh $ServiceId --command $Command 2>&1
+    }
+
+    $sshCmd = Get-Command ssh -ErrorAction SilentlyContinue
+    if ($sshCmd) {
+        $configPath = Join-Path $env:USERPROFILE ".ssh\config"
+        $hasAlias = $false
+        if (Test-Path $configPath) {
+            $hasAlias = Select-String -Path $configPath -Pattern '^\s*Host\s+render-virginia\b' -Quiet
+        }
+
+        if ($hasAlias) {
+            return & ssh render-virginia $Command 2>&1
+        }
+
+        $renderHost = $env:RENDER_SSH_HOST
+        if ([string]::IsNullOrWhiteSpace($renderHost)) {
+            $renderHost = "ssh.virginia.render.com"
+        }
+
+        $identityFile = Join-Path $env:USERPROFILE ".ssh\render_key"
+        if (Test-Path $identityFile) {
+            return & ssh -i $identityFile -o IdentitiesOnly=yes "$ServiceId@$renderHost" $Command 2>&1
+        }
+
+        return & ssh "$ServiceId@$renderHost" $Command 2>&1
+    }
+
+    return & wsl bash -c "render ssh $ServiceId --command '$Command'" 2>&1
+}
 # Monitoring loop
 $startTime = Get-Date
 $endTime = $startTime.AddHours($DurationHours)

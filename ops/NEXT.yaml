@@ -4,75 +4,68 @@
 # Main tasks: Full implementation work requiring multiple commits.
 # Quick/hot tasks: Bug fixes, documentation updates, or hotfixes (< 30 min work).
 #
-# HOMESTEAD MIGRATION: ✅ COMPLETE (2025-06-15)
-# - All DM-based gameplay migrated to private guild channels
-# - src/bot/dm/ directory DELETED
-# - Canonical entry: src/bot/homestead/
-# - Specification: docs/architecture-bible/18-private-channel-architecture.md
-#
 # META-SYSTEM HEALTH ENFORCEMENT (Anti-Stuck Rules):
 # The quick_task slot can be FORCE-ASSIGNED by Postflight checks to prevent technical debt:
 # - META.ROUTER.SYNC: 5+ code changes without router updates
 # - META.BIBLE.CONSOLIDATE: 10+ changes without Bible documentation
-# - META.TASKLIST.ARCHIVE: 20+ DONE tasks accumulating
+# - META.TASKLIST.ARCHIVE: 20+ DONE tasks accumulating (TRIGGERED — 16 SensaiOS DONE tasks)
 # - META.PROMPT.COMPRESS: Prompt.md >500 lines
 # These forced tasks MUST complete before resuming main work (prevents system decay).
 
 guidance_when_none: |
-  Run the Preflight policy: If no READY exists (excluding the seed), promote the oldest eligible PROPOSED; if none exist, inject META.UNBLOCK.READY_SEED.
-
-  Set `next_task_id` to that choice, keep `files_hint` minimal, bump `timestamp_utc`, and write a one-line rationale in `note`.
-
-  If meta docs are unreadable or missing, halt and request refreshed copies (see CRITICAL.md).
+  Run the Preflight policy: If no READY exists (excluding the seed), promote the oldest eligible PROPOSED;
+  if none exist, inject META.UNBLOCK.READY_SEED.
+  Set next main_tasks entry to that choice, bump timestamp_utc, write rationale in note.
 
 auto_promote_if_empty: true
 
 # Main task queue (up to 3 concurrent tasks)
-# META.ALIGNMENT.SCAN — COMPLETE ✅ (2026-01-06) — 486 files verified (412 code + 74 docs)
-# SENSAIOS RING SECURITY MODEL — ALL 4 PHASES COMPLETE ✅ (2026-01-05) — 16 tasks, ~10,000 lines
-# NEW PRIORITY: Kernel Logging Sprint 2 — Output Plugin Architecture
+# MEMORY LEAK PATCH — 17 granular sub-tasks across 5 phases
+# Blueprint: 10 components (C1-C4, C7-C10), ~115 tests, 11-day rollout
+# See Tasklist.md for full dependency chain: PHASE1.1 → ... → PHASE5.2
 main_tasks:
-  - id: KERNEL.LOGGING.OUTPUT_PLUGINS
-    status: READY
-    priority: P0-CRITICAL
-    effort: 3h
+  - id: MEMLEAK.PHASE4.1
+    status: IN_PROGRESS
+    priority: P2-MEDIUM
+    effort: 2h
     files_hint:
-      - src/kernel/outputs/  # New directory
-      - src/kernel/output-registry.ts
-      - src/kernel/outputs/console-output.ts
-      - src/kernel/outputs/file-output.ts
-    description: "Add output plugin system to Kernel with LogOutput interface, OutputRegistry, and migrate console/file to plugins"
+      - ops/grafana-memory-leak-rollout.json
+    description: "Pre-deployment baseline capture + Grafana dashboard."
 
 # Quick/hot task slot (< 30 min work)
-quick_task: null
+quick_task:
+  id: META.TASKLIST.ARCHIVE
+  status: DONE
+  effort: 30m
+  description: "Archive 16 completed SensaiOS Ring Security tasks from Tasklist.md to docs/archive/tasks/"
 
 # Timestamp and rationale
-timestamp_utc: "2026-01-06T12:00:00Z"
+timestamp_utc: "2026-02-10T17:25:00Z"
 note: |
-  📋 META.ALIGNMENT.SCAN → DONE (2026-01-06)
-  - 486 total files verified: 412 code + 74 documentation
-  - 1 misalignment found and fixed (TenantScope interface)
-  - Inventory: ops/CODEBASE-INVENTORY.md fully populated
+  ✅ MEMLEAK.PHASE2.6 COMPLETE (2026-02-10T15:10Z)
+  - Phase 2 integration gate cleared: npm test (full suite) + npm run build
+  - Integration test: tests/memory/phase2-integration.spec.ts
+  - PHASE3.1 promoted to READY (next in dependency chain)
+
+  ✅ MEMLEAK.PHASE3.1 COMPLETE (2026-02-10T16:05Z)
+  - Bounded verification suite added (20/20 tests passing)
+  - Tests: npm test -- tests/memory/bounded-verification.spec.ts
+  - PHASE3.2 promoted to READY (next in dependency chain)
+
+  ✅ MEMLEAK.PHASE3.2 COMPLETE (2026-02-10T16:20Z)
+  - Memory metrics service + /ops memory integration complete
+  - Tests: npm test -- tests/services/monitoring/memory-metrics.spec.ts
+  - PHASE4.1 promoted to READY (next in dependency chain)
   
-  🚀 KERNEL.LOGGING.OUTPUT_PLUGINS → READY (P0-CRITICAL)
-  - Foundation for Sprint 2: Multi-destination output system
-  - Dependency met: KERNEL.LOGGING.PREBOOT_QUEUE ✅ DONE
-  - Creates pluggable LogOutput interface + OutputRegistry
-  - Migrates console and file logging to plugin architecture
+  🚧 MEMLEAK.PHASE4.1 IN PROGRESS (2026-02-10T17:15Z)
+  - Grafana rollout dashboard added (ops/grafana-memory-leak-rollout.json)
+  - Baseline capture in progress (RSS/heap growth)
 
-# Quick/hot task slot (1 concurrent quick task allowed)
-quick_task_slot:
-  id: null
-  status: AVAILABLE
+  ✅ META.TASKLIST.ARCHIVE COMPLETE (2026-02-10T17:25Z)
+  - SensaiOS Ring Security archived to docs/archive/tasks/sensaios-ring-security.md
+  - Tasklist cleaned to archive pointer only
 
-# Legacy fields (maintained for backward compatibility)
-next_task_id: KERNEL.LOGGING.OUTPUT_PLUGINS
-reason: "P0-CRITICAL kernel logging task. Foundation for multi-destination output system."
-files_hint:
-  - src/kernel/outputs/
-  - src/kernel/output-registry.ts
-  - src/kernel/outputs/console-output.ts
-  - src/kernel/outputs/file-output.ts
-queue: []
-router_version: 2
-last_notes_read_utc: 2026-01-06T12:00:00Z
+  📋 PAUSED: KERNEL.LOGGING.OUTPUT_PLUGINS (deprioritized for memory leak urgency)
+
+router_version: 3
+last_notes_read_utc: 2026-02-10T00:00:00Z

@@ -1,9 +1,8 @@
-# ROUTER — src/bot/state
-
-**Title:** Security Bot State Management  
-**Purpose:** State persistence, context restoration, and security metrics for the security monitoring bot  
-**Owned Globs:** `src/bot/state/**`  
-**Last Updated (UTC):** 2025-12-27T01:00:00Z
+# ROUTER
+Title: Security Bot State Management
+Purpose: State persistence, context restoration, and security metrics for the security monitoring bot.
+Owned Globs: src/bot/state/**
+Last Updated (UTC): 2026-02-10T16:40:00Z
 
 ## Overview
 

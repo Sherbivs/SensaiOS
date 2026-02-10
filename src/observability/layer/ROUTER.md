@@ -1,11 +1,10 @@
-# ROUTER — Observability Layer
+# ROUTER
+Title: Observability Layer Entry Point
+Purpose: Unified gateway for the Observability Layer parallel to the application layer.
+Owned Globs: src/observability/layer/**
+Last Updated (UTC): 2026-02-10T16:40:00Z
 
-**Title:** Observability Layer Entry Point  
-**Purpose:** Unified gateway for the Observability Layer (parallel to Application Layer)  
-**Owned Globs:** `src/observability/layer/**`  
-**Last Updated (UTC):** 2025-12-30T00:00:00Z
 
----
 
 ## Architecture Position
 

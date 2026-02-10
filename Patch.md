@@ -1,6 +1,6 @@
 # AI PROJECT MANAGER CONTRACT
-Last Updated (UTC): 2025-12-27T00:00:00Z
-Revision: 1.75
+Last Updated (UTC): 2026-02-09T00:00:00Z
+Revision: 1.76
 
 This repository uses **Patch.md** as the working agreement between humans and automation.
 Read this file completely before beginning any task. Follow it literally. Before editing, confirm the READY queue, NEXT pointer, and meta docs (Patch/Prompt/Tasklist) are readable and synchronized.
@@ -10,8 +10,6 @@ Read this file completely before beginning any task. Follow it literally. Before
 - See `Tasklist.md` for backlog (READY queue, dependencies, acceptance criteria)
 - See `ops/NEXT.yaml` for task pointer discipline (must point to READY task)
 - See `ops/TOUCHMAP.yaml` for file scope boundaries per task
-**Cross-References**:
-- See `Prompt.md` for operational context (current timestamp, revision, recent changes, PATCHSET echo)
 - See `operations-bible/02-database-operations.md` for CRITICAL database URL selection logic (Absolute requirement)
 
 **Referenced By**: AGENTS.md (Orientation Flow), Prompt.md (Contract Mode status), ops/PRODUCTION-DEPLOYMENT-CHECKLIST.md (validation requirements)
@@ -137,25 +135,58 @@ Stay disciplined. The repository must always exit a run with a READY pointer, a 
 # _Patch Clipboard Scratch Area (leave empty when not in use)_
 # 
 <<<PATCHSET START>>>
-Header: [Task OBS.LOGGER.FIRST_IMPORTS] Enforce logger-first imports and document policy
+Header: [Task MEMLEAK.PHASE3.2] Memory metrics service + /ops memory integration
 
 FILES:
-- scripts/ops/bootstrap-onpremise-experiment.ts: move scopedLogger import to the top of the import block to comply with logger-first policy.
-- docs/ai-collaboration-guide.md: document logger-first import ordering and align script guidance.
-- Tasklist.md: add OBS.LOGGER.FIRST_IMPORTS quick task with completion notes.
-- ops/NEXT.yaml: update quick_task slot and timestamps for OBS.LOGGER.FIRST_IMPORTS.
-- Prompt.md: refresh timestamp/revision, Last Repo Changes, and PATCHSET echo with logger-first import enforcement status.
+- src/services/monitoring/memory-metrics.ts: Add centralized bounded structure metrics collection + formatting.
+- src/bot/ops/admin.ts: Add bounded structure utilization section to /ops memory.
+- tests/services/monitoring/memory-metrics.spec.ts: Add unit coverage for collection, warnings, and formatting.
+- tests/services/monitoring/ROUTER.md: Document monitoring tests.
+- tests/services/ROUTER.md: Add memory metrics test coverage entry.
+- tests/ROUTER.md: Add memory metrics test note.
+- src/services/monitoring/ROUTER.md: Document memory metrics service.
+- src/services/ROUTER.md: Update monitoring file count and description.
+- ops/TOUCHMAP.yaml: Add Phase 3.2 test path and update timestamp.
+- docs/observability/ROUTER.md: Normalize router header fields.
+- scripts/ROUTER.md: Normalize router header fields.
+- scripts/data/ROUTER.md: Normalize router header fields.
+- scripts/db/ROUTER.md: Normalize router header fields.
+- scripts/diagnose/ROUTER.md: Normalize router header fields.
+- scripts/docker/ROUTER.md: Normalize router header fields.
+- scripts/guard/ROUTER.md: Normalize router header fields.
+- scripts/lib/ROUTER.md: Normalize router header fields.
+- scripts/observe/ROUTER.md: Normalize router header fields.
+- scripts/ops/ROUTER.md: Normalize router header fields.
+- scripts/render/ROUTER.md: Normalize router header fields.
+- src/bot/security/ROUTER.md: Normalize router header fields.
+- src/bot/security/plugins/ROUTER.md: Normalize router header fields.
+- src/bot/security/services/ROUTER.md: Normalize router header fields.
+- src/bot/security/types/ROUTER.md: Normalize router header fields.
+- src/bot/shared/ROUTER.md: Normalize router header fields.
+- src/bot/state/ROUTER.md: Normalize router header fields.
+- src/kernel/ROUTER.md: Normalize router header fields.
+- src/observability/envelope/ROUTER.md: Normalize router header fields.
+- src/observability/layer/ROUTER.md: Normalize router header fields.
+- src/shared/crypto/ROUTER.md: Normalize router header fields.
+- src/shared/logging/ROUTER.md: Normalize router header fields.
+- src/workers/database/ROUTER.md: Normalize router header fields.
+- ops/ROUTER_INDEX.yaml: Regenerated router index.
+- Tasklist.md: Mark MEMLEAK.PHASE3.2 DONE and promote MEMLEAK.PHASE4.1 to READY.
+- ops/NEXT.yaml: Promote MEMLEAK.PHASE4.1 to READY and update notes.
+- Prompt.md: Update timestamp, Last Repo Changes, and PATCHSET echo.
 
 TASKLIST UPDATE:
-- OBS.LOGGER.FIRST_IMPORTS marked DONE.
+- MEMLEAK.PHASE3.2 → DONE.
+- MEMLEAK.PHASE4.1 → READY.
 
 Commit Message:
-[Task OBS.LOGGER.FIRST_IMPORTS] Enforce logger-first imports in scripts
-Why: Ensure logger initialization happens first and codify the policy in collaboration docs.
-Changes: Reordered logger import in onpremise experiment bootstrap script and documented logger-first guidance.
-Testing: Not run (import order/docs only).
+[Task MEMLEAK.PHASE3.2] Add memory metrics service
+Why: Phase 3 requires bounded structure metrics and /ops visibility before canary rollout.
+Changes: Added memory metrics collection/formatting, wired /ops memory, added tests, normalized router headers, regenerated router index.
+Testing: npm test -- tests/services/monitoring/memory-metrics.spec.ts; npm run docs:update-routers
 <<<PATCHSET END>>>
 
 <<<PROPOSED PATCHSET START>>>
-
+MEMLEAK.PHASE4.1-4.2: Canary deployment + 24h soak test
+MEMLEAK.PHASE5.1-5.2: Staged production rollout + final validation
 <<<PROPOSED PATCHSET END>>>

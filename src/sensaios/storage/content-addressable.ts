@@ -82,7 +82,15 @@ export interface CASStats {
 
   /** Integrity failures detected */
   integrityFailures: number;
+
+  /** Maximum blobs allowed */
+  maxBlobs: number;
+
+  /** Utilization percentage (0-100) */
+  utilization: number;
 }
+
+type CASStatsBase = Omit<CASStats, 'maxBlobs' | 'utilization'>;
 
 // ============================================================================
 // CONTENT-ADDRESSABLE STORAGE ENGINE
@@ -117,8 +125,11 @@ export class ContentAddressableStorage {
   /** In-memory blob store (production would use database) */
   private readonly blobs = new Map<string, ContentAddressableBlob>();
 
+  /** Maximum number of blobs before eviction */
+  private readonly maxBlobs: number;
+
   /** Statistics */
-  private stats: CASStats = {
+  private stats: CASStatsBase = {
     totalBlobs: 0,
     totalBytes: 0,
     deduplicationSavings: 0,
@@ -126,6 +137,10 @@ export class ContentAddressableStorage {
     integrityChecks: 0,
     integrityFailures: 0,
   };
+
+  constructor(options?: { maxBlobs?: number }) {
+    this.maxBlobs = options?.maxBlobs ?? 10000;
+  }
 
   // ==========================================================================
   // CORE OPERATIONS
@@ -160,6 +175,8 @@ export class ContentAddressableStorage {
       this.stats.duplicatesAvoided++;
       this.stats.deduplicationSavings += data.length;
 
+      this.touch(id, existing);
+
       log.debug('put', 'Deduplicated blob', { 
         id: id.slice(0, 12), 
         size: data.length,
@@ -168,6 +185,8 @@ export class ContentAddressableStorage {
 
       return id;
     }
+
+    this.evictIfNeeded();
 
     // Store new blob
     this.blobs.set(id, {
@@ -216,6 +235,8 @@ export class ContentAddressableStorage {
         throw new Error(`CAS integrity failure: ${integrity.error}`);
       }
     }
+
+    this.touch(id, blob);
 
     // Return defensive copy
     return Buffer.from(blob.data);
@@ -343,7 +364,11 @@ export class ContentAddressableStorage {
    * Get storage statistics
    */
   getStats(): CASStats {
-    return { ...this.stats };
+    return {
+      ...this.stats,
+      maxBlobs: this.maxBlobs,
+      utilization: this.maxBlobs > 0 ? (this.blobs.size / this.maxBlobs) * 100 : 0,
+    };
   }
 
   /**
@@ -367,6 +392,45 @@ export class ContentAddressableStorage {
       integrityFailures: 0,
     };
     log.debug('clear', 'Storage cleared');
+  }
+
+  // ========================================================================
+  // LRU EVICTION
+  // ========================================================================
+
+  private touch(id: string, blob: ContentAddressableBlob): void {
+    if (!this.blobs.has(id)) {
+      return;
+    }
+    this.blobs.delete(id);
+    this.blobs.set(id, blob);
+  }
+
+  private evictIfNeeded(): void {
+    if (this.maxBlobs <= 0) {
+      return;
+    }
+    if (this.blobs.size < this.maxBlobs) {
+      return;
+    }
+
+    const oldestKey = this.blobs.keys().next().value as string | undefined;
+    if (!oldestKey) {
+      return;
+    }
+
+    const oldest = this.blobs.get(oldestKey);
+    this.blobs.delete(oldestKey);
+
+    if (oldest) {
+      this.stats.totalBlobs = Math.max(0, this.stats.totalBlobs - 1);
+      this.stats.totalBytes = Math.max(0, this.stats.totalBytes - oldest.size);
+      log.warn('evict', 'Evicted blob (LRU)', {
+        id: oldestKey.slice(0, 12),
+        size: oldest.size,
+        refCount: oldest.refCount,
+      });
+    }
   }
 }
 

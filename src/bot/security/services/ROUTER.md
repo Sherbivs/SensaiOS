@@ -1,11 +1,10 @@
 # ROUTER
+Title: Security Services
+Purpose: Database service layer for security operations extracted from main.js.
+Owned Globs: src/bot/security/services/**
+Last Updated (UTC): 2026-02-10T16:40:00Z
 
-**Title:** Security Services  
-**Purpose:** Database service layer for security operations extracted from main.js  
-**Owned Globs:** `src/bot/security/services/**`  
-**Last Updated (UTC):** 2025-06-18T00:00:00Z
 
----
 
 ## Overview
 

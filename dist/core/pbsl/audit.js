@@ -12,9 +12,11 @@ export function assertAuditEvent(event) {
 }
 export class MemoryAuditTrail {
     provenance;
+    maxEvents;
     events = [];
-    constructor(provenance) {
+    constructor(provenance, maxEvents = 10000) {
         this.provenance = provenance;
+        this.maxEvents = maxEvents;
     }
     record(event) {
         if (!event || typeof event.phase !== "string" || typeof event.action !== "string") {
@@ -34,9 +36,21 @@ export class MemoryAuditTrail {
             context,
         };
         assertAuditEvent(entry);
+        if (this.maxEvents > 0 && this.events.length >= this.maxEvents) {
+            this.events.shift();
+        }
         this.events.push(Object.freeze(entry));
     }
     flush() {
-        return this.events.slice();
+        const snapshot = this.events.slice();
+        this.events.length = 0;
+        return snapshot;
+    }
+    getMetrics() {
+        return {
+            current: this.events.length,
+            max: this.maxEvents,
+            utilization: this.maxEvents > 0 ? (this.events.length / this.maxEvents) * 100 : 0,
+        };
     }
 }

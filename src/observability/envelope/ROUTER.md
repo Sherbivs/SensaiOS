@@ -1,11 +1,10 @@
-# ROUTER — Observability Envelope Module
+# ROUTER
+Title: Universal Envelope System
+Purpose: Unified, parseable logging, metrics, and events for humans and machines.
+Owned Globs: src/observability/envelope/**
+Last Updated (UTC): 2026-02-10T16:40:00Z
 
-**Title:** Universal Envelope System  
-**Purpose:** Unified, parseable logging/metrics/events for humans AND machines  
-**Owned Globs:** `src/observability/envelope/**`  
-**Last Updated (UTC):** 2025-12-27T17:00:00Z
 
----
 
 ## Overview
 

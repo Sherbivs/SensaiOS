@@ -186,6 +186,39 @@ const TIME_ACTIVITY_MULTIPLIERS: Record<number, number> = {
   18: 1.0, 19: 1.0, 20: 1.0, 21: 0.9, 22: 0.7, 23: 0.5,
 };
 
+const PRUNE_INTERVAL_MS = 10 * 60 * 1000; // 10 minutes
+
+// ==================== PRUNING ====================
+
+let pruneInterval: NodeJS.Timeout | null = null;
+
+function startPruneInterval(): void {
+  if (pruneInterval) {
+    return;
+  }
+
+  pruneInterval = setInterval(() => {
+    pruneStaleHistory();
+  }, PRUNE_INTERVAL_MS);
+
+  pruneInterval.unref?.();
+}
+
+function stopPruneInterval(): void {
+  if (!pruneInterval) {
+    return;
+  }
+
+  clearInterval(pruneInterval);
+  pruneInterval = null;
+}
+
+startPruneInterval();
+
+process.once('SIGTERM', () => {
+  stopPruneInterval();
+});
+
 // ==================== STATE ====================
 
 /** Service health tracking */
@@ -194,6 +227,26 @@ const serviceHealthMap: Map<string, ServiceHealth> = new Map();
 /** Error history for trend analysis (per fingerprint) */
 const errorHistory: Map<string, number[]> = new Map();
 const MAX_HISTORY_POINTS = 60; // Last 60 data points (1 hour at 1-minute intervals)
+export const MAX_FINGERPRINTS = 2000;
+
+function touchHistoryFingerprint(fingerprint: string, history: number[]): void {
+  errorHistory.delete(fingerprint);
+  errorHistory.set(fingerprint, history);
+}
+
+function pruneHistoryLimit(maxSize: number): void {
+  if (maxSize <= 0) {
+    return;
+  }
+
+  while (errorHistory.size > maxSize) {
+    const oldestKey = errorHistory.keys().next().value as string | undefined;
+    if (!oldestKey) {
+      break;
+    }
+    errorHistory.delete(oldestKey);
+  }
+}
 
 // ==================== CORE PREDICTION ====================
 
@@ -503,6 +556,8 @@ export function recordErrorCount(fingerprint: string, count: number): void {
   if (!history) {
     history = [];
     errorHistory.set(fingerprint, history);
+  } else {
+    touchHistoryFingerprint(fingerprint, history);
   }
 
   history.push(count);
@@ -511,6 +566,8 @@ export function recordErrorCount(fingerprint: string, count: number): void {
   if (history.length > MAX_HISTORY_POINTS) {
     history.shift();
   }
+
+  pruneHistoryLimit(MAX_FINGERPRINTS);
 }
 
 /**
@@ -667,6 +724,13 @@ export function getImpactPredictorStats(): {
 }
 
 /**
+ * Check if a fingerprint has history recorded.
+ */
+export function hasErrorHistoryFingerprint(fingerprint: string): boolean {
+  return errorHistory.has(fingerprint);
+}
+
+/**
  * Clear all impact predictor state.
  */
 export function clearAllImpactState(): void {
@@ -687,4 +751,6 @@ export function pruneStaleHistory(): void {
       errorHistory.delete(fp);
     }
   }
+
+  pruneHistoryLimit(MAX_FINGERPRINTS);
 }

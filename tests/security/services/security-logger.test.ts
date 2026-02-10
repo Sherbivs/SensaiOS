@@ -534,7 +534,7 @@ describe('SecurityLogger', () => {
 
     it('should log successful operation with withTiming', async () => {
       await logger.withTiming('Operation completed', async () => {
-        await delay();
+        await delay(10);
         return 'result';
       });
 
@@ -613,7 +613,7 @@ describe('SecurityLogger', () => {
     });
 
     it('should write to console.log for info level', () => {
-      const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+      const stdoutSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
       const output = new ConsoleLogOutput();
 
       output.write({
@@ -626,12 +626,12 @@ describe('SecurityLogger', () => {
         attributes: {},
       });
 
-      expect(consoleSpy).toHaveBeenCalled();
-      consoleSpy.mockRestore();
+      expect(stdoutSpy).toHaveBeenCalled();
+      stdoutSpy.mockRestore();
     });
 
     it('should write to console.warn for warn level', () => {
-      const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      const stderrSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
       const output = new ConsoleLogOutput();
 
       output.write({
@@ -644,12 +644,12 @@ describe('SecurityLogger', () => {
         attributes: {},
       });
 
-      expect(consoleSpy).toHaveBeenCalled();
-      consoleSpy.mockRestore();
+      expect(stderrSpy).toHaveBeenCalled();
+      stderrSpy.mockRestore();
     });
 
     it('should write to console.error for error level', () => {
-      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const stderrSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
       const output = new ConsoleLogOutput();
 
       output.write({
@@ -662,8 +662,8 @@ describe('SecurityLogger', () => {
         attributes: {},
       });
 
-      expect(consoleSpy).toHaveBeenCalled();
-      consoleSpy.mockRestore();
+      expect(stderrSpy).toHaveBeenCalled();
+      stderrSpy.mockRestore();
     });
   });
 

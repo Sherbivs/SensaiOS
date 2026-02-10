@@ -2,7 +2,7 @@
 Title: Service Layer Helpers
 Purpose: Organized service layer providing cache management, database operations, error monitoring, resource management, alert routing, and AI logging.
 Owned Globs: src/services/**
-Last Updated (UTC): 2025-12-20T22:00:00Z
+Last Updated (UTC): 2026-02-10T16:05:00Z
 
 Notes:
 - **Phase 5 Consolidation (2025-11-16):** Services organized into 4 domain subdirectories with barrel exports. Deleted duplicate resource-manager.ts and legacy resource-monitor.js from root (now in monitoring/).
@@ -14,7 +14,7 @@ Notes:
 **Service Subdirectories:**
 - **cache/** (4 files + ROUTER.md) — Runtime cache facade, engine L1 cache, write buffer, namespace recipes. See `src/services/cache/ROUTER.md`.
 - **database/** (2 files + ROUTER.md) — Engine Read-DB (static Pokemon data) + Write-DB (battle logs). See `src/services/database/ROUTER.md`.
-- **monitoring/** (3 files + ROUTER.md) — Error tracking, pattern learning, resource monitoring. See `src/services/monitoring/ROUTER.md`.
+- **monitoring/** (4 files + ROUTER.md) — Error tracking, pattern learning, resource monitoring, memory metrics. See `src/services/monitoring/ROUTER.md`.
 - **ai/** (3 files + ROUTER.md) — AI logging, analysis, integrations (JavaScript legacy). See `src/services/ai/ROUTER.md`.
 
 **Legacy Root Files:**

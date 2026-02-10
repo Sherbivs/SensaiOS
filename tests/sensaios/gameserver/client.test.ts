@@ -190,6 +190,14 @@ function createMockContext(): ComponentContext {
     exports: {
       append: vi.fn().mockResolvedValue({ seq: 1 }),
     } as unknown,
+    rng: {
+      derive: vi.fn(() => ({
+        random: () => 0.5,
+        int: (min: number) => min,
+        weighted: <T,>(items: Array<{ weight: number; value: T }>) => items[0].value,
+        shuffle: <T,>(array: T[]) => array.slice(),
+      })),
+    } as unknown,
     jobs: {
       enqueue: vi.fn().mockResolvedValue('job-id'),
     } as unknown,

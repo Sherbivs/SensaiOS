@@ -35,7 +35,25 @@ export interface ActivityStats {
   lastSummaryAt: Date | null;
 }
 
+export interface BufferMetrics {
+  current: number;
+  max: number;
+  utilization: number;
+  dropped: number;
+}
+
 export type ActivityHandler = (snapshot: ActivityStats) => void;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Constants
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Maximum pending activities before circular buffer eviction kicks in.
+ * When the buffer is full, the oldest entry is dropped on each new push.
+ * Growth rate without this cap was ~4 MB/hour in production (MEMLEAK.PHASE1.1).
+ */
+export const MAX_PENDING_ACTIVITIES = 1000;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // State
@@ -48,6 +66,7 @@ let totalEvents = 0;
 let lastActivityAt: Date | null = null;
 let lastSummaryAt: Date | null = null;
 let sequence = 0;
+let droppedCount = 0;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Internal Functions
@@ -73,6 +92,8 @@ function notify(): void {
 
 /**
  * Record a new activity event.
+ * Enforces circular buffer: when at MAX_PENDING_ACTIVITIES, the oldest
+ * entry is evicted before the new one is pushed.
  */
 export function recordActivity(
   type: string, 
@@ -87,6 +108,12 @@ export function recordActivity(
     meta,
     timestamp,
   };
+
+  // MEMORY SAFETY: Enforce circular buffer — drop oldest when at capacity
+  if (pendingActivities.length >= MAX_PENDING_ACTIVITIES) {
+    pendingActivities.shift();
+    droppedCount += 1;
+  }
 
   pendingActivities.push(entry);
   totalEvents += 1;
@@ -107,9 +134,18 @@ export function drainActivities(): ActivityEntry[] {
 
 /**
  * Requeue activities back into the pending queue (sorted by timestamp).
+ * Rejects the entire batch if it would exceed MAX_PENDING_ACTIVITIES.
  */
 export function requeueActivities(entries: Partial<ActivityEntry>[] = []): void {
   if (!Array.isArray(entries) || entries.length === 0) {
+    return;
+  }
+
+  // MEMORY SAFETY: Reject batch if it would exceed the buffer limit
+  if (pendingActivities.length + entries.length > MAX_PENDING_ACTIVITIES) {
+    droppedCount += entries.length;
+    logger.warn('ActivityTracker', 'requeueActivities',
+      `Rejected requeue of ${entries.length} entries: would exceed MAX_PENDING_ACTIVITIES (${MAX_PENDING_ACTIVITIES}), current=${pendingActivities.length}`);
     return;
   }
   
@@ -182,6 +218,39 @@ export function markSummarySent(at: Date | string | number = new Date()): void {
   notify();
 }
 
+/**
+ * Get buffer utilization metrics for observability.
+ * Used by /ops memory command and memory-metrics service.
+ */
+export function getBufferMetrics(): BufferMetrics {
+  return {
+    current: pendingActivities.length,
+    max: MAX_PENDING_ACTIVITIES,
+    utilization: MAX_PENDING_ACTIVITIES > 0
+      ? (pendingActivities.length / MAX_PENDING_ACTIVITIES) * 100
+      : 0,
+    dropped: droppedCount,
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Testing Helpers (NOT for production use)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** @internal Reset all module-level state — test isolation only. */
+export const __testing = {
+  reset(): void {
+    pendingActivities.length = 0;
+    lifetimeCounts.clear();
+    subscribers.clear();
+    totalEvents = 0;
+    lastActivityAt = null;
+    lastSummaryAt = null;
+    sequence = 0;
+    droppedCount = 0;
+  },
+} as const;
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Default Export
 // ─────────────────────────────────────────────────────────────────────────────
@@ -194,4 +263,5 @@ export default {
   getStats,
   subscribe,
   markSummarySent,
+  getBufferMetrics,
 };

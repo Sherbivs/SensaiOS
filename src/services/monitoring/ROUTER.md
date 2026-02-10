@@ -2,7 +2,7 @@
 Title: Error Monitoring & Resource Management Services
 Purpose: Error tracking, pattern learning, resource monitoring (RAM + Disk), resource lifecycle management, crash-resilient database operations with centralized observability.
 Owned Globs: src/services/monitoring/**
-Last Updated (UTC): 2025-01-04T19:00:00Z
+Last Updated (UTC): 2026-02-10T16:05:00Z
 
 ## Architecture Overview
 
@@ -86,6 +86,7 @@ Linked Routers:
 - tests/shared/error-tracker-mocks.ts — Centralized test mock factory (8 functions, 200+ lines).
 
 Areas:
+- `memory-metrics.ts` — Centralized bounded-structure metrics for `/ops memory` reporting.
 - `resilient-write-buffer.ts` — **NEW (2025-01-04)** Crash-resilient database write operations providing at-least-once delivery guarantees. Features: in-memory write buffer with monotonic sequence numbers, checkpoint persistence to CacheEntry table (namespace: `resilient-write-buffer`), automatic recovery on startup (replays uncommitted writes), idempotent write deduplication via idempotency keys, periodic flush timer (5s interval), retry logic with exponential backoff (3 attempts, 1s base delay, 2x factor). Buffer limits: 1000 pending writes max, 24h completed marker expiry, 7 day pending write expiry. APIs: `initializeWriteBuffer()`, `shutdownWriteBuffer()`, `queueWrite()`, `executeResilientWrite()`, `registerWriteExecutor()`, `flushBuffer()`, `getBufferStats()`, `cleanupWriteBuffer()`. Integrated into error-tracker.ts for AI reports, code context, and emergency logs.
 - `monitoring-utils.ts` — **NEW** Performance-optimized shared utilities: generateResourceId (cached), generateFingerprint (LRU cache), formatTimestamp (reuses Date formatter), formatBytes (cached common sizes), statistical functions (calculateAverage, calculateStdDev, calculatePercentile), threshold checking (fast-path), deduplication/grouping helpers, RateLimiter class. Used by all monitoring services for consistent, fast operations.
 - `error-tracker.ts` — Core error tracking: ErrorLog CRUD operations, fingerprint generation (uses monitoring-utils cached fingerprinting), occurrence counting, recovery tracking, learning metadata management. Used by 14+ files across bot layer, core engines, workers. **Performance:** 10x faster duplicate detection via cached fingerprints. **Crash Resilience (2025-01-04):** Uses resilient-write-buffer for AI reports, code context persistence, and emergency logs. Provides `initialize()` and `shutdown()` lifecycle methods with 4 registered write executors.

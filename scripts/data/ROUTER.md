@@ -1,11 +1,10 @@
-# ROUTER.md — Data Domain
+# ROUTER
+Title: Data Pipeline CLI
+Purpose: TypeScript CLI for Pokemon data management, dexpack building, cache operations, and validation.
+Owned Globs: scripts/data/**
+Last Updated (UTC): 2026-02-10T16:40:00Z
 
-**Title:** Data Pipeline CLI  
-**Purpose:** TypeScript CLI for Pokemon data management, dexpack building, cache operations, and validation  
-**Owned Globs:** `scripts/data/**`  
-**Last Updated (UTC):** 2025-12-21T00:00:00Z
 
----
 
 ## Overview
 

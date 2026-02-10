@@ -1,0 +1,924 @@
+# TOUCH MAP — Maps task IDs (or glob prefixes) to the primary files/paths they modify.
+# This gives the AI a fast way to jump to relevant files for each task.
+# Last Updated: 2026-02-10T16:05:00Z
+
+# ═══════════════════════════════════════════════════════════════
+# 🚨 ACTIVE — Memory Leak Patch (P0-CRITICAL) — 17 granular sub-tasks
+# Blueprint: ops/MEMORY-LEAK-PATCH-BLUEPRINT.md
+# ═══════════════════════════════════════════════════════════════
+
+# Phase 1: Critical Fixes (Days 1-2) — ROOT CAUSES
+MEMLEAK.PHASE1.1:
+  - "src/utils/activityTracker.ts"           # C1: Add MAX_PENDING=1000 circular buffer
+  - "tests/utils/activityTracker.bounded.spec.ts"
+
+MEMLEAK.PHASE1.2:
+  - "src/commands/battle-turn.ts"             # C7a: Add SESSION_TIMEOUT_MS cleanup
+  - "tests/commands/battle-turn.cleanup.spec.ts"
+
+MEMLEAK.PHASE1.3:
+  - "src/core/battle/turn-manager.ts"         # C7b: Add RUNTIME_TIMEOUT_MS + destroyRuntime()
+  - "tests/core/battle/turn-manager.cleanup.spec.ts"
+
+MEMLEAK.PHASE1.4:
+  - "src/core/pbsl/audit.ts"                  # C2: Add MAX_EVENTS=10000 + flush clears
+  - "tests/core/pbsl/audit.bounded.spec.ts"
+
+MEMLEAK.PHASE1.5:
+  - "tests/memory/phase1-integration.spec.ts" # Integration gate test
+
+# Phase 2: Moderate Fixes (Days 3-5) — SECONDARY LEAKS
+MEMLEAK.PHASE2.1:
+  - "src/services/player-resolver.ts"         # C3: LRU for playerCache Map
+  - "tests/services/player-resolver.bounded.spec.ts"
+
+MEMLEAK.PHASE2.2:
+  - "src/sensaios/storage/content-addressable.ts"  # C4: LRU for blobCache Map
+  - "tests/sensaios/storage/content-addressable.bounded.spec.ts"
+
+MEMLEAK.PHASE2.3:
+  - "src/services/discord-identity.ts"        # C8: LRU + maxSize for identity caches
+  - "tests/services/discord-identity.bounded.spec.ts"
+
+MEMLEAK.PHASE2.4:
+  - "src/services/ai/ai-log-analyzer.ts"      # C9: Bounded KnowledgeBase (6 structures)
+  - "tests/services/ai/ai-log-analyzer.bounded.spec.ts"
+  - "tests/services/ai/ROUTER.md"
+  - "tests/services/ROUTER.md"
+  - "tests/ROUTER.md"
+
+MEMLEAK.PHASE2.5:
+  - "src/services/error-brain/pattern-detector.ts"  # C10: MAX_FINGERPRINTS cap
+  - "src/services/error-brain/impact-predictor.ts"  # C10: Periodic prune
+  - "tests/services/error-brain/detector-maps.bounded.spec.ts"
+  - "tests/services/ROUTER.md"
+
+MEMLEAK.PHASE2.6:
+  - "tests/memory/phase2-integration.spec.ts" # Integration gate test
+  - "ops/MEMORY-LEAK-PATCH-BLUEPRINT.md"      # Phase 2 checklist updates
+
+# Phase 3: Verification + Monitoring (Day 6)
+MEMLEAK.PHASE3.1:
+  - "tests/memory/bounded-verification.spec.ts" # 19 bounded structure stress tests
+
+MEMLEAK.PHASE3.2:
+  - "src/services/monitoring/memory-metrics.ts"  # NEW: Centralized metrics service
+  - "src/bot/ops/admin.ts"                       # /ops memory command
+  - "tests/services/monitoring/memory-metrics.spec.ts"
+
+# Phase 4: Canary Deployment (Days 7-8)
+MEMLEAK.PHASE4.1:
+  - "ops/grafana-memory-leak-rollout.json"    # NEW: Rollout monitoring dashboard
+  - "ops/MEMORY-LEAK-PATCH-BLUEPRINT.md"      # Baseline capture documentation
+
+MEMLEAK.PHASE4.2:
+  - "ops/MEMORY-LEAK-PATCH-BLUEPRINT.md"      # Canary validation results
+
+# Phase 5: Production Rollout (Days 9-11)
+MEMLEAK.PHASE5.1:
+  - "ops/MEMORY-LEAK-PATCH-BLUEPRINT.md"      # Staged rollout tracking
+
+MEMLEAK.PHASE5.2:
+  - "ops/MEMORY-LEAK-PATCH-BLUEPRINT.md"      # Final report + closure
+  - "docs/architecture-bible/INDEX.md"        # Memory management section
+  - "docs/development-bible/INDEX.md"         # Bounded structure guidelines
+
+# ═══════════════════════════════════════════════════════════════
+# ⏸️ PAUSED — Kernel Logging (Resume after memory leak patch)
+# ═══════════════════════════════════════════════════════════════
+
+# META — Tasklist Archive (Patch.md enforcement)
+META.TASKLIST.ARCHIVE:
+  - "Tasklist.md"
+  - "docs/archive/tasks/*.md"
+  - "docs/archive/tasks/README.md"
+
+KERNEL.LOGGING.OUTPUT_PLUGINS:
+  - "src/kernel/outputs/"
+  - "src/kernel/output-registry.ts"
+  - "src/kernel/outputs/console-output.ts"
+  - "src/kernel/outputs/file-output.ts"
+
+# ═══════════════════════════════════════════════════════════════
+# 📦 LEGACY — Historical task entries (archived for reference)
+# These entries reference tasks from T0-T14, ENGINE_DB, META, etc.
+# Retained for git archaeology. See docs/archive/tasks/ for details.
+# ═══════════════════════════════════════════════════════════════
+
+# Exact task IDs
+T0.1:
+  - "package.json"
+  - "tsconfig.json"
+  - ".eslintrc.cjs"
+  - ".prettierrc"
+  - "src/index.ts"
+  - "tests/sample.spec.ts"
+
+T0.2:
+  - "src/bot/**"
+  - "src/core/battle/**"
+  - "src/core/encounter/**"
+  - "src/shared/**"
+  - "src/data_pipeline/**"
+  - "tests/**"
+  - "RULESET.md"
+  - "DATA-SCHEMA.md"
+  - "OPERATIONS.md"
+  - "Prompt.md"
+  - "ops/KNOWLEDGE.yaml"
+
+T1.1:
+  - "src/shared/config.ts"
+  - "prisma/schema.prisma"
+  - "src/models/**"
+  - "migrations/**"
+
+T1.2:
+  - "src/shared/config.ts"
+  - "src/shared/log.ts"
+
+T2.1:
+  - "src/data_pipeline/schema/**"
+  - "tests/data_schema.spec.ts"
+
+T2.2:
+  - "src/data_pipeline/index.ts"
+  - "data/**"
+  - "tests/data_pipeline.spec.ts"
+
+T3.1:
+  - "src/bot/bootstrap.ts"
+  - "src/bot/commands/register.ts"
+
+T3.2:
+  - "src/bot/dm/home.tsx"
+  - "src/bot/dm/components/**"
+  - "src/shared/assets/**"
+  - "tests/dm_home.spec.ts"
+
+T3.3:
+  - "src/bot/dm/starters.ts"
+  - "src/bot/dm/heal.ts"
+  - "tests/starters_heal.spec.ts"
+
+T4.1:
+  - "src/core/encounter/spawn.ts"
+  - "src/bot/wilds/walk.ts"
+  - "tests/encounter_walk.spec.ts"
+  - "src/commands/walk.js"
+
+T4.2:
+  - "src/core/encounter/catch.ts"
+  - "src/bot/wilds/controls.ts"
+  - "tests/catch.spec.ts"
+
+T5.1:
+  - "src/bot/battle/challenge.ts"
+  - "src/bot/arena/thread.ts"
+  - "tests/battle_flow.spec.ts"
+
+T5.2:
+  - "src/core/battle/engine.ts"
+  - "src/core/battle/damage.ts"
+  - "src/core/battle/status.ts"
+  - "tests/battle_engine.spec.ts"
+
+T5.3:
+  - "src/bot/battle/actions.ts"
+  - "src/bot/arena/summary.ts"
+  - "tests/battle_ui.spec.ts"
+
+T6.1:
+  - "src/bot/middleware/limits.ts"
+  - "tests/limits.spec.ts"
+
+T6.2:
+  - "src/bot/ops/admin.ts"
+  - "tests/ops.spec.ts"
+  - "src/commands/ops.js"
+
+T6.3:
+  - "src/bot/main.js"
+  - "src/bot/dripAlerts.js"
+  - "src/bot/state/**"
+  - "src/utils/logger.js"
+  - "render.yaml"
+  - "Store/security-bot-state/**"
+
+T7.1:
+  - "src/commands/home.js"
+  - "src/models/index.ts"
+  - "tests/dm_home.spec.ts"
+
+T7.2:
+  - "src/core/encounter/catch.ts"
+  - "src/bot/wilds/controls.ts"
+  - "src/models/**"
+  - "tests/catch.spec.ts"
+
+T7.3:
+  - "src/bot/arena/summary.ts"
+  - "src/core/battle/**"
+  - "src/models/**"
+  - "tests/battle_flow.spec.ts"
+
+T7.4:
+  - "src/bot/battle/**"
+  - "src/core/battle/**"
+  - "src/models/**"
+  - "tests/battle_flow.spec.ts"
+  - "tests/battle_results.spec.ts"
+
+T7.5:
+  - "src/bot/ops/admin.ts"
+  - "src/models/**"
+  - "tests/ops.spec.ts"
+  - "tests/battle_results.spec.ts"
+
+T7.6:
+  - "src/bot/ops/admin.ts"
+  - "src/models/**"
+  - "tests/ops.spec.ts"
+
+T7.7:
+  - "src/bot/ops/admin.ts"
+  - "src/models/**"
+  - "tests/ops.spec.ts"
+  - "src/commands/ops.js"
+
+T8.1:
+  - "src/commands/home.js"
+  - "src/models/**"
+  - "tests/dm_home.spec.ts"
+  - "tests/battle_results.spec.ts"
+
+T8.2:
+  - "prisma/schema.prisma"
+  - "src/models/**"
+  - "src/commands/home.js"
+  - "tests/dm_home.spec.ts"
+  - "tests/log.spec.ts"
+
+T8.3:
+  - "src/commands/daily.js"
+  - "src/bot/daily/claim.ts"
+  - "src/bot/index.ts"
+  - "src/commands/home.js"
+  - "src/models/**"
+  - "tests/daily.spec.ts"
+
+T10.SCALE.DATA_INDEX:
+  - "prisma/schema.prisma"
+  - "prisma/migrations/**"
+  - "DATA-SCHEMA.md"
+  - "scripts/guard_meta.sh"
+
+T10.SCALE.WORKERS:
+  - "render.yaml"
+  - "src/worker/**"
+  - "src/bot/main.js"
+  - "src/shared/worker-runtime.ts"
+  - "scripts/worker_trigger_job.mjs"
+  - "ops/ROUTER.md"
+  - "ops/ROUTER_INDEX.yaml"
+  - "masterroutetable.md"
+  - "OPERATIONS.md"
+
+T10.SCALE.DB_BOOTSTRAP:
+  - "ops/DB_BOOTSTRAP.md"
+  - "scripts/bootstrap_staging_db.ps1"
+  - "tasklist.md"
+  - "ops/NEXT.yaml"
+
+T10.SCALE.OBS:
+  - "src/utils/logger.js"
+  - "src/shared/**"
+  - "OPERATIONS.md"
+  - "Prompt.md"
+  - "scripts/guard_meta.sh"
+
+T10.SCALE.DB_ENV_SWITCH:
+  - "src/shared/config.ts"
+  - "src/shared/prisma.ts"
+  - "OPERATIONS.md"
+  - "Prompt.md"
+  - "Tasklist.md"
+  - "tests/config.database.spec.ts"
+  - "ops/NEXT.yaml"
+  - "scripts/fetch_pokemon.mjs"
+
+T10.SCALE.LOAD_TEST:
+  - "OPERATIONS.md"
+  - "Prompt.md"
+  - "Tasklist.md"
+
+T10.SCALE.OPS_STATS_FIX:
+  - "tests/ops.spec.ts"
+  - "src/bot/ops/admin.ts"
+  - "scripts/guard_meta.sh"
+
+T13.DEX.DB_SEED:
+  - "scripts/seed_dex.ts"
+  - "package.json"
+  - "docs/database-systems.md"
+  - "docs/db-control-suite.md"
+  - "Tasklist.md"
+  - "ops/NEXT.yaml"
+  - "Prompt.md"
+  - "ops/TOUCHMAP.yaml"
+  - "ops/DB_BOOTSTRAP.md"
+  - "docs/perfect-system-roadmap.md"
+  - "AGENTS.md"
+  - "scripts/ROUTER.md"
+
+T13.DEX.AUTO_SYNC:
+  - "scripts/dev_prod_auto_sync.ts"
+  - "package.json"
+  - "docs/database-systems.md"
+  - "docs/db-control-suite.md"
+  - "ops/DB_BOOTSTRAP.md"
+  - "AGENTS.md"
+  - "docs/perfect-system-roadmap.md"
+  - "Tasklist.md"
+  - "Prompt.md"
+  - "ops/TOUCHMAP.yaml"
+  - "scripts/ROUTER.md"
+
+T13.DEX.AUTO_SYNC_HARDEN:
+  - "scripts/dev_prod_auto_sync.ts"
+  - "Tasklist.md"
+  - "Prompt.md"
+  - "masterroutetable.md"
+  - "scripts/ROUTER.md"
+
+T13.DEX.DEV_REHYDRATE_20251102:
+  - "data/cache/**"
+  - "scripts/fetch_pokemon.mjs"
+  - "scripts/seed_dex.ts"
+  - "scripts/setup_ai_env.ps1"
+  - "scripts/db_admin.ts"
+
+T13.DEX.AUTO_SYNC_RUN_20251102:
+  - "scripts/dev_prod_auto_sync.ts"
+  - "data/cache/dex-sync-trigger.json"
+  - "Tasklist.md"
+  - "Prompt.md"
+
+T13.DEX.AUTO_SYNC_MONITOR:
+  - "scripts/dev_prod_auto_sync.ts"
+  - "scripts/guard_meta.sh"
+  - "scripts/guards/guard_auto_sync.sh"
+  - "package.json"
+  - "docs/database-systems.md"
+  - "docs/ai-env-setup.md"
+  - "docs/db-control-suite.md"
+  - "Tasklist.md"
+  - "Prompt.md"
+
+T13.DEX.AUTO_SYNC_ALERTS:
+  - "scripts/dev_prod_auto_sync.ts"
+  - "scripts/ROUTER.md"
+  - "docs/database-systems.md"
+  - "docs/db-control-suite.md"
+  - "docs/ai-env-setup.md"
+  - "masterroutetable.md"
+  - "playbooks/**"
+  - "docs/operations.md"
+  - "Tasklist.md"
+  - "Prompt.md"
+
+T13.DEX.V2_DESIGN:
+  - "docs/dex-v2-design.md"
+  - "docs/ROUTER.md"
+  - "masterroutetable.md"
+  - "ops/ROUTER.yaml"
+  - "ops/ROUTER_INDEX.yaml"
+  - "Tasklist.md"
+  - "Prompt.md"
+
+T13.DEX.V2_DEV_ENABLE:
+  - "scripts/build-dexpack.ts"
+  - "src/dex/**"
+  - "src/data/dexpack.js"
+  - "src/flags/featureFlags.ts"
+  - "tests/dexpack*.spec.ts"
+  - "tests/dexpack.microbench.ts"
+  - "package.json"
+  - "docs/dex-v2-design.md"
+  - "masterroutetable.md"
+  - "ops/ROUTER.yaml"
+  - "ops/ROUTER_INDEX.yaml"
+  - "src/ROUTER.md"
+  - "src/dex/ROUTER.md"
+  - "tests/ROUTER.md"
+  - "Tasklist.md"
+  - "Prompt.md"
+
+T13.DEX.V2_PROD_CUTOVER:
+  - "render.yaml"
+  - "AGENTS.md"
+  - "docs/dex-v2-design.md"
+  - "docs/operations.md"
+  - "docs/database-systems.md"
+  - "masterroutetable.md"
+  - "Tasklist.md"
+  - "Prompt.md"
+  - "ops/NEXT.yaml"
+  - "playbooks/**"
+  - "package.json"
+  - "scripts/ROUTER.md"
+  - "scripts/ops/ROUTER.md"
+  - "scripts/ops/dex_v2_backup.ts"
+  - "scripts/ops/simulate_flag_rollout.ts"
+  - "scripts/ops/dex_v2_alert_dry_run.ts"
+  - "scripts/ops/bootstrap_onpremise_dev.ts"
+  - "scripts/ops/ensure_postgres_bundle.ps1"
+  - "scripts/ops/auto_bootstrap_local_db.ps1"
+  - "ops/ROUTER.yaml"
+  - "ops/ROUTER_INDEX.yaml"
+  - "ops/change-ledger.md"
+  - "backups/**"
+
+DB.V0.BOOTSTRAP:
+  - "prisma/schema.prisma"
+  - "prisma/migrations/**"
+  - "docs/dex-v2-design.md"
+  - "docs/database-systems.md"
+  - "docs/db-accelerate-workflow.md"
+  - "ops/DB_BOOTSTRAP.md"
+  - "scripts/db_smoke.ts"
+  - "scripts/db_admin.ts"
+  - "prisma/migrations/202511021024_db_v0_bootstrap/**"
+  - "docs/ROUTER.md"
+  - "scripts/ROUTER.md"
+  - "ops/ROUTER.yaml"
+  - "ops/ROUTER_INDEX.yaml"
+  - "masterroutetable.md"
+  - "Tasklist.md"
+
+DB.V0.PACK_REGISTRY:
+  - "prisma/schema.prisma"
+  - "prisma/migrations/**"
+  - "scripts/build-dexpack.ts"
+  - "docs/dex-v2-design.md"
+  - "Tasklist.md"
+  - "src/dex/v2/loader.js"
+  - "tests/dexpack.v2.spec.ts"
+
+DB.V0.SEED_SMOKE:
+  - "scripts/seed_dex.ts"
+  - "scripts/fetch_pokemon.mjs"
+  - "docs/db-control-suite.md"
+  - "Tasklist.md"
+  - "Prompt.md"
+
+DB.V0.BACKUP_DR:
+  - "docs/dex-v2-design.md"
+  - "docs/operations.md"
+  - "Tasklist.md"
+  - "playbooks/**"
+
+T13.DEX.DEXPACK_ROLLOUT:
+  - "assets/dexpack.v1.json"
+  - "assets/dexpack.v1.json.gz"
+  - "assets/dexpack.gen.mjs"
+  - "scripts/build_dexpack.ts"
+  - "scripts/guards/guard_dexpack.sh"
+  - "src/data/dexpack.js"
+  - "src/engine/index.js"
+  - "src/lib/dex-api.js"
+  - "package.json"
+  - ".github/workflows/guard-dexpack.yml"
+  - "assets/ROUTER.md"
+  - "src/data/ROUTER.md"
+  - "scripts/ROUTER.md"
+  - "ops/ROUTER.yaml"
+  - "ops/ROUTER_INDEX.yaml"
+  - "masterroutetable.md"
+  - "docs/database-systems.md"
+  - "docs/operations.md"
+  - "OPERATIONS.md"
+  - "Prompt.md"
+  - "Tasklist.md"
+
+T14.CACHE.FACADE:
+  - "src/services/cache/**"
+  - "src/shared/log.ts"
+  - "tests/**"
+  - "AGENTS.md"
+  - "Tasklist.md"
+  - "Prompt.md"
+
+T14.CACHE.RECIPES:
+  - "src/services/cache/**"
+  - "src/core/battle/**"
+  - "src/core/encounter/**"
+  - "src/bot/**"
+  - "tests/**"
+  - "Prompt.md"
+
+T14.CACHE.OBS:
+  - "src/services/cache/**"
+  - "src/bot/ops/admin.ts"
+  - "docs/database-systems.md"
+  - "AGENTS.md"
+  - "scripts/**"
+  - "Prompt.md"
+
+T14.SECURITY.TELEMETRY:
+  - "src/utils/logger.js"
+  - "src/bot/main.js"
+  - "src/bot/state/persistence.js"
+  - "render.yaml"
+  - "AGENTS.md"
+  - "Prompt.md"
+  - "Tasklist.md"
+  - "ops/TOUCHMAP.yaml"
+  - "Store/security-bot-state/schema.md"
+  - "docs/security-bot-state.md"
+
+# Engine DB Replication (Phase 17-22)
+ENGINE_DB.CONFIG:
+  - "src/config/engine-db-config.ts"
+  - "src/config/ROUTER.md"
+  - "AGENTS.md"
+  - "Prompt.md"
+  - "Tasklist.md"
+
+ENGINE_DB.CACHE:
+  - "src/services/engine-cache.ts"
+  - "src/services/ROUTER.md"
+  - "src/data/dexpack.js"
+  - "tests/engine-db/**"
+  - "AGENTS.md"
+  - "Prompt.md"
+
+ENGINE_DB.WRITE_BUFFER:
+  - "src/services/engine-write-buffer.ts"
+  - "src/services/ROUTER.md"
+  - "src/commands/battle-turn.js"
+  - "tests/engine-db/**"
+  - "AGENTS.md"
+  - "Prompt.md"
+
+ENGINE_DB.WORKERS:
+  - "src/workers/engine-workers.ts"
+  - "src/workers/ROUTER.md"
+  - "src/index.ts"
+  - "tests/engine-db/**"
+  - "AGENTS.md"
+  - "Prompt.md"
+
+ENGINE_DB.READ_DB:
+  - "src/services/engine-read-db.ts"
+  - "src/services/ROUTER.md"
+  - "Store/engine-read.db"
+  - "tests/engine-db/**"
+  - "AGENTS.md"
+  - "Prompt.md"
+
+ENGINE_DB.WRITE_DB:
+  - "src/services/engine-write-db.ts"
+  - "src/services/ROUTER.md"
+  - "Store/engine-write.db"
+  - "tests/engine-db/**"
+  - "AGENTS.md"
+  - "Prompt.md"
+
+ENGINE_DB.INTEGRATION:
+  - "src/index.ts"
+  - "src/data/dexpack.js"
+  - "src/commands/battle-turn.js"
+  - "src/bot/ops/admin.ts"
+  - "src/commands/ops.js"
+  - "AGENTS.md"
+  - "Prompt.md"
+  - "Tasklist.md"
+
+ENGINE_DB.OPS_COMMAND:
+  - "src/bot/ops/admin.ts"
+  - "src/commands/ops.js"
+  - "docs/engine-db-replication.md"
+  - "AGENTS.md"
+  - "Prompt.md"
+
+PBSL.SKELETON:
+  - "docs/PBSL.md"
+  - "src/core/pbsl/**"
+  - "tests/pbsl/**"
+  - "README.md"
+  - ".github/workflows/pbsl-oracle.yml"
+
+PBSL.ORACLE_DIFF:
+  - "src/core/pbsl/**"
+  - "tests/pbsl/**"
+  - ".github/workflows/pbsl-oracle.yml"
+
+META.ROUTER.20251028:
+  - "ops/ROUTER.yaml"
+  - "ops/ROUTER_INDEX.yaml"
+  - "masterroutetable.md"
+  - "ops/ROUTER.md"
+  - "scripts/ROUTER.md"
+  - "ops/TOUCHMAP.yaml"
+
+META.ROUTER.SUBROUTERS_20251101:
+  - "Patch.md"
+  - "Prompt.md"
+  - "Tasklist.md"
+  - "masterroutetable.md"
+  - "ops/NEXT.yaml"
+  - "ops/ROUTER.yaml"
+  - "ops/ROUTER_INDEX.yaml"
+  - "prisma/migrations/**"
+  - "src/bot/**"
+  - "src/core/**"
+  - "sync-layer/**"
+  - "tests/**"
+  - "tools/**"
+
+META.ROUTER.GUARD_PASS_20251101:
+  - "scripts/guard_routing.sh"
+  - "ops/ROUTER.yaml"
+  - "ops/ROUTER_INDEX.yaml"
+  - "masterroutetable.md"
+  - "Prompt.md"
+  - "Tasklist.md"
+  - "ops/NEXT.yaml"
+
+META.ROUTER.GUARD_HARDFAIL_20251101:
+  - "scripts/guard_routing.sh"
+  - "scripts/ROUTER.md"
+  - "ops/ROUTER.yaml"
+  - "ops/ROUTER_INDEX.yaml"
+  - "masterroutetable.md"
+  - "ops/change-ledger.md"
+  - "prisma/migrations/**"
+  - "src/bot/**"
+  - "src/core/**"
+  - "sync-layer/**"
+  - "tests/**"
+  - "tools/**"
+  - "Tasklist.md"
+  - "Prompt.md"
+  - "ops/NEXT.yaml"
+
+META.ROUTER.CONTRACT_UPDATE_20251101:
+  - "AGENTS.md"
+  - "Tasklist.md"
+  - "Prompt.md"
+  - "ops/NEXT.yaml"
+  - "ops/TOUCHMAP.yaml"
+
+META.UNBLOCK.READY_SEED:
+  - "Patch.md"
+  - "Prompt.md"
+  - "Tasklist.md"
+  - "ops/NEXT.yaml"
+
+META.AI_DOC_ENABLE:
+  - "Agents.md"
+  - "README.md"
+  - "Prompt.md"
+  - "ops/NEXT.yaml"
+
+META.DB.CONNECTION_GUIDE:
+  - "AGENTS.md"
+  - "README.md"
+  - "docs/ai-env-setup.md"
+  - "docs/db-control-suite.md"
+  - "docs/perfect-system-roadmap.md"
+  - "docs/database-systems.md"
+  - "ops/DB_BOOTSTRAP.md"
+  - "masterroutetable.md"
+  - "ops/ROUTER.yaml"
+  - "scripts/setup_ai_env.ps1"
+  - "scripts/ops/run_dex_migrations.ps1"
+  - "Prompt.md"
+  - "Tasklist.md"
+
+META.DB.CONNECTION_GUARD:
+  - "scripts/guard_db_docs.mjs"
+  - ".github/workflows/guard-db-docs.yml"
+  - "Prompt.md"
+  - "Tasklist.md"
+  - "ops/NEXT.yaml"
+  - "scripts/ROUTER.md"
+  - "ops/ROUTER.md"
+  - "masterroutetable.md"
+
+META.DB.CONNECTION_GUARD_CI_TRACK:
+  - "scripts/guard_db_docs.mjs"
+  - ".github/workflows/guard-db-docs.yml"
+  - "Tasklist.md"
+  - "Prompt.md"
+  - "ops/NEXT.yaml"
+
+# Glob prefixes to catch future tasks in the same family
+"Phase 0*":
+  - "/ops/**"
+  - "/**/*.md"
+
+# Meta/contract maintenance
+T0.PATCHPOLICY:
+  - "Patch.md"
+  - "Tasklist.md"
+  - "ops/CRITICAL.md"
+
+T0.GUARD_FILENAMES:
+  - "Patch.md"
+  - ".github/workflows/guard-docs.yml"
+  - "scripts/guard_doc_names.sh"
+  - "ops/CRITICAL.md"
+
+META.LEDGER200:
+  - "Prompt.md"
+  - "scripts/update_change_ledger.sh"
+  - "scripts/update_change_ledger.mjs"
+  - ".github/workflows/guard-meta.yml"
+  - "package.json"
+
+META.CONTRACTS.SWITCH:
+  - "Patch.md"
+  - "Patch-Template.md"
+  - "Prompt.md"
+  - "Tasklist.md"
+  - "ops/NEXT.yaml"
+  - "ops/TOUCHMAP.yaml"
+  - "ops/CRITICAL.md"
+  - "ops/HOTFIX.md"
+  - "ops/RECOVERY.yaml"
+  - "scripts/guard_meta.sh"
+  - "scripts/ROUTER.md"
+  - "masterroutetable.md"
+META.RUNTIME.BLUEPRINT_APPLY:
+  - "render.yaml"
+  - "src/shared/**"
+  - "src/worker/backup.ts"
+  - "prisma/schema.prisma"
+  - "src/bot/ops/admin.ts"
+  - "tests/runtime_config.spec.ts"
+  - "tests/outbox.spec.ts"
+  - "tests/ops_stats.spec.ts"
+  - "scripts/guard_runtime.sh"
+  - ".github/workflows/runtime.yml"
+  - "README.md"
+  - "ops/ROUTER_INDEX.yaml"
+  - "masterroutetable.md"
+  - "ops/TOUCHMAP.yaml"
+  - "ops/NEXT.yaml"
+  - "tasklist.md"
+  - "Prompt.md"
+  - "Patch.md"
+  - "ops/ROUTER.md"
+
+META.CONTRACTS.CLIPBOARD_BOTTOM:
+  - "Patch.md"
+  - "Prompt.md"
+  - "tasklist.md"
+
+META.HOTFIX.TRIGGER_SUFFIX:
+  - "Patch.md"
+  - "Prompt.md"
+  - "ops/HOTFIX.md"
+  - "ops/NEXT.yaml"
+  - "tasklist.md"
+
+META.RENDER.DB_URL_FIX:
+  - "render.yaml"
+  - "src/env/ensure-db-url.ts"
+  - "src/models/index.ts"
+  - "src/index.ts"
+  - "scripts/guard_render.mjs"
+  - ".github/workflows/guard-render.yml"
+  - "scripts/guards/require-ensure-db-preload.mjs"
+  - "README.md"
+
+META.PATCHSET_ECHO:
+  - "Prompt.md"
+  - ".github/workflows/guard-meta.yml"
+  - "scripts/guard_meta.sh"
+
+META.TASK.HOUSEKEEP:
+  - "Tasklist.md"
+  - "Patch.md"
+  - "Prompt.md"
+  - "scripts/archive_task_history.mjs"
+
+META.REFRESH_VISION.REMOTE:
+  - "scripts/refresh_vision.sh"
+  - "ops/RECOVERY.yaml"
+  - "Prompt.md"
+  - "ops/NEXT.yaml"
+  - "tasklist.md"
+
+META.PROMPT.FALLBACK:
+  - "Prompt.md"
+  - "tasklist.md"
+  - "ops/NEXT.yaml"
+
+META.README.REFRESH:
+  - "README.md"
+  - "Prompt.md"
+  - "Tasklist.md"
+  - "ops/NEXT.yaml"
+  - "ops/RECOVERY.yaml"
+
+META.ROUTER.NAME_GUARD:
+  - "ops/CANONICAL_NAMES.yaml"
+  - "scripts/verify_router_links.sh"
+  - ".github/workflows/guard-router.yml"
+  - "Patch.md"
+  - "Prompt.md"
+  - "tasklist.md"
+
+META.ROUTER.GAP_SWEEP:
+  - "router/meta-router-gap-report.md"
+  - "ops/ROUTER_INDEX.yaml"
+  - "masterroutetable.md"
+  - "ops/ROUTER.md"
+  - "ops/INBOX/**"
+  - "prisma/ROUTER.md"
+  - "prisma/migrations/**"
+  - "scripts/ROUTER.md"
+  - "scripts/dex/**"
+  - "scripts/guards/**"
+  - "scripts/ops/**"
+  - "src/data_pipeline/ROUTER.md"
+  - "src/data_pipeline/schema/**"
+  - "src/services/ROUTER.md"
+  - "src/services/cache/**"
+  - "src/shared/ROUTER.md"
+  - "src/shared/cache/**"
+  - "src/shared/storage/**"
+  - "tools/ROUTER.md"
+  - "tools/pgsql17/**"
+  - "data/cache/ROUTER.md"
+
+META.HOTFIX.SYSTEM:
+  - "ops/HOTFIX.md"
+  - "ops/HOTFIX_PLAN.yaml"
+  - "scripts/hotfix_entry.sh"
+  - "scripts/guard_meta.sh"
+  - "Patch.md"
+  - "Prompt.md"
+  - "Tasklist.md"
+  - "package.json"
+  - "ops/TOUCHMAP.yaml"
+  - "ops/NEXT.yaml"
+  - "ops/RECOVERY.yaml"
+
+META.NO_READY.SAFETY_NET:
+  - "scripts/guard_meta.sh"
+  - ".github/workflows/guard-meta.yml"
+  - "Patch.md"
+  - "Prompt.md"
+  - "Tasklist.md"
+  - "ops/NEXT.yaml"
+
+META.READY_QUEUE.NEXT_TASK:
+  - "Tasklist.md"
+  - "ops/NEXT.yaml"
+  - "Prompt.md"
+
+META.READY_QUEUE.PLAYBOOK:
+  - "Patch.md"
+  - "Prompt.md"
+  - "Tasklist.md"
+
+HF.BROKEN.TASKFLOW:
+  - "Tasklist.md"
+  - "ops/NEXT.yaml"
+  - "Prompt.md"
+  - "ops/RECOVERY.yaml"
+  - "ops/HOTFIX_PLAN.yaml"
+
+HOTFIX:SETUP.ROUTER_TABLE:
+  - "masterroutetable.md"
+
+HOTFIX.ROUTER.DOC:
+  - "ops/ROUTER.yaml"
+  - "masterroutetable.md"
+  - "tasklist.md"
+  - "Prompt.md"
+  - "ops/RECOVERY.yaml"
+  - "ops/HOTFIX_PLAN.yaml"
+
+# Canonical categories for router-driven tasks
+META.HARD_ROUTE:
+  - "ops/ROUTER.yaml"
+  - "ops/INBOX/notes.md"
+  - "Patch.md"
+  - "Prompt.md"
+  - "Tasklist.md"
+  - "ops/NEXT.yaml"
+
+SCHEMA.ZOD:
+  - "src/data_pipeline/schema/**"
+  - "tests/**"
+
+RUNTIME.ENTRY:
+  - "src/index.ts"
+  - "tsconfig.json"
+  - "package.json"
+  - "dist/**"

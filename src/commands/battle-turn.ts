@@ -77,6 +77,7 @@ interface BattleResult {
 /** Battle session */
 interface BattleSession {
   state: BattleState;
+  lastActivity: number;
 }
 
 declare global {
@@ -112,13 +113,64 @@ function formatSummaryLine(mon: RuntimeMon | null): string {
 
 // In-memory battle sessions keyed by user id
 const SESSIONS = new Map<string, BattleSession>();
+let totalSessions = 0;
+let cleanedSessions = 0;
+
+/** 10-minute inactivity timeout for battle sessions. */
+export const SESSION_TIMEOUT_MS = 10 * 60 * 1000;
+
+/** Cleanup interval for stale sessions (every 60 seconds). */
+const CLEANUP_INTERVAL_MS = 60 * 1000;
+
+let cleanupInterval: NodeJS.Timeout | null = null;
+
+function cleanupStaleSessions(now: number = Date.now()): number {
+  let cleaned = 0;
+  for (const [userId, session] of SESSIONS.entries()) {
+    if (now - session.lastActivity > SESSION_TIMEOUT_MS) {
+      SESSIONS.delete(userId);
+      cleaned += 1;
+    }
+  }
+
+  if (cleaned > 0) {
+    cleanedSessions += cleaned;
+  }
+
+  return cleaned;
+}
+
+function startCleanupInterval(): void {
+  if (cleanupInterval) return;
+  cleanupInterval = setInterval(() => {
+    const cleaned = cleanupStaleSessions();
+    if (cleaned > 0) {
+      logger.info('BattleTurn', 'cleanup', `Removed ${cleaned} stale session(s)`);
+    }
+  }, CLEANUP_INTERVAL_MS);
+}
+
+function stopCleanupInterval(): void {
+  if (!cleanupInterval) return;
+  clearInterval(cleanupInterval);
+  cleanupInterval = null;
+}
+
+process.on('SIGTERM', () => {
+  stopCleanupInterval();
+});
+
+startCleanupInterval();
 
 /**
  * Ensure a battle state exists for the user, creating default if needed
  */
 function ensureBattleState(userId: string): BattleSession | null {
   let session = SESSIONS.get(userId);
-  if (session) return session;
+  if (session) {
+    session.lastActivity = Date.now();
+    return session;
+  }
 
   // Initialize a simple default matchup if none exists
   const aDex = getPokemon('charizard') || getPokemon(6);
@@ -130,9 +182,21 @@ function ensureBattleState(userId: string): BattleSession | null {
   const a = makeRuntimeFromDexEntry(aDex, 50, []);
   const b = makeRuntimeFromDexEntry(bDex, 50, []);
   const state = newBattleState(a, b);
-  session = { state };
+  session = { state, lastActivity: Date.now() };
+  totalSessions += 1;
   SESSIONS.set(userId, session);
   return session;
+}
+
+/**
+ * Get session metrics for observability.
+ */
+export function getSessionMetrics(): { active: number; cleaned: number; total: number } {
+  return {
+    active: SESSIONS.size,
+    cleaned: cleanedSessions,
+    total: totalSessions,
+  };
 }
 
 interface CommandOptions {
@@ -298,6 +362,24 @@ const command: Command = {
     }
   },
 };
+
+// Testing utilities - avoid in production code paths
+export const __testing = {
+  reset(): void {
+    SESSIONS.clear();
+    totalSessions = 0;
+    cleanedSessions = 0;
+  },
+  ensureBattleState,
+  getSession: (userId: string): BattleSession | null => SESSIONS.get(userId) ?? null,
+  setSession: (userId: string, session: BattleSession): void => {
+    SESSIONS.set(userId, session);
+  },
+  cleanupStaleSessions,
+  startCleanupInterval,
+  stopCleanupInterval,
+  getCleanupInterval: (): NodeJS.Timeout | null => cleanupInterval,
+} as const;
 
 export const { cooldownMs, execute } = command;
 export { data };

@@ -16,6 +16,12 @@ export interface AuditTrail {
   flush(): readonly AuditEvent[];
 }
 
+export type AuditTrailMetrics = {
+  current: number;
+  max: number;
+  utilization: number;
+};
+
 function nowUtc(): string {
   return new Date().toISOString();
 }
@@ -32,7 +38,10 @@ export function assertAuditEvent(event: AuditEvent): asserts event is AuditEvent
 export class MemoryAuditTrail implements AuditTrail {
   private events: AuditEvent[] = [];
 
-  constructor(private readonly provenance?: ProvenanceRecord) {}
+  constructor(
+    private readonly provenance?: ProvenanceRecord,
+    private readonly maxEvents: number = 10000
+  ) {}
 
   record(event: Omit<AuditEvent, "timestamp"> & { timestamp?: string }): void {
     if (!event || typeof event.phase !== "string" || typeof event.action !== "string") {
@@ -53,10 +62,24 @@ export class MemoryAuditTrail implements AuditTrail {
       context,
     };
     assertAuditEvent(entry);
+    if (this.maxEvents > 0 && this.events.length >= this.maxEvents) {
+      this.events.shift();
+    }
+
     this.events.push(Object.freeze(entry));
   }
 
   flush(): readonly AuditEvent[] {
-    return this.events.slice();
+    const snapshot = this.events.slice();
+    this.events.length = 0;
+    return snapshot;
+  }
+
+  getMetrics(): AuditTrailMetrics {
+    return {
+      current: this.events.length,
+      max: this.maxEvents,
+      utilization: this.maxEvents > 0 ? (this.events.length / this.maxEvents) * 100 : 0,
+    };
   }
 }

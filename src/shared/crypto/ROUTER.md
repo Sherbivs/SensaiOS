@@ -1,11 +1,10 @@
-# ROUTER — Cryptographic Utilities
+# ROUTER
+Title: Cryptographic Utilities
+Purpose: Centralized cryptographic operations with timing-attack prevention.
+Owned Globs: src/shared/crypto/**
+Last Updated (UTC): 2026-02-10T16:40:00Z
 
-**Path:** `src/shared/crypto/`  
-**Purpose:** Centralized cryptographic operations with timing-attack prevention  
-**Last Updated:** 2025-01-XX  
-**Sprint:** 1 (S6: Timing-Safe Token Validation)
 
----
 
 ## Overview
 

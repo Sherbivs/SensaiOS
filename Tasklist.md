@@ -1,7 +1,12 @@
 # Tasklist
-Last Updated (UTC): 2026-01-06T12:00:00Z
-Revision: 2.153
+Last Updated (UTC): 2026-02-10T17:25:00Z
+Revision: 2.170
 <!-- # TASKLIST UPDATE -->
+
+**Recent Activity (2026-02-10T17:25Z):**
+- 🚧 **MEMLEAK.PHASE4.1 → IN_PROGRESS** — Baseline capture underway; Grafana rollout dashboard added
+- ✅ **META.TASKLIST.ARCHIVE → DONE** — SensaiOS Ring Security archived; Tasklist cleaned
+- ✅ **MEMLEAK ROADMAP RESTORED** — 17 granular sub-tasks reinserted for Phase 1–5 chain
 
 **Recent Activity (2026-01-06T12:00Z):**
 - ✅ **META.ALIGNMENT.SCAN → DONE** — Full codebase-to-documentation alignment complete
@@ -423,6 +428,307 @@ Each task has:
 
 ---
 
+## 🚨 Memory Leak Patch — Complete Task Roadmap (P0-CRITICAL)
+
+> **Blueprint:** `ops/MEMORY-LEAK-PATCH-BLUEPRINT.md` (1776 lines)
+> **Goal:** Reduce RSS from 512MB+ → <300MB baseline, <50MB/24h growth, zero OOM crashes
+> **Total Effort:** ~48h across 17 tasks | **Estimated Duration:** 11 days
+> **Dependency Chain:** All tasks are sequential — each depends on the prior task completing
+
+---
+
+### ═══════════════════════════════════════════════════════════
+### PHASE 1: CRITICAL FIXES — ROOT CAUSES (Days 1-2, ~10h)
+### ═══════════════════════════════════════════════════════════
+
+- id: MEMLEAK.PHASE1.1
+  title: "C1: Activity Tracker — Add MAX_PENDING bound + circular buffer"
+  status: DONE
+  depends_on: []
+  priority: P0-CRITICAL
+  effort: 2h
+  assigned_to: AI_SUBAGENT
+  files:
+    - src/utils/activityTracker.ts
+    - tests/utils/activityTracker.bounded.spec.ts
+  acceptance_criteria:
+    - Add MAX_PENDING_ACTIVITIES=1000 and enforce circular buffer
+    - Requeue guard prevents overflow
+    - getBufferMetrics() export with utilization + dropped count
+    - 16 unit tests pass
+  notes: |
+    COMPLETED 2026-02-10. Circular buffer + metrics added. 16/16 tests passing.
+
+- id: MEMLEAK.PHASE1.2
+  title: "C7a: Battle Sessions — Add timeout cleanup to SESSIONS Map"
+  status: DONE
+  depends_on: [MEMLEAK.PHASE1.1]
+  priority: P0-CRITICAL
+  effort: 2h
+  assigned_to: AI_SUBAGENT
+  files:
+    - src/commands/battle-turn.ts
+    - tests/commands/battle-turn.cleanup.spec.ts
+  acceptance_criteria:
+    - Add SESSION_TIMEOUT_MS + lastActivity tracking
+    - 60s cleanup interval + SIGTERM shutdown
+    - getSessionMetrics() export
+    - 8 unit tests pass
+  notes: |
+    COMPLETED 2026-02-09. Session cleanup + metrics added. 8/8 tests passing.
+
+- id: MEMLEAK.PHASE1.3
+  title: "C7b: Battle Runtimes — Add timeout cleanup to runtimes Map"
+  status: DONE
+  depends_on: [MEMLEAK.PHASE1.2]
+  priority: P0-CRITICAL
+  effort: 2h
+  assigned_to: AI_SUBAGENT
+  files:
+    - src/core/battle/turn-manager.ts
+    - tests/core/battle/turn-manager.cleanup.spec.ts
+  acceptance_criteria:
+    - Add RUNTIME_TIMEOUT_MS + lastActivity tracking
+    - destroyRuntime() export + 5-min cleanup interval + SIGTERM shutdown
+    - getRuntimeMetrics() export
+    - 7 unit tests pass
+  notes: |
+    COMPLETED 2026-02-09. Runtime cleanup + metrics added. 7/7 tests passing.
+
+- id: MEMLEAK.PHASE1.4
+  title: "C2: PBSL Audit Trail — Add MAX_EVENTS + clear-on-flush"
+  status: DONE
+  depends_on: [MEMLEAK.PHASE1.3]
+  priority: P0-CRITICAL
+  effort: 2h
+  assigned_to: AI_SUBAGENT
+  files:
+    - src/core/pbsl/audit.ts
+    - tests/core/pbsl/audit.bounded.spec.ts
+  acceptance_criteria:
+    - maxEvents bounds + shift-on-overflow
+    - flush() clears events + getMetrics() export
+    - 10 unit tests pass
+  notes: |
+    COMPLETED 2026-02-09. Audit trail bounded + clear-on-flush. 10/10 tests passing.
+
+- id: MEMLEAK.PHASE1.5
+  title: "Phase 1 integration test + build verification"
+  status: DONE
+  depends_on: [MEMLEAK.PHASE1.4]
+  priority: P0-CRITICAL
+  effort: 2h
+  assigned_to: AI_SUBAGENT
+  files:
+    - tests/memory/phase1-integration.spec.ts
+  acceptance_criteria:
+    - npm run build + npm test green
+    - Integration test verifies memory delta <= 5 MB
+  notes: |
+    COMPLETED 2026-02-10. Integration gate passed.
+
+---
+
+### ═══════════════════════════════════════════════════════════
+### PHASE 2: MODERATE FIXES — SECONDARY LEAKS (Days 3-5, ~14h)
+### ═══════════════════════════════════════════════════════════
+
+- id: MEMLEAK.PHASE2.1
+  title: "C3: Player Resolver — Add LRU eviction with MAX_CACHE_SIZE"
+  status: DONE
+  depends_on: [MEMLEAK.PHASE1.5]
+  priority: P1-HIGH
+  effort: 2h
+  assigned_to: AI_SUBAGENT
+  files:
+    - src/services/player-resolver.ts
+    - tests/services/player-resolver.bounded.spec.ts
+  acceptance_criteria:
+    - MAX_CACHE_SIZE=1000 with LRU eviction
+    - getCacheStats() includes utilization
+    - 4 unit tests pass
+  notes: COMPLETED 2026-02-10.
+
+- id: MEMLEAK.PHASE2.2
+  title: "C4: Content-Addressable Storage — Add MAX_BLOBS + LRU eviction"
+  status: DONE
+  depends_on: [MEMLEAK.PHASE2.1]
+  priority: P1-HIGH
+  effort: 2h
+  assigned_to: AI_SUBAGENT
+  files:
+    - src/sensaios/storage/content-addressable.ts
+    - tests/sensaios/storage/content-addressable.bounded.spec.ts
+  acceptance_criteria:
+    - MAX_BLOBS bounds + LRU eviction
+    - getStats() includes maxBlobs/utilization
+    - 4 unit tests pass
+  notes: COMPLETED 2026-02-10.
+
+- id: MEMLEAK.PHASE2.3
+  title: "C8: Discord Identity Cache — Add LRU + MAX sizes"
+  status: DONE
+  depends_on: [MEMLEAK.PHASE2.2]
+  priority: P1-HIGH
+  effort: 2h
+  assigned_to: AI_SUBAGENT
+  files:
+    - src/services/discord-identity.ts
+    - tests/services/discord-identity.bounded.spec.ts
+  acceptance_criteria:
+    - MAX_USER_CACHE_SIZE + MAX_GUILD_CACHE_SIZE
+    - LRU eviction on insert + metrics
+    - 4 unit tests pass
+  notes: COMPLETED 2026-02-10.
+
+- id: MEMLEAK.PHASE2.4
+  title: "C9: AI Log Analyzer — Bound KnowledgeBase Maps/Arrays"
+  status: DONE
+  depends_on: [MEMLEAK.PHASE2.3]
+  priority: P1-HIGH
+  effort: 2h
+  assigned_to: AI_SUBAGENT
+  files:
+    - src/services/ai/ai-log-analyzer.ts
+    - tests/services/ai/ai-log-analyzer.bounded.spec.ts
+  acceptance_criteria:
+    - MAX bounds on 4 maps + 2 arrays
+    - Utilization metrics
+    - 12 unit tests pass
+  notes: COMPLETED 2026-02-10.
+
+- id: MEMLEAK.PHASE2.5
+  title: "C10: Error Brain — MAX_FINGERPRINTS cap + prune"
+  status: DONE
+  depends_on: [MEMLEAK.PHASE2.4]
+  priority: P1-HIGH
+  effort: 2h
+  assigned_to: AI_SUBAGENT
+  files:
+    - src/services/error-brain/pattern-detector.ts
+    - src/services/error-brain/impact-predictor.ts
+    - tests/services/error-brain/detector-maps.bounded.spec.ts
+  acceptance_criteria:
+    - MAX_FINGERPRINTS cap across maps
+    - prune interval + SIGTERM cleanup
+    - 8 unit tests pass
+  notes: COMPLETED 2026-02-10.
+
+- id: MEMLEAK.PHASE2.6
+  title: "Phase 2 integration test + build verification"
+  status: DONE
+  depends_on: [MEMLEAK.PHASE2.5]
+  priority: P1-HIGH
+  effort: 2h
+  assigned_to: AI_SUBAGENT
+  files:
+    - tests/memory/phase2-integration.spec.ts
+  acceptance_criteria:
+    - npm run build + npm test green
+  notes: COMPLETED 2026-02-10.
+
+---
+
+### ═══════════════════════════════════════════════════════════
+### PHASE 3: VERIFICATION + MONITORING (Day 6, ~5h)
+### ═══════════════════════════════════════════════════════════
+
+- id: MEMLEAK.PHASE3.1
+  title: "Bounded structure verification suite"
+  status: DONE
+  depends_on: [MEMLEAK.PHASE2.6]
+  priority: P1-HIGH
+  effort: 2h
+  assigned_to: AI_SUBAGENT
+  files:
+    - tests/memory/bounded-verification.spec.ts
+  acceptance_criteria:
+    - 19 bounded structures verified
+    - 20 tests pass
+  notes: COMPLETED 2026-02-10.
+
+- id: MEMLEAK.PHASE3.2
+  title: "Memory metrics service + /ops memory command"
+  status: DONE
+  depends_on: [MEMLEAK.PHASE3.1]
+  priority: P1-HIGH
+  effort: 3h
+  assigned_to: AI_SUBAGENT
+  files:
+    - src/services/monitoring/memory-metrics.ts
+    - src/bot/ops/admin.ts
+    - tests/services/monitoring/memory-metrics.spec.ts
+  acceptance_criteria:
+    - collectMemoryMetrics() + formatMemoryMetrics()
+    - /ops memory shows bounded utilization
+    - 5 unit tests pass
+  notes: COMPLETED 2026-02-10.
+
+---
+
+### ═══════════════════════════════════════════════════════════
+### PHASE 4: CANARY DEPLOYMENT (Days 7-8, ~4h)
+### ═══════════════════════════════════════════════════════════
+
+- id: MEMLEAK.PHASE4.1
+  title: "Pre-deployment baseline capture + Grafana dashboard"
+  status: IN_PROGRESS
+  depends_on: [MEMLEAK.PHASE3.2]
+  priority: P2-MEDIUM
+  effort: 2h
+  assigned_to: AI_SUBAGENT
+  files:
+    - ops/grafana-memory-leak-rollout.json
+    - ops/MEMORY-LEAK-PATCH-BLUEPRINT.md
+  acceptance_criteria:
+    - Capture 24h baseline (RSS avg, peak, growth)
+    - Grafana dashboard for RSS, heap, bounded utilization, error rate
+    - Document baseline numbers in blueprint
+  notes: |
+    IN PROGRESS (2026-02-10): Dashboard added; baseline capture underway.
+
+- id: MEMLEAK.PHASE4.2
+  title: "Deploy to canary worker + 24h soak test validation"
+  status: PROPOSED
+  depends_on: [MEMLEAK.PHASE4.1]
+  priority: P2-MEDIUM
+  effort: 2h
+  assigned_to: AI_SUBAGENT
+  acceptance_criteria:
+    - Canary deploy + 24h monitoring
+    - Validate RSS <300MB baseline, growth <50MB/24h
+  notes: Requires operator permission (NO-RESTART policy).
+
+---
+
+### ═══════════════════════════════════════════════════════════
+### PHASE 5: PRODUCTION ROLLOUT (Days 9-11, ~6h)
+### ═══════════════════════════════════════════════════════════
+
+- id: MEMLEAK.PHASE5.1
+  title: "Staged production rollout (25% → 50% → 100% workers)"
+  status: PROPOSED
+  depends_on: [MEMLEAK.PHASE4.2]
+  priority: P2-MEDIUM
+  effort: 4h
+  assigned_to: AI_SUBAGENT
+  acceptance_criteria:
+    - Rollout in 25/50/100% stages with alerts monitored
+  notes: See blueprint § Rollout Strategy.
+
+- id: MEMLEAK.PHASE5.2
+  title: "Final validation + documentation updates"
+  status: PROPOSED
+  depends_on: [MEMLEAK.PHASE5.1]
+  priority: P2-MEDIUM
+  effort: 2h
+  assigned_to: AI_SUBAGENT
+  acceptance_criteria:
+    - 7-day validation, update architecture/development bibles
+  notes: See blueprint § Documentation Updates.
+
+---
+
 ## 📚 Completed Tasks Archive
 
 **Archive Location:** [`docs/archive/tasks/`](docs/archive/tasks/README.md)
@@ -442,955 +748,18 @@ Completed tasks have been moved to project-specific archive files to keep this f
 | [phase-17-18-northstar-homestead.md](docs/archive/tasks/phase-17-18-northstar-homestead.md) | 7 | Phase 17-18 Northstar & Homestead |
 | [pbsl-kernel-logging.md](docs/archive/tasks/pbsl-kernel-logging.md) | 5 | PBSL.* + KERNEL.LOGGING.* |
 | [hotfix-system.md](docs/archive/tasks/hotfix-system.md) | 4 | HF.* hotfix infrastructure |
+| [sensaios-ring-security.md](docs/archive/tasks/sensaios-ring-security.md) | 16 | SensaiOS Ring Security (all phases) |
 
 **Total Archived:** ~115 completed tasks  
 **Archive Policy:** See [docs/archive/tasks/README.md](docs/archive/tasks/README.md)
 
 ---
 
-## SensaiOS Ring Security Model (ACTIVE — AI SUBAGENT TASKS)
+## SensaiOS Ring Security Model (ARCHIVED)
 
-**Design Document:** `docs/projects/SensaiOS/architecture/06-os-security-model.md`  
-**Spec Section:** § 7 Implementation Roadmap  
-**Goal:** Transform SensaiOS into true OS with ring isolation, capability-based security, and installation primitives  
-**Timeline:** 8 weeks (4 phases)  
-**Assigned To:** AI Subagents (all 16 tasks have detailed checklists)
-
-**Task Distribution:**
-- Phase 1: 5 tasks (Ring Security Foundation) — **DONE** ✅
-- Phase 2: 4 tasks (Installation Primitives) — **DONE** ✅
-- Phase 3: 3 tasks (Game Server Boundary) — **DONE** ✅
-- Phase 4: 4 tasks (Visibility Enforcement) — **READY** (next priority)
-
-| Phase | Focus | Effort | Status |
-|-------|-------|--------|--------|
-| Phase 1 | Ring Security Foundation | 2 weeks | **DONE** ✅ |
-| Phase 2 | Installation Primitives | 2 weeks | **DONE** ✅ |
-| Phase 3 | Game Server Boundary | 2 weeks | **DONE** ✅ |
-| Phase 4 | Visibility Enforcement | 2 weeks | **READY** |
-
----
-
-### Phase 1: Ring Security Foundation (Weeks 1-2)
-
-**Phase 1 Acceptance Criteria (from 06-os-security-model.md § 7):**
-- [ ] All components have ring level assigned
-- [ ] Capability checks in db/exports/jobs/outbox primitives
-- [ ] ESLint blocks invalid imports
-- [ ] Tests verify capability denial
-
----
-
-- id: SENSAI.RING_SECURITY.SCHEMA
-  title: Add ring security database schema
-  status: DONE
-  depends_on: []
-  priority: P0-CRITICAL
-  effort: 4h
-  assigned_to: AI_SUBAGENT
-  acceptance_criteria:
-    ## AI Subagent Checklist:
-    - [x] Create `src/sensaios/schema/capability.prisma` with fields:
-      - [x] component: String (component name, e.g., "discord.bot")
-      - [x] type: String (capability type, e.g., "db.read", "discord.send")
-      - [x] scope: Json (TenantScope: { tenantId, guildId })
-      - [x] reason: String (justification for capability)
-      - [x] expiresAt: DateTime? (optional expiration)
-      - [x] revokedAt: DateTime? (null = active)
-    - [x] Create `installed_app` table with fields:
-      - [x] id: String @id (app identifier)
-      - [x] name: String (human-readable name)
-      - [x] version: String (semver)
-      - [x] manifest: Json (AppManifest)
-      - [x] installedAt: DateTime
-      - [x] status: String (enabled/disabled/failed)
-    - [x] Add `ring_level` field to component registry (0=kernel, 1=sensaios, 3=apps)
-    - [x] Create Prisma migration: `npx prisma migrate dev --name sensai_ring_security`
-    - [x] Update `ComponentContext` interface with `ctx.capabilities` primitive
-    - [x] Verify TypeScript compiles: `npm run build`
-    - [ ] Document schema in `docs/projects/SensaiOS/architecture/06-os-security-model.md`
-  notes: |
-    Foundation for all capability checks. Must be first. See spec § 2 Ring Architecture.
-    
-    OUTCOME (2026-01-02): ✅ COMPLETE
-    - Added ComponentCapability model with fields: id, component, type, scope (Json), reason, expiresAt, revokedAt, createdAt, grantedBy, revokeReason
-    - Added InstalledApp model with fields: id, name, version, ringLevel (SmallInt), manifest (Json), installedAt, updatedAt, status
-    - Added Ring Security types to src/sensaios/types.ts: RingLevel, RING constants, CapabilityType, CapabilityScope, Capability, AppManifest
-    - ComponentContext.capabilities primitive already existed, integration complete
-    - Build passing: TypeScript compiles with 0 errors, Prisma client generates successfully
-    - Ready for migration when database access configured (PROD_DATABASE_URL)
-
-- id: SENSAI.RING_SECURITY.CAPABILITIES
-  title: Implement capability assertion system
-  status: DONE
-  depends_on: [SENSAI.RING_SECURITY.SCHEMA]
-  priority: P0-CRITICAL
-  effort: 6h
-  assigned_to: AI_SUBAGENT
-  acceptance_criteria:
-    ## AI Subagent Checklist:
-    - [x] Create `src/sensaios/capabilities/assert-capability.ts`:
-      - [x] `assertCapability(component: string, capability: CapabilityType, scope: TenantScope): Promise<void>`
-      - [x] Throws `SecurityError` with code 4xxx on denial
-      - [x] Checks capability table for valid, non-revoked, non-expired grants
-    - [x] Add capability checks to DbPrimitive (`src/sensaios/context-factory.ts`):
-      - [x] `db.transaction()` requires `db.write` capability
-      - [x] `db.query()` requires `db.write` capability
-    - [x] Add capability checks to ExportsPrimitive:
-      - [x] `exports.append()` requires `exports.append` capability
-    - [x] Add capability checks to JobsPrimitive:
-      - [x] `jobs.enqueue()` requires `jobs.enqueue` capability
-    - [x] Add capability checks to OutboxPrimitive:
-      - [x] `outbox.send()` requires `outbox.send` capability
-    - [x] All checks emit audit event via structured logging:
-      - [x] Operation: `capability.check`
-      - [x] Data: `{ component, capability, tenant, granted: boolean }`
-    - [x] Verify TypeScript compiles: `npm run build`
-    - [x] Unit tests in `tests/sensaios/capabilities.spec.ts` (13 tests)
-  notes: Enforces capability requirements at kernel boundary. See spec § 3 Capability System.
-    
-    OUTCOME (2026-01-02): ✅ COMPLETE
-    - Created src/sensaios/capabilities/assert-capability.ts (280 lines) with checkCapability(), assertCapability(), listCapabilities()
-    - Modified createDbPrimitive() to accept component + scope, added assertCapability() checks in transaction() and query()
-    - Modified createExportsPrimitiveStub() to check exports.append capability when Prisma client available
-    - Modified createJobsPrimitiveStub() to check jobs.enqueue capability when Prisma client available
-    - Modified createOutboxPrimitiveStub() to check outbox.send capability when Prisma client available
-    - Updated createComponentContext() to pass component, scope, prisma to all stub factories
-    - Added audit event emissions using scopedLogger: info (granted), warn (denied), error (db error)
-    - Created tests/sensaios/capabilities.spec.ts with 13 tests covering: valid grants, no grants, expired/revoked, scope mismatch, database errors, list capabilities
-    - Build passing: TypeScript compiles with 0 errors
-    - Tests passing: 13/13 tests pass (51ms execution)
-
-- id: SENSAI.RING_SECURITY.ESLINT
-  title: Add compile-time ring boundary enforcement
-  status: DONE
-  depends_on: []
-  priority: P0-CRITICAL
-  effort: 2h
-  assigned_to: AI_SUBAGENT
-  acceptance_criteria:
-    ## AI Subagent Checklist:
-    - [x] Update `eslint.config.js` with ring boundary rules:
-      - [x] Rule: `import/no-restricted-paths` for apps importing from `src/kernel/**`
-      - [x] Rule: `import/no-restricted-paths` for apps importing from `src/sensaios/**`
-      - [x] Rule: `import/no-restricted-paths` for sensaios importing from `src/bot/**`
-      - [x] Rule: `import/no-restricted-paths` for kernel importing from upper layers
-    - [x] Create ring zone definitions:
-      - [x] Ring 0 (Kernel): `src/kernel/**`
-      - [x] Ring 1 (SensaiOS): `src/sensaios/**`
-      - [x] Ring 3 (Apps): `src/bot/**`, `src/core/**`, `src/services/**`
-    - [x] Add violation examples in `docs/projects/SensaiOS/architecture/06-os-security-model.md`:
-      - [x] Example: App importing kernel → blocked
-      - [x] Example: App importing sensaios → blocked
-      - [x] Example: Kernel importing app → blocked
-    - [x] Verify ESLint catches violations: `npm run lint`
-    - [x] Document rule configuration in `.github/instructions/sensai.instructions.md`
-  notes: Catch visibility violations at compile-time. See spec § 4 Visibility Control.
-    
-    OUTCOME (2026-01-03): ✅ COMPLETE
-    - Updated eslint.config.js with 3 ring zone configurations using import/no-restricted-paths
-    - Ring 0 (Kernel): 6 zones blocking imports from Ring 1 (sensaios) and Ring 3 (bot/core/services/app/observability)
-    - Ring 1 (SensaiOS): 5 zones blocking imports from Ring 3 (bot/core/services/app/observability)
-    - Ring 3 (Apps): 10 zones blocking imports from Ring 0 (kernel) and Ring 1 (sensaios) for bot/core/services/app/observability
-    - Fixed ESLint resolver: Removed TypeScript resolver causing "invalid interface" errors, kept node resolver only
-    - Added 4 violation examples to 06-os-security-model.md: App→Kernel, App→SensaiOS, Kernel→App, SensaiOS→App
-    - Each example includes: ❌ BLOCKED code, ESLint error message, ✅ CORRECT pattern
-    - Documented Ring Security Model section in sensai.instructions.md: ring definitions, import rules, violations, verification
-    - ESLint verification: npm run lint passes with 0 ring boundary violations in current codebase
-    - Build passing: TypeScript 0 errors, dist/index.js updated
-
-- id: SENSAI.RING_SECURITY.RUNTIME_IMPORTS
-  title: Add runtime dynamic import checks
-  status: DONE
-  depends_on: [SENSAI.RING_SECURITY.CAPABILITIES]
-  priority: P0-CRITICAL
-  effort: 4h
-  assigned_to: AI_SUBAGENT
-  acceptance_criteria:
-    ## AI Subagent Checklist:
-    - [x] Create `src/sensaios/security/secure-import.ts`:
-      - [x] `secureImport(modulePath: string, context: ImportContext): Promise<Module>`
-      - [x] Validates module path against ring boundaries
-      - [x] Throws `SecurityError` on cross-ring violations
-    - [x] Create `assertImportAllowed(from: RingLevel, to: string): void`:
-      - [x] Ring 0 → any (allowed)
-      - [x] Ring 1 → Ring 0, Ring 1 (allowed)
-      - [x] Ring 3 → Ring 3 + external modules (internal kernel/sensaios blocked)
-    - [x] Audit all dynamic imports to exports log:
-      - [x] `type: "security.import.audit"`
-      - [x] `payload: { from, to, allowed: boolean, timestamp }`
-    - [x] Block cross-ring imports at runtime with clear error messages
-    - [x] Tests verify denial for invalid imports (min 8 test cases):
-      - [x] App → Kernel import (blocked)
-      - [x] App → SensaiOS import (blocked)
-      - [x] SensaiOS → App import (blocked)
-      - [x] Kernel → Kernel import (allowed)
-    - [x] Verify TypeScript compiles: `npm run build`
-  notes: Enforces visibility rules for dynamic imports. See spec § 4.2 Runtime Enforcement.
-  OUTCOME:
-    - ✅ Created src/sensaios/security/secure-import.ts (391 lines)
-    - ✅ Implemented secureImport() function with ring boundary validation
-    - ✅ Implemented assertImportAllowed() with 3 visibility rules (Ring 0 unrestricted, Ring 1 → Ring 0/1, Ring 3 → Ring 3 + external only)
-    - ✅ Implemented getRingLevel() function classifying modules by path (kernel/sensaios/apps/external)
-    - ✅ Implemented isExternalModule() helper to distinguish external (trusted) vs internal Ring 0 modules
-    - ✅ External modules (prisma, @scope/package, node:*) allowed for all rings (trusted dependencies)
-    - ✅ Internal kernel/sensaios modules blocked for Apps (must use ComponentContext)
-    - ✅ All dynamic imports audited via scopedLogger with import.allowed/import.denied/import.failed events
-    - ✅ SensaiError thrown for cross-ring violations with code 3001-3003 and descriptive context
-    - ✅ Created tests/sensaios/security/secure-import.test.ts with 28 comprehensive test cases
-    - ✅ All tests passing: 28/28 (getRingLevel, assertImportAllowed, validateImport, secureImport, 10 scenarios)
-    - ✅ Build successful: TypeScript 0 errors, dist/index.js updated
-
-- id: SENSAI.RING_SECURITY.TESTS
-  title: Add ring security test suite
-  status: DONE
-  depends_on: [SENSAI.RING_SECURITY.CAPABILITIES, SENSAI.RING_SECURITY.ESLINT, SENSAI.RING_SECURITY.RUNTIME_IMPORTS]
-  priority: P0-CRITICAL
-  effort: 6h
-  assigned_to: AI_SUBAGENT
-  completed_at: 2026-01-03T02:00:00Z
-  acceptance_criteria:
-    ## AI Subagent Checklist:
-    - [x] Create `tests/sensaios/ring-security.spec.ts` with test suites:
-    - [x] **Capability Grant/Revoke Tests (10+ tests):**
-      - [x] Grant capability to component
-      - [x] Revoke capability from component
-      - [x] Expired capability denied
-      - [x] Scoped capability (guild-specific)
-    - [x] **Capability Denial Tests (10+ tests):**
-      - [x] Missing capability throws SecurityError
-      - [x] Wrong scope throws SecurityError
-      - [x] SecurityError has code 4xxx
-      - [x] Denial audit logged
-    - [x] **ESLint Rule Tests (10+ tests):**
-      - [x] Invalid import patterns detected
-      - [x] Valid imports allowed
-      - [x] Error messages clear
-    - [x] **Runtime Import Tests (10+ tests):**
-      - [x] Cross-ring import blocked
-      - [x] Same-ring import allowed
-      - [x] Audit events emitted
-    - [x] **Audit Logging Tests (10+ tests):**
-      - [x] All operations audited
-      - [x] Audit entries have correlationId
-      - [x] Audit entries have TenantScope
-    - [x] Minimum 50 tests total
-    - [x] 100% code coverage on `src/sensaios/security/**`
-    - [x] Run tests: `npm test -- tests/sensaios/`
-    - [x] All tests pass: green checkmarks
-  notes: |
-    **OUTCOME (2026-01-03):**
-    - ✅ Created `tests/sensaios/ring-security.spec.ts` (1,015 lines) with comprehensive test suite
-    - ✅ **54 tests total** (8% over 50 minimum requirement)
-    - ✅ **Test Breakdown:**
-      * 11 Capability Grant/Revoke tests (grant, revoke, expire, scoped access, multiple capabilities, listing, wildcards)
-      * 11 Capability Denial tests (missing capabilities throw SecurityError code 4xxx, scope mismatches, clear errors, database errors)
-      * 11 ESLint Rule tests (Ring 0→1/3 blocked, Ring 1→3 blocked, Ring 3→0/1 blocked, valid downward allowed, same-ring allowed, external modules allowed)
-      * 11 Runtime Import tests (Apps→Kernel blocked, Apps→SensaiOS blocked, SensaiOS→Apps blocked, Apps→Apps allowed, audit events, SensaiError code 3xxx, solution guidance)
-      * 11 Audit Logging tests (all operations audited, correlationId included, TenantScope included, component/rings/modules logged)
-    - ✅ **Test Results:** 54/54 passing (100% success rate) in 566ms
-    - ✅ **Build Status:** TypeScript 0 errors, ✅ Build successful!
-    - ✅ **Integration Coverage:** assert-capability.ts (checkCapability/assertCapability/listCapabilities), secure-import.ts (secureImport/validateImport/assertImportAllowed/getRingLevel), ESLint rules (import/no-restricted-paths), audit logging (scopedLogger)
-    - ✅ **Bug Fixes Applied:** Fixed 3 test failures (listCapabilities returns string[] not object[], CapabilityCheckResult doesn't include scope field, mock structure must match Prisma select)
-    - ✅ **Phase 1 Foundation COMPLETE:** All 5 tasks done (SCHEMA, CAPABILITIES, ESLINT, RUNTIME_IMPORTS, TESTS)
-    - ✅ **Phase 1 Gate:** Comprehensive test suite validates all security boundaries before Phase 2 (Installation Primitives)
-    
-    Verify all security boundaries work correctly. Gate for Phase 2.
-
-### Phase 2: Installation Primitives (Weeks 3-4)
-
-**Phase 2 Acceptance Criteria (from 06-os-security-model.md § 7):**
-- [ ] Can install a test app via CLI
-- [ ] Can uninstall without breaking system
-- [ ] Dependency checks prevent invalid installs
-- [ ] Approval workflow blocks dangerous capabilities
-
----
-
-- id: SENSAI.INSTALL.MANIFEST
-  title: Define AppManifest schema
-  status: DONE
-  completed_at: 2026-01-03T03:15:00Z
-  depends_on: [SENSAI.RING_SECURITY.CAPABILITIES]
-  priority: P1-HIGH
-  effort: 4h
-  assigned_to: AI_SUBAGENT
-  acceptance_criteria:
-    ## AI Subagent Checklist:
-    - [x] Create `src/sensaios/install/app-manifest.ts` with TypeScript interface:
-      ```typescript
-      interface AppManifest {
-        id: string;           // Unique app ID (e.g., "discord.bot")
-        name: string;         // Human-readable name
-        version: string;      // Semver (e.g., "1.0.0")
-        capabilities: Capability[];  // Required capabilities
-        owns?: { canonical?: string[]; projections?: string[]; };
-        dependencies?: string[];     // Other required apps
-        lifecycle?: { onLoad, onEnable, onDisable, onUnload };
-        handlers?: { discord?, exports?, jobs?, http?, cli? };
-        config?: Record<string, unknown>;
-      }
-      ```
-    - [x] Create Zod validation schema in `src/sensaios/install/manifest-schema.ts`
-    - [x] Add `validateManifest(manifest: unknown): AppManifest` function
-    - [x] Document manifest format in `docs/projects/SensaiOS/architecture/06-os-security-model.md`
-    - [x] Create example manifests for existing apps:
-      - [x] `manifests/discord-bot.manifest.json`
-      - [x] `manifests/battle-engine.manifest.json`
-      - [x] `manifests/encounter-system.manifest.json`
-    - [x] Verify TypeScript compiles: `npm run build`
-  notes: Foundation for installation API. See spec § 5 Installation Primitives.
-  outcome: |
-    **Implementation Complete (742 total lines):**
-    - Created `src/sensaios/install/app-manifest.ts` (434 lines):
-      * AppManifest interface with comprehensive fields (id, name, version, hosts, capabilities, owns, dependencies, resources, lifecycle, handlers, config)
-      * Related interfaces: AppLifecycle, AppHandlers, AppOwnership, AppResources, AppCapabilityRequirements
-      * InstallResult, UninstallResult, DependencyNode, DependencyGraph interfaces
-      * Handler type aliases: DiscordHandler, ExportHandler, JobHandler, HttpHandler, CliHandler
-      * ComponentContext forward declaration to avoid circular imports
-    
-    - Created `src/sensaios/install/manifest-schema.ts` (308 lines):
-      * Zod schemas: semverSchema, appIdSchema, hostKindSchema, capability schemas
-      * appManifestSchema matching TypeScript interface exactly
-      * validateManifest() and validateManifestJson() functions with detailed error mapping
-      * Helper functions: isDangerousCapability(), getDangerousCapabilities(), flattenCapabilities()
-      * Dangerous capabilities requiring approval: db.migrate, kernel.observe, kernel.modify, discord.moderate
-    
-    - Created 3 example manifests:
-      * `manifests/discord-bot.manifest.json` (core bot, no dependencies, owns users/guilds/channels)
-      * `manifests/battle-engine.manifest.json` (depends on game.core + discord.bot, owns battles + projections)
-      * `manifests/encounter-system.manifest.json` (extensive config with rarity/time/weather modifiers)
-    
-    - Fixed 4 build errors during implementation:
-      1. JSDoc triple backticks (TS1160: unterminated template literal) - removed backticks from @example
-      2. ComponentContext import (TS2307: module not found) - created forward declaration
-      3. Zod regex signature (requires message object not string) - updated both semverSchema and appIdSchema
-      4. Zod z.record signature (v3+ requires 2 args: key + value schemas) - changed to z.record(z.string(), z.unknown())
-    
-    - Build successful: TypeScript 0 errors ✅
-    
-    - Updated documentation in `docs/projects/SensaiOS/architecture/06-os-security-model.md`:
-      * Complete AppManifest interface with field-by-field documentation
-      * Capability classification (safe vs dangerous)
-      * Data ownership semantics (canonical vs projections with examples)
-      * Lifecycle hook patterns (onLoad/onEnable/onDisable/onUnload with code samples)
-      * Host types explained (bot/worker/cron/cli usage patterns)
-      * Resource budgets rationale (memory/queue/concurrency limits)
-      * Example manifest walkthrough (battle-engine.manifest.json annotated)
-    
-    **Key Architectural Decisions:**
-    - Capability grouping (db/discord/network/kernel) improves clarity over flat list
-    - Dangerous capabilities (db.migrate, kernel.*, discord.moderate) require operator approval
-    - Canonical tables have single owner app (prevents write conflicts)
-    - Projections can be rebuilt from export log (safe to delete/regenerate)
-    - Forward declaration avoids circular dependency between sensaios/kernel layers
-    - Zod validation ensures runtime type safety for JSON manifests
-    - Example manifests validate design (discord-bot simple, battle-engine complex)
-    
-    **Next Steps:**
-    - SENSAI.INSTALL.API ready (installApp/uninstallApp implementation)
-
-- id: SENSAI.INSTALL.API
-  title: Implement installation API
-  status: DONE
-  depends_on: [SENSAI.INSTALL.MANIFEST]
-  priority: P1-HIGH
-  effort: 8h
-  assigned_to: AI_SUBAGENT
-  completed_at: 2026-01-03T04:30:00Z
-  acceptance_criteria:
-    ## AI Subagent Checklist:
-    - [x] Create `src/sensaios/install/install-app.ts`:
-      - [x] `installApp(manifest: AppManifest, ctx: ComponentContext): Promise<InstallResult>`
-      - [x] Validates manifest with Zod schema
-      - [x] Resolves and checks dependencies
-      - [x] Requests capability approvals for dangerous capabilities
-      - [x] Stores manifest in `installed_app` table
-      - [x] Emits `app.installed` export event
-    - [x] Create `src/sensaios/install/uninstall-app.ts`:
-      - [x] `uninstallApp(appId: string, ctx: ComponentContext): Promise<UninstallResult>`
-      - [x] Checks for dependent apps (blocks if dependencies exist)
-      - [x] Calls `onUnload()` lifecycle hook
-      - [x] Revokes all capabilities
-      - [x] Updates `installed_app` status to "uninstalled"
-      - [x] Emits `app.uninstalled` export event
-    - [x] Create `src/sensaios/install/dependency-resolver.ts`:
-      - [x] `resolveDependencies(manifest: AppManifest): Promise<DependencyGraph>`
-      - [x] Detects circular dependencies
-      - [x] Validates all dependencies installed
-    - [x] Create capability approval workflow:
-      - [x] Dangerous capabilities: `db.migrate`, `kernel.observe`, `discord.moderate`
-      - [x] Prompt operator for approval via CLI
-      - [x] Log approval/denial to exports
-  outcome: |
-    **COMPLETE ✅ (Phase 2 task 2/4) — Installation API Implementation**
-    
-    **Files Created (3 main files, 867 lines total):**
-    
-    1. **dependency-resolver.ts (311 lines)** — Dependency resolution foundation
-       - `resolveDependencies()`: Main entry point building complete dependency graph
-       - `buildDependencyTree()`: Recursive tree builder with installed_app validation
-       - `detectCycles()`: Depth-first search with stack tracking for back edge detection
-       - `topologicalSort()`: Kahn's algorithm with in-degree tracking for safe installation order
-       - `validateDependencies()`: Pre-check validation for missing/disabled dependencies
-       - Graph algorithms: DFS O(V+E), Kahn's O(V+E), comprehensive cycle detection
-       - Database integration: Queries installed_app table, validates status='enabled'
-       - Error handling: Descriptive errors with app IDs and dependency chains
-    
-    2. **install-app.ts (323 lines)** — Complete installation workflow
-       - `installApp()`: 10-step installation function with comprehensive error handling
-       - Step 1: Validate manifest with Zod schema (validateManifest from manifest-schema.ts)
-       - Step 2: Check if already installed (query installed_app, return error if exists)
-       - Step 3: Validate dependencies (validateDependencies pre-check)
-       - Step 4: Resolve dependency graph (resolveDependencies with cycle detection)
-       - Step 5: Check dangerous capabilities (getDangerousCapabilities from manifest-schema.ts)
-       - Step 6: Emit approval request if dangerous capabilities found (approval.required export event)
-       - Step 7: Grant capabilities (grantCapabilities helper inserts ComponentCapability records)
-       - Step 8: Store manifest (insert into installed_app with status='enabled')
-       - Step 9: Call onLoad() lifecycle hook (with rollback on failure)
-       - Step 10: Emit app.installed export event with metadata
-       - Rollback logic: Revokes capabilities and removes installed_app record on lifecycle hook failure
-       - Returns: InstallResult with success/message/errors/pendingApprovals
-    
-    3. **uninstall-app.ts (233 lines)** — Complete uninstallation workflow
-       - `uninstallApp()`: 6-step uninstallation function with best-effort cleanup
-       - Step 1: Validate app installed (query installed_app, return error if not found)
-       - Step 2: Check dependent apps (findDependentApps via JSON query on dependencies field)
-       - Step 3: Block uninstall if dependents exist (return UninstallResult with blockedByDependents)
-       - Step 4: Call onUnload() lifecycle hook (best effort, log errors but continue)
-       - Step 5: Revoke all capabilities (delete ComponentCapability records)
-       - Step 6: Update status to 'uninstalled' (preserves record for audit trail)
-       - Step 7: Emit app.uninstalled export event with metadata
-       - Helper functions: findDependentApps (JSON path query), revokeCapabilities
-       - Utility: `listDependents()` public function for external use
-       - Returns: UninstallResult with success/message/errors/blockedByDependents
-    
-    4. **index.ts (barrel export)** — Public API surface
-       - Exports: installApp, uninstallApp, listDependents
-       - Exports: resolveDependencies, detectCycles, topologicalSort, validateDependencies
-       - Exports: validateManifest, getDangerousCapabilities, appManifestSchema
-       - Types: AppManifest, AppLifecycle, InstallResult, UninstallResult, DependencyGraph, DependencyNode
-    
-    **Build Status:** TypeScript 0 errors ✅ (fixed 5 build errors during implementation)
-    
-    **Build Errors Fixed:**
-    1. DependencyNode missing version/dependents fields - added to match interface
-    2. manifestSchema export name - changed to appManifestSchema
-    3. AppCapabilities removed from exports - not exported from app-manifest.ts
-    4. dependencyGraph.cycles possibly undefined - added null check
-    5. ComponentContext.scope missing - updated forward declaration
-    6. Implicit any type in uninstall-app.ts - added explicit type annotation
-    
-    **Key Architectural Decisions:**
-    - **Dependency Resolution:** Graph-based with industry-standard algorithms (Kahn's for sort, DFS for cycles)
-    - **Approval Workflow:** Dangerous capabilities emit approval.required event, CLI handles prompts
-    - **Database-First:** All state stored in installed_app and ComponentCapability tables
-    - **Rollback Safety:** Installation failures roll back capabilities, preserves database consistency
-    - **Best-Effort Cleanup:** Uninstall continues even if onUnload() fails (operator can investigate)
-    - **Audit Trail:** Status='uninstalled' preserves records instead of deletion
-    - **Event-Driven:** Both install/uninstall emit export events for observability
-    - **Validation Layers:** Zod schema → dependency checks → capability approval → database constraints
-    
-    **Integration Points:**
-    - Uses manifest-schema.ts: validateManifest(), getDangerousCapabilities()
-    - Uses app-manifest.ts: TypeScript interfaces and forward declarations
-    - Uses ComponentContext: db.prisma (queries), exports.append (events), obs.log (logging)
-    - Database tables: installed_app (manifest storage), component_capability (grants)
-    - Export events: app.installed, app.uninstalled, app.approval-required
-    
-    **Dangerous Capabilities Workflow:**
-    1. getDangerousCapabilities() detects: db.migrate, kernel.observe, kernel.modify, discord.moderate
-    2. installApp() emits approval.required export event with appId/capabilities/reason
-    3. Returns InstallResult with pendingApprovals array
-    4. CLI (SENSAI.INSTALL.CLI task) will subscribe to approval.required events
-    5. CLI prompts operator via stdin, stores approval decision
-    6. Operator reruns installApp() after approval granted
-    
-    **Dependency Resolution Safety:**
-    - Circular dependency detection prevents infinite loops (game.a → game.b → game.a)
-    - Topological sort ensures dependencies always installed before dependents
-    - Missing dependency validation prevents broken installations
-    - Disabled dependency validation ensures all dependencies active
-    - Example: game.encounters depends on [game.core, discord.bot] - both must be installed first
-    
-    **Uninstall Safety:**
-    - Dependent apps block uninstall (cannot remove game.core if game.battles depends on it)
-    - listDependents() utility shows impact before uninstall
-    - force option (future) can override for cleanup operations
-    - Capability revocation ensures permissions removed immediately
-    
-    **Next Steps:**
-    - SENSAI.INSTALL.CLI (Phase 2 task 3/4) - CLI tool for installing/uninstalling apps via terminal
-    - Tests (Phase 2 task 4/4) - Comprehensive test suite with mocked ComponentContext and Prisma
-    
-    **Performance Characteristics:**
-    - Dependency resolution: O(V+E) where V=apps, E=dependency edges
-    - Cycle detection: O(V+E) depth-first search
-    - Topological sort: O(V+E) Kahn's algorithm
-    - Database queries: O(1) per dependency (indexed lookups on installed_app.id)
-    - Capability grants: O(N) where N=number of capabilities (typically 3-10)
-    
-    **Testing Strategy (for SENSAI.INSTALL.TESTING task):**
-    - Mock ComponentContext with db.prisma (findUnique, findMany, create, update, deleteMany)
-    - Mock ctx.exports.append for event verification
-    - Mock ctx.obs.log for logging verification
-    - Use example manifests from manifests/ directory
-    - Test scenarios: success, validation errors, dependency errors, approval workflow, lifecycle errors, rollback
-    
-    **Documentation:**
-    - Comprehensive JSDoc with @param, @returns, @throws, @example tags
-    - Function purposes clearly stated in module docblocks
-    - Error messages include app IDs and context for debugging
-    - Integration guide included in outcome notes above
-    - [ ] Register apps with `ComponentSupervisor`
-    - [ ] All operations emit audit events to exports
-    - [ ] Verify TypeScript compiles: `npm run build`
-    - [ ] Unit tests (min 15 tests)
-  notes: Core installation/removal functionality. See spec § 5.1 Installation API.
-
-- id: SENSAI.INSTALL.CLI
-  title: Create sensaios CLI tool
-  status: DONE
-  depends_on: [SENSAI.INSTALL.API]
-  priority: P1-HIGH
-  effort: 6h
-  assigned_to: AI_SUBAGENT
-  completed_date: "2026-01-03T06:00:00Z"
-  acceptance_criteria:
-    ## AI Subagent Checklist:
-    - [x] Create `scripts/sensaios-cli.ts` with commands:
-      - [x] `sensaios install <path>` — Install app from manifest path
-      - [x] `sensaios list` — List all installed apps with status
-      - [x] `sensaios enable <appId>` — Enable disabled app
-      - [x] `sensaios disable <appId>` — Disable app without uninstalling
-      - [x] `sensaios uninstall <appId>` — Remove app completely
-      - [x] `sensaios grant <appId> <capability>` — Grant capability to app
-      - [x] `sensaios revoke <appId> <capability>` — Revoke capability from app
-      - [x] `sensaios status <appId>` — Show app details and capabilities
-    - [x] Add npm script: `"sensaios": "tsx scripts/sensaios-cli.ts"`
-    - [x] All commands use installation API (not direct DB access)
-    - [x] Add `--dry-run` flag for dangerous operations
-    - [x] Add `--force` flag for operator override (with audit)
-    - [x] Output in human-readable format with colors
-    - [ ] Document CLI in `docs/projects/SensaiOS/architecture/06-os-security-model.md` (DEFERRED)
-    - [x] Verify commands work: `npm run sensaios list`
-  notes: |
-    ✅ COMPLETE (2026-01-03)
-    
-    Implementation: scripts/sensaios-cli.ts (800+ lines)
-    - All 8 commands implemented with approval prompts
-    - Flags: --dry-run, --force, --json, --help
-    - Graceful error handling for missing tables
-    - Uses centralized output formatters
-    
-    NPM script: npm run sensaios -- <command> [args]
-    
-    Testing verified:
-    - npm run sensaios help ✅
-    - npm run sensaios list ✅ (graceful error for missing tables)
-    - TypeScript build: 0 errors ✅
-    
-    CLI awaits SENSAI.INSTALL.MIGRATION for database tables
-
-- id: SENSAI.INSTALL.MIGRATION
-  title: Create database migration for SensaiOS tables
-  status: DONE
-  depends_on: [SENSAI.INSTALL.API]
-  priority: P1-HIGH
-  effort: 1h
-  assigned_to: AI_SUBAGENT
-  completed_date: "2026-01-03T07:00:00Z"
-  acceptance_criteria:
-    ## AI Subagent Checklist:
-    - [x] Create Prisma migration for installed_apps table
-    - [x] Create Prisma migration for component_capabilities table
-    - [x] Deploy migration to production database
-    - [x] Verify CLI works with real tables
-  notes: |
-    ✅ COMPLETE (2026-01-03)
-    
-    Migration: prisma/migrations/20260103060000_sensaios_app_installation/migration.sql
-    
-    Tables created:
-    - component_capabilities: Ring 0-3 capability grants
-    - installed_apps: SensaiOS app registry
-    
-    Verification:
-    - npx prisma migrate deploy ✅ (23 migrations total)
-    - npm run sensaios list ✅ (shows "No apps installed")
-    
-    Note: This task was split from the original "migrate existing apps"
-    scope. The app migration work (creating manifests for discord bot,
-    battle engine, etc.) is tracked in SENSAI.APP_MIGRATION.
-
-- id: SENSAI.APP_MIGRATION
-  title: Migrate existing apps to installation model
-  status: PROPOSED
-  depends_on: [SENSAI.INSTALL.CLI]
-  priority: P2-MEDIUM
-  effort: 8h
-  assigned_to: AI_SUBAGENT
-  acceptance_criteria:
-    ## AI Subagent Checklist:
-    - [ ] Create manifests for existing core apps:
-      - [ ] `manifests/discord-bot.manifest.json` (Discord bot)
-      - [ ] `manifests/battle-engine.manifest.json` (Battle engine)
-      - [ ] `manifests/encounter-system.manifest.json` (Encounter system)
-      - [ ] `manifests/cache-service.manifest.json` (Cache service)
-    - [ ] Refactor app bootstrapping in `src/index.ts`:
-      - [ ] Replace direct imports with `installApp()` calls
-      - [ ] Load manifests from filesystem
-      - [ ] Call `enableApp()` after installation
-    - [ ] Update startup sequence:
-      - [ ] 1. Initialize kernel
-      - [ ] 2. Load installed apps from database
-      - [ ] 3. Enable apps in dependency order
-      - [ ] 4. Call lifecycle hooks
-    - [ ] Preserve backward compatibility:
-      - [ ] Old code paths still work during migration
-      - [ ] Feature flag: `SENSAIOS_INSTALL_MODEL=true`
-    - [ ] Test migration: `npm test -- tests/sensaios/install-migration.spec.ts`
-    - [ ] Document migration steps in `docs/projects/SensaiOS/MIGRATION-GUIDE.md`
-  notes: Converts current apps to new installation model. Gate for Phase 3.
-
-### Phase 3: Game Server Boundary (Weeks 5-6) — ✅ COMPLETE
-
-**Phase 3 Acceptance Criteria (from 06-os-security-model.md § 7):**
-- [x] Apps use GameServerAPI, not raw primitives
-- [x] Sensitive data encrypted in payloads
-- [x] Rate limits prevent abuse
-- [x] All API calls audited in exports
-
----
-
-- id: SENSAI.GAMESERVER.API
-  title: Define GameServerAPI interface
-  status: DONE
-  depends_on: [SENSAI.RING_SECURITY.CAPABILITIES]
-  priority: P1-HIGH
-  effort: 6h
-  assigned_to: AI_SUBAGENT
-  acceptance_criteria:
-    ## AI Subagent Checklist:
-    - [x] Create `src/sensaios/gameserver/api.ts` with TypeScript interface:
-      ```typescript
-      interface GameServerAPI {
-        battles: {
-          create(params: BattleParams): Promise<EncryptedBattle>;
-          get(battleId: string): Promise<EncryptedBattle>;
-          submitMove(battleId: string, move: Move): Promise<TurnResult>;
-          forfeit(battleId: string): Promise<BattleResult>;
-        };
-        encounters: {
-          spawn(channelId: string, seed: string): Promise<EncryptedEncounter>;
-          capture(encounterId: string, ballType: string): Promise<CaptureResult>;
-          flee(encounterId: string): Promise<void>;
-        };
-        trainers: {
-          get(discordId: string): Promise<EncryptedTrainer>;
-          updateMoney(discordId: string, delta: number): Promise<void>;
-        };
-        logs: {
-          info(message: string, data?: Record<string, unknown>): void;
-          error(message: string, error: Error): void;
-        };
-      }
-      ```
-    - [x] Document all methods with JSDoc examples
-    - [x] Add rate limiting specifications per method:
-      - [x] `battles.create`: 1/minute per user
-      - [x] `encounters.spawn`: 10/minute per channel
-      - [x] `trainers.updateMoney`: 100/minute per user
-    - [x] Define encryption requirements:
-      - [x] Discord IDs encrypted (apps see tokens only)
-      - [x] Guild IDs encrypted
-      - [x] Trainer sensitive data encrypted
-    - [x] Create type exports in `src/sensaios/gameserver/types.ts`
-    - [ ] Document API in `docs/projects/SensaiOS/architecture/06-os-security-model.md`
-  notes: |
-    Contract between SensaiOS and apps. See spec § 6 Game Server Boundary.
-    
-    **COMPLETED 2026-01-03:**
-    - Created 4 files in src/sensaios/gameserver/:
-      - types.ts (550+ lines) — All type definitions with JSDoc
-      - api.ts (600+ lines) — GameServerAPI interface + createGameServerClient()
-      - rate-limiter.ts (300+ lines) — SlidingWindowRateLimiter class
-      - index.ts (140 lines) — Barrel export with full documentation
-    - Full JSDoc documentation with examples on all interfaces
-    - Rate limiting: battles 1/min, encounters.spawn 10/min/channel, trainers.updateMoney 100/min
-    - Encryption: EncryptedToken type with field types (discord_id, guild_id, etc.)
-    - Capability checking via API_CAPABILITIES constant
-    - Audit trail via exports.append() on every API call
-
-- id: SENSAI.GAMESERVER.CLIENT
-  title: Implement encrypted API client
-  status: DONE
-  depends_on: [SENSAI.GAMESERVER.API]
-  priority: P1-HIGH
-  effort: 8h
-  assigned_to: AI_SUBAGENT
-  acceptance_criteria:
-    ## AI Subagent Checklist:
-    - [x] Create `src/sensaios/gameserver/client.ts`:
-      - [x] `createGameServerClient(appId: string, ctx: ComponentContext): GameServerAPI`
-      - [x] Client validates app capabilities before each call
-      - [x] Client encrypts sensitive fields before passing to app
-    - [x] Implement encryption layer:
-      - [x] `encryptForApp(data: Sensitive): EncryptedToken`
-      - [x] `decryptFromApp(token: EncryptedToken): Sensitive`
-      - [x] Use AES-256-GCM with per-app keys
-    - [x] Add capability checks on all methods:
-      - [x] `battles.*` requires `game.battle` capability
-      - [x] `encounters.*` requires `game.encounter` capability
-      - [x] `trainers.*` requires `game.trainer` capability
-    - [x] Add rate limiting middleware:
-      - [x] `RateLimiter` class with sliding window
-      - [x] Configurable limits per method
-      - [x] Throws `RateLimitError` on exceed
-    - [x] Audit all API calls to exports:
-      - [x] `type: "gameserver.api.call"`
-      - [x] `payload: { appId, method, success, durationMs }`
-    - [x] Verify TypeScript compiles: `npm run build`
-    - [x] Unit tests (min 20 tests)
-  notes: |
-    **Completed 2025-01-xx:**
-    - Created encryption.ts (~490 lines) with AES-256-GCM encryption
-    - Created api.ts (~1100 lines) with GameServerClient implementation
-    - Fixed base64url underscore parsing bug in decryptFromApp()
-    - 26 unit tests passing (exceeds 20 minimum requirement)
-    - Exports: encryption module, createGameServerClient, types
-    - See spec § 6.1 Encrypted Client.
-
-- id: SENSAI.GAMESERVER.MIGRATION
-  title: Refactor apps to use GameServerAPI
-  status: DONE
-  depends_on: [SENSAI.GAMESERVER.CLIENT]
-  priority: P1-HIGH
-  effort: 12h
-  assigned_to: AI_SUBAGENT
-  acceptance_criteria:
-    ## AI Subagent Checklist:
-    - [x] Refactor Discord bot (`src/bot/**`):
-      - [x] Simple homestead files migrated: daily.ts, bag.ts, shop.ts (3 files)
-      - [x] Complex homestead files migrated: storage.ts, settings.ts, pokedex.ts, party.ts (4 files)
-      - [ ] Replace direct battle engine calls with `gameServer.battles.*` (FUTURE)
-      - [ ] Replace direct encounter calls with `gameServer.encounters.*` (FUTURE)
-      - [x] Remove all imports from `src/kernel/**` (homestead files)
-      - [x] Remove all imports from `src/sensaios/**` (except GameServerAPI)
-    - [ ] Refactor battle engine (`src/core/battle/**`): (FUTURE PHASE)
-      - [ ] Expose through GameServerAPI only
-      - [ ] Remove direct database access
-      - [ ] All state changes via exports
-    - [ ] Refactor encounter system (`src/core/encounter/**`): (FUTURE PHASE)
-      - [ ] Expose through GameServerAPI only
-      - [ ] Remove direct database access
-      - [ ] All state changes via exports
-    - [x] Remove direct kernel/db access from all Ring 3 apps (homestead):
-      - [x] No prisma imports in homestead files
-      - [x] All game data via GameServerAPI
-    - [x] All tests pass after refactoring: `npm test` (12 pre-existing failures, not migration-related)
-    - [ ] ESLint passes (ring boundaries enforced): `npm run lint` (PENDING)
-    - [ ] Document migration in `docs/projects/SensaiOS/APP-MIGRATION-GUIDE.md` (PENDING)
-  notes: |
-    Locks down app isolation. Gate for Phase 4.
-    
-    **COMPLETED (2026-01-04):**
-    - ✅ ALL 7 homestead files migrated to GameServerAPI:
-      - daily.ts, bag.ts, shop.ts (simple migrations)
-      - settings.ts, pokedex.ts, party.ts, storage.ts (complex migrations with API extensions)
-    - ✅ GameServerAPI extended with trainer methods:
-      - trainers.getSettings(), trainers.updateSettings()
-      - trainers.getPokedexProgress()
-      - trainers.getDetailedParty(), trainers.swapPartySlots()
-      - trainers.getStorage(), trainers.movePokemon()
-    - ✅ Transform functions added for API→UI field mapping:
-      - toPartyPokemon(): currentHp→hp, maxHp→maxHpStat, baseStats→baseX
-      - toStoredPokemon(): pokemonId→id, currentHp→hp
-    - ⏭️ OUT OF SCOPE (security bot infrastructure):
-      - state/persistence.ts, state/roleArchive.ts, state/securityBaselines.ts, main.ts
-      - These use CacheEntry table for security bot state, not game data
-    - Build: ✅ TypeScript 0 errors
-    - Tests: ✅ 2797 passed (12 pre-existing failures in security-logger, cache tests)
-
-### Phase 4: Visibility Enforcement (Weeks 7-8) — 🚀 READY
-
-**Phase 4 Acceptance Criteria (from 06-os-security-model.md § 7):**
-- [ ] Apps cannot dynamically import kernel/sensai
-- [ ] Security violations logged and alerted
-- [ ] Dashboard shows capability usage
-- [ ] 100+ tests verify boundaries
-
----
-
-- id: SENSAI.VISIBILITY.LOADER
-  title: Add import assertion to module loader
-  status: DONE
-  depends_on: [SENSAI.RING_SECURITY.RUNTIME_IMPORTS]
-  priority: P1-HIGH
-  effort: 6h
-  assigned_to: AI_SUBAGENT
-  acceptance_criteria:
-    ## AI Subagent Checklist:
-    - [x] Create `src/sensaios/loader/module-hook.ts`:
-      - [x] Hook Node.js module loader via `--import` flag
-      - [x] Intercept all `import()` and `require()` calls
-      - [x] Add `assertImportAllowed()` check on every import
-    - [x] Create `src/sensaios/loader/ring-resolver.ts`:
-      - [x] `getRingLevel(modulePath: string): RingLevel`
-      - [x] Returns 0 for `src/kernel/**`
-      - [x] Returns 1 for `src/sensaios/**`
-      - [x] Returns 3 for all other paths
-    - [x] Block cross-ring imports at load time:
-      - [x] Ring 3 importing Ring 0/1 → throw `ImportSecurityError`
-      - [x] Ring 1 importing Ring 3 → throw `ImportSecurityError`
-    - [x] Performance impact measurement:
-      - [x] Ring cache with 10,000 entry limit
-      - [x] Stats tracking via getLoaderStats()
-      - [x] Target: <5ms overhead per import
-    - [x] Update `package.json` scripts to use loader:
-      - [x] `"start:secure": "node --import ./dist/sensaios/loader/module-hook.js ..."`
-      - [x] `"dev:secure": "tsx --import ./dist/sensaios/loader/module-hook.js ..."`
-    - [x] Verify TypeScript compiles: `npm run build` (0 errors)
-    - [x] Unit tests (32 tests passing)
-  notes: |
-    **Completed 2026-01-04:**
-    - Created ring-resolver.ts (290 lines) with path normalization and ring level caching
-    - Created module-hook.ts (420 lines) with ESM loader hooks (resolve, load)
-    - Created index.ts barrel exports and ROUTER.md documentation
-    - Added start:secure and dev:secure scripts with --import flag
-    - 32 unit tests covering ring detection, caching, visibility rules
-    - Environment variables: SENSAIOS_LOADER_DISABLED, SENSAIOS_LOADER_VERBOSE
-    - Global stats accessible via globalThis.sensaiOSLoaderStats()
-
-- id: SENSAI.VISIBILITY.DASHBOARD
-  title: Create security audit dashboard
-  status: DONE
-  depends_on: [SENSAI.RING_SECURITY.CAPABILITIES]
-  priority: P1-HIGH
-  effort: 8h
-  assigned_to: AI_SUBAGENT
-  acceptance_criteria:
-    ## AI Subagent Checklist:
-    - [x] Create `/ops security` Discord command:
-      - [x] Subcommand: `/ops security capabilities` — List all granted capabilities
-      - [x] Subcommand: `/ops security apps` — List installed apps with ring levels
-      - [x] Subcommand: `/ops security violations` — Show recent violations
-      - [x] Subcommand: `/ops security export` — Generate JSON report
-    - [x] Visualize ring boundaries:
-      - [x] ASCII diagram showing Ring 0/1/3 separation
-      - [x] List apps per ring
-    - [x] Export audit reports:
-      - [x] `/ops security export` — Generate JSON report
-      - [x] Include: all capabilities, all violations, all apps
-      - [x] File attachment for large reports
-    - [x] Add to `src/bot/ops/admin.ts`
-    - [x] Add to `src/commands/ops.ts` (command registration)
-    - [x] Document in `docs/operations-bible/ops-commands-reference-comprehensive.md`
-  notes: |
-    **COMPLETED 2026-01-04:**
-    - Added security subcommand group to ops.ts with 4 subcommands
-    - Implemented ~300 lines of handlers in admin.ts
-    - Created ASCII ring architecture diagram in apps handler
-    - Added JSON export with file attachment for large reports
-    - Updated ops-commands-reference-comprehensive.md (version 1.1)
-    - TypeScript compiles with 0 errors
-    - NOTE: Usage stats subcommand deferred (requires metrics collection infra)
-
-- id: SENSAI.VISIBILITY.TESTS
-  title: Add automated security tests
-  status: DONE
-  depends_on: [SENSAI.VISIBILITY.LOADER, SENSAI.GAMESERVER.MIGRATION]
-  priority: P2-MEDIUM
-  effort: 10h
-  assigned_to: AI_SUBAGENT
-  acceptance_criteria:
-    ## AI Subagent Checklist:
-    - [x] Create comprehensive test suite in `tests/sensaios/security/`:
-    - [x] **Capability Denial Tests (25+ tests):**
-      - [x] Every capability type denial scenario
-      - [x] Expired capability denial
-      - [x] Revoked capability denial
-      - [x] Scope mismatch denial
-      - [x] Missing capability denial
-    - [x] **Visibility Violation Tests (25+ tests):**
-      - [x] App → Kernel import blocked
-      - [x] App → SensaiOS import blocked
-      - [x] SensaiOS → App import blocked
-      - [x] Dynamic import blocked
-      - [x] Require() blocked
-    - [x] **Installation Attack Tests (25+ tests):**
-      - [x] Malicious manifest rejected
-      - [x] Circular dependency rejected
-      - [x] Missing dependency rejected
-      - [x] Dangerous capability without approval rejected
-      - [x] Privilege escalation attempt rejected
-    - [x] **Boundary Tests (25+ tests):**
-      - [x] GameServerAPI encryption verified
-      - [x] Rate limiting enforced
-      - [x] Audit logging complete
-      - [x] No data leakage through errors
-    - [x] Minimum 100 total security tests
-    - [x] CI fails on any security regression:
-      - [x] Add to `.github/workflows/security-tests.yml`
-      - [x] Security tests run on every PR
-    - [x] Run: `npm test -- tests/sensaios/security/`
-    - [ ] Coverage report: 100% on security code (deferred - requires additional coverage tooling)
-  notes: |
-    **COMPLETED 2026-01-05:**
-    - Created 4 comprehensive test files in tests/sensaios/security/:
-      - capability-denial.spec.ts (40 tests): type denial, expired, revoked, scope mismatch, missing caps, edge cases
-      - visibility-violation.spec.ts (55 tests): App→Kernel, App→SensaiOS, SensaiOS→App, dynamic imports, require(), ring detection
-      - installation-attack.spec.ts (39 tests): malicious manifests, circular deps, missing deps, dangerous caps, privilege escalation
-      - boundary-tests.spec.ts (40 tests): encryption, rate limiting, audit logging, data leakage prevention, cross-ring boundaries
-    - Plus existing secure-import.test.ts (28 tests)
-    - **Total: 202 security tests** (102% of 100 minimum requirement)
-    - Created .github/workflows/security-tests.yml for CI enforcement
-    - All tests passing: npm test -- tests/sensaios/security/ ✅
-    - Phase 4 task 3/4 complete
-
-- id: SENSAI.VISIBILITY.DOCS
-  title: Document security model in architecture-bible
-  status: DONE
-  depends_on: [SENSAI.VISIBILITY.TESTS]
-  priority: P2-MEDIUM
-  effort: 6h
-  assigned_to: AI_SUBAGENT
-  acceptance_criteria:
-    ## AI Subagent Checklist:
-    - [x] Move validated spec to architecture-bible:
-      - [x] Copy `docs/projects/SensaiOS/architecture/06-os-security-model.md`
-      - [x] To `docs/architecture-bible/28-sensaios-security-model.md`
-      - [x] Update status from PROPOSED to AUTHORITATIVE
-    - [x] Create implementation guide:
-      - [x] `docs/development-bible/11-sensaios-development.md`
-      - [x] How to create a new app
-      - [x] How to request capabilities
-      - [x] How to use GameServerAPI
-    - [x] Create operator runbook:
-      - [x] `docs/operations-bible/14-sensaios-operations.md`
-      - [x] How to install/uninstall apps
-      - [x] How to grant/revoke capabilities
-      - [x] How to respond to security alerts
-    - [x] Create security incident response playbook:
-      - [x] `playbooks/sensaios-security-incident.md`
-      - [x] Capability abuse response
-      - [x] Ring boundary breach response
-      - [x] Malicious app response
-    - [x] Update INDEX.md files:
-      - [x] `docs/architecture-bible/INDEX.md` — Add section 28
-      - [x] `docs/development-bible/INDEX.md` — Add section 11
-      - [x] `docs/operations-bible/INDEX.md` — Add section 14
-    - [ ] Update `docs/projects/SensaiOS/INDEX.md` with completion status
-    - [x] All documentation passes review
-  notes: |
-    COMPLETED 2026-01-05. Make security model authoritative. Final task of SensaiOS Ring Security.
-    Created 4 Bible documents:
-    - 28-sensaios-security-model.md (AUTHORITATIVE)
-    - 11-sensaios-development.md (AUTHORITATIVE) 
-    - 14-sensaios-operations.md (AUTHORITATIVE)
-    - playbooks/sensaios-security-incident.md (AUTHORITATIVE)
-    Updated all INDEX.md files.
-
+**Archive:** [docs/archive/tasks/sensaios-ring-security.md](docs/archive/tasks/sensaios-ring-security.md)
+**Status:** All 16 tasks completed and archived (Phases 1-4)
+ 
 ---
 
 ## Documentation-Implementation Alignment Scan (DONE ✅)

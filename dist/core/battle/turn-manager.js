@@ -1,5 +1,42 @@
 import { randomUUID } from "node:crypto";
 const runtimes = new Map();
+let totalRuntimes = 0;
+let cleanedRuntimes = 0;
+/** 15-minute inactivity timeout for battle runtimes. */
+export const RUNTIME_TIMEOUT_MS = 15 * 60 * 1000;
+/** Cleanup interval for stale runtimes (every 5 minutes). */
+const CLEANUP_INTERVAL_MS = 5 * 60 * 1000;
+let cleanupInterval = null;
+function cleanupStaleRuntimes(now = Date.now()) {
+    let cleaned = 0;
+    for (const [battleId, runtime] of runtimes.entries()) {
+        if (now - runtime.lastActivity > RUNTIME_TIMEOUT_MS) {
+            runtimes.delete(battleId);
+            cleaned += 1;
+        }
+    }
+    if (cleaned > 0) {
+        cleanedRuntimes += cleaned;
+    }
+    return cleaned;
+}
+function startCleanupInterval() {
+    if (cleanupInterval)
+        return;
+    cleanupInterval = setInterval(() => {
+        cleanupStaleRuntimes();
+    }, CLEANUP_INTERVAL_MS);
+}
+function stopCleanupInterval() {
+    if (!cleanupInterval)
+        return;
+    clearInterval(cleanupInterval);
+    cleanupInterval = null;
+}
+process.on("SIGTERM", () => {
+    stopCleanupInterval();
+});
+startCleanupInterval();
 function ensureRuntime(battleId) {
     let runtime = runtimes.get(battleId);
     if (!runtime) {
@@ -12,10 +49,29 @@ function ensureRuntime(battleId) {
             },
             pending: {},
             history: [],
+            lastActivity: Date.now(),
         };
         runtimes.set(battleId, runtime);
+        totalRuntimes += 1;
     }
+    runtime.lastActivity = Date.now();
     return runtime;
+}
+/**
+ * Explicitly destroy a runtime (used by callers when a battle ends).
+ */
+export function destroyRuntime(battleId) {
+    return runtimes.delete(battleId);
+}
+/**
+ * Get runtime metrics for observability.
+ */
+export function getRuntimeMetrics() {
+    return {
+        active: runtimes.size,
+        cleaned: cleanedRuntimes,
+        total: totalRuntimes,
+    };
 }
 export function setPlayerState(battleId, player, state) {
     const runtime = ensureRuntime(battleId);
@@ -110,6 +166,17 @@ export function queueSwitchAction(battleId, player, targetId) {
 export const __testing = {
     clear: () => {
         runtimes.clear();
+        totalRuntimes = 0;
+        cleanedRuntimes = 0;
     },
     getRuntimeCount: () => runtimes.size,
+    ensureRuntime,
+    getRuntime: (battleId) => runtimes.get(battleId) ?? null,
+    setRuntime: (battleId, runtime) => {
+        runtimes.set(battleId, runtime);
+    },
+    cleanupStaleRuntimes,
+    startCleanupInterval,
+    stopCleanupInterval,
+    getCleanupInterval: () => cleanupInterval,
 };

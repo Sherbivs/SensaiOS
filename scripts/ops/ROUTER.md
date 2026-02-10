@@ -1,11 +1,10 @@
-# ROUTER.md — Ops Domain
+# ROUTER
+Title: Operations CLI & Scripts
+Purpose: TypeScript CLI for project operations including migrations, hotfix management, task archival, and maintenance.
+Owned Globs: scripts/ops/**
+Last Updated (UTC): 2026-02-10T18:20:00Z
 
-**Title:** Operations CLI & Scripts  
-**Purpose:** TypeScript CLI for project operations including migrations, hotfix management, task archival, and maintenance  
-**Owned Globs:** `scripts/ops/**`  
-**Last Updated (UTC):** 2025-12-21T00:00:00Z
 
----
 
 ## Overview
 
@@ -53,6 +52,8 @@ npx tsx scripts/ops/cli.ts routers check
 npx tsx scripts/ops/cli.ts routers update
 npx tsx scripts/ops/cli.ts routers list
 ```
+
+`routers update` delegates to `scripts/update-routers.ps1` for recent-change detection, timestamp updates, and router index regeneration.
 
 ### `tasks` — Task Management
 ```bash

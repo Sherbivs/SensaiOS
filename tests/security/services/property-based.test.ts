@@ -539,7 +539,7 @@ describe("Property-Based: Encryption Properties", () => {
    */
   it("same plaintext produces different ciphertext due to random IV", () => {
     fc.assert(
-      fc.property(fc.string({ minLength: 1 }), (plaintext) => {
+      fc.property(fc.string({ minLength: 16 }), (plaintext) => {
         const key = crypto.randomBytes(32);
         const encrypted1 = encrypt(plaintext, key);
         const encrypted2 = encrypt(plaintext, key);

@@ -1,9 +1,8 @@
 # ROUTER
-
-**Title:** Scripts Shared Library  
-**Purpose:** Reusable TypeScript utilities for all scripts — output, errors, exec, env, fs, ssh, cli, progress, templates  
-**Owned Globs:** `scripts/lib/**`  
-**Last Updated (UTC):** 2025-12-22T00:00:00Z
+Title: Scripts Shared Library
+Purpose: Reusable TypeScript utilities for all scripts including output, errors, exec, env, fs, ssh, CLI, and progress helpers.
+Owned Globs: scripts/lib/**
+Last Updated (UTC): 2026-02-10T16:40:00Z
 
 ## Overview
 

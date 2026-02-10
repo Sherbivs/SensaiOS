@@ -1,11 +1,10 @@
-# ROUTER — Unified Logging Facade
+# ROUTER
+Title: Unified Logging Facade
+Purpose: Canonical import path for all logging operations.
+Owned Globs: src/shared/logging/**
+Last Updated (UTC): 2026-02-10T16:40:00Z
 
-**Purpose:** Canonical import path for all logging operations  
-**Owner:** Cleanup-Agent  
-**Created:** 2025-12-20  
-**Last Updated (UTC):** 2025-01-09T00:00:00Z
 
----
 
 ## Overview
 

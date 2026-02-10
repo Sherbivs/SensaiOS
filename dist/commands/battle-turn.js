@@ -45,13 +45,55 @@ function formatSummaryLine(mon) {
 }
 // In-memory battle sessions keyed by user id
 const SESSIONS = new Map();
+let totalSessions = 0;
+let cleanedSessions = 0;
+/** 10-minute inactivity timeout for battle sessions. */
+export const SESSION_TIMEOUT_MS = 10 * 60 * 1000;
+/** Cleanup interval for stale sessions (every 60 seconds). */
+const CLEANUP_INTERVAL_MS = 60 * 1000;
+let cleanupInterval = null;
+function cleanupStaleSessions(now = Date.now()) {
+    let cleaned = 0;
+    for (const [userId, session] of SESSIONS.entries()) {
+        if (now - session.lastActivity > SESSION_TIMEOUT_MS) {
+            SESSIONS.delete(userId);
+            cleaned += 1;
+        }
+    }
+    if (cleaned > 0) {
+        cleanedSessions += cleaned;
+    }
+    return cleaned;
+}
+function startCleanupInterval() {
+    if (cleanupInterval)
+        return;
+    cleanupInterval = setInterval(() => {
+        const cleaned = cleanupStaleSessions();
+        if (cleaned > 0) {
+            logger.info('BattleTurn', 'cleanup', `Removed ${cleaned} stale session(s)`);
+        }
+    }, CLEANUP_INTERVAL_MS);
+}
+function stopCleanupInterval() {
+    if (!cleanupInterval)
+        return;
+    clearInterval(cleanupInterval);
+    cleanupInterval = null;
+}
+process.on('SIGTERM', () => {
+    stopCleanupInterval();
+});
+startCleanupInterval();
 /**
  * Ensure a battle state exists for the user, creating default if needed
  */
 function ensureBattleState(userId) {
     let session = SESSIONS.get(userId);
-    if (session)
+    if (session) {
+        session.lastActivity = Date.now();
         return session;
+    }
     // Initialize a simple default matchup if none exists
     const aDex = getPokemon('charizard') || getPokemon(6);
     const bDex = getPokemon('venusaur') || getPokemon(3);
@@ -62,9 +104,20 @@ function ensureBattleState(userId) {
     const a = makeRuntimeFromDexEntry(aDex, 50, []);
     const b = makeRuntimeFromDexEntry(bDex, 50, []);
     const state = newBattleState(a, b);
-    session = { state };
+    session = { state, lastActivity: Date.now() };
+    totalSessions += 1;
     SESSIONS.set(userId, session);
     return session;
+}
+/**
+ * Get session metrics for observability.
+ */
+export function getSessionMetrics() {
+    return {
+        active: SESSIONS.size,
+        cleaned: cleanedSessions,
+        total: totalSessions,
+    };
 }
 /**
  * Parse battle actions from interaction options
@@ -212,6 +265,23 @@ const command = {
             }
         }
     },
+};
+// Testing utilities - avoid in production code paths
+export const __testing = {
+    reset() {
+        SESSIONS.clear();
+        totalSessions = 0;
+        cleanedSessions = 0;
+    },
+    ensureBattleState,
+    getSession: (userId) => SESSIONS.get(userId) ?? null,
+    setSession: (userId, session) => {
+        SESSIONS.set(userId, session);
+    },
+    cleanupStaleSessions,
+    startCleanupInterval,
+    stopCleanupInterval,
+    getCleanupInterval: () => cleanupInterval,
 };
 export const { cooldownMs, execute } = command;
 export { data };

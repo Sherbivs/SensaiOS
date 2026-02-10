@@ -1,11 +1,10 @@
-# ROUTER — Security Bot Types
+# ROUTER
+Title: Security Bot Types
+Purpose: Type definitions for the security bot database transformation.
+Owned Globs: src/bot/security/types/**
+Last Updated (UTC): 2026-02-10T16:40:00Z
 
-**Path:** `src/bot/security/types/`  
-**Purpose:** Type definitions for Security Bot Database Transformation  
-**Specialist:** Database, Architecture  
-**Last Updated:** 2025-12-05T19:30:00Z
 
----
 
 ## Overview
 

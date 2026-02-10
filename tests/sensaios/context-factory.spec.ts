@@ -53,6 +53,15 @@ function createMockPrisma(): PrismaClient {
     $queryRawUnsafe: vi.fn().mockResolvedValue([]),
     $disconnect: vi.fn().mockResolvedValue(undefined),
     $transaction: vi.fn().mockImplementation(async (fn) => fn({})),
+    componentCapability: {
+      findFirst: vi.fn().mockResolvedValue({
+        createdAt: new Date(),
+        scope: null,
+        revokedAt: null,
+        expiresAt: null,
+        grantedBy: null,
+      }),
+    },
   } as unknown as PrismaClient;
 }
 
@@ -358,14 +367,14 @@ describe('Primitive Stub Implementations', () => {
   describe('createDbPrimitive', () => {
     it('should expose prisma client', () => {
       const prisma = createMockPrisma();
-      const db = createDbPrimitive(prisma);
+      const db = createDbPrimitive(prisma, 'test-component', testScope);
 
       expect(db.prisma).toBe(prisma);
     });
 
     it('should support transactions', async () => {
       const prisma = createMockPrisma();
-      const db = createDbPrimitive(prisma);
+      const db = createDbPrimitive(prisma, 'test-component', testScope);
 
       await db.transaction(async (_tx) => {
         return 'transaction-result';
@@ -376,7 +385,7 @@ describe('Primitive Stub Implementations', () => {
 
     it('should support raw queries', async () => {
       const prisma = createMockPrisma();
-      const db = createDbPrimitive(prisma);
+      const db = createDbPrimitive(prisma, 'test-component', testScope);
 
       await db.query('SELECT * FROM users WHERE id = $1', [123]);
 

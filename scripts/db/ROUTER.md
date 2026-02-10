@@ -1,9 +1,8 @@
 # ROUTER
-
-**Title:** Database Operations Domain  
-**Purpose:** Database management CLI — status, queries, health checks, schema diffing, migrations  
-**Owned Globs:** `scripts/db/**`  
-**Last Updated (UTC):** 2025-12-21T00:00:00Z
+Title: Database Operations Domain
+Purpose: Database management CLI for status, queries, health checks, schema diffing, and migrations.
+Owned Globs: scripts/db/**
+Last Updated (UTC): 2026-02-10T16:40:00Z
 
 ## Overview
 

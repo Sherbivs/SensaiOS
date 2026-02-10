@@ -1,9 +1,8 @@
-# ROUTER — src/workers/database
-
-**Title:** Database Worker Module  
-**Purpose:** Centralized database access layer with intelligent caching, write buffering, and comprehensive monitoring  
-**Owned Globs:** `src/workers/database/**`  
-**Last Updated (UTC):** 2025-12-02T00:00:00Z
+# ROUTER
+Title: Database Worker Module
+Purpose: Centralized database access layer with intelligent caching, write buffering, and comprehensive monitoring.
+Owned Globs: src/workers/database/**
+Last Updated (UTC): 2026-02-10T16:40:00Z
 
 ## Overview
 

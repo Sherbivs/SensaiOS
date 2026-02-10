@@ -1,11 +1,10 @@
-# ROUTER.md — Guard Domain
+# ROUTER
+Title: CI Guard Tools
+Purpose: TypeScript guards for CI validation, meta checks, and code quality enforcement.
+Owned Globs: scripts/guard/**
+Last Updated (UTC): 2026-02-10T16:40:00Z
 
-**Title:** CI Guard Tools  
-**Purpose:** TypeScript guards for CI validation, meta checks, and code quality enforcement  
-**Owned Globs:** `scripts/guard/**`  
-**Last Updated (UTC):** 2025-12-21T00:00:00Z
 
----
 
 ## Overview
 

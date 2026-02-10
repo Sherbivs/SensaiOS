@@ -23,6 +23,12 @@ const log = scopedLogger('ai-log-analyzer');
 // Database namespace for AI logs
 const AI_LOG_NAMESPACE = 'ai-logs';
 const ANALYSIS_NAMESPACE = 'ai-logs-analysis';
+const MAX_ERROR_PATTERNS = 500;
+const MAX_PERFORMANCE_BASELINES = 500;
+const MAX_USER_BEHAVIOR_PATTERNS = 500;
+const MAX_CORRELATIONS = 500;
+const MAX_ANOMALIES = 200;
+const MAX_INSIGHTS = 200;
 const CONFIG = {
     baseDir: AI_LOG_NAMESPACE, // Database namespace
     analysisDir: ANALYSIS_NAMESPACE, // Database namespace for analysis results
@@ -64,6 +70,99 @@ const stats = {
     correlationsFound: 0,
     learningUpdates: 0,
 };
+function setWithLimit(map, key, value, max) {
+    if (map.has(key)) {
+        map.delete(key);
+        map.set(key, value);
+        return;
+    }
+    if (max > 0 && map.size >= max) {
+        const oldestKey = map.keys().next().value;
+        if (oldestKey) {
+            map.delete(oldestKey);
+        }
+    }
+    map.set(key, value);
+}
+function enforceMapLimit(map, max) {
+    if (max <= 0) {
+        return;
+    }
+    while (map.size > max) {
+        const oldestKey = map.keys().next().value;
+        if (!oldestKey) {
+            break;
+        }
+        map.delete(oldestKey);
+    }
+}
+function pushWithLimit(array, items, max) {
+    if (items.length === 0) {
+        return;
+    }
+    array.push(...items);
+    if (max > 0 && array.length > max) {
+        array.splice(0, array.length - max);
+    }
+}
+function addErrorPattern(key, pattern) {
+    setWithLimit(knowledgeBase.errorPatterns, key, pattern, MAX_ERROR_PATTERNS);
+}
+function addPerformanceBaseline(operation, baseline) {
+    setWithLimit(knowledgeBase.performanceBaselines, operation, baseline, MAX_PERFORMANCE_BASELINES);
+}
+function addUserBehavior(key, value) {
+    setWithLimit(knowledgeBase.userBehaviorPatterns, key, value, MAX_USER_BEHAVIOR_PATTERNS);
+}
+function addCorrelation(key, correlation) {
+    setWithLimit(knowledgeBase.correlations, key, correlation, MAX_CORRELATIONS);
+}
+function addAnomaly(anomaly) {
+    pushWithLimit(knowledgeBase.anomalies, [anomaly], MAX_ANOMALIES);
+}
+function addInsight(insight) {
+    pushWithLimit(knowledgeBase.insights, [insight], MAX_INSIGHTS);
+}
+export function getKnowledgeBaseMetrics() {
+    const errorPatterns = knowledgeBase.errorPatterns.size;
+    const performanceBaselines = knowledgeBase.performanceBaselines.size;
+    const userBehaviorPatterns = knowledgeBase.userBehaviorPatterns.size;
+    const correlations = knowledgeBase.correlations.size;
+    const anomalies = knowledgeBase.anomalies.length;
+    const insights = knowledgeBase.insights.length;
+    return {
+        errorPatterns: {
+            size: errorPatterns,
+            max: MAX_ERROR_PATTERNS,
+            utilization: MAX_ERROR_PATTERNS > 0 ? errorPatterns / MAX_ERROR_PATTERNS : 0,
+        },
+        performanceBaselines: {
+            size: performanceBaselines,
+            max: MAX_PERFORMANCE_BASELINES,
+            utilization: MAX_PERFORMANCE_BASELINES > 0 ? performanceBaselines / MAX_PERFORMANCE_BASELINES : 0,
+        },
+        userBehaviorPatterns: {
+            size: userBehaviorPatterns,
+            max: MAX_USER_BEHAVIOR_PATTERNS,
+            utilization: MAX_USER_BEHAVIOR_PATTERNS > 0 ? userBehaviorPatterns / MAX_USER_BEHAVIOR_PATTERNS : 0,
+        },
+        correlations: {
+            size: correlations,
+            max: MAX_CORRELATIONS,
+            utilization: MAX_CORRELATIONS > 0 ? correlations / MAX_CORRELATIONS : 0,
+        },
+        anomalies: {
+            size: anomalies,
+            max: MAX_ANOMALIES,
+            utilization: MAX_ANOMALIES > 0 ? anomalies / MAX_ANOMALIES : 0,
+        },
+        insights: {
+            size: insights,
+            max: MAX_INSIGHTS,
+            utilization: MAX_INSIGHTS > 0 ? insights / MAX_INSIGHTS : 0,
+        },
+    };
+}
 /**
  * Read log entries from database (Database-First Architecture).
  */
@@ -196,9 +295,10 @@ export async function detectErrorPatterns(options = {}) {
                 count: pattern.count,
                 timeWindow: CONFIG.patterns.timeWindow,
             });
+            addErrorPattern(key, existing);
         }
         else {
-            knowledgeBase.errorPatterns.set(key, {
+            addErrorPattern(key, {
                 pattern: pattern.pattern,
                 errorName: pattern.errorName,
                 totalOccurrences: pattern.count,
@@ -265,9 +365,10 @@ export async function detectPerformancePatterns(options = {}) {
                 p95 * CONFIG.learning.adaptationRate;
             baseline.measurements += measurements.length;
             baseline.lastUpdate = Date.now();
+            addPerformanceBaseline(operation, baseline);
         }
         else {
-            knowledgeBase.performanceBaselines.set(operation, {
+            addPerformanceBaseline(operation, {
                 operation,
                 avg,
                 p95,
@@ -325,7 +426,7 @@ export async function findCorrelations(options = {}) {
         .sort((a, b) => b.count - a.count);
     for (const corr of significantCorrelations) {
         const key = `${corr.event1}→${corr.event2}`;
-        knowledgeBase.correlations.set(key, {
+        addCorrelation(key, {
             ...corr,
             lastDetected: Date.now(),
         });
@@ -379,10 +480,12 @@ export async function detectAnomalies(options = {}) {
             }
         }
     }
-    knowledgeBase.anomalies.push(...anomalies.map(a => ({
-        ...a,
-        detectedAt: Date.now(),
-    })));
+    for (const anomaly of anomalies) {
+        addAnomaly({
+            ...anomaly,
+            detectedAt: Date.now(),
+        });
+    }
     stats.anomaliesDetected += anomalies.length;
     return anomalies;
 }
@@ -451,7 +554,9 @@ export async function generateInsights() {
         insight.id = `${insight.type}-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
         insight.generatedAt = Date.now();
     }
-    knowledgeBase.insights.push(...insights);
+    for (const insight of insights) {
+        addInsight(insight);
+    }
     stats.insightsGenerated += insights.length;
     return insights;
 }
@@ -464,13 +569,23 @@ const KNOWLEDGE_BASE_KEY = `${ANALYSIS_NAMESPACE}:knowledge-base`;
  */
 export async function saveKnowledgeBase() {
     try {
+        enforceMapLimit(knowledgeBase.errorPatterns, MAX_ERROR_PATTERNS);
+        enforceMapLimit(knowledgeBase.performanceBaselines, MAX_PERFORMANCE_BASELINES);
+        enforceMapLimit(knowledgeBase.userBehaviorPatterns, MAX_USER_BEHAVIOR_PATTERNS);
+        enforceMapLimit(knowledgeBase.correlations, MAX_CORRELATIONS);
+        if (knowledgeBase.anomalies.length > MAX_ANOMALIES) {
+            knowledgeBase.anomalies.splice(0, knowledgeBase.anomalies.length - MAX_ANOMALIES);
+        }
+        if (knowledgeBase.insights.length > MAX_INSIGHTS) {
+            knowledgeBase.insights.splice(0, knowledgeBase.insights.length - MAX_INSIGHTS);
+        }
         const serializable = {
             errorPatterns: Array.from(knowledgeBase.errorPatterns.entries()),
             performanceBaselines: Array.from(knowledgeBase.performanceBaselines.entries()),
             userBehaviorPatterns: Array.from(knowledgeBase.userBehaviorPatterns.entries()),
             correlations: Array.from(knowledgeBase.correlations.entries()),
-            anomalies: knowledgeBase.anomalies.slice(-100),
-            insights: knowledgeBase.insights.slice(-100),
+            anomalies: knowledgeBase.anomalies.slice(-MAX_ANOMALIES),
+            insights: knowledgeBase.insights.slice(-MAX_INSIGHTS),
             lastUpdate: Date.now(),
             stats: { ...stats },
         };
@@ -510,10 +625,25 @@ export async function loadKnowledgeBase() {
         const parsed = entry.value;
         knowledgeBase.errorPatterns = new Map(parsed.errorPatterns);
         knowledgeBase.performanceBaselines = new Map(parsed.performanceBaselines);
-        knowledgeBase.userBehaviorPatterns = new Map(parsed.userBehaviorPatterns);
+        knowledgeBase.userBehaviorPatterns = new Map();
+        if (parsed.userBehaviorPatterns) {
+            for (const [key, value] of parsed.userBehaviorPatterns) {
+                addUserBehavior(key, value);
+            }
+        }
         knowledgeBase.correlations = new Map(parsed.correlations);
         knowledgeBase.anomalies = parsed.anomalies || [];
         knowledgeBase.insights = parsed.insights || [];
+        enforceMapLimit(knowledgeBase.errorPatterns, MAX_ERROR_PATTERNS);
+        enforceMapLimit(knowledgeBase.performanceBaselines, MAX_PERFORMANCE_BASELINES);
+        enforceMapLimit(knowledgeBase.userBehaviorPatterns, MAX_USER_BEHAVIOR_PATTERNS);
+        enforceMapLimit(knowledgeBase.correlations, MAX_CORRELATIONS);
+        if (knowledgeBase.anomalies.length > MAX_ANOMALIES) {
+            knowledgeBase.anomalies.splice(0, knowledgeBase.anomalies.length - MAX_ANOMALIES);
+        }
+        if (knowledgeBase.insights.length > MAX_INSIGHTS) {
+            knowledgeBase.insights.splice(0, knowledgeBase.insights.length - MAX_INSIGHTS);
+        }
         knowledgeBase.lastUpdate = parsed.lastUpdate;
         Object.assign(stats, parsed.stats || {});
         log.info('knowledge-base', 'Knowledge base loaded from database');
@@ -597,6 +727,7 @@ export default {
     detectAnomalies,
     generateInsights,
     getKnowledgeSummary,
+    getKnowledgeBaseMetrics,
     saveKnowledgeBase,
     loadKnowledgeBase,
 };

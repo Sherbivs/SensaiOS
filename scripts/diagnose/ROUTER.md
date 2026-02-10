@@ -1,9 +1,8 @@
 # ROUTER
-
-**Title:** Diagnostic Tools Domain  
-**Purpose:** Emergency debugging tools — environment, memory, database, security bot, homestead diagnostics  
-**Owned Globs:** `scripts/diagnose/**`  
-**Last Updated (UTC):** 2025-12-21T00:00:00Z
+Title: Diagnostic Tools Domain
+Purpose: Emergency debugging tools for environment, memory, database, security bot, and Homestead Channel diagnostics.
+Owned Globs: scripts/diagnose/**
+Last Updated (UTC): 2026-02-10T16:40:00Z
 
 ## Overview
 

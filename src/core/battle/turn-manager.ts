@@ -41,6 +41,7 @@ type BattleRuntime = {
   players: Record<PlayerKey, PlayerState>;
   pending: Partial<Record<PlayerKey, BattleQueuedAction>>;
   history: ResolvedTurn[];
+  lastActivity: number;
 };
 
 export type QueueResult =
@@ -48,6 +49,51 @@ export type QueueResult =
   | { status: "ready"; turn: number; action: BattleQueuedAction; resolved: ResolvedTurn };
 
 const runtimes = new Map<string, BattleRuntime>();
+let totalRuntimes = 0;
+let cleanedRuntimes = 0;
+
+/** 15-minute inactivity timeout for battle runtimes. */
+export const RUNTIME_TIMEOUT_MS = 15 * 60 * 1000;
+
+/** Cleanup interval for stale runtimes (every 5 minutes). */
+const CLEANUP_INTERVAL_MS = 5 * 60 * 1000;
+
+let cleanupInterval: NodeJS.Timeout | null = null;
+
+function cleanupStaleRuntimes(now: number = Date.now()): number {
+  let cleaned = 0;
+  for (const [battleId, runtime] of runtimes.entries()) {
+    if (now - runtime.lastActivity > RUNTIME_TIMEOUT_MS) {
+      runtimes.delete(battleId);
+      cleaned += 1;
+    }
+  }
+
+  if (cleaned > 0) {
+    cleanedRuntimes += cleaned;
+  }
+
+  return cleaned;
+}
+
+function startCleanupInterval(): void {
+  if (cleanupInterval) return;
+  cleanupInterval = setInterval(() => {
+    cleanupStaleRuntimes();
+  }, CLEANUP_INTERVAL_MS);
+}
+
+function stopCleanupInterval(): void {
+  if (!cleanupInterval) return;
+  clearInterval(cleanupInterval);
+  cleanupInterval = null;
+}
+
+process.on("SIGTERM", () => {
+  stopCleanupInterval();
+});
+
+startCleanupInterval();
 
 function ensureRuntime(battleId: string): BattleRuntime {
   let runtime = runtimes.get(battleId);
@@ -61,10 +107,31 @@ function ensureRuntime(battleId: string): BattleRuntime {
       },
       pending: {},
       history: [],
+      lastActivity: Date.now(),
     } satisfies BattleRuntime;
     runtimes.set(battleId, runtime);
+    totalRuntimes += 1;
   }
+  runtime.lastActivity = Date.now();
   return runtime;
+}
+
+/**
+ * Explicitly destroy a runtime (used by callers when a battle ends).
+ */
+export function destroyRuntime(battleId: string): boolean {
+  return runtimes.delete(battleId);
+}
+
+/**
+ * Get runtime metrics for observability.
+ */
+export function getRuntimeMetrics(): { active: number; cleaned: number; total: number } {
+  return {
+    active: runtimes.size,
+    cleaned: cleanedRuntimes,
+    total: totalRuntimes,
+  };
 }
 
 export function setPlayerState(
@@ -179,6 +246,17 @@ export function queueSwitchAction(battleId: string, player: PlayerKey, targetId:
 export const __testing = {
   clear: (): void => {
     runtimes.clear();
+    totalRuntimes = 0;
+    cleanedRuntimes = 0;
   },
   getRuntimeCount: (): number => runtimes.size,
+  ensureRuntime,
+  getRuntime: (battleId: string): BattleRuntime | null => runtimes.get(battleId) ?? null,
+  setRuntime: (battleId: string, runtime: BattleRuntime): void => {
+    runtimes.set(battleId, runtime);
+  },
+  cleanupStaleRuntimes,
+  startCleanupInterval,
+  stopCleanupInterval,
+  getCleanupInterval: (): NodeJS.Timeout | null => cleanupInterval,
 };

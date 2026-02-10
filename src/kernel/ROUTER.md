@@ -1,11 +1,10 @@
-# ROUTER — Kernel Root Observer Layer
+# ROUTER
+Title: Kernel Root Observer Layer
+Purpose: Production-grade kernel module providing unified logging, error detection, system observation, metrics collection, and persistence.
+Owned Globs: src/kernel/**
+Last Updated (UTC): 2026-02-10T16:40:00Z
 
-**Title:** Kernel Root Observer Layer  
-**Purpose:** Production-grade kernel module providing unified logging, error detection, system observation, metrics collection, and persistence — the foundational monitoring layer for the Infinity Gauntlet runtime.  
-**Owned Globs:** `src/kernel/**`  
-**Last Updated (UTC):** 2025-06-21T02:30:00Z
 
----
 
 ## Overview
 

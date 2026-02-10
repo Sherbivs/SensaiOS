@@ -22,6 +22,24 @@ describe('ErrorTracker', () => {
     component: 'test-component',
   };
 
+  const makeCanonicalError = (
+    message: string,
+    scope: TenantScope = testScope,
+    name?: string
+  ) => {
+    const err = new Error(message);
+    if (name) err.name = name;
+    return toCanonicalError(err, scope);
+  };
+
+  const makeCanonicalWithOptions = (
+    message: string,
+    options: Parameters<typeof toCanonicalError>[2]
+  ) => {
+    const err = new Error(message);
+    return toCanonicalError(err, testScope, options);
+  };
+
   describe('Basic Tracking', () => {
     it('should track new errors', () => {
       const tracker = new ErrorTracker();
@@ -36,8 +54,8 @@ describe('ErrorTracker', () => {
 
     it('should increment occurrences for same fingerprint', () => {
       const tracker = new ErrorTracker();
-      const error1 = toCanonicalError(new Error('Same error'), testScope);
-      const error2 = toCanonicalError(new Error('Same error'), testScope);
+      const error1 = makeCanonicalError('Same error');
+      const error2 = makeCanonicalError('Same error');
 
       tracker.track(error1);
       const pattern = tracker.track(error2);
@@ -47,7 +65,7 @@ describe('ErrorTracker', () => {
 
     it('should mark recurring after threshold', () => {
       const tracker = new ErrorTracker({ recurringThreshold: 3 });
-      const makeError = () => toCanonicalError(new Error('Recurring'), testScope);
+      const makeError = () => makeCanonicalError('Recurring');
 
       tracker.track(makeError());
       tracker.track(makeError());
@@ -61,8 +79,8 @@ describe('ErrorTracker', () => {
       const scope1 = { ...testScope, tenant: 'tenant-1' };
       const scope2 = { ...testScope, tenant: 'tenant-2' };
 
-      tracker.track(toCanonicalError(new Error('Multi-tenant'), scope1));
-      const pattern = tracker.track(toCanonicalError(new Error('Multi-tenant'), scope2));
+      tracker.track(makeCanonicalError('Multi-tenant', scope1));
+      const pattern = tracker.track(makeCanonicalError('Multi-tenant', scope2));
 
       expect(pattern.affectedTenants.size).toBe(2);
       expect(pattern.affectedTenants.has('tenant-1')).toBe(true);
@@ -74,18 +92,18 @@ describe('ErrorTracker', () => {
       const scope1 = { ...testScope, component: 'component-1' };
       const scope2 = { ...testScope, component: 'component-2' };
 
-      tracker.track(toCanonicalError(new Error('Multi-component'), scope1));
-      const pattern = tracker.track(toCanonicalError(new Error('Multi-component'), scope2));
+      tracker.track(makeCanonicalError('Multi-component', scope1));
+      const pattern = tracker.track(makeCanonicalError('Multi-component', scope2));
 
       expect(pattern.affectedComponents.size).toBe(2);
     });
 
     it('should track max severity', () => {
       const tracker = new ErrorTracker();
-      
-      tracker.track(toCanonicalError(new Error('Test'), testScope, { severity: 'low' }));
-      tracker.track(toCanonicalError(new Error('Test'), testScope, { severity: 'high' }));
-      const pattern = tracker.track(toCanonicalError(new Error('Test'), testScope, { severity: 'medium' }));
+
+      tracker.track(makeCanonicalWithOptions('Test', { severity: 'low' }));
+      tracker.track(makeCanonicalWithOptions('Test', { severity: 'high' }));
+      const pattern = tracker.track(makeCanonicalWithOptions('Test', { severity: 'medium' }));
 
       expect(pattern.maxSeverity).toBe('high');
     });
@@ -97,7 +115,7 @@ describe('ErrorTracker', () => {
         burstWindowMs: 60000,
         burstThreshold: 3,
       });
-      const makeError = () => toCanonicalError(new Error('Burst error'), testScope);
+      const makeError = () => makeCanonicalError('Burst error');
 
       tracker.track(makeError());
       tracker.track(makeError());
@@ -111,7 +129,7 @@ describe('ErrorTracker', () => {
         burstWindowMs: 60000,
         burstThreshold: 5,
       });
-      const makeError = () => toCanonicalError(new Error('Few errors'), testScope);
+      const makeError = () => makeCanonicalError('Few errors');
 
       tracker.track(makeError());
       tracker.track(makeError());
@@ -151,13 +169,13 @@ describe('ErrorTracker', () => {
 
     it('should get recurring patterns', () => {
       const tracker = new ErrorTracker({ recurringThreshold: 2 });
-      
+
       // Make one recurring
-      tracker.track(toCanonicalError(new Error('Recurring'), testScope));
-      tracker.track(toCanonicalError(new Error('Recurring'), testScope));
-      
+      tracker.track(makeCanonicalError('Recurring'));
+      tracker.track(makeCanonicalError('Recurring'));
+
       // Make one not recurring
-      tracker.track(toCanonicalError(new Error('Single'), testScope));
+      tracker.track(makeCanonicalError('Single'));
 
       const recurring = tracker.getRecurringPatterns();
 
@@ -167,14 +185,14 @@ describe('ErrorTracker', () => {
 
     it('should get top patterns by occurrence', () => {
       const tracker = new ErrorTracker();
-      
+
       // Track different frequencies
       tracker.track(toCanonicalError(new Error('Rare'), testScope));
-      
+
       for (let i = 0; i < 5; i++) {
         tracker.track(toCanonicalError(new Error('Common'), testScope));
       }
-      
+
       for (let i = 0; i < 3; i++) {
         tracker.track(toCanonicalError(new Error('Medium'), testScope));
       }
@@ -213,10 +231,11 @@ describe('ErrorTracker', () => {
   describe('Statistics', () => {
     it('should calculate statistics', () => {
       const tracker = new ErrorTracker({ recurringThreshold: 2 });
+      const makeRecurring = () => makeCanonicalError('Recurring 1');
 
       // Create some patterns
-      tracker.track(toCanonicalError(new Error('Recurring 1'), testScope));
-      tracker.track(toCanonicalError(new Error('Recurring 1'), testScope));
+      tracker.track(makeRecurring());
+      tracker.track(makeRecurring());
       tracker.track(toCanonicalError(new Error('Single'), testScope));
 
       const stats = tracker.getStats();

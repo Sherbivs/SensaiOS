@@ -1,8 +1,8 @@
-# ROUTER — Bot Shared Utilities
-
-**Purpose:** Centralized Discord bot utilities - UI components, response helpers, and common patterns.  
-**Owner:** `src/bot/**` module consumers  
-**Last Updated:** 2025-12-15T14:30:00Z  
+# ROUTER
+Title: Bot Shared Utilities
+Purpose: Centralized Discord bot utilities for UI components, response helpers, and common patterns.
+Owned Globs: src/bot/shared/**
+Last Updated (UTC): 2026-02-10T16:40:00Z
 
 ## Contents
 

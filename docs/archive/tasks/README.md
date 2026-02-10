@@ -23,6 +23,7 @@
 | [phase-17-18-northstar-homestead.md](phase-17-18-northstar-homestead.md) | Phase 17-18 Northstar & Homestead | 7 tasks | 2025-11 |
 | [pbsl-kernel-logging.md](pbsl-kernel-logging.md) | PBSL & Kernel Logging | 5 tasks | 2025-10 to 2025-12 |
 | [hotfix-system.md](hotfix-system.md) | HF.* Hotfix System | ~8 tasks | 2025-10 to 2025-11 |
+| [sensaios-ring-security.md](sensaios-ring-security.md) | SensaiOS Ring Security Model | 16 tasks | 2026-01 |
 
 ---
 

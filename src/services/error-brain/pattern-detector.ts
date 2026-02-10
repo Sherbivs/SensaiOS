@@ -173,6 +173,92 @@ const BURST_WINDOW_MS = 10_000; // 10 second sliding window
 const BURST_THRESHOLD_MULTIPLIER = 5; // 5x baseline = burst
 const CORRELATION_WINDOW_MS = 5_000; // 5 second co-occurrence window
 const MIN_OBSERVATIONS_FOR_CORRELATION = 10;
+export const MAX_FINGERPRINTS = 2000;
+
+function touchObservationKey<T>(map: Map<string, T>, key: string): T | null {
+  const existing = map.get(key);
+  if (!existing) {
+    return null;
+  }
+  map.delete(key);
+  map.set(key, existing);
+  return existing;
+}
+
+function evictCorrelationKey(key: string): void {
+  correlationObservations.delete(key);
+  for (const coOccurMap of correlationObservations.values()) {
+    coOccurMap.delete(key);
+  }
+}
+
+function enforceMaxFingerprints(incoming: number = 0, maxSize: number = MAX_FINGERPRINTS): void {
+  if (maxSize <= 0) {
+    return;
+  }
+
+  const totalSize =
+    burstWindows.size +
+    correlationObservations.size +
+    fingerprintObservations.size +
+    activeCascades.size;
+
+  if (totalSize + incoming <= maxSize) {
+    return;
+  }
+
+  while (
+    burstWindows.size +
+      correlationObservations.size +
+      fingerprintObservations.size +
+      activeCascades.size >
+    maxSize - incoming
+  ) {
+    const largest = Math.max(
+      burstWindows.size,
+      correlationObservations.size,
+      fingerprintObservations.size,
+      activeCascades.size
+    );
+
+    if (largest === 0) {
+      break;
+    }
+
+    if (largest === correlationObservations.size) {
+      const oldestKey = correlationObservations.keys().next().value as string | undefined;
+      if (!oldestKey) {
+        break;
+      }
+      evictCorrelationKey(oldestKey);
+      continue;
+    }
+
+    if (largest === fingerprintObservations.size) {
+      const oldestKey = fingerprintObservations.keys().next().value as string | undefined;
+      if (!oldestKey) {
+        break;
+      }
+      fingerprintObservations.delete(oldestKey);
+      continue;
+    }
+
+    if (largest === burstWindows.size) {
+      const oldestKey = burstWindows.keys().next().value as string | undefined;
+      if (!oldestKey) {
+        break;
+      }
+      burstWindows.delete(oldestKey);
+      continue;
+    }
+
+    const oldestKey = activeCascades.keys().next().value as string | undefined;
+    if (!oldestKey) {
+      break;
+    }
+    activeCascades.delete(oldestKey);
+  }
+}
 
 // ==================== ANOMALY DETECTION ====================
 
@@ -306,12 +392,15 @@ export function detectBurst(event: ErrorEvent): BurstResult {
   // Get or create sliding window
   let window = burstWindows.get(fingerprint);
   if (!window) {
+    enforceMaxFingerprints(1);
     window = {
       timestamps: [],
       count: 0,
       windowSizeMs: BURST_WINDOW_MS,
     };
     burstWindows.set(fingerprint, window);
+  } else {
+    touchObservationKey(burstWindows, fingerprint);
   }
 
   // Add current timestamp
@@ -409,10 +498,10 @@ export function recordErrorForCorrelation(event: ErrorEvent): void {
   recentErrorIndex = (recentErrorIndex + 1) % MAX_RECENT_ERRORS;
 
   // Update total observations for this fingerprint
-  fingerprintObservations.set(
-    fingerprint,
-    (fingerprintObservations.get(fingerprint) || 0) + 1
-  );
+  const existingCount = fingerprintObservations.get(fingerprint) || 0;
+  fingerprintObservations.delete(fingerprint);
+  enforceMaxFingerprints(1);
+  fingerprintObservations.set(fingerprint, existingCount + 1);
 
   // Find co-occurring errors within time window
   const cutoff = timestamp - CORRELATION_WINDOW_MS;
@@ -424,16 +513,22 @@ export function recordErrorForCorrelation(event: ErrorEvent): void {
     // Record co-occurrence
     let primaryMap = correlationObservations.get(fingerprint);
     if (!primaryMap) {
+      enforceMaxFingerprints(1);
       primaryMap = new Map();
       correlationObservations.set(fingerprint, primaryMap);
+    } else {
+      touchObservationKey(correlationObservations, fingerprint);
     }
     primaryMap.set(other.fingerprint, (primaryMap.get(other.fingerprint) || 0) + 1);
 
     // Record reverse co-occurrence
     let secondaryMap = correlationObservations.get(other.fingerprint);
     if (!secondaryMap) {
+      enforceMaxFingerprints(1);
       secondaryMap = new Map();
       correlationObservations.set(other.fingerprint, secondaryMap);
+    } else {
+      touchObservationKey(correlationObservations, other.fingerprint);
     }
     secondaryMap.set(fingerprint, (secondaryMap.get(fingerprint) || 0) + 1);
   }
@@ -590,6 +685,7 @@ export function recordErrorForCascade(event: ErrorEvent): void {
         startTime: timestamp,
         lastUpdate: timestamp,
       };
+      enforceMaxFingerprints(1);
       activeCascades.set(correlationId, cascade);
     } else {
       // Add as child if within time window
@@ -844,6 +940,7 @@ export function getPatternDetectorStats(): {
   recentErrorsCount: number;
   correlationPairsTracked: number;
   fingerprintsObserved: number;
+  fingerprintKeysTotal: number;
   activeCascadesTracked: number;
 } {
   let correlationPairs = 0;
@@ -851,13 +948,45 @@ export function getPatternDetectorStats(): {
     correlationPairs += map.size;
   }
 
+  const fingerprintKeysTotal =
+    burstWindows.size +
+    correlationObservations.size +
+    fingerprintObservations.size +
+    activeCascades.size;
+
   return {
     burstWindowsActive: burstWindows.size,
     recentErrorsCount: recentErrors.filter(Boolean).length,
     correlationPairsTracked: correlationPairs,
     fingerprintsObserved: fingerprintObservations.size,
+    fingerprintKeysTotal,
     activeCascadesTracked: activeCascades.size,
   };
+}
+
+/**
+ * Check if a fingerprint has observations recorded.
+ */
+export function hasFingerprintObservation(fingerprint: string): boolean {
+  return fingerprintObservations.has(fingerprint);
+}
+
+/**
+ * Test helper: record a fingerprint without correlation scanning.
+ */
+export function recordFingerprintForTesting(fingerprint: string): void {
+  const existingCount = fingerprintObservations.get(fingerprint) || 0;
+  fingerprintObservations.delete(fingerprint);
+  enforceMaxFingerprints(1);
+  fingerprintObservations.set(fingerprint, existingCount + 1);
+
+  const existingMap = correlationObservations.get(fingerprint);
+  if (!existingMap) {
+    enforceMaxFingerprints(1);
+    correlationObservations.set(fingerprint, new Map());
+  } else {
+    touchObservationKey(correlationObservations, fingerprint);
+  }
 }
 
 /**

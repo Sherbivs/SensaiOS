@@ -1,11 +1,10 @@
-# ROUTER — Security Bot Module
+# ROUTER
+Title: Security Bot Module
+Purpose: Security bot database transformation and core security infrastructure.
+Owned Globs: src/bot/security/**
+Last Updated (UTC): 2026-02-10T16:40:00Z
 
-**Path:** `src/bot/security/`  
-**Purpose:** Security Bot Database Transformation — Core Security Infrastructure  
-**Specialist Team:** Security, Database, Architecture  
-**Last Updated:** 2025-12-05T19:30:00Z
 
----
 
 ## Overview
 

@@ -1,9 +1,8 @@
-# ROUTER.md — Scripts Domain
-
-**Title:** Scripts & Automation  
-**Purpose:** Unified TypeScript CLI tooling organized by domain  
-**Owned Globs:** `scripts/**`  
-**Last Updated (UTC):** 2025-12-21T00:00:00Z
+# ROUTER
+Title: Scripts & Automation
+Purpose: Unified TypeScript CLI tooling organized by domain.
+Owned Globs: scripts/**
+Last Updated (UTC): 2026-02-10T18:20:00Z
 
 ---
 
@@ -34,6 +33,7 @@ The scripts directory has been reorganized into domain-specific subdirectories, 
 | `verify-store-policy.sh` | DB-only policy check | `bash scripts/verify-store-policy.sh` |
 | `setup-ai-env.ps1` | AI environment setup | `pwsh scripts/setup-ai-env.ps1` |
 | `monitor-*.ps1` | Memory/disk monitoring | `pwsh scripts/monitor-memory-24h.ps1` |
+| `update-routers.ps1` | Auto-sync router timestamps + index | `pwsh -File scripts/update-routers.ps1` |
 
 **Note**: Store maintenance scripts enforce the [/Store DB-Only Policy](../docs/architecture-bible/27-store-db-only-policy.md)
 
@@ -76,6 +76,7 @@ npx tsx scripts/data/cli.ts validate
 # Operations
 npx tsx scripts/ops/cli.ts migrations status
 npx tsx scripts/ops/cli.ts hotfix start "Fix bug"
+pwsh -File scripts/update-routers.ps1
 ```
 
 ## Domain Documentation

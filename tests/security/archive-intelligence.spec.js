@@ -15,15 +15,38 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { 
-  generateSecurityBaselines, 
-  loadSecurityBaselines, 
-  saveSecurityBaselines 
+
+const baselineStore = new Map();
+
+vi.mock('../../src/shared/prisma.js', () => ({
+  prisma: {
+    cacheEntry: {
+      findUnique: vi.fn(async ({ where: { key } }) => {
+        return baselineStore.get(key) ?? null;
+      }),
+      upsert: vi.fn(async ({ where: { key }, create, update }) => {
+        const existing = baselineStore.get(key);
+        const entry = existing ? { ...existing, ...update, key } : { ...create, key };
+        baselineStore.set(key, entry);
+        return entry;
+      }),
+    },
+  },
+}));
+
+import {
+  generateSecurityBaselines,
+  loadSecurityBaselines,
+  saveSecurityBaselines,
 } from '../../src/bot/state/securityBaselines.js';
-import { 
-  detectSecurityThreats, 
-  calculateCurrentActivity 
+import {
+  detectSecurityThreats,
+  calculateCurrentActivity,
 } from '../../src/bot/state/threatDetector.js';
+
+beforeEach(() => {
+  baselineStore.clear();
+});
 
 describe('Security Archive Intelligence', () => {
   

@@ -476,8 +476,14 @@ const routersCommand: CommandDef = {
         
         try {
           // Run the router update script if it exists
-          if (await exists('scripts/update-routers.ts')) {
-            await exec('npx', ['tsx', 'scripts/update-routers.ts']);
+          if (await exists('scripts/update-routers.ps1')) {
+            await exec('pwsh', [
+              '-NoProfile',
+              '-ExecutionPolicy',
+              'Bypass',
+              '-File',
+              'scripts/update-routers.ps1',
+            ]);
           } else {
             // Fallback: update ROUTER_INDEX.yaml
             printWarning('Router update script not found');

@@ -1,9 +1,8 @@
 # ROUTER
-
-**Title:** Observability Documentation  
-**Purpose:** Professional observability infrastructure documentation for production game monitoring  
-**Owned Globs:** `docs/observability/**`  
-**Last Updated (UTC):** 2025-12-28T00:00:00Z
+Title: Observability Documentation
+Purpose: Professional observability infrastructure documentation for production game monitoring.
+Owned Globs: docs/observability/**
+Last Updated (UTC): 2026-02-10T16:40:00Z
 
 ## Notes
 

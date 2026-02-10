@@ -1,9 +1,8 @@
 # ROUTER
-
-**Title:** Render Operations Domain  
-**Purpose:** SSH-only Render service management — status, disk, cleanup, logs, info  
-**Owned Globs:** `scripts/render/**`  
-**Last Updated (UTC):** 2025-12-21T00:00:00Z
+Title: Render Operations Domain
+Purpose: SSH-only Render service management for status, disk, cleanup, logs, and environment info.
+Owned Globs: scripts/render/**
+Last Updated (UTC): 2026-02-10T16:40:00Z
 
 ## Overview
 

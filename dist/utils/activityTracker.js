@@ -13,6 +13,15 @@ import { getLogger } from '../shared/logging/index.js';
 const logger = getLogger();
 import { toDate, cloneDate, getErrorMessage } from '../shared/utils/index.js';
 // ─────────────────────────────────────────────────────────────────────────────
+// Constants
+// ─────────────────────────────────────────────────────────────────────────────
+/**
+ * Maximum pending activities before circular buffer eviction kicks in.
+ * When the buffer is full, the oldest entry is dropped on each new push.
+ * Growth rate without this cap was ~4 MB/hour in production (MEMLEAK.PHASE1.1).
+ */
+export const MAX_PENDING_ACTIVITIES = 1000;
+// ─────────────────────────────────────────────────────────────────────────────
 // State
 // ─────────────────────────────────────────────────────────────────────────────
 const subscribers = new Set();
@@ -22,6 +31,7 @@ let totalEvents = 0;
 let lastActivityAt = null;
 let lastSummaryAt = null;
 let sequence = 0;
+let droppedCount = 0;
 // ─────────────────────────────────────────────────────────────────────────────
 // Internal Functions
 // ─────────────────────────────────────────────────────────────────────────────
@@ -44,6 +54,8 @@ function notify() {
 // ─────────────────────────────────────────────────────────────────────────────
 /**
  * Record a new activity event.
+ * Enforces circular buffer: when at MAX_PENDING_ACTIVITIES, the oldest
+ * entry is evicted before the new one is pushed.
  */
 export function recordActivity(type, summary, meta = {}) {
     const timestamp = new Date();
@@ -54,6 +66,11 @@ export function recordActivity(type, summary, meta = {}) {
         meta,
         timestamp,
     };
+    // MEMORY SAFETY: Enforce circular buffer — drop oldest when at capacity
+    if (pendingActivities.length >= MAX_PENDING_ACTIVITIES) {
+        pendingActivities.shift();
+        droppedCount += 1;
+    }
     pendingActivities.push(entry);
     totalEvents += 1;
     lifetimeCounts.set(type, (lifetimeCounts.get(type) || 0) + 1);
@@ -71,9 +88,16 @@ export function drainActivities() {
 }
 /**
  * Requeue activities back into the pending queue (sorted by timestamp).
+ * Rejects the entire batch if it would exceed MAX_PENDING_ACTIVITIES.
  */
 export function requeueActivities(entries = []) {
     if (!Array.isArray(entries) || entries.length === 0) {
+        return;
+    }
+    // MEMORY SAFETY: Reject batch if it would exceed the buffer limit
+    if (pendingActivities.length + entries.length > MAX_PENDING_ACTIVITIES) {
+        droppedCount += entries.length;
+        logger.warn('ActivityTracker', 'requeueActivities', `Rejected requeue of ${entries.length} entries: would exceed MAX_PENDING_ACTIVITIES (${MAX_PENDING_ACTIVITIES}), current=${pendingActivities.length}`);
         return;
     }
     for (const entry of entries) {
@@ -138,6 +162,36 @@ export function markSummarySent(at = new Date()) {
     lastSummaryAt = toDate(at);
     notify();
 }
+/**
+ * Get buffer utilization metrics for observability.
+ * Used by /ops memory command and memory-metrics service.
+ */
+export function getBufferMetrics() {
+    return {
+        current: pendingActivities.length,
+        max: MAX_PENDING_ACTIVITIES,
+        utilization: MAX_PENDING_ACTIVITIES > 0
+            ? (pendingActivities.length / MAX_PENDING_ACTIVITIES) * 100
+            : 0,
+        dropped: droppedCount,
+    };
+}
+// ─────────────────────────────────────────────────────────────────────────────
+// Testing Helpers (NOT for production use)
+// ─────────────────────────────────────────────────────────────────────────────
+/** @internal Reset all module-level state — test isolation only. */
+export const __testing = {
+    reset() {
+        pendingActivities.length = 0;
+        lifetimeCounts.clear();
+        subscribers.clear();
+        totalEvents = 0;
+        lastActivityAt = null;
+        lastSummaryAt = null;
+        sequence = 0;
+        droppedCount = 0;
+    },
+};
 // ─────────────────────────────────────────────────────────────────────────────
 // Default Export
 // ─────────────────────────────────────────────────────────────────────────────
@@ -149,4 +203,5 @@ export default {
     getStats,
     subscribe,
     markSummarySent,
+    getBufferMetrics,
 };

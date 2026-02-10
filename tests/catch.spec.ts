@@ -181,9 +181,7 @@ describe('attemptCatch persistence', () => {
       return client.user.upsert({ where: { discordId }, create: { discordId, coins: 0 }, update: {} });
     };
 
-    const randomSpy = vi.spyOn(Math, 'random').mockReturnValue(0);
-
-    const res = await attemptCatch({ discordId: 'trainer', encounterId: 'enc_1', prisma });
+    const res = await attemptCatch({ discordId: 'trainer', encounterId: 'enc_1', prisma, roll: 0 });
 
     expect(res.ok).toBe(true);
     expect(res.caught).toBe(true);
@@ -203,6 +201,5 @@ describe('attemptCatch persistence', () => {
     expect(encounter.dataJson.pokemonId).toBe(res.pokemonId);
     expect(encounter.dataJson.ball).toBe('poke');
 
-    randomSpy.mockRestore();
   });
 });

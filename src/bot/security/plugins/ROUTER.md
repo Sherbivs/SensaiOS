@@ -1,9 +1,8 @@
 # ROUTER
-
-**Title:** Security Plugins System  
-**Purpose:** Extensible plugin architecture for security bot transformation  
-**Owned Globs:** `src/bot/security/plugins/**`  
-**Last Updated (UTC):** 2025-12-05T18:00:00Z
+Title: Security Plugins System
+Purpose: Extensible plugin architecture for security bot transformation.
+Owned Globs: src/bot/security/plugins/**
+Last Updated (UTC): 2026-02-10T16:40:00Z
 
 ## Overview
 

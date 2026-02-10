@@ -1,9 +1,8 @@
 # ROUTER
-
-**Title:** Observability Domain  
-**Purpose:** Log viewing, metrics, and monitoring tools — Loki queries, Grafana integration  
-**Owned Globs:** `scripts/observe/**`  
-**Last Updated (UTC):** 2025-12-21T00:00:00Z
+Title: Observability Domain
+Purpose: Log viewing, metrics, and monitoring tools for Loki queries and Grafana integration.
+Owned Globs: scripts/observe/**
+Last Updated (UTC): 2026-02-10T16:40:00Z
 
 ## Overview
 
