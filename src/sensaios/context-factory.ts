@@ -9,7 +9,7 @@
  */
 
 import { randomUUID } from 'node:crypto';
-import type { PrismaClient } from '../generated/prisma/client.js';
+import type { PrismaClient } from '@prisma/client';
 import type { Interaction, Guild } from 'discord.js';
 import type { TenantScope } from './tenant-scope.js';
 import type {

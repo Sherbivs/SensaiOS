@@ -1,7 +1,7 @@
 // Prisma 7: Uses driver adapters (no Rust engine)
 // NOTE: Import from index.js (not client.js) — client.js uses CJS spread pattern
 // that Node.js ESM cannot detect named exports from, causing runtime SyntaxError.
-import { PrismaClient, Prisma } from "../generated/prisma/index.js";
+import { PrismaClient, Prisma } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import pg from "pg";
 import { loadConfig, recordDatabaseConnectionSuccess } from "./config.js";

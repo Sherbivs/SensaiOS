@@ -21,7 +21,7 @@ function recordTiming(label: string, startTime: bigint) {
 const MODULE_IMPORT_START = process.hrtime.bigint();
 kernel.boot('index', 'Beginning module imports');
 
-import { Prisma } from './generated/prisma/index.js';
+import { Prisma } from '@prisma/client';
 import { Events, DiscordAPIError, type Client } from "discord.js";
 
 import { bootDiscord } from "./bot/index.js";

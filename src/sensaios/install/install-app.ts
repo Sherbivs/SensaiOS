@@ -19,7 +19,7 @@ import { validateManifest, getDangerousCapabilities } from './manifest-schema.js
 import { resolveDependencies, validateDependencies } from './dependency-resolver.js';
 import type { AppManifest, InstallResult } from './app-manifest.js';
 import type { ComponentContext } from './app-manifest.js';
-import type { PrismaClient } from '../../generated/prisma/client.js';
+import type { PrismaClient } from '@prisma/client';
 
 /**
  * Installs an app into SensaiOS

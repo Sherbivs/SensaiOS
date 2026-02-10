@@ -11,7 +11,7 @@
  * @version 1.0.0
  */
 
-import type { PrismaClient } from '../../generated/prisma/client.js';
+import type { PrismaClient } from '@prisma/client';
 import { scopedLogger } from '../../observability/envelope/console.js';
 
 /** Scoped logger for lock operations */

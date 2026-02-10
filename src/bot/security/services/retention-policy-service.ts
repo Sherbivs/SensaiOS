@@ -25,7 +25,7 @@
  */
 
 import * as crypto from 'crypto';
-import type { PrismaClient } from '../../../generated/prisma/client.js';
+import type { PrismaClient } from '@prisma/client';
 import { getErrorMessage } from '../../../shared/utils/error-utils.js';
 import { delay } from '../../../shared/utils/async-utils.js';
 

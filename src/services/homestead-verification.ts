@@ -27,7 +27,7 @@
 import { Client, Guild, GuildChannel, TextChannel, PermissionFlagsBits, ChannelType } from 'discord.js';
 import { prisma } from '../shared/prisma.js';
 import { createHmac } from 'crypto';
-import type { User, HomesteadChannel } from '../generated/prisma/client.js';
+import type { User, HomesteadChannel } from '@prisma/client';
 import { ensureError } from '../shared/utils/error-utils.js';
 import { ImmutableAuditService } from '../bot/security/services/immutable-audit-service.js';
 import { EventBus } from '../shared/event-bus.js';

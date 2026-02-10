@@ -2,7 +2,7 @@
 import { getLogger } from "../../shared/logging/index.js";
 const logger = getLogger();
 
-import type { PrismaClient, Encounter } from '../../generated/prisma/client.js';
+import type { PrismaClient, Encounter } from '@prisma/client';
 
 import {
   prisma as prismaClient,

@@ -1,5 +1,5 @@
 import type { User as DiscordUser, ButtonInteraction, Client } from "discord.js";
-import type { Prisma } from '../../generated/prisma/client.js';
+import type { Prisma } from '@prisma/client';
 import {
   ActionRowBuilder,
   ComponentType,

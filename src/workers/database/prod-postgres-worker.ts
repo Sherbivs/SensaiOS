@@ -14,7 +14,7 @@
  * @module workers/database/prod-postgres-worker
  */
 
-import type { PrismaClient } from '../../generated/prisma/client.js';
+import type { PrismaClient } from '@prisma/client';
 import type {
   QueryableWorker,
   WritableWorker,

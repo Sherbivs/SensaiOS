@@ -10,7 +10,7 @@
  * @since 2025-12-29
  */
 
-import type { PrismaClient } from '../generated/prisma/client.js';
+import type { PrismaClient } from '@prisma/client';
 import type { TenantScope } from './tenant-scope.js';
 import type { CanonicalError } from './canonical-error.js';
 

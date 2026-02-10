@@ -3,11 +3,12 @@
 // NORTHSTAR OPTIMIZATION (2025-12-21): Full-text search indexes and optimized generator
 generator client {
   provider        = "prisma-client-js"
-  output          = "../src/generated/prisma"
   engineType      = "library"
   binaryTargets   = ["native", "debian-openssl-3.0.x"]
   // OPTIMIZATION: Pre-generate all relation types for faster queries
   previewFeatures = ["fullTextSearchPostgres"]
+  // NOTE: No custom output path — uses default @prisma/client in node_modules
+  // This ensures the generated client deploys with dependencies on Render
 }
 
 // Database URL configured via prisma.config.ts for CLI operations

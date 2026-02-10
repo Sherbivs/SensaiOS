@@ -7,7 +7,7 @@
  * @module sensaios/capabilities/assert-capability
  */
 
-import type { PrismaClient } from '../../generated/prisma/client.js';
+import type { PrismaClient } from '@prisma/client';
 import { SensaiError } from '../sensai-error.js';
 import type { TenantScope } from '../tenant-scope.js';
 import type { CapabilityType } from '../types.js';

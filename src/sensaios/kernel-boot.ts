@@ -15,7 +15,7 @@
  */
 
 import { scopedLogger } from '../observability/envelope/console.js';
-import type { PrismaClient } from '../generated/prisma/client.js';
+import type { PrismaClient } from '@prisma/client';
 import type { HostKind, SensaiComponent, ComponentContext } from './component-context.js';
 import { ComponentSupervisor } from './component-supervisor.js';
 import { ComponentRegistry } from './component-registry.js';

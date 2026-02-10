@@ -7,7 +7,7 @@
  * Run: npm run generate:types
  */
 
-import type { Prisma } from '../generated/prisma/client.js';
+import type { Prisma } from '@prisma/client';
 
 // ============================================================================
 // Enums

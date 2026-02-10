@@ -19,7 +19,7 @@
  */
 
 import { Pool } from "pg";
-import type { Prisma } from '../../generated/prisma/client.js';
+import type { Prisma } from '@prisma/client';
 import { getProdDb } from "../pg-connection.js";
 import { buildSelect } from "../pg-query.js";
 import type { Encounter } from "../../types/db-models.js";

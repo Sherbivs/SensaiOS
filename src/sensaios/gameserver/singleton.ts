@@ -41,7 +41,7 @@
  * @since 2026-01-04
  */
 
-import type { PrismaClient } from '../../generated/prisma/client.js';
+import type { PrismaClient } from '@prisma/client';
 import { createComponentContext } from '../context-factory.js';
 import { createGameServerClient, type GameServerAPI, type ComponentManifest } from './api.js';
 import { initializeDevelopmentEncryption, isEncryptionInitialized } from './encryption.js';

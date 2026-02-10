@@ -41,7 +41,7 @@
  * ```
  */
 
-import { PrismaClient } from '../../../generated/prisma/index.js';
+import { PrismaClient } from '@prisma/client';
 import {
   type SecurityBaseline,
   type SecurityBaselineInput,

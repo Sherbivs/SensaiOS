@@ -26,7 +26,7 @@ import { toEasternLogFormat } from '../../shared/datetime.js';
 import { EventBus } from '../../shared/event-bus.js';
 import { prisma } from '../../shared/prisma.js';
 import { daysAgo } from '../../shared/utils/date-utils.js';
-import type { ErrorLog } from '../../generated/prisma/client.js';
+import type { ErrorLog } from '@prisma/client';
 import {
   parseStackTrace,
   enrichStackFramesWithSource,

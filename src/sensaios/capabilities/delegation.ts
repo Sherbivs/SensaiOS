@@ -11,7 +11,7 @@
  * @version 1.0.0
  */
 
-import type { PrismaClient } from '../../generated/prisma/client.js';
+import type { PrismaClient } from '@prisma/client';
 import * as crypto from 'crypto';
 import type { TenantScope } from '../tenant-scope.js';
 import type { CapabilityType } from '../types.js';
