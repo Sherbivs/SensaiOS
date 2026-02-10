@@ -13,6 +13,7 @@ import { getLogBuffer } from "../../shared/logBuffer.js";
 import { EventBus } from "../../shared/event-bus.js";
 import { getProdDb } from "../../shared/pg-connection.js";
 import { measureLogBufferMemory, measureEventBusMemory, measureDiscordCacheMemory, getConfidenceEmoji } from "../../utils/memory-measurement.js";
+import { collectMemoryMetrics, formatMemoryMetrics } from "../../services/monitoring/memory-metrics.js";
 // Query modules
 import { getUserBasic, countUsers } from "../../shared/models/user-queries-pg.js";
 import { countAllEncountersByState } from "../../shared/models/encounter-queries-pg.js";
@@ -1965,13 +1966,24 @@ export async function handleOpsCommand(interaction, deps = {}) {
                 lines.push(`• Discord Cache: n/a (error: ${getErrorMessage(err)})`);
             }
             lines.push("");
-            // Section 5: Heap Statistics (simplified - v8 module not imported)
+            // Section 5: Bounded Structure Utilization
+            try {
+                const metrics = await collectMemoryMetrics();
+                lines.push("**🧠 Bounded Structure Utilization**");
+                lines.push(...formatMemoryMetrics(metrics, { includeHeader: false }).split("\n"));
+            }
+            catch (err) {
+                lines.push("**🧠 Bounded Structure Utilization**");
+                lines.push(`• ⚠️ Failed to collect bounded structure metrics: ${getErrorMessage(err)}`);
+            }
+            lines.push("");
+            // Section 6: Heap Statistics (simplified - v8 module not imported)
             const heapUsedPercent = ((current.heapUsed / current.heapTotal) * 100).toFixed(1);
             lines.push("**� Heap Statistics**");
             lines.push(`• Heap Usage: ${heapUsedPercent}% of allocated`);
             lines.push(`• Available: ${formatMB(current.heapTotal - current.heapUsed)} MB`);
             lines.push("");
-            // Section 6: Recommendations
+            // Section 7: Recommendations
             lines.push("**💡 Recommendations**");
             if (current.rss >= emergencyLimitMB * 1024 * 1024) {
                 lines.push("• 💀 EMERGENCY: Restart service immediately");
