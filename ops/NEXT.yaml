@@ -34,13 +34,16 @@ main_tasks:
 
 # Quick/hot task slot (< 30 min work)
 quick_task:
-  id: META.TASKLIST.ARCHIVE
-  status: DONE
-  effort: 30m
-  description: "Archive 16 completed SensaiOS Ring Security tasks from Tasklist.md to docs/archive/tasks/"
+  id: DISCORD.MEMBER_FETCH.RATE_LIMIT
+  status: IN_PROGRESS
+  effort: 1h
+  description: "Apply gateway opcode 8 rate limit cooldown/backoff to guild member fetches"
+  files_hint:
+    - src/bot/main.ts
+    - src/shared/constants.ts
 
 # Timestamp and rationale
-timestamp_utc: "2026-02-10T17:25:00Z"
+timestamp_utc: "2026-02-10T19:30:00Z"
 note: |
   ✅ MEMLEAK.PHASE2.6 COMPLETE (2026-02-10T15:10Z)
   - Phase 2 integration gate cleared: npm test (full suite) + npm run build
@@ -60,10 +63,14 @@ note: |
   🚧 MEMLEAK.PHASE4.1 IN PROGRESS (2026-02-10T17:15Z)
   - Grafana rollout dashboard added (ops/grafana-memory-leak-rollout.json)
   - Baseline capture in progress (RSS/heap growth)
+  - Baseline capture restarted 2026-02-10T17:28Z (log: Store/monitoring/memory-growth-2026-02-10.log)
 
   ✅ META.TASKLIST.ARCHIVE COMPLETE (2026-02-10T17:25Z)
   - SensaiOS Ring Security archived to docs/archive/tasks/sensaios-ring-security.md
   - Tasklist cleaned to archive pointer only
+
+  🚧 DISCORD.MEMBER_FETCH.RATE_LIMIT IN PROGRESS (2026-02-10T18:30Z)
+  - Gateway opcode 8 rate limit handling via cooldown/backoff in ensureGuildMembersCached
 
   📋 PAUSED: KERNEL.LOGGING.OUTPUT_PLUGINS (deprioritized for memory leak urgency)
 

@@ -1,6 +1,6 @@
 # Prompt.md
-Timestamp (UTC): 2026-02-10T17:25:00Z
-Revision: 6.8
+Timestamp (UTC): 2026-02-10T19:30:00Z
+Revision: 7.0
 
 **Cross-References**:
 - See `Patch.md` for contract rules (updated 2026-02-09T00:00:00Z Rev 1.76)
@@ -25,6 +25,14 @@ Revision: 6.8
 5. When Git remote validation or CI guards fail locally, stop and request human assistance rather than proceeding.
 
 ## Last Repo Changes
+- **🚧 MEMLEAK.PHASE4.1 IN PROGRESS (2026-02-10T19:30Z):**
+  - Baseline capture restarted (17:28Z) with 30-minute interval
+  - Blueprint updated with latest baseline capture log path
+
+- **🚧 DISCORD.MEMBER_FETCH.RATE_LIMIT IN PROGRESS (2026-02-10T18:30Z):**
+  - Added gateway opcode 8 rate limit detection + cooldown guard in ensureGuildMembersCached
+  - Added cooldown bounds to DISCORD_CONSTANTS
+
 - **🚧 MEMLEAK.PHASE4.1 IN PROGRESS (2026-02-10T17:15Z):**
   - Grafana rollout dashboard added for RSS/heap/bounded utilization
   - Baseline capture underway (24h RSS + heap trends)
@@ -145,14 +153,14 @@ Revision: 6.8
 
 ## Embedded PATCHSET Echo
 <!-- PATCHSET:ECHO BEGIN -->
-HEAD: pending-local (MEMLEAK.PHASE4.1 — baseline capture + dashboard)
-Change: Added baseline first sample to blueprint and confirmed monitor running; Ring Security archive cleanup complete.
-TasklistDiff: true (archive cleaned; Tasklist Rev 2.170).
-Tests: not run (docs/tasklist updates only).
-Build: not run (docs/tasklist updates only).
-Docs: not run.
+HEAD: pending-local (DISCORD.MEMBER_FETCH.RATE_LIMIT + MEMLEAK.PHASE4.1)
+Change: Restarted Phase 4.1 baseline capture and updated blueprint/task notes with log path.
+TasklistDiff: true (Rev 2.172).
+Tests: not run (monitor script only).
+Build: not run.
+Docs: ops/MEMORY-LEAK-PATCH-BLUEPRINT.md updated.
 Contracts: ON (Patch Engine active).
-NextPointer: MEMLEAK.PHASE4.1 (in progress).
+NextPointer: MEMLEAK.PHASE4.1 + quick_task DISCORD.MEMBER_FETCH.RATE_LIMIT.
 <!-- PATCHSET:ECHO END -->
 
 ## AI Worker Prompt (copy/paste for Copilot/GPT)

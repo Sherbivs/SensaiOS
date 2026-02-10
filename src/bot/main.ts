@@ -242,7 +242,14 @@ interface ExtendedClient extends Client {
 // Extract constants from centralized constants
 const { DEFAULT_TIMEOUT_MS, MIN_TIMEOUT_MS, MAX_TIMEOUT_MS, MEMBER_STATS_REFRESH_INTERVAL_MS } = TIME_CONSTANTS;
 const { MAX_OPS_ERROR_QUEUE_SIZE } = MONITORING_CONSTANTS;
-const { CLI_SWEEP_WARNING_THRESHOLD_SECONDS, CONTINUOUS_SWEEP_IDLE_DELAY_MS, GUILD_MEMBER_FETCH_CHUNK_RETRIES, TIMEOUT_INCREMENT_MS } = DISCORD_CONSTANTS;
+const {
+  CLI_SWEEP_WARNING_THRESHOLD_SECONDS,
+  CONTINUOUS_SWEEP_IDLE_DELAY_MS,
+  GUILD_MEMBER_FETCH_CHUNK_RETRIES,
+  GUILD_MEMBER_FETCH_RATE_LIMIT_FLOOR_MS,
+  GUILD_MEMBER_FETCH_RATE_LIMIT_CEIL_MS,
+  TIMEOUT_INCREMENT_MS
+} = DISCORD_CONSTANTS;
 
 // Auto-adjusting timeout for GuildMembersTimeout errors
 // Increases by 250ms each time a timeout occurs, persists across restarts
@@ -479,6 +486,45 @@ try {
 }
 
 const GUILD_MEMBERS_TIMEOUT_FRAGMENT = "Members didn't arrive in time.";
+const guildMemberFetchCooldowns = new Map<string, number>();
+
+function isGatewayRateLimitError(error: unknown): boolean {
+  if (!error) return false;
+  const errorObj = error as { name?: string; message?: string };
+  if (errorObj.name === 'GatewayRateLimitError') {
+    return true;
+  }
+  const message = typeof errorObj.message === 'string' ? errorObj.message : String(error);
+  return message.includes('rate limited') && message.includes('opcode 8');
+}
+
+function extractGatewayRateLimitDelayMs(error: unknown): number | null {
+  if (!error) return null;
+  const errorObj = error as { retryAfter?: number; retry_after?: number; data?: { retry_after?: number }; message?: string };
+  const retryAfterRaw = errorObj.retryAfter ?? errorObj.retry_after ?? errorObj.data?.retry_after;
+  if (typeof retryAfterRaw === 'number' && Number.isFinite(retryAfterRaw)) {
+    return retryAfterRaw >= 1000 ? retryAfterRaw : retryAfterRaw * 1000;
+  }
+  const message = typeof errorObj.message === 'string' ? errorObj.message : String(error);
+  const match = /retry after\s+([\d.]+)\s*seconds/i.exec(message);
+  if (match) {
+    const seconds = Number(match[1]);
+    if (Number.isFinite(seconds)) {
+      return seconds * 1000;
+    }
+  }
+  return null;
+}
+
+function applyGuildMemberFetchCooldown(guildId: string, delayMs: number): number {
+  const boundedDelayMs = Math.min(
+    GUILD_MEMBER_FETCH_RATE_LIMIT_CEIL_MS,
+    Math.max(GUILD_MEMBER_FETCH_RATE_LIMIT_FLOOR_MS, delayMs)
+  );
+  const until = Date.now() + boundedDelayMs;
+  guildMemberFetchCooldowns.set(guildId, until);
+  return boundedDelayMs;
+}
 
 function isGuildMembersTimeout(error: unknown): boolean {
   if (!error) return false;
@@ -503,6 +549,20 @@ async function ensureGuildMembersCached(guild: Guild, options: EnsureGuildMember
 
   const guildSummary = describeGuild(guild);
   const targetCount = Number.isFinite(guild.memberCount) ? guild.memberCount : null;
+  const cooldownUntil = guildMemberFetchCooldowns.get(guild.id);
+  if (cooldownUntil && Date.now() < cooldownUntil) {
+    const remainingMs = Math.max(0, cooldownUntil - Date.now());
+    report('Members Fetch Rate Limited (Cooldown Active)', {
+      origin,
+      guild: guildSummary,
+      cooldownRemainingMs: remainingMs,
+      nextAttemptAt: new Date(cooldownUntil).toISOString(),
+      cachedMembers: guild.members.cache.size,
+      targetMembers: targetCount ?? 'unknown',
+      status: 'Skipped member fetch due to active rate limit cooldown'
+    }, 'warn');
+    return guild.members.cache;
+  }
 
   let chunkAttempts = 0;
   let chunkSucceeded = false;
@@ -514,6 +574,22 @@ async function ensureGuildMembersCached(guild: Guild, options: EnsureGuildMember
       chunkSucceeded = true;
       break;
     } catch (error) {
+      if (isGatewayRateLimitError(error)) {
+        const delayMs = applyGuildMemberFetchCooldown(
+          guild.id,
+          extractGatewayRateLimitDelayMs(error) ?? GUILD_MEMBER_FETCH_RATE_LIMIT_FLOOR_MS
+        );
+        report('Members Fetch Rate Limited (Chunk Request)', mergeReportError({
+          origin,
+          guild: guildSummary,
+          attempt: chunkAttempts,
+          retries: chunkRetries,
+          retryAfterMs: delayMs,
+          status: 'Cooldown applied; skipping member fetch'
+        }, error), 'warn');
+        return guild.members.cache;
+      }
+
       if (!isGuildMembersTimeout(error)) {
         throw error;
       }
@@ -580,7 +656,26 @@ async function ensureGuildMembersCached(guild: Guild, options: EnsureGuildMember
       pageOptions.after = after;
     }
 
-    const batch = await guild.members.fetch(pageOptions);
+    let batch: Collection<string, GuildMember>;
+    try {
+      batch = await guild.members.fetch(pageOptions);
+    } catch (error) {
+      if (isGatewayRateLimitError(error)) {
+        const delayMs = applyGuildMemberFetchCooldown(
+          guild.id,
+          extractGatewayRateLimitDelayMs(error) ?? GUILD_MEMBER_FETCH_RATE_LIMIT_FLOOR_MS
+        );
+        report('Members Fetch Rate Limited (Paginated Request)', mergeReportError({
+          origin,
+          guild: guildSummary,
+          page: pages + 1,
+          retryAfterMs: delayMs,
+          status: 'Cooldown applied; pagination halted'
+        }, error), 'warn');
+        break;
+      }
+      throw error;
+    }
     if (batch.size === 0) {
       break;
     }

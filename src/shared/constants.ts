@@ -150,6 +150,8 @@ export const MONITORING_CONSTANTS = Object.freeze({
 export const DISCORD_CONSTANTS = Object.freeze({
   /** Guild member fetch configuration */
   GUILD_MEMBER_FETCH_CHUNK_RETRIES: 3,
+  GUILD_MEMBER_FETCH_RATE_LIMIT_FLOOR_MS: 5_000,
+  GUILD_MEMBER_FETCH_RATE_LIMIT_CEIL_MS: 60_000,
   
   /** Sweep and monitoring intervals */
   CLI_SWEEP_WARNING_THRESHOLD_SECONDS: 5 * 60, // 5 minutes

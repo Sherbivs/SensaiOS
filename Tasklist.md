@@ -1,7 +1,11 @@
 # Tasklist
-Last Updated (UTC): 2026-02-10T17:25:00Z
-Revision: 2.170
+Last Updated (UTC): 2026-02-10T19:30:00Z
+Revision: 2.172
 <!-- # TASKLIST UPDATE -->
+
+**Recent Activity (2026-02-10T19:30Z):**
+- 🚧 **MEMLEAK.PHASE4.1 → IN_PROGRESS** — Baseline capture restarted (17:28Z), log `Store/monitoring/memory-growth-2026-02-10.log`
+- 🚧 **DISCORD.MEMBER_FETCH.RATE_LIMIT → IN_PROGRESS** — Gateway opcode 8 rate limit cooldown + backoff handling
 
 **Recent Activity (2026-02-10T17:25Z):**
 - 🚧 **MEMLEAK.PHASE4.1 → IN_PROGRESS** — Baseline capture underway; Grafana rollout dashboard added
@@ -685,7 +689,7 @@ Each task has:
     - Grafana dashboard for RSS, heap, bounded utilization, error rate
     - Document baseline numbers in blueprint
   notes: |
-    IN PROGRESS (2026-02-10): Dashboard added; baseline capture underway.
+    IN PROGRESS (2026-02-10): Dashboard added; baseline capture restarted 17:28Z.
 
 - id: MEMLEAK.PHASE4.2
   title: "Deploy to canary worker + 24h soak test validation"
@@ -726,6 +730,29 @@ Each task has:
   acceptance_criteria:
     - 7-day validation, update architecture/development bibles
   notes: See blueprint § Documentation Updates.
+
+---
+
+### ═══════════════════════════════════════════════════════════
+### HOTFIX: DISCORD MEMBER FETCH RATE LIMITS
+### ═══════════════════════════════════════════════════════════
+
+- id: DISCORD.MEMBER_FETCH.RATE_LIMIT
+  title: "Apply gateway rate limit cooldown for guild member fetches"
+  status: IN_PROGRESS
+  depends_on: []
+  priority: P1-HIGH
+  effort: 1h
+  assigned_to: AI_SUBAGENT
+  files:
+    - src/bot/main.ts
+    - src/shared/constants.ts
+  acceptance_criteria:
+    - Gateway opcode 8 rate limits handled without crash
+    - Cooldown applied using retryAfter with floor/ceiling bounds
+    - Member fetch attempts skipped while cooldown active
+  notes: |
+    IN PROGRESS (2026-02-10): Implementing cooldown/backoff handling.
 
 ---
 

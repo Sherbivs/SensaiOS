@@ -1525,6 +1525,7 @@ Automatically rollback if ANY of these occur:
 Run production for 24 hours and collect:
 - Grafana dashboard: `ops/grafana-memory-leak-rollout.json` (RSS/heap/bounded utilization panels)
 - Baseline monitor: `scripts/monitor-memory-24h.ps1` (log: `Store/monitoring/memory-growth-YYYY-MM-DD.log`)
+- Baseline capture restarted (2026-02-10 17:28:15Z): 30-minute interval → `Store/monitoring/memory-growth-2026-02-10.log`
 - First sample (2026-02-10 16:08): **RSS 311.5 MB** (baseline set)
 - Average RSS memory: **TBD (capture in progress — 2026-02-10)**
 - Peak RSS memory: **TBD (capture in progress — 2026-02-10)**

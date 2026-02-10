@@ -84,6 +84,14 @@ MEMLEAK.PHASE5.2:
   - "docs/development-bible/INDEX.md"         # Bounded structure guidelines
 
 # ═══════════════════════════════════════════════════════════════
+# 🔧 HOTFIXES — Operational stabilizations
+# ═══════════════════════════════════════════════════════════════
+
+DISCORD.MEMBER_FETCH.RATE_LIMIT:
+  - "src/bot/main.ts"
+  - "src/shared/constants.ts"
+
+# ═══════════════════════════════════════════════════════════════
 # ⏸️ PAUSED — Kernel Logging (Resume after memory leak patch)
 # ═══════════════════════════════════════════════════════════════
 
