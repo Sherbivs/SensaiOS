@@ -163,6 +163,9 @@
   },
   "overrides": {
     "effect": "3.19.12",
-    "fast-check": "3.22.0"
+    "fast-check": "3.22.0",
+    "hono": "4.11.9",
+    "undici": "6.23.0",
+    "lodash": "4.17.23"
   }
 }
