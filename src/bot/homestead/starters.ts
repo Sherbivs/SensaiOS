@@ -28,6 +28,7 @@ import { replyInfo } from "../shared/response-helpers.js";
 import { ensureUser } from "../../shared/models/user-queries-pg.js";
 import { getPartyWithSlots, createParty, createPartySlot, createPokemon } from "../../shared/models/party-queries-pg.js";
 import { getProdDb } from "../../shared/pg-connection.js";
+import { computeInitialStats, computeFallbackStats } from "../../shared/pokemon/compute-stats.js";
 
 // Import the open starter selection system
 import { 
@@ -92,12 +93,6 @@ export async function openStartersHomestead(
 
 type CreateOpts = { discordId: string; speciesId: number };
 
-// Minimal stat bootstrap without referencing the full Dex yet
-function computeInitialStats(level: number) {
-  const maxHp = 20 + level * 3; // simple placeholder formula
-  return { hp: maxHp, maxHp };
-}
-
 export async function createStarterAndAssignParty({
   discordId,
   speciesId,
@@ -118,7 +113,8 @@ export async function createStarterAndAssignParty({
   }
 
   const level = 5;
-  const { hp, maxHp } = computeInitialStats(level);
+  const stats = computeInitialStats(speciesId, level) ?? computeFallbackStats(level);
+  const { hp, maxHp } = stats;
 
   const ivs = { hp: 31, atk: 31, def: 31, spa: 31, spd: 31, spe: 31 };
   const evs = { hp: 0, atk: 0, def: 0, spa: 0, spd: 0, spe: 0 };

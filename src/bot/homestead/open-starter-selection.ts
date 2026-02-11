@@ -45,6 +45,7 @@ import { getProdDb } from "../../shared/pg-connection.js";
 import { HomesteadChannelManager } from "../../services/homestead-manager.js";
 import { getSpriteUrl } from "../../lib/assets.js";
 import { giveStarterKit, formatItemRewardsInline } from "../../services/inventory.js";
+import { computeInitialStats, computeFallbackStats } from "../../shared/pokemon/compute-stats.js";
 
 // ============================================================================
 // TYPES
@@ -132,10 +133,10 @@ async function createOpenStarter(
 ): Promise<{ pokemonId: string; partyFull: boolean }> {
   const user = await ensureUser(discordId);
   
-  // Compute initial stats (level 5)
+  // Compute initial stats using canonical Gen III+ formula
   const level = 5;
-  const maxHp = 20 + level * 3; // Simple formula for now
-  const hp = maxHp;
+  const stats = computeInitialStats(speciesId, level) ?? computeFallbackStats(level);
+  const { hp, maxHp } = stats;
   
   // Perfect IVs for starter (reward for choosing freely)
   const ivs = { hp: 31, atk: 31, def: 31, spa: 31, spd: 31, spe: 31 };

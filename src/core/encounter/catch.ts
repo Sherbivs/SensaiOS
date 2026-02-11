@@ -4,6 +4,7 @@ import { prisma as prismaClient, UserRepo } from "../../models/index.js";
 import { invalidateEncounter, loadEncounter } from "../../services/cache/recipes.js";
 import { getPartyWithSlots } from "../../shared/models/party-queries-pg.js";
 import { clamp } from "../../shared/utils/index.js";
+import { computeInitialStats, computeFallbackStats } from "../../shared/pokemon/compute-stats.js";
 
 export type BallType = "poke" | "great" | "ultra";
 
@@ -26,11 +27,6 @@ export function catchChance(level: number, ball: BallType = "poke"): number {
   const base = 0.5 - level * 0.02; // Lv2=0.46, Lv6=0.38
   const chance = base + ballBonus(ball);
   return clamp(chance, 0.05, 0.95);
-}
-
-function computeInitialStats(level: number) {
-  const maxHp = 20 + level * 3; // simple placeholder formula (same shape as starters)
-  return { hp: maxHp, maxHp };
 }
 
 export type AttemptCatchOpts = {
@@ -88,7 +84,8 @@ export async function attemptCatch(opts: AttemptCatchOpts) {
   }
 
   // Success: mark Caught, create a PokemonInstance for the user
-  const { hp, maxHp } = computeInitialStats(enc.level);
+  const stats = computeInitialStats(enc.speciesId, enc.level) ?? computeFallbackStats(enc.level);
+  const { hp, maxHp } = stats;
   const ivs = { hp: 31, atk: 31, def: 31, spa: 31, spd: 31, spe: 31 } satisfies Prisma.JsonObject;
   const evs = { hp: 0, atk: 0, def: 0, spa: 0, spd: 0, spe: 0 } satisfies Prisma.JsonObject;
   const moves = [
