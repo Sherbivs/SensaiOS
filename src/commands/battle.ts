@@ -51,9 +51,12 @@ const command: Command = {
         return;
       }
       
-      // TODO: Implement actual battle challenge system
+      // Button-First redirect (Game Design Bible § 2)
+      // Battle challenges are handled via homestead channel buttons
       await interaction.reply({
-        content: `⚔️ Battle challenge sent to ${opponent.username}!\n*(Battle system coming soon!)*`,
+        content: `🎮 **Battles are available in your homestead channel!**\n\n` +
+                 `👉 Use \`/start\` to open your homestead, then navigate to the battle arena.\n\n` +
+                 `💡 *Pokémon Infinity Gauntlet is a button-first game — no commands to memorize, just click and play!*`,
         ephemeral: true,
       });
     }

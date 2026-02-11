@@ -85,12 +85,37 @@ function buildNavRow(active: ViewKey): ActionRowBuilder<ButtonBuilder> {
 }
 
 /**
- * Build primary action row per Game Design Bible § 6
- * Layout: [🚶 Explore] [📋 Party] [💊 Heal]
+ * Check if any party Pokémon can explore (has HP > 0).
+ * Returns false if party is empty or all members are fainted.
  */
-function buildActionRow(): ActionRowBuilder<ButtonBuilder> {
+function canPartyExplore(party: TrainerPartySlot[]): boolean {
+  const members = party.filter((s) => s.pokemon !== null);
+  if (members.length === 0) return false;
+  return members.some((s) => {
+    const hp = safeNumber(s.pokemon?.hp);
+    return hp !== null && hp > 0;
+  });
+}
+
+/**
+ * Build primary action row per Game Design Bible § 6
+ * Layout: [🚶 Explore] [💊 Heal] [🎁 Daily]
+ * 
+ * Explore is disabled when all party Pokémon are fainted (Bible § 2: contextual disabled states).
+ */
+function buildActionRow(party?: TrainerPartySlot[]): ActionRowBuilder<ButtonBuilder> {
+  const exploreDisabled = party ? !canPartyExplore(party) : false;
+
+  const exploreBtn = exploreDisabled
+    ? new ButtonBuilder()
+        .setCustomId("HOME_EXPLORE")
+        .setLabel("🚶 Explore")
+        .setStyle(1) // Primary
+        .setDisabled(true)
+    : primaryButton("HOME_EXPLORE", "🚶 Explore");
+
   return new ActionRowBuilder<ButtonBuilder>().addComponents(
-    primaryButton("HOME_EXPLORE", "🚶 Explore"),
+    exploreBtn,
     primaryButton("HOME_HEAL", "💊 Heal"),
     primaryButton("HOME_DAILY", "🎁 Daily")
   );
@@ -148,7 +173,7 @@ function buildPartyView(snapshot: TrainerHomeSnapshot): ViewRender {
     });
   });
 
-  const components = [buildNavRow("party"), buildActionRow(), buildSecondaryRow()];
+  const components = [buildNavRow("party"), buildActionRow(snapshot.party), buildSecondaryRow()];
   return { embed, components };
 }
 
@@ -197,7 +222,7 @@ function buildBoxView(snapshot: TrainerHomeSnapshot, page = 1): ViewRender {
   if (totalPages > 1) {
     components.push(buildBoxPaginationRow(currentPage, totalPages));
   }
-  components.push(buildActionRow());
+  components.push(buildActionRow(snapshot.party));
   components.push(buildSecondaryRow());
   return { embed, components, meta: { page: currentPage, totalPages } };
 }
@@ -268,7 +293,7 @@ function buildProfileView(snapshot: TrainerHomeSnapshot, now = new Date()): View
 
   embed.setFooter({ text: `Pokémon owned: ${total}` });
 
-  const components = [buildNavRow("profile"), buildActionRow(), buildSecondaryRow()];
+  const components = [buildNavRow("profile"), buildActionRow(snapshot.party), buildSecondaryRow()];
   return { embed, components };
 }
 

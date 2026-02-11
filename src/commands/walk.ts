@@ -19,12 +19,13 @@ const command: Command = {
   data,
   cooldownMs: 5000, // 5 second cooldown for encounters
   async execute(interaction) {
-    // TODO: Implement actual encounter system
-    // For now, placeholder response
+    // Button-First redirect (Game Design Bible § 2)
+    // Walking is done via the Explore screen in homestead channels
     await interaction.reply({ 
-      content: '🚶 You walk through the tall grass... but nothing appears yet.\n' +
-               '*(Encounter system coming soon!)*', 
-      ephemeral: false 
+      content: '🎮 **Walking is available in your homestead channel!**\n\n' +
+               '👉 Use `/start` to open your homestead, then click **🚶 Explore** → **👟 Walk** to encounter wild Pokémon.\n\n' +
+               '💡 *Pokémon Infinity Gauntlet is a button-first game — no commands to memorize, just click and play!*', 
+      ephemeral: true 
     });
   }
 };
