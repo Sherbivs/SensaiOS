@@ -97,7 +97,7 @@ beforeEach(() => {
 
   activityMetricsMock.mockReturnValue({ current: 10, max: 100, utilization: 10 });
   playerResolverMock.getCacheStats.mockReturnValue({ size: 80, max: 100, utilization: 80 });
-  casMock.getStats.mockReturnValue({ total: 95, maxBlobs: 100, utilization: 95 });
+  casMock.getStats.mockReturnValue({ totalBlobs: 95, maxBlobs: 100, utilization: 95 });
   discordIdentityMock.getCacheStats.mockReturnValue({
     users: { size: 10, max: 100, utilization: 10 },
     guilds: { size: 50, max: 100, utilization: 50 },
@@ -197,7 +197,7 @@ describe('memory-metrics', () => {
 
   it('returns no warnings when utilization stays below thresholds', async () => {
     playerResolverMock.getCacheStats.mockReturnValue({ size: 10, max: 100, utilization: 10 });
-    casMock.getStats.mockReturnValue({ total: 20, maxBlobs: 100, utilization: 20 });
+    casMock.getStats.mockReturnValue({ totalBlobs: 20, maxBlobs: 100, utilization: 20 });
 
     const summary = await collectMemoryMetrics();
 
