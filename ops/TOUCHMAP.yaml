@@ -1,6 +1,6 @@
 # TOUCH MAP — Maps task IDs (or glob prefixes) to the primary files/paths they modify.
 # This gives the AI a fast way to jump to relevant files for each task.
-# Last Updated: 2026-02-10T16:05:00Z
+# Last Updated: 2026-02-10T21:20:00Z
 
 # ═══════════════════════════════════════════════════════════════
 # 🚨 ACTIVE — Memory Leak Patch (P0-CRITICAL) — 17 granular sub-tasks
@@ -70,6 +70,7 @@ MEMLEAK.PHASE3.2:
 MEMLEAK.PHASE4.1:
   - "ops/grafana-memory-leak-rollout.json"    # NEW: Rollout monitoring dashboard
   - "ops/MEMORY-LEAK-PATCH-BLUEPRINT.md"      # Baseline capture documentation
+  - "Prompt.md"                               # Baseline capture status updates
 
 MEMLEAK.PHASE4.2:
   - "ops/MEMORY-LEAK-PATCH-BLUEPRINT.md"      # Canary validation results

@@ -1,6 +1,6 @@
 # Prompt.md
-Timestamp (UTC): 2026-02-10T19:30:00Z
-Revision: 7.0
+Timestamp (UTC): 2026-02-10T21:20:00Z
+Revision: 7.1
 
 **Cross-References**:
 - See `Patch.md` for contract rules (updated 2026-02-09T00:00:00Z Rev 1.76)
@@ -25,6 +25,11 @@ Revision: 7.0
 5. When Git remote validation or CI guards fail locally, stop and request human assistance rather than proceeding.
 
 ## Last Repo Changes
+- **🚧 MEMLEAK.PHASE4.1 IN PROGRESS (2026-02-10T21:20Z):**
+  - Baseline capture restarted at 21:00:19Z (30-minute interval)
+  - First sample: RSS 214.7 MB (baseline set)
+  - Noted data gaps earlier due to WSL missing and PowerShell Host variable conflicts
+  - Blueprint and touchmap updated to reflect baseline restart
 - **🚧 MEMLEAK.PHASE4.1 IN PROGRESS (2026-02-10T19:30Z):**
   - Baseline capture restarted (17:28Z) with 30-minute interval
   - Blueprint updated with latest baseline capture log path
@@ -153,12 +158,12 @@ Revision: 7.0
 
 ## Embedded PATCHSET Echo
 <!-- PATCHSET:ECHO BEGIN -->
-HEAD: pending-local (DISCORD.MEMBER_FETCH.RATE_LIMIT + MEMLEAK.PHASE4.1)
-Change: Restarted Phase 4.1 baseline capture and updated blueprint/task notes with log path.
-TasklistDiff: true (Rev 2.172).
-Tests: not run (monitor script only).
+HEAD: d65d864e
+Change: Updated Phase 4.1 baseline capture notes and touchmap for latest restart and data gaps.
+TasklistDiff: false.
+Tests: not run (documentation update only).
 Build: not run.
-Docs: ops/MEMORY-LEAK-PATCH-BLUEPRINT.md updated.
+Docs: ops/MEMORY-LEAK-PATCH-BLUEPRINT.md, ops/TOUCHMAP.yaml, Prompt.md updated.
 Contracts: ON (Patch Engine active).
 NextPointer: MEMLEAK.PHASE4.1 + quick_task DISCORD.MEMBER_FETCH.RATE_LIMIT.
 <!-- PATCHSET:ECHO END -->

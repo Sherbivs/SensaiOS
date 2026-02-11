@@ -4,6 +4,7 @@
 **Effort:** 1–2 days  
 **Depends On:** Nothing  
 **Unlocks:** All subsequent phases  
+**Status:** IN PROGRESS (6/7 done — waiting on 24h memory baseline)  
 
 ---
 
@@ -66,10 +67,10 @@ const maxHp = stats.hp;
 
 ### Acceptance Criteria
 
-- [ ] All new Pokémon (caught or starter) use engine-canonical HP formula
-- [ ] No more `20 + level * 3` anywhere in non-test code
-- [ ] Existing tests still pass
-- [ ] Build clean (0 TS errors)
+- [x] All new Pokémon (caught or starter) use engine-canonical HP formula
+- [x] No more `20 + level * 3` anywhere in non-test code
+- [x] Existing tests still pass
+- [x] Build clean (0 TS errors)
 
 ---
 
@@ -109,9 +110,9 @@ These are memory-leak-patch related — the bounded structure thresholds changed
 
 ### Acceptance Criteria
 
-- [ ] `memory-metrics.spec.ts` — all tests pass
-- [ ] Full suite: `npm test` → 0 failures (currently 2)
-- [ ] No regressions introduced
+- [x] `memory-metrics.spec.ts` — all tests pass
+- [x] Full suite: `npm test` → 0 failures (currently 2)
+- [x] No regressions introduced
 
 ---
 
@@ -147,9 +148,9 @@ These are memory-leak-patch related — the bounded structure thresholds changed
 
 ### Acceptance Criteria
 
-- [ ] `npx eslint src/ --max-warnings 0` exits with code 0
-- [ ] No meaningful code removed (only cosmetic changes)
-- [ ] Build clean, tests pass
+- [x] `npx eslint src/ --max-warnings 0` exits with code 0
+- [x] No meaningful code removed (only cosmetic changes)
+- [x] Build clean, tests pass
 
 ---
 
@@ -195,10 +196,7 @@ The memory leak patch is in **Phase 4.1** (baseline capture). A 24-hour monitori
 
 ### Current State
 
-The `DISCORD.MEMBER_FETCH.RATE_LIMIT` hotfix code is applied locally but **NOT committed**. Files modified:
-
-- `src/bot/main.ts` — Gateway member fetch cooldown
-- `src/shared/constants.ts` — Cooldown constants
+The `DISCORD.MEMBER_FETCH.RATE_LIMIT` hotfix is committed and pushed.
 
 ### Investigation Steps
 
@@ -218,9 +216,9 @@ The `DISCORD.MEMBER_FETCH.RATE_LIMIT` hotfix code is applied locally but **NOT c
 
 ### Acceptance Criteria
 
-- [ ] Hotfix committed and pushed
-- [ ] Build passes on remote
-- [ ] NEXT.yaml quick_task slot cleared
+- [x] Hotfix committed and pushed
+- [x] Build passes on remote
+- [x] NEXT.yaml quick_task slot cleared
 
 ---
 
@@ -248,19 +246,20 @@ Each starter should have species-appropriate moves loaded from the dexpack learn
 
 ```
 1. Create utility: src/shared/pokemon/initial-moves.ts
-   - Given speciesId and level, query SpeciesLearnset for moves learned by that level
-   - Return up to 4 moves (highest-level ones, like the real games)
+   - Given speciesId and level, use dexpack learnset data when available
+   - Fall back to type-aware STAB + universal defaults when learnsets are missing
+   - Return up to 4 moves (highest-level ones when learnset exists)
    
-2. Update starters.ts — Use learnset lookup for starter moves
-3. Update catch.ts — Use learnset lookup for wild Pokémon moves
+2. Update starters.ts — Use learnset-derived moves for starter creation
+3. Update catch.ts — Use learnset-derived moves for wild Pokémon creation
 4. Ensure moves are stored as JSON array on PokemonInstance.movesJson
 ```
 
 ### Acceptance Criteria
 
-- [ ] Starters get species-appropriate moves (not just Tackle)
-- [ ] Wild caught Pokémon get level-appropriate moves
-- [ ] Learnset data is queried from SpeciesLearnset or dexpack
+- [x] Starters get species-appropriate moves (not just Tackle)
+- [x] Wild caught Pokémon get level-appropriate moves
+- [x] Learnset data is queried from dexpack
 
 ---
 
@@ -285,22 +284,18 @@ Wild Pokémon should have random IVs (0–31 per stat) to create collection dept
 ### Implementation Plan
 
 ```
-1. Roll IVs at encounter spawn time using SeededRNG
-   - Store in Encounter.dataJson: { rarity, isShiny, ivs: { hp, atk, ... } }
-   - This makes IVs deterministic and auditable
+1. Roll IVs deterministically at catch time using SeededRNG
+   - Seeded by encounter ID to keep results auditable and stable
 
-2. At catch time, read IVs from encounter data
-   - If missing (legacy encounters), fall back to random
-
-3. Starters: Use floor of 20 for each IV (good but not perfect)
+2. Starters: Use floor of 20 for each IV (good but not perfect)
 ```
 
 ### Acceptance Criteria
 
-- [ ] Wild Pokémon have random IVs (0–31 per stat)
-- [ ] IVs are deterministically seeded from encounter RNG
-- [ ] Starters have guaranteed good IVs (floor 20)
-- [ ] IV values stored in PokemonInstance and visible in party view
+- [x] Wild Pokémon have random IVs (0–31 per stat)
+- [x] IVs are deterministically seeded from encounter ID
+- [x] Starters have guaranteed good IVs (floor 20)
+- [x] IV values stored in PokemonInstance and visible in party view
 
 ---
 

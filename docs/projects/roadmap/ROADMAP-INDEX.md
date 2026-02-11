@@ -34,12 +34,11 @@ The audit assembled 8 expert specialists to evaluate every game-facing file in t
 - ✅ Starter selection and new player onboarding
 
 What's **not** working:
-- � `/walk` and `/battle` slash commands are stubs → **intentional** per Button-First policy; need redirect messages (Phase 1.6)
+- 🟡 `/walk` and `/battle` slash commands are stubs → **intentional** per Button-First policy; need redirect messages (Phase 1.6)
 - 🔴 GameServerAPI has **15 TODO stubs** (bypassed by the direct path)
 - 🔴 SensaiOS kernel boot is **not connected** to main startup
-- 🟡 3 placeholder HP formulas
 - 🟡 79 raw `console.*` calls (envelope migration incomplete)
-- 🟡 48 ESLint warnings
+- 🟡 Memory leak patch baseline capture in progress (Phase 0.4)
 
 ### Two Parallel Paths
 
@@ -63,7 +62,7 @@ PATH 2 (SENSAIOS — PARTIAL ⚠️):
 
 | Phase | Name | Priority | Effort | Status |
 |-------|------|----------|--------|--------|
-| **0** | [Correctness & Quick Wins](PHASE-0-QUICK-WINS.md) | 🔴 CRITICAL | 1–2 days | NOT STARTED |
+| **0** | [Correctness & Quick Wins](PHASE-0-QUICK-WINS.md) | 🔴 CRITICAL | 1–2 days | IN PROGRESS (6/7 done) |
 | **1** | [Button-First UI Polish](PHASE-1-SLASH-COMMANDS.md) | 🟡 HIGH | 2–3 days | NOT STARTED |
 | **2** | [GameServerAPI Completion](PHASE-2-GAMESERVER-API.md) | 🟡 HIGH | 1–2 weeks | NOT STARTED |
 | **3** | [Gameplay Depth & Content](PHASE-3-GAMEPLAY-DEPTH.md) | 🟢 MEDIUM | 3–4 weeks | NOT STARTED |
