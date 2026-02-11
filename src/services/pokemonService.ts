@@ -75,7 +75,7 @@ interface RefreshOptions {
   reason?: string;
 }
 
-interface CachePayload {
+interface _CachePayload {
   version: number;
   lastFetchedAt: string;
   total: number;
@@ -521,7 +521,6 @@ async function loadCacheFromDisk(): Promise<DiskCache | null> {
       return null;
     }
     
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const payload = entry.value as any;
     if (!payload || !Array.isArray(payload.pokemon)) {
       return null;

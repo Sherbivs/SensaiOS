@@ -41,10 +41,6 @@ import {
   type TenantScope,
 } from '../sensaios/tenant-scope.js';
 
-import {
-  runGuarded,
-} from '../sensaios/run-guarded.js';
-
 import type { GuardedContext } from '../sensaios/types.js';
 
 // ============================================================================

@@ -97,7 +97,7 @@ export async function uninstallApp(
     }
 
     // Step 3: Call onUnload() lifecycle hook (best effort)
-    const manifest = app.manifest as any;
+    const manifest = app.manifest as { lifecycle?: { onUnload?: (ctx: unknown) => Promise<void> } };
     if (manifest?.lifecycle?.onUnload) {
       ctx.obs.log.info('Calling onUnload lifecycle hook', { appId });
 

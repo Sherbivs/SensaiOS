@@ -10,7 +10,7 @@
  * @version 1.0.0
  */
 
-import { componentRegistry, type RegisteredComponent } from '../component-registry.js';
+import { componentRegistry } from '../component-registry.js';
 import { scopedLogger } from '../../observability/envelope/console.js';
 
 /** Scoped logger for visualization */

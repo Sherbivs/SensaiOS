@@ -44,7 +44,7 @@ interface SettingsData {
 export const SETTINGS_TOGGLE_PREFIX = "SETTINGS_TOGGLE_";
 
 // Re-export default settings from GameServerAPI
-const DEFAULT_SETTINGS = DEFAULT_TRAINER_SETTINGS;
+const _DEFAULT_SETTINGS = DEFAULT_TRAINER_SETTINGS;
 
 // Setting metadata for display
 const SETTING_INFO: Record<keyof UserSettings, { label: string; emoji: string; description: string }> = {

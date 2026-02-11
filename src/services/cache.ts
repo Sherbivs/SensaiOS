@@ -30,7 +30,7 @@ interface DiskStats {
   total: number;
 }
 
-interface CacheEntry {
+interface _CacheEntry {
   key: string;
   mtime: number;
   size: number;

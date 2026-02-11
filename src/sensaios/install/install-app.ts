@@ -292,11 +292,11 @@ export async function installApp(
  * @param manifest - Validated app manifest
  * @param ctx - Component context with database access
  */
-async function grantCapabilities(
+async function _grantCapabilities(
   manifest: AppManifest,
   ctx: ComponentContext
 ): Promise<void> {
-  const capabilities: Array<{ type: string; scope: any }> = [];
+  const capabilities: Array<{ type: string; scope: unknown }> = [];
 
   // Flatten capability requirements
   for (const cap of manifest.capabilities.db) {

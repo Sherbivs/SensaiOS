@@ -21,7 +21,7 @@ import { ComponentSupervisor } from './component-supervisor.js';
 import { ComponentRegistry } from './component-registry.js';
 import { createComponentContext } from './context-factory.js';
 import type { TenantScope } from './tenant-scope.js';
-import { SensaiError, KERNEL_ERRORS, kernelError } from './sensai-error.js';
+import { KERNEL_ERRORS, kernelError } from './sensai-error.js';
 import {
   createBootLogger,
   createBootStatus,

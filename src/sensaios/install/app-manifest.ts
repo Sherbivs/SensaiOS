@@ -7,10 +7,10 @@
  * @module sensaios/install/app-manifest
  */
 
-import type { Capability } from '../types.js';
-import type { CommandInteraction, Message } from 'discord.js';
+import type { CommandInteraction } from 'discord.js';
 
 // Forward declaration for ComponentContext (avoids circular dependency)
+/* eslint-disable @typescript-eslint/no-explicit-any -- Forward declaration uses `any` intentionally; full typed definition lives in component-context.ts */
 export interface ComponentContext {
   // Minimal interface - full definition in component-context.ts
   scope?: { tenantId: string; guildId: string };
@@ -20,6 +20,7 @@ export interface ComponentContext {
   outbox: any;
   obs: any;
 }
+/* eslint-enable @typescript-eslint/no-explicit-any */
 
 /**
  * Lifecycle hooks for app management

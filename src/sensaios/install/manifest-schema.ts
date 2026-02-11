@@ -8,7 +8,7 @@
  */
 
 import { z } from 'zod';
-import type { AppManifest, InstallResult, UninstallResult, DependencyGraph } from './app-manifest.js';
+import type { AppManifest } from './app-manifest.js';
 
 /**
  * Semantic version schema
@@ -146,7 +146,7 @@ export function validateManifest(manifest: unknown): AppManifest {
   const result = appManifestSchema.safeParse(manifest);
 
   if (!result.success) {
-    const errors = result.error.issues.map((err: any) => {
+    const errors = result.error.issues.map((err) => {
       const path = err.path.join('.');
       return `${path}: ${err.message}`;
     });

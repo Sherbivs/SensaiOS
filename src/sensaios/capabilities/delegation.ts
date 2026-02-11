@@ -457,7 +457,7 @@ export class CapabilityDelegationManager {
     prisma: PrismaClient,
     delegator: string,
     capability: CapabilityType,
-    scope: TenantScope
+    _scope: TenantScope
   ): Promise<boolean> {
     try {
       const now = new Date();

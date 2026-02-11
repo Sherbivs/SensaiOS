@@ -48,9 +48,6 @@ import {
 } from './encryption.js';
 
 // Database helper imports (query patterns - actual DB access via ctx.db.prisma)
-// Note: getPartyWithSlots, getUserBasic, ensureUser take a prisma client as parameter
-import { getPartyWithSlots } from '../../shared/models/party-queries-pg.js';
-import { getUserBasic, ensureUser } from '../../shared/models/user-queries-pg.js';
 
 import type {
   // Battle types
@@ -59,7 +56,6 @@ import type {
   BattleAction,
   BattleActionResult,
   BattleEndResult,
-  BattleTurnPhase,
   BattleFormat,
   
   // Encounter types
@@ -1774,7 +1770,7 @@ class GameServerClient implements GameServerAPI {
         success: true,
         newBalance: updated.coins,
       };
-    } catch (error) {
+    } catch {
       // User not found or constraint violation
       return {
         success: false,

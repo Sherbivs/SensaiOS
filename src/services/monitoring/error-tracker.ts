@@ -40,7 +40,6 @@ import * as ErrorBrain from '../error-brain/index.js';
 // Resilient Write Buffer — Crash-safe database operations
 import {
   queueWrite,
-  executeResilientWrite,
   registerWriteExecutor,
   initializeWriteBuffer,
   shutdownWriteBuffer,

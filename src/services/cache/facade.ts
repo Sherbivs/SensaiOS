@@ -28,7 +28,7 @@ import * as legacyCacheModule from "../cache.js";
 import { errorTracker } from "../monitoring/error-tracker.js";
 
 const legacyCache = (legacyCacheModule as any).default || legacyCacheModule;
-const { MAX_CACHE_PERCENT, MAX_CACHE_FILE_AGE_MS } = (legacyCache as {
+const { MAX_CACHE_PERCENT: _MAX_CACHE_PERCENT, MAX_CACHE_FILE_AGE_MS: _MAX_CACHE_FILE_AGE_MS } = (legacyCache as {
   MAX_CACHE_PERCENT: number;
   MAX_CACHE_FILE_AGE_MS: number;
 });
@@ -68,7 +68,7 @@ interface CacheRecord<T> extends CacheDescriptor {
   sizeBytes: number;
 }
 
-interface DiskEntry {
+interface _DiskEntry {
   filePath: string;
   size: number;
   mtimeMs: number;
@@ -286,7 +286,7 @@ function recordWrite(namespace: string): void {
   metrics.lastWriteAt = Date.now();
 }
 
-function recordDiskRemoval(namespace: string, kind: "budget" | "expired"): void {
+function _recordDiskRemoval(namespace: string, kind: "budget" | "expired"): void {
   const metrics = ensureNamespaceMetrics(namespace);
   metrics.lastCleanupAt = Date.now();
   if (kind === "budget") {
@@ -303,7 +303,7 @@ function serializeError(err: unknown): MaintenanceError {
 }
 
 // MIGRATION: Namespace extraction from database key instead of file path
-function namespaceFromKey(key: string): string {
+function _namespaceFromKey(key: string): string {
   const parts = key.split("::");
   return parts[0] || "unknown";
 }
@@ -544,7 +544,6 @@ async function readFromDisk<T>(descriptor: CacheDescriptor): Promise<CacheRecord
       return null;
     }
     
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const parsed = entry.value as any;
     if (!parsed || parsed.version !== CACHE_RECORD_VERSION) {
       // Invalid entry, remove it

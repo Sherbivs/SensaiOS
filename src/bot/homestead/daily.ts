@@ -276,6 +276,31 @@ export async function openDailyScreen(
 }
 
 /**
+ * Handle daily button from home screen — updates current message in-place.
+ * Button-First UI (Game Design Bible § 2): interaction.update() not channel.send()
+ */
+export async function handleDailyHomeButton(interaction: ButtonInteraction): Promise<void> {
+  const data = await loadDailyData(interaction.user.id);
+  if (!data) {
+    await interaction.update({
+      embeds: [
+        new EmbedBuilder()
+          .setTitle("🎁 Daily Rewards")
+          .setColor(EMBED_COLORS.WARNING)
+          .setDescription("Could not load daily rewards. Please try `/start` first."),
+      ],
+      components: [],
+    });
+    return;
+  }
+
+  const embed = buildDailyEmbed(data);
+  const buttons = buildDailyButtons(data.canClaim);
+
+  await interaction.update({ embeds: [embed], components: buttons });
+}
+
+/**
  * Handle daily claim button
  */
 async function handleDailyClaim(interaction: ButtonInteraction): Promise<void> {

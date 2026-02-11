@@ -491,6 +491,27 @@ export async function openBagScreen(
 }
 
 /**
+ * Handle bag button from home screen — updates current message in-place.
+ * Button-First UI (Game Design Bible § 2): interaction.update() not channel.send()
+ */
+export async function handleBagHomeButton(interaction: ButtonInteraction): Promise<void> {
+  try {
+    const snapshot = await loadBagSnapshot(interaction.user.id);
+    const embed = buildBagOverviewEmbed(snapshot);
+    const components = buildCategoryButtons();
+
+    await interaction.update({ embeds: [embed], components });
+  } catch (error) {
+    logger.error("HomesteadBag", "handleBagHomeButton", "Failed to open bag via button", {
+      metadata: { userId: interaction.user.id, error },
+    });
+    if (!interaction.replied && !interaction.deferred) {
+      await safeReply(interaction, "Something went wrong opening your bag.", { ephemeral: true });
+    }
+  }
+}
+
+/**
  * Open a specific category view in the bag with selectable items
  */
 async function openBagCategory(

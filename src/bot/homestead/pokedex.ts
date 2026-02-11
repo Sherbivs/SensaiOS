@@ -47,7 +47,6 @@ import { safeReply } from "../shared/response-helpers.js";
 import { HomesteadChannelManager } from "../../services/homestead-manager.js";
 import { getGameServer } from "../../sensaios/gameserver/singleton.js";
 import { 
-  PokedexProgress as GameServerPokedexProgress,
   RegionProgress as GameServerRegionProgress 
 } from "../../sensaios/gameserver/types.js";
 

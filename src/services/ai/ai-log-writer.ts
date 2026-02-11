@@ -130,7 +130,7 @@ export interface LogEntry {
   guild?: { guildId: string };
 }
 
-interface LogFileMetadata {
+interface _LogFileMetadata {
   _type: 'log_file_metadata';
   version: string;
   created: string;
@@ -222,7 +222,7 @@ export const CONFIG: LogConfig = {
 const AI_LOG_NAMESPACE = 'ai-logs';
 
 let flushIntervalHandle: ReturnType<typeof setInterval> | null = null;
-let isShuttingDown = false;
+let _isShuttingDown = false;
 const logBuffer: LogEntry[] = [];
 let correlationIdCounter = 0;
 let batchCounter = 0;
@@ -628,7 +628,7 @@ export async function initialize(): Promise<void> {
  * Shutdown the AI log writer gracefully.
  */
 export async function shutdown(): Promise<void> {
-  isShuttingDown = true;
+  _isShuttingDown = true;
   
   // Stop auto-flush
   if (flushIntervalHandle) {

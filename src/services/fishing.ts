@@ -21,7 +21,7 @@ const logger = getLogger();
 import { prisma as _prisma } from "../shared/prisma.js";
 import { ensureUser as _ensureUser } from "../shared/models/user-queries-pg.js";
 import { hasItems } from "./inventory.js";
-import { createDeterministicRng, type DeterministicRng } from "../shared/utils/deterministic-rng.js";
+import { createDeterministicRng } from "../shared/utils/deterministic-rng.js";
 
 // ============================================================================
 // CONSTANTS

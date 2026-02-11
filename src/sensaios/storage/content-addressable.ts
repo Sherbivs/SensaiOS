@@ -11,7 +11,7 @@
  */
 
 import * as crypto from 'crypto';
-import type { BlobMetadata, StorageObject } from '../component-context.js';
+import type { BlobMetadata } from '../component-context.js';
 import { scopedLogger } from '../../observability/envelope/console.js';
 
 /** Scoped logger for CAS operations */

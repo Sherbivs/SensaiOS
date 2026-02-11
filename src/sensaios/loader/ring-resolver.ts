@@ -17,7 +17,7 @@
 import type { RingLevel } from '../types.js';
 import { RING } from '../types.js';
 import { fileURLToPath } from 'node:url';
-import { resolve, relative, sep } from 'node:path';
+import { resolve } from 'node:path';
 
 // ============================================================================
 // MODULE REGISTRY (Static Analysis Cache)

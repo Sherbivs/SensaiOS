@@ -64,7 +64,7 @@ import type {
   MetricCategory,
   MetricUnit,
   MetricHook,
-  ResourceMetricObservation,
+  ResourceMetricObservation as _ResourceMetricObservation,
 } from './kernel-types.js';
 const writeHookError = (message: string, error: unknown): void => {
   const details = error instanceof Error ? `${error.name}: ${error.message}` : String(error);

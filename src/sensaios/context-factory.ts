@@ -45,7 +45,6 @@ import type { CanonicalError } from './canonical-error.js';
 import { scopedLogger } from '../observability/envelope/console.js';
 import { databaseError, DATABASE_ERRORS } from './sensai-error.js';
 import { assertCapability } from './capabilities/assert-capability.js';
-import type { CapabilityType } from './types.js';
 
 // ============================================================================
 // DETERMINISTIC RNG IMPLEMENTATION

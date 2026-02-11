@@ -24,7 +24,7 @@ import {
   User as DiscordUser,
 } from "discord.js";
 import { getGameServer } from "../../sensaios/gameserver/singleton.js";
-import { DetailedPartySlot, StatBlock } from "../../sensaios/gameserver/types.js";
+import { DetailedPartySlot } from "../../sensaios/gameserver/types.js";
 import { HomesteadChannelManager } from "../../services/homestead-manager.js";
 import { EMBED_COLORS } from "../shared/embed-colors.js";
 
