@@ -46,6 +46,7 @@ import { HomesteadChannelManager } from "../../services/homestead-manager.js";
 import { getSpriteUrl } from "../../lib/assets.js";
 import { giveStarterKit, formatItemRewardsInline } from "../../services/inventory.js";
 import { computeInitialStats, computeFallbackStats } from "../../shared/pokemon/compute-stats.js";
+import { getStartingMoves } from "../../shared/pokemon/initial-moves.js";
 
 // ============================================================================
 // TYPES
@@ -142,11 +143,8 @@ async function createOpenStarter(
   const ivs = { hp: 31, atk: 31, def: 31, spa: 31, spd: 31, spe: 31 };
   const evs = { hp: 0, atk: 0, def: 0, spa: 0, spd: 0, spe: 0 };
   
-  // Basic starting moves
-  const moves = [
-    { id: 33, name: "Tackle", pp: 35, maxPP: 35 },
-    { id: 45, name: "Growl", pp: 40, maxPP: 40 },
-  ];
+  // Starting moves from learnset (with type-aware fallback)
+  const moves = getStartingMoves(speciesId, level, 2);
   
   const created = await createPokemon({
     ownerId: user.id,

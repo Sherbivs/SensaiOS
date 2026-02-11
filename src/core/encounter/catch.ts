@@ -5,6 +5,7 @@ import { invalidateEncounter, loadEncounter } from "../../services/cache/recipes
 import { getPartyWithSlots } from "../../shared/models/party-queries-pg.js";
 import { clamp } from "../../shared/utils/index.js";
 import { computeInitialStats, computeFallbackStats } from "../../shared/pokemon/compute-stats.js";
+import { getStartingMoves } from "../../shared/pokemon/initial-moves.js";
 
 export type BallType = "poke" | "great" | "ultra";
 
@@ -88,9 +89,7 @@ export async function attemptCatch(opts: AttemptCatchOpts) {
   const { hp, maxHp } = stats;
   const ivs = { hp: 31, atk: 31, def: 31, spa: 31, spd: 31, spe: 31 } satisfies Prisma.JsonObject;
   const evs = { hp: 0, atk: 0, def: 0, spa: 0, spd: 0, spe: 0 } satisfies Prisma.JsonObject;
-  const moves = [
-    { id: 33, name: "Tackle", pp: 35, maxPP: 35 },
-  ] satisfies Prisma.JsonArray;
+  const moves = getStartingMoves(enc.speciesId, enc.level, 1) as unknown as Prisma.JsonArray;
 
   const created = await prisma.pokemonInstance.create({
     data: {
