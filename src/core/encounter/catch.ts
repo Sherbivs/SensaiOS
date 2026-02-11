@@ -6,6 +6,7 @@ import { getPartyWithSlots } from "../../shared/models/party-queries-pg.js";
 import { clamp } from "../../shared/utils/index.js";
 import { computeInitialStats, computeFallbackStats } from "../../shared/pokemon/compute-stats.js";
 import { getStartingMoves } from "../../shared/pokemon/initial-moves.js";
+import { generateWildIVs } from "../../shared/pokemon/generate-ivs.js";
 
 export type BallType = "poke" | "great" | "ultra";
 
@@ -87,7 +88,7 @@ export async function attemptCatch(opts: AttemptCatchOpts) {
   // Success: mark Caught, create a PokemonInstance for the user
   const stats = computeInitialStats(enc.speciesId, enc.level) ?? computeFallbackStats(enc.level);
   const { hp, maxHp } = stats;
-  const ivs = { hp: 31, atk: 31, def: 31, spa: 31, spd: 31, spe: 31 } satisfies Prisma.JsonObject;
+  const ivs = generateWildIVs(enc.id) as unknown as Prisma.JsonObject;
   const evs = { hp: 0, atk: 0, def: 0, spa: 0, spd: 0, spe: 0 } satisfies Prisma.JsonObject;
   const moves = getStartingMoves(enc.speciesId, enc.level, 1) as unknown as Prisma.JsonArray;
 

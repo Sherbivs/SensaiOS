@@ -30,6 +30,7 @@ import { getPartyWithSlots, createParty, createPartySlot, createPokemon } from "
 import { getProdDb } from "../../shared/pg-connection.js";
 import { computeInitialStats, computeFallbackStats } from "../../shared/pokemon/compute-stats.js";
 import { getStartingMoves } from "../../shared/pokemon/initial-moves.js";
+import { generateStarterIVs } from "../../shared/pokemon/generate-ivs.js";
 
 // Import the open starter selection system
 import { 
@@ -117,7 +118,7 @@ export async function createStarterAndAssignParty({
   const stats = computeInitialStats(speciesId, level) ?? computeFallbackStats(level);
   const { hp, maxHp } = stats;
 
-  const ivs = { hp: 31, atk: 31, def: 31, spa: 31, spd: 31, spe: 31 };
+  const ivs = generateStarterIVs(discordId, speciesId);
   const evs = { hp: 0, atk: 0, def: 0, spa: 0, spd: 0, spe: 0 };
   const moves = getStartingMoves(speciesId, level, 2);
 
