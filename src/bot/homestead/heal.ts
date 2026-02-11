@@ -241,6 +241,27 @@ export async function openHealScreen(
 }
 
 /**
+ * Handle heal button from home screen — updates current message in-place.
+ * Button-First UI (Game Design Bible § 2): interaction.update() not channel.send()
+ */
+export async function handleHealHomeButton(interaction: ButtonInteraction): Promise<void> {
+  try {
+    const data = await loadHealScreenData(interaction.user.id);
+    const embed = buildHealEmbed(data);
+    const buttons = buildHealButtons(!data.allFullHp);
+
+    await interaction.update({ embeds: [embed], components: buttons });
+  } catch (error) {
+    logger.error("HomesteadHeal", "handleHealHomeButton", "Failed to open heal screen via button", {
+      metadata: { userId: interaction.user.id, error },
+    });
+    if (!interaction.replied && !interaction.deferred) {
+      await safeReply(interaction, "Something went wrong opening the Pokémon Center.", { ephemeral: true });
+    }
+  }
+}
+
+/**
  * Handle heal confirmation
  */
 export async function handleHealConfirm(interaction: ButtonInteraction): Promise<void> {

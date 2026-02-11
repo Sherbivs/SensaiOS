@@ -259,6 +259,63 @@ export async function openExploreScreen(
 }
 
 /**
+ * Handle explore button from home screen — updates current message in-place.
+ * Button-First UI (Game Design Bible § 2): interaction.update() not channel.send()
+ */
+export async function handleExploreHomeButton(interaction: ButtonInteraction): Promise<void> {
+  try {
+    // Get user's lead Pokémon
+    const dbUser = await ensureUser(interaction.user.id);
+    const party = await getPartyWithSlots(dbUser.id);
+    
+    let leadPokemon: ExploreEmbedData["leadPokemon"] | undefined;
+    let canExplore = true;
+    let cooldownSeconds: number | undefined;
+
+    if (party && party.slots.length > 0) {
+      const leadSlot = party.slots.find(s => s.slot === 1);
+      if (leadSlot?.pokemon) {
+        const mon = leadSlot.pokemon;
+        leadPokemon = {
+          speciesId: mon.speciesId,
+          nickname: mon.nickname,
+          level: mon.level,
+          hp: mon.hp,
+          maxHp: mon.maxHp,
+        };
+        
+        // Check if all party Pokémon are fainted
+        const allFainted = party.slots.every(s => !s.pokemon || s.pokemon.hp <= 0);
+        if (allFainted) {
+          canExplore = false;
+        }
+      }
+    }
+
+    // Check cooldown
+    const now = Date.now();
+    const readyAt = await getWalkCooldown(interaction.user.id);
+    if (readyAt && readyAt.getTime() > now) {
+      cooldownSeconds = Math.ceil((readyAt.getTime() - now) / 1000);
+      canExplore = false;
+    }
+
+    const embed = buildExploreEmbed({ leadPokemon, canExplore, cooldownSeconds });
+    const buttons = canExplore ? buildExploreButtons() : buildExploreButtonsDisabled();
+
+    await interaction.update({ embeds: [embed], components: buttons });
+  } catch (error) {
+    logger.error('HomesteadExplore', 'handleExploreHomeButton', 'Failed to open explore via button', {
+      userId: interaction.user.id,
+      metadata: { error },
+    });
+    if (!interaction.replied && !interaction.deferred) {
+      await safeReply(interaction, "Something went wrong opening explore.", { ephemeral: true });
+    }
+  }
+}
+
+/**
  * Handle the Walk action from explore screen
  * Spawns an encounter and sends controls to homestead channel
  */
@@ -358,15 +415,9 @@ export async function handleExploreButton(
   }
 
   if (id === "EXPLORE_BACK") {
-    // Return to home - trigger home screen refresh
-    // For now, just acknowledge - home.ts handles the navigation
-    await safeReply(interaction, "🏠 Returning to your homestead...", { ephemeral: true });
-    
-    // Re-open home screen
-    if (interaction.guildId) {
-      const { openPartyView } = await import("./home.js");
-      await openPartyView(interaction, { respond: "homestead" });
-    }
+    // Return to home screen via interaction.update (Button-First UI)
+    const { openPartyView } = await import("./home.js");
+    await openPartyView(interaction);
     return;
   }
 }

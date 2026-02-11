@@ -272,6 +272,35 @@ export async function openSettingsScreen(
 }
 
 /**
+ * Handle settings button from home screen — updates current message in-place.
+ * Button-First UI (Game Design Bible § 2): interaction.update() not channel.send()
+ */
+export async function handleSettingsHomeButton(interaction: ButtonInteraction): Promise<void> {
+  const data = await loadSettings(interaction.user.id);
+  if (!data) {
+    await interaction.update({
+      embeds: [
+        new EmbedBuilder()
+          .setTitle("⚙️ Settings")
+          .setColor(EMBED_COLORS.WARNING)
+          .setDescription("Could not load your settings. Please try again."),
+      ],
+      components: [],
+    });
+    return;
+  }
+
+  const embed = buildSettingsEmbed(data);
+  const toggleButtons = buildSettingsButtons(data.settings);
+  const navRow = buildSettingsNavRow();
+
+  await interaction.update({
+    embeds: [embed],
+    components: [...toggleButtons, navRow],
+  });
+}
+
+/**
  * Handle toggling a setting
  */
 async function handleToggle(interaction: ButtonInteraction, settingKey: string): Promise<void> {

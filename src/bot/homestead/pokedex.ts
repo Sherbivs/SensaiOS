@@ -349,6 +349,27 @@ export async function openPokedexScreen(
 }
 
 /**
+ * Handle pokédex button from home screen — updates current message in-place.
+ * Button-First UI (Game Design Bible § 2): interaction.update() not channel.send()
+ */
+export async function handlePokedexHomeButton(interaction: ButtonInteraction): Promise<void> {
+  try {
+    const snapshot = await loadPokedexSnapshot(interaction.user.id);
+    const embed = buildDexOverviewEmbed(snapshot);
+    const components = buildRegionButtons();
+
+    await interaction.update({ embeds: [embed], components });
+  } catch (error) {
+    logger.error("HomesteadPokedex", "handlePokedexHomeButton", "Failed to open Pokédex via button", {
+      metadata: { userId: interaction.user.id, error },
+    });
+    if (!interaction.replied && !interaction.deferred) {
+      await safeReply(interaction, "Something went wrong opening the Pokédex.", { ephemeral: true });
+    }
+  }
+}
+
+/**
  * Open a specific region view in the Pokédex
  */
 async function openRegionView(

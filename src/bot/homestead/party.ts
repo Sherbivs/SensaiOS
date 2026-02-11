@@ -389,6 +389,31 @@ export async function openPartyScreen(
 }
 
 /**
+ * Handle party button from home screen — updates current message in-place.
+ * Button-First UI (Game Design Bible § 2): interaction.update() not channel.send()
+ */
+export async function handlePartyHomeButton(interaction: ButtonInteraction): Promise<void> {
+  const data = await loadPartyData(interaction.user.id);
+  if (!data) {
+    const embed = new EmbedBuilder()
+      .setTitle("📋 Party")
+      .setColor(EMBED_COLORS.WARNING)
+      .setDescription("You don't have a party yet. Use `/starter` to choose your first Pokémon!");
+    await interaction.update({ embeds: [embed], components: [] });
+    return;
+  }
+
+  const embed = buildPartyEmbed(data);
+  const slotButtons = buildPartySlotButtons(data.party);
+  const navRow = buildPartyNavRow();
+
+  await interaction.update({
+    embeds: [embed],
+    components: [...slotButtons, navRow] as ActionRowBuilder<MessageActionRowComponentBuilder>[],
+  });
+}
+
+/**
  * Handle party slot button click - show Pokemon detail
  */
 export async function handlePartySlotClick(interaction: ButtonInteraction): Promise<void> {

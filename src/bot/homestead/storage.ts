@@ -418,6 +418,36 @@ export async function openStorageScreen(
 }
 
 /**
+ * Handle storage button from home screen — updates current message in-place.
+ * Button-First UI (Game Design Bible § 2): interaction.update() not channel.send()
+ */
+export async function handleStorageHomeButton(interaction: ButtonInteraction): Promise<void> {
+  const data = await loadStorageData(interaction.user.id);
+  if (!data) {
+    await interaction.update({
+      embeds: [
+        new EmbedBuilder()
+          .setTitle("📦 Storage")
+          .setColor(EMBED_COLORS.WARNING)
+          .setDescription("Could not load your storage data. Please try again."),
+      ],
+      components: [],
+    });
+    return;
+  }
+
+  const embed = buildStorageEmbed(data);
+  const pokemonButtons = buildPokemonButtons(data);
+  const paginationRow = buildPaginationRow(data);
+  const navRow = buildStorageNavRow();
+
+  await interaction.update({
+    embeds: [embed],
+    components: [...pokemonButtons, paginationRow, navRow],
+  });
+}
+
+/**
  * Handle page navigation
  */
 async function handlePageChange(interaction: ButtonInteraction, page: number): Promise<void> {

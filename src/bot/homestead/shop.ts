@@ -38,7 +38,7 @@ import {
 // === Internal Imports ===
 import { EMBED_COLORS } from "../shared/embed-colors.js";
 import { dangerButton, navButton as _navButton, primaryButton as _primaryButton, secondaryButton } from "../shared/button-utils.js";
-import { safeReplyWithPayload } from "../shared/response-helpers.js";
+import { safeReply } from "../shared/response-helpers.js";
 import { HomesteadChannelManager } from "../../services/homestead-manager.js";
 import { addItems, ITEM_IDS } from "../../services/inventory.js";
 import { getGameServer } from "../../sensaios/gameserver/singleton.js";
@@ -382,21 +382,38 @@ export async function openShopScreen(
 }
 
 /**
+ * Handle shop button from home screen — updates current message in-place.
+ * Button-First UI (Game Design Bible § 2): interaction.update() not channel.send()
+ */
+export async function handleShopHomeButton(interaction: ButtonInteraction): Promise<void> {
+  try {
+    const snapshot = await loadShopSnapshot(interaction.user.id);
+    const embed = buildShopEmbed(snapshot.coins);
+    const components = buildCategoryButtons();
+
+    await interaction.update({ embeds: [embed], components });
+  } catch (error) {
+    logger.error("HomesteadShop", "handleShopHomeButton", "Failed to open shop via button", {
+      metadata: { userId: interaction.user.id, error },
+    });
+    if (!interaction.replied && !interaction.deferred) {
+      await safeReply(interaction, "Something went wrong opening the Poké Mart.", { ephemeral: true });
+    }
+  }
+}
+
+/**
  * Handle shop screen open from home
  */
 export async function handleShopOpen(
-  interaction: ButtonInteraction,
-  _homesteadManager: HomesteadChannelManager
+  interaction: ButtonInteraction
 ): Promise<void> {
   const snapshot = await loadShopSnapshot(interaction.user.id);
   
   const embed = buildShopEmbed(snapshot.coins);
   const components = buildCategoryButtons();
 
-  await safeReplyWithPayload(interaction, {
-    embeds: [embed],
-    components,
-  });
+  await interaction.update({ embeds: [embed], components });
 }
 
 /**
@@ -411,10 +428,7 @@ export async function handleCategorySelect(
   const embed = buildCategoryEmbed(category, snapshot.coins);
   const components = buildItemButtons(category, snapshot.coins);
 
-  await safeReplyWithPayload(interaction, {
-    embeds: [embed],
-    components,
-  });
+  await interaction.update({ embeds: [embed], components });
 }
 
 /**
@@ -440,7 +454,7 @@ export async function handleItemPurchase(
   }
 
   if (!item || !itemCategory) {
-    await safeReplyWithPayload(interaction, {
+    await interaction.update({
       embeds: [buildPurchaseErrorEmbed("Item not found")],
       components: buildCategoryButtons(),
     });
@@ -458,13 +472,10 @@ export async function handleItemPurchase(
     );
     // Show purchase success and stay on category
     const components = buildItemButtons(itemCategory, result.newBalance!);
-    await safeReplyWithPayload(interaction, {
-      embeds: [embed],
-      components,
-    });
+    await interaction.update({ embeds: [embed], components });
   } else {
     const snapshot = await loadShopSnapshot(interaction.user.id);
-    await safeReplyWithPayload(interaction, {
+    await interaction.update({
       embeds: [buildPurchaseErrorEmbed(result.error!)],
       components: buildItemButtons(itemCategory, snapshot.coins),
     });
@@ -475,8 +486,7 @@ export async function handleItemPurchase(
  * Main shop button router
  */
 export async function handleShopButton(
-  interaction: ButtonInteraction,
-  homesteadManager: HomesteadChannelManager
+  interaction: ButtonInteraction
 ): Promise<void> {
   const customId = interaction.customId;
 
@@ -491,7 +501,7 @@ export async function handleShopButton(
     const category = customId.replace(SHOP_CATEGORY_PREFIX, "");
     if (category === "back") {
       // Return to main shop view
-      await handleShopOpen(interaction, homesteadManager);
+      await handleShopOpen(interaction);
       return;
     }
     if (isShopCategory(category)) {

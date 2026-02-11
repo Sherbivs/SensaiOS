@@ -32,22 +32,22 @@ import { handleBattleChallengeButton, handleBattleChallengeCommand } from "./bat
 
 // Homestead modules (private guild channel-based gameplay)
 // See docs/architecture-bible/18-private-channel-architecture.md
-import { openHealScreen, handleHealConfirm, handleHealCancel, handleHeal } from "./homestead/heal.js";
+import { handleHealConfirm, handleHealCancel, handleHeal, handleHealHomeButton } from "./homestead/heal.js";
 import { BOX_PAGE_PREFIX, openBoxView, openPartyView, openProfileView } from "./homestead/home.js";
 import { openStartersHomestead, handleStarterPick } from "./homestead/starters.js";
-import { openExploreScreen, handleExploreButton } from "./homestead/explore.js";
+import { handleExploreButton, handleExploreHomeButton } from "./homestead/explore.js";
 import { handleFishingButton, isFishingButton } from "./homestead/fish.js";
 import { handleTradeButton, handlePokemonSelect, isTradeButton, TRADE_BUTTON_IDS } from "./homestead/trade.js";
 import { handleLeaderboardButton, isLeaderboardButton } from "./homestead/leaderboards.js";
 import { handleAchievementButton, isAchievementButton } from "./homestead/achievements.js";
-import { openBagScreen, handleBagButton, BAG_CATEGORY_PREFIX, BAG_PAGE_PREFIX } from "./homestead/bag.js";
-import { openPokedexScreen, handlePokedexButton, DEX_REGION_PREFIX, DEX_PAGE_PREFIX } from "./homestead/pokedex.js";
-import { openPartyScreen, handlePartyButton, PARTY_SLOT_PREFIX, PARTY_SET_LEAD_PREFIX } from "./homestead/party.js";
-import { openStorageScreen, handleStorageButton, STORAGE_MON_PREFIX, STORAGE_PAGE_PREFIX, STORAGE_TO_PARTY_PREFIX } from "./homestead/storage.js";
-import { openSettingsScreen, handleSettingsButton, SETTINGS_TOGGLE_PREFIX } from "./homestead/settings.js";
-import { openDailyScreen, handleDailyButton } from "./homestead/daily.js";
-import { openShopScreen, handleShopButton, SHOP_CATEGORY_PREFIX, SHOP_BUY_PREFIX } from "./homestead/shop.js";
-import { HomesteadChannelManager } from "../services/homestead-manager.js";
+import { handleBagButton, handleBagHomeButton, BAG_CATEGORY_PREFIX, BAG_PAGE_PREFIX } from "./homestead/bag.js";
+import { handlePokedexButton, handlePokedexHomeButton, DEX_REGION_PREFIX, DEX_PAGE_PREFIX } from "./homestead/pokedex.js";
+import { handlePartyButton, handlePartyHomeButton, PARTY_SLOT_PREFIX, PARTY_SET_LEAD_PREFIX } from "./homestead/party.js";
+import { handleStorageButton, handleStorageHomeButton, STORAGE_MON_PREFIX, STORAGE_PAGE_PREFIX, STORAGE_TO_PARTY_PREFIX } from "./homestead/storage.js";
+import { handleSettingsButton, handleSettingsHomeButton, SETTINGS_TOGGLE_PREFIX } from "./homestead/settings.js";
+import { handleDailyButton, handleDailyHomeButton } from "./homestead/daily.js";
+import { handleShopButton, handleShopHomeButton, SHOP_CATEGORY_PREFIX, SHOP_BUY_PREFIX } from "./homestead/shop.js";
+
 
 import { handleOpsCommand, isAdmin } from "./ops/admin.js";
 import { handleEncounterButton } from "./wilds/controls.js";
@@ -239,13 +239,8 @@ export async function bootDiscord(opts: BotStartOptions = {}): Promise<Client> {
 					}
 					switch (id) {
 						case "HOME_HEAL":
-							// Open heal screen per Game Design Bible § 6
-							if (interaction.guildId) {
-								await openHealScreen(interaction.client, interaction.guildId, interaction.user);
-								await interaction.reply({ content: "💊 Opening Pokémon Center...", ephemeral: true });
-							} else {
-								await interaction.reply({ content: "This action must be used in a server.", ephemeral: true });
-							}
+							// Button-First UI: interaction.update (Game Design Bible § 23)
+							await handleHealHomeButton(interaction);
 							break;
 						case "HEAL_CONFIRM":
 							await handleHealConfirm(interaction);
@@ -254,13 +249,8 @@ export async function bootDiscord(opts: BotStartOptions = {}): Promise<Client> {
 							await handleHealCancel(interaction);
 							break;
 						case "HOME_EXPLORE":
-							// Open explore screen per Game Design Bible § 6
-							if (interaction.guildId) {
-								await openExploreScreen(interaction.client, interaction.guildId, interaction.user);
-								await interaction.reply({ content: "🌲 Opening exploration options...", ephemeral: true });
-							} else {
-								await interaction.reply({ content: "This action must be used in a server.", ephemeral: true });
-							}
+							// Button-First UI: interaction.update (Game Design Bible § 23)
+							await handleExploreHomeButton(interaction);
 							break;
 						case "EXPLORE_WALK":
 						case "EXPLORE_FISH":
@@ -268,13 +258,8 @@ export async function bootDiscord(opts: BotStartOptions = {}): Promise<Client> {
 							await handleExploreButton(interaction);
 							break;
 						case "HOME_PARTY":
-							// Open party screen per Game Design Bible § 6
-							if (interaction.guildId) {
-								await openPartyScreen(interaction.client, interaction.guildId, interaction.user);
-								await interaction.reply({ content: "📋 Opening your party...", ephemeral: true });
-							} else {
-								await interaction.reply({ content: "This action must be used in a server.", ephemeral: true });
-							}
+							// Button-First UI: interaction.update (Game Design Bible § 23)
+							await handlePartyHomeButton(interaction);
 							break;
                                                 case "HOME_BOX":
                                                         await openBoxView(interaction, { page: 1 });
@@ -283,61 +268,31 @@ export async function bootDiscord(opts: BotStartOptions = {}): Promise<Client> {
                                                         await openProfileView(interaction);
                                                         break;
 						case "HOME_BAG":
-							// Open bag screen per Game Design Bible § 6
-							if (interaction.guildId) {
-								await openBagScreen(interaction.client, interaction.guildId, interaction.user);
-								await interaction.reply({ content: "🎒 Opening your bag...", ephemeral: true });
-							} else {
-								await interaction.reply({ content: "This action must be used in a server.", ephemeral: true });
-							}
+							// Button-First UI: interaction.update (Game Design Bible § 23)
+							await handleBagHomeButton(interaction);
 							break;
 						case "HOME_SHOP":
-							// Open shop screen per Game Design Bible § 6
-							if (interaction.guildId) {
-								await openShopScreen(interaction.client, interaction.guildId, interaction.user);
-								await interaction.reply({ content: "🛒 Opening the Poké Mart...", ephemeral: true });
-							} else {
-								await interaction.reply({ content: "This action must be used in a server.", ephemeral: true });
-							}
+							// Button-First UI: interaction.update (Game Design Bible § 23)
+							await handleShopHomeButton(interaction);
 							break;
 						case "HOME_POKEDEX":
-							// Open Pokédex screen per Game Design Bible § 6
-							if (interaction.guildId) {
-								await openPokedexScreen(interaction.client, interaction.guildId, interaction.user);
-								await interaction.reply({ content: "📖 Opening your Pokédex...", ephemeral: true });
-							} else {
-								await interaction.reply({ content: "This action must be used in a server.", ephemeral: true });
-							}
+							// Button-First UI: interaction.update (Game Design Bible § 23)
+							await handlePokedexHomeButton(interaction);
 							break;
 						case "HOME_STORAGE":
 						case "STORAGE_HOME":
-							// Open/return to storage screen per Game Design Bible § 6
-							if (interaction.guildId) {
-								await openStorageScreen(interaction.client, interaction.guildId, interaction.user);
-								await interaction.reply({ content: "📦 Opening your storage...", ephemeral: true });
-							} else {
-								await interaction.reply({ content: "This action must be used in a server.", ephemeral: true });
-							}
+							// Button-First UI: interaction.update (Game Design Bible § 23)
+							await handleStorageHomeButton(interaction);
 							break;
 						case "HOME_SETTINGS":
 						case "SETTINGS_BACK":
-							// Open/return to settings screen per Game Design Bible § 6
-							if (interaction.guildId) {
-								await openSettingsScreen(interaction.client, interaction.guildId, interaction.user);
-								await interaction.reply({ content: "⚙️ Opening settings...", ephemeral: true });
-							} else {
-								await interaction.reply({ content: "This action must be used in a server.", ephemeral: true });
-							}
+							// Button-First UI: interaction.update (Game Design Bible § 23)
+							await handleSettingsHomeButton(interaction);
 							break;
 						case "HOME_DAILY":
 						case "DAILY_BACK":
-							// Open/return to daily rewards screen
-							if (interaction.guildId) {
-								await openDailyScreen(interaction.client, interaction.guildId, interaction.user);
-								await interaction.reply({ content: "🎁 Opening daily rewards...", ephemeral: true });
-							} else {
-								await interaction.reply({ content: "This action must be used in a server.", ephemeral: true });
-							}
+							// Button-First UI: interaction.update (Game Design Bible § 23)
+							await handleDailyHomeButton(interaction);
 							break;
 						case "BAG_BACK":
 						case "DEX_BACK":
@@ -370,12 +325,11 @@ export async function bootDiscord(opts: BotStartOptions = {}): Promise<Client> {
                                                         }
                                                         // Shop button handlers: SHOP_CAT_<category>, SHOP_BUY_<item>, SHOP_BACK
                                                         if (id.startsWith(SHOP_CATEGORY_PREFIX) || id.startsWith(SHOP_BUY_PREFIX) || id === "SHOP_BACK") {
-                                                                if (id === "SHOP_BACK" && interaction.guildId) {
-                                                                        // Return to home screen
+                                                                if (id === "SHOP_BACK") {
+                                                                        // Return to home screen via interaction.update
                                                                         await openPartyView(interaction);
                                                                 } else {
-                                                                        const manager = new HomesteadChannelManager(interaction.client, interaction.guildId!);
-                                                                        await handleShopButton(interaction, manager);
+                                                                        await handleShopButton(interaction);
                                                                 }
                                                                 break;
                                                         }
