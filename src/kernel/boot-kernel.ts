@@ -263,17 +263,8 @@ import type {
 // BOOT SEQUENCE
 // ============================================================================
 
-kernel.boot('boot-kernel', '════════════════════════════════════════════════════════════');
-kernel.boot('boot-kernel', '  INFINITY GAUNTLET — KERNEL BOOTSTRAP v2.0');
-kernel.boot('boot-kernel', '  Root Observer Layer — Sees All, Interferes Never');
-kernel.boot('boot-kernel', '════════════════════════════════════════════════════════════');
-kernel.boot('boot-kernel', `Process ID: ${process.pid}`);
-kernel.boot('boot-kernel', `Node Version: ${process.version}`);
-kernel.boot('boot-kernel', `Platform: ${process.platform}/${process.arch}`);
-kernel.boot('boot-kernel', `Working Directory: ${process.cwd()}`);
-kernel.boot('boot-kernel', `Environment: ${process.env.NODE_ENV || 'development'}`);
-kernel.boot('boot-kernel', `Render: ${process.env.RENDER ? 'true' : 'false'}`);
-kernel.boot('boot-kernel', `Start Time: ${new Date(KERNEL_ABSOLUTE_START).toISOString()}`);
+kernel.boot('boot-kernel', '▸ INFINITY GAUNTLET — Kernel v2.0');
+kernel.boot('boot-kernel', `  PID ${process.pid} | ${process.version} | ${process.platform}/${process.arch} | ${process.env.NODE_ENV || 'development'}${process.env.RENDER ? ' | Render' : ''}`);
 
 // Install error handlers EARLY (captures ALL uncaught errors)
 installErrorHandlers();
@@ -286,8 +277,7 @@ setPhase('MODULE_LOAD');
 
 // Record kernel boot time
 const kernelBootMs = Number(process.hrtime.bigint() - KERNEL_START_TIME) / 1_000_000;
-kernel.boot('boot-kernel', `Kernel subsystems initialized in ${kernelBootMs.toFixed(2)}ms`);
-kernel.boot('boot-kernel', '────────────────────────────────────────────────────────────');
+kernel.boot('boot-kernel', `  Subsystems ready in ${kernelBootMs.toFixed(2)}ms`);
 
 // ============================================================================
 // LIFECYCLE HOOKS
@@ -299,20 +289,18 @@ kernel.boot('boot-kernel', '─────────────────�
  */
 export function signalModulesLoaded(): void {
   setPhase('INIT');
-  kernel.boot('boot-kernel', '▸ Module loading complete — entering initialization phase');
   
   // Mark kernel as booted - this replays the pre-boot queue to file
   const preBootStats = getPreBootStats();
   if (!isBooted()) {
     const replayed = markBooted();
-    kernel.info('boot-kernel', 'Pre-boot queue replayed', {
-      replayed,
-      dropped: preBootStats.droppedEntries,
-    });
+    if (preBootStats.droppedEntries > 0) {
+      kernel.warn('boot-kernel', `Pre-boot queue: ${replayed} replayed, ${preBootStats.droppedEntries} dropped`);
+    }
   }
   
   const stats = getKernelLogStats();
-  kernel.info('boot-kernel', `Modules loaded (${stats.totalEntries} kernel log entries so far)`);
+  kernel.boot('boot-kernel', `▸ Modules loaded (${stats.totalEntries} log entries)`);
 }
 
 /**
@@ -325,20 +313,9 @@ export function signalRuntimeReady(): void {
   setPhase('RUNTIME');
   signalBootComplete();  // Notify observer for boot time tracking
   
-  kernel.boot('boot-kernel', '════════════════════════════════════════════════════════════');
-  kernel.boot('boot-kernel', '  RUNTIME READY — Kernel observation layer active');
-  kernel.boot('boot-kernel', '════════════════════════════════════════════════════════════');
-  
   const dashboard = getDashboard();
   const health = getOverallHealth();
-  
-  kernel.info('boot-kernel', 'Kernel status at runtime entry', {
-    uptimeMs: dashboard.uptimeMs,
-    bootTimeMs: dashboard.bootTimeMs,
-    kernelLogEntries: dashboard.kernelLogEntries,
-    kernelErrors: dashboard.kernelErrors,
-    systemHealth: health.status,
-  });
+  kernel.boot('boot-kernel', `✓ RUNTIME READY — Boot: ${bootMs}ms | Entries: ${dashboard.kernelLogEntries} | Errors: ${dashboard.kernelErrors} | Health: ${health.status}`);
 }
 
 /**
@@ -346,9 +323,7 @@ export function signalRuntimeReady(): void {
  */
 export function signalShutdown(reason?: string): void {
   setPhase('SHUTDOWN');
-  kernel.boot('boot-kernel', '────────────────────────────────────────────────────────────');
-  kernel.boot('boot-kernel', `▸ Shutdown signal: ${reason ?? 'unknown'}`);
-  kernel.boot('boot-kernel', '────────────────────────────────────────────────────────────');
+  kernel.boot('boot-kernel', `▸ Shutdown: ${reason ?? 'unknown'}`);
 }
 
 // ============================================================================
@@ -363,16 +338,7 @@ export function shutdownKernel(): void {
   const dashboard = getDashboard();
   const health = getOverallHealth();
   
-  kernel.boot('boot-kernel', '════════════════════════════════════════════════════════════');
-  kernel.boot('boot-kernel', '  KERNEL SHUTDOWN — Final State Export');
-  kernel.boot('boot-kernel', '════════════════════════════════════════════════════════════');
-  kernel.boot('boot-kernel', `Uptime: ${(uptimeMs / 1000).toFixed(2)}s`);
-  kernel.boot('boot-kernel', `Kernel Logs: ${dashboard.kernelLogEntries}`);
-  kernel.boot('boot-kernel', `Kernel Errors: ${dashboard.kernelErrors}`);
-  kernel.boot('boot-kernel', `Systems Observed: ${dashboard.totalSystems}`);
-  kernel.boot('boot-kernel', `Total Log Observations: ${dashboard.logsPerMinute.toFixed(0)}/min`);
-  kernel.boot('boot-kernel', `Final Health: ${health.status}`);
-  kernel.boot('boot-kernel', '════════════════════════════════════════════════════════════');
+  kernel.boot('boot-kernel', `✕ SHUTDOWN — Uptime: ${(uptimeMs / 1000).toFixed(2)}s | Logs: ${dashboard.kernelLogEntries} | Errors: ${dashboard.kernelErrors} | Systems: ${dashboard.totalSystems} | Health: ${health.status}`);
   
   // Shutdown persistence (saves final snapshot)
   shutdownPersistence().catch(error => {
@@ -382,7 +348,7 @@ export function shutdownKernel(): void {
   // Export state before shutdown (for post-mortem analysis)
   try {
     const state = exportKernelState();
-    kernel.boot('boot-kernel', `State exported: ${JSON.stringify(state).length} bytes`);
+    kernel.boot('boot-kernel', `  State exported: ${JSON.stringify(state).length} bytes`);
   } catch (error) {
     kernel.error('boot-kernel', `State export failed: ${error instanceof Error ? error.message : String(error)}`);
   }

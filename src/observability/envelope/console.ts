@@ -136,9 +136,10 @@ function detectFormat(): SerializeOptions {
     return { format: config.format as SerializeOptions['format'], colorize: config.colorize };
   }
   
-  // Production (Render) → JSONL for Loki
+  // Production (Render) → Compact for readable console logs
+  // Loki ingestion is handled by dedicated loki-transport.ts, not console output
   if (process.env.RENDER || process.env.NODE_ENV === 'production') {
-    return { format: 'jsonl', colorize: false };
+    return { format: 'compact', colorize: false };
   }
   
   // CI → Structured for easy parsing

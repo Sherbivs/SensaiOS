@@ -196,13 +196,22 @@ const LOG_LABEL: Readonly<Record<LogLevel | string, string>> = Object.freeze({
 const REFRESH_INTERVAL_MS = 15_000;
 const LATENCY_CHANGE_THRESHOLD_MS = 5;
 
+/**
+ * Boot grace period — suppress periodic status output during initial boot
+ * to avoid interleaving with kernel boot messages and service initialization.
+ * Status output resumes after this period even if no significant changes occur.
+ */
+const BOOT_GRACE_MS = 30_000;
+const BOOT_START_TIME = Date.now();
+
 // Feature flag for Infinity Console visual output (legacy)
 const INFINITY_CONSOLE_ENABLED = process.env.INFINITY_CONSOLE_ENABLED?.toLowerCase() !== 'false'
   && process.env.NODE_ENV !== 'test'
   && !OS_CONSOLE_ENABLED;  // OS console takes precedence
 
 // OS Console uses event-driven output, not periodic refresh
-const OS_REFRESH_INTERVAL_MS = OS_CONSOLE_ENABLED ? 60_000 : REFRESH_INTERVAL_MS;
+// 120s interval — change detection handles immediate updates
+const OS_REFRESH_INTERVAL_MS = OS_CONSOLE_ENABLED ? 120_000 : REFRESH_INTERVAL_MS;
 
 const METRIC_UNAVAILABLE = Object.freeze({
   NOT_QUERIED_YET: 'not-queried-yet',
@@ -1083,6 +1092,12 @@ function printInfinityConsole(): void {
 }
 
 async function printStats(): Promise<void> {
+  // Boot grace period — suppress status output during initial startup
+  // to avoid interleaving with kernel boot messages
+  if (Date.now() - BOOT_START_TIME < BOOT_GRACE_MS) {
+    return;
+  }
+  
   await refreshStats();
   
   if (!statsCache.databases || !statsCache.node || !statsCache.cache) {
@@ -1385,22 +1400,23 @@ log.detail = (message: string, context?: Record<string, unknown>): void => log('
 function report(title: string, meta: Record<string, unknown> = {}, level: LogLevel | string = 'info'): void {
   const label = LOG_LABEL[level] || LOG_LABEL.info;
 
-  writeStdout('');
-  writeStdout(`[${label}] ═══ ${title} ═══`);
-
-  // Forward to Loki
+  // Forward to Loki (always structured)
   forwardToLoki(level, title, meta);
   
+  // Compact single-line report with inline metadata
   if (meta && typeof meta === 'object') {
     const entries = Object.entries(meta);
     if (entries.length > 0) {
-      for (const [key, value] of entries) {
-        writeStdout(`  ${key}: ${value}`);
-      }
+      const metaStr = entries
+        .map(([key, value]) => `${key}=${value}`)
+        .join(' | ');
+      writeStdout(`[${label}] ${title} — ${metaStr}`);
+    } else {
+      writeStdout(`[${label}] ${title}`);
     }
+  } else {
+    writeStdout(`[${label}] ${title}`);
   }
-
-  writeStdout('');
   
   const now = Date.now();
   if (now - lastLogTime >= REFRESH_INTERVAL_MS) {

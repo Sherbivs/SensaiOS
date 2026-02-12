@@ -53,6 +53,11 @@ class LokiTransport {
     bytesUncompressed: 0,
   };
 
+  /** Timestamp of last error log emission (5-min suppression window) */
+  private lastErrorLogAt = 0;
+  /** Suppression window: only log Loki errors once per 5 minutes */
+  private static readonly ERROR_SUPPRESS_MS = 5 * 60 * 1000;
+
   constructor(endpoint?: string) {
     this.endpoint = endpoint || process.env.LOKI_ENDPOINT || '';
     this.enabled = Boolean(this.endpoint);
@@ -223,12 +228,18 @@ class LokiTransport {
       // Emit failure metric
       this.emitMetric('error', entries.length);
       
-      // Graceful degradation - only log first failure or every 60th failure to reduce noise
-      // When Loki is down (404), we don't need to spam console every 5 seconds
-      const shouldLog = this.stats.totalFailed === entries.length || this.stats.totalFailed % 60 === 0;
-      if (shouldLog) {
-        const errorMsg = err instanceof Error ? err.message : String(err);
-        log.error('send', 'Failed to send logs', { error: errorMsg, totalFailed: this.stats.totalFailed, suppressed: this.stats.totalFailed > entries.length });
+      // Time-based suppression: log Loki errors at most once per 5 minutes
+      // When Loki/ngrok is down, we don't need to spam console every 5 seconds
+      const now = Date.now();
+      if (now - this.lastErrorLogAt >= LokiTransport.ERROR_SUPPRESS_MS) {
+        this.lastErrorLogAt = now;
+        let errorMsg = err instanceof Error ? err.message : String(err);
+        // Strip HTML (ngrok 404 pages) and truncate to 120 chars
+        if (/<\/?[a-z][\s\S]*>/i.test(errorMsg)) {
+          errorMsg = errorMsg.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
+        }
+        if (errorMsg.length > 120) errorMsg = errorMsg.slice(0, 117) + '...';
+        log.warn('send', `Loki unreachable (${this.stats.totalFailed} failed, suppressed 5m)`, { error: errorMsg });
       }
       
       // Re-add entries to batch for retry (up to batch size limit)
