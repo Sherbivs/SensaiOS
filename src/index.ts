@@ -71,6 +71,7 @@ const writeStderr = (line: string): void => {
   process.stderr.write(`${line}\n`);
 };
 import { validateEngineDbConfig } from "./config/engine-db-config.js";
+import { TIER, formatTierSummary, checkHeapConfiguration } from "./config/resource-tiers.js";
 import type { EngineCache } from "./services/cache/engine-cache.js";
 import type { EngineWriteBuffer } from "./services/cache/engine-write-buffer.js";
 import type { ErrorTracker } from "./services/monitoring/error-tracker.js";
@@ -1381,6 +1382,38 @@ export async function boot(): Promise<void> {
   startMonitor();
 
   log.info("index", "boot", "Infinity Gauntlet: toolchain online", { metadata: { env: config.nodeEnv } });
+  
+  // ============================================================================
+  // Resource Tier Detection (Auto-detect Render plan limits)
+  // ============================================================================
+  kernel.boot('index', formatTierSummary());
+  log.info("index", "boot", "Resource tier detected", {
+    metadata: {
+      tier: TIER.tier,
+      label: TIER.label,
+      detectedVia: TIER.detectedVia,
+      detectedRamMB: TIER.detectedRamMB,
+      planRamMB: TIER.ramMB,
+      planVCPU: TIER.cpu.planVCPU,
+      heapLimitMB: TIER.heap.maxOldSpaceMB,
+      l1CacheMB: TIER.engine.l1CacheMaxMB,
+      postgresPool: TIER.engine.postgresPoolSize,
+    },
+  });
+  
+  // Warn if V8 heap limit is misconfigured for the detected plan
+  const heapWarning = checkHeapConfiguration();
+  if (heapWarning) {
+    log.warn("index", "boot", heapWarning, {
+      metadata: {
+        currentHeapLimitMB: Math.floor(
+          (await import('node:v8')).getHeapStatistics().heap_size_limit / 1024 / 1024,
+        ),
+        recommendedMaxOldSpaceMB: TIER.heap.maxOldSpaceMB,
+        fix: `Set NODE_OPTIONS="--max-old-space-size=${TIER.heap.maxOldSpaceMB}" in environment`,
+      },
+    });
+  }
   
   // ============================================================================
   // Restart Metrics Initialization (Track restart history)

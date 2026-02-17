@@ -138,9 +138,9 @@ const MONITOR_CONFIG = {
   // Cleanup monitor history after 7 days
   historyRetentionMs: 7 * 24 * 60 * 60 * 1000,
   
-  // Alert thresholds (aligned with 2 GB Standard plan)
+  // Alert thresholds (adaptive — aligned with detected plan tier)
   thresholds: {
-    // Resource count limits (scaled for 2 GB capacity)
+    // Resource count limits (scaled for detected plan capacity)
     totalResourcesWarning: 300,      // Increased from 150 (2x for Standard plan)
     totalResourcesCritical: 500,     // Increased from 250 (2x for Standard plan)
     
@@ -1319,11 +1319,11 @@ class ResourceMonitor {
     const memoryRssMB = memoryUsage.rss / (1024 * 1024);
     const memoryPercent = (memoryRssMB / MEMORY_THRESHOLDS.planLimitMB) * 100;
 
-    // Check 1: Memory utilization (aligned with 2 GB Standard plan)
+    // Check 1: Memory utilization (aligned with detected plan tier)
     if (memoryRssMB >= MONITOR_CONFIG.thresholds.memoryEmergencyMB) {
       alerts.push({
         level: 'error',
-        message: `🚨 Memory exhaustion imminent: ${memoryRssMB.toFixed(1)} MB (${memoryPercent.toFixed(1)}% of 2 GB). IMMEDIATE ACTION REQUIRED.`,
+        message: `🚨 Memory exhaustion imminent: ${memoryRssMB.toFixed(1)} MB (${memoryPercent.toFixed(1)}% of ${MEMORY_THRESHOLDS.planLimitMB} MB). IMMEDIATE ACTION REQUIRED.`,
         metric: 'memory_emergency',
         value: memoryRssMB,
         threshold: MONITOR_CONFIG.thresholds.memoryEmergencyMB,
@@ -1331,7 +1331,7 @@ class ResourceMonitor {
     } else if (memoryRssMB >= MONITOR_CONFIG.thresholds.memoryCriticalMB) {
       alerts.push({
         level: 'error',
-        message: `🔴 Memory usage critical: ${memoryRssMB.toFixed(1)} MB (${memoryPercent.toFixed(1)}% of 2 GB). Optimize or scale plan.`,
+        message: `🔴 Memory usage critical: ${memoryRssMB.toFixed(1)} MB (${memoryPercent.toFixed(1)}% of ${MEMORY_THRESHOLDS.planLimitMB} MB). Optimize or scale plan.`,
         metric: 'memory_critical',
         value: memoryRssMB,
         threshold: MONITOR_CONFIG.thresholds.memoryCriticalMB,
@@ -1339,7 +1339,7 @@ class ResourceMonitor {
     } else if (memoryRssMB >= MONITOR_CONFIG.thresholds.memoryWarningMB) {
       alerts.push({
         level: 'warn',
-        message: `⚠️ Memory usage high: ${memoryRssMB.toFixed(1)} MB (${memoryPercent.toFixed(1)}% of 2 GB). Monitor closely.`,
+        message: `⚠️ Memory usage high: ${memoryRssMB.toFixed(1)} MB (${memoryPercent.toFixed(1)}% of ${MEMORY_THRESHOLDS.planLimitMB} MB). Monitor closely.`,
         metric: 'memory_warning',
         value: memoryRssMB,
         threshold: MONITOR_CONFIG.thresholds.memoryWarningMB,
@@ -1347,7 +1347,7 @@ class ResourceMonitor {
     } else if (memoryRssMB < MONITOR_CONFIG.thresholds.memoryUnderutilizedMB) {
       alerts.push({
         level: 'info',
-        message: `ℹ️ Memory underutilized: ${memoryRssMB.toFixed(1)} MB (${memoryPercent.toFixed(1)}% of 2 GB). Consider increasing cache sizes.`,
+        message: `ℹ️ Memory underutilized: ${memoryRssMB.toFixed(1)} MB (${memoryPercent.toFixed(1)}% of ${MEMORY_THRESHOLDS.planLimitMB} MB). Consider increasing cache sizes.`,
         metric: 'memory_underutilized',
         value: memoryRssMB,
         threshold: MONITOR_CONFIG.thresholds.memoryUnderutilizedMB,
@@ -1356,7 +1356,7 @@ class ResourceMonitor {
       // Optimal range - no alert, just log for visibility
       alerts.push({
         level: 'info',
-        message: `✅ Memory utilization optimal: ${memoryRssMB.toFixed(1)} MB (${memoryPercent.toFixed(1)}% of 2 GB, target: 60-75%)`,
+        message: `✅ Memory utilization optimal: ${memoryRssMB.toFixed(1)} MB (${memoryPercent.toFixed(1)}% of ${MEMORY_THRESHOLDS.planLimitMB} MB, target: 60-75%)`,
         metric: 'memory_optimal',
         value: memoryRssMB,
       });

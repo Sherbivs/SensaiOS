@@ -5,7 +5,7 @@
  * Reference: docs/projects/STORE-WRITE-ELIMINATION.md
  *
  * ⚠️ IMPORTANT: This module now manages:
- * - RAM: In-memory LRU cache (5 MB hot layer, part of 2 GB RAM limit)
+ * - RAM: In-memory LRU cache (adaptive hot layer sized by detected Render plan tier)
  * - Database: PostgreSQL CacheEntry table for persistence
  *
  * Resource Tracking:
@@ -24,6 +24,7 @@ import os from "node:os";
 
 import { prisma } from "../../shared/prisma.js";
 import { ensureError } from "../../shared/utils/error-utils.js";
+import { TIER } from '../../config/resource-tiers.js';
 import * as legacyCacheModule from "../cache.js";
 import { errorTracker } from "../monitoring/error-tracker.js";
 
@@ -37,8 +38,8 @@ const { MAX_CACHE_PERCENT: _MAX_CACHE_PERCENT, MAX_CACHE_FILE_AGE_MS: _MAX_CACHE
 // Cache namespace for database entries
 const FACADE_CACHE_NAMESPACE = 'runtime-cache';
 const CACHE_RECORD_VERSION = 1;
-const DEFAULT_MAX_MEMORY_BYTES = 5 * 1024 * 1024; // 5 MiB hot layer (reduced from 16 MiB for memory optimization).
-const DEFAULT_MAX_MEMORY_ITEMS = 200; // Reduced from 512 for memory optimization.
+const DEFAULT_MAX_MEMORY_BYTES = TIER.cache.facadeMaxBytes; // Adaptive: Starter=2MiB, Standard=5MiB
+const DEFAULT_MAX_MEMORY_ITEMS = TIER.cache.facadeMaxItems; // Adaptive: Starter=100, Standard=200
 const MAINTENANCE_MIN_INTERVAL_MS = 5_000;
 const DEFAULT_MAINTENANCE_INTERVAL_MS = 10 * 60_000;
 

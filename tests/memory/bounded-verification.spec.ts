@@ -80,6 +80,7 @@ vi.mock('../../src/config/error-brain-config.js', async () => {
 
 import { EventBus } from '../../src/shared/event-bus.js';
 import { writeCache, getCacheSnapshot } from '../../src/services/cache.js';
+import { TIER } from '../../src/config/resource-tiers.js';
 import { LogBuffer } from '../../src/shared/logBuffer.js';
 import {
   CONFIG as AI_LOG_CONFIG,
@@ -290,13 +291,14 @@ describe('Bounded data structure verification', () => {
     expect(bus.getPatternCacheStats().size).toBeLessThanOrEqual(500);
   });
 
-  it('bounds security memory cache to 1000 entries', () => {
-    for (let i = 0; i < 1100; i += 1) {
+  it('bounds security memory cache to tier-configured entries', () => {
+    const limit = TIER.cache.memoryCacheMaxEntries;
+    for (let i = 0; i < limit + 100; i += 1) {
       writeCache(`entry-${i}`, { index: i });
     }
 
     const snapshot = getCacheSnapshot();
-    expect(snapshot.entryCount).toBeLessThanOrEqual(1000);
+    expect(snapshot.entryCount).toBeLessThanOrEqual(limit);
   });
 
   it('keeps log buffer size under configured max', () => {

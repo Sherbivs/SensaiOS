@@ -9,6 +9,8 @@
  *   const coins = GAME_CONSTANTS.DEFAULT_STARTER_COINS;
  */
 
+import { TIER } from '../config/resource-tiers.js';
+
 // ============================================================================
 // GAME CONSTANTS
 // ============================================================================
@@ -113,9 +115,9 @@ export const CACHE_CONSTANTS = Object.freeze({
   MAX_CACHE_FILE_AGE_MS: 1000 * 60 * 60 * 24 * 7, // 7 days
   MAX_WORKSPACE_BYTES: 1024 * 1024 * 1024, // 1 GB
 
-  /** Memory facade limits */
-  DEFAULT_MAX_MEMORY_BYTES: 5 * 1024 * 1024, // 5 MiB
-  DEFAULT_MAX_MEMORY_ITEMS: 200,
+  /** Memory facade limits (adaptive — scaled by detected Render plan tier) */
+  DEFAULT_MAX_MEMORY_BYTES: TIER.cache.facadeMaxBytes,
+  DEFAULT_MAX_MEMORY_ITEMS: TIER.cache.facadeMaxItems,
 
   /** Maintenance interval */
   DEFAULT_MAINTENANCE_INTERVAL_MS: 10 * 60_000 // 10 minutes

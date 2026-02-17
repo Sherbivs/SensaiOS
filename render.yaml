@@ -56,6 +56,10 @@ services:
         value: "20"
       - key: OUTBOX_BATCH_SIZE
         value: "100"
+      - key: RENDER_PLAN_TIER
+        value: starter
+      - key: NODE_OPTIONS
+        value: "--max-old-space-size=384"
 
   # Discord bot worker
   - type: worker
@@ -121,6 +125,12 @@ services:
         value: pokemon-battles
       - key: DISABLE_SNAPSHOT_PRECHECK
         value: "true"
+      # Adaptive resource tier: explicit override ensures correct detection in container
+      - key: RENDER_PLAN_TIER
+        value: starter
+      # V8 heap limit: 75% of 512 MB plan RAM prevents OOM before GC can act
+      - key: NODE_OPTIONS
+        value: "--max-old-space-size=384"
 
   - type: worker
     name: infinity-gauntlet-security
@@ -170,6 +180,10 @@ services:
         value: Trainer
       - key: DISABLE_SNAPSHOT_PRECHECK
         value: "true"
+      - key: RENDER_PLAN_TIER
+        value: starter
+      - key: NODE_OPTIONS
+        value: "--max-old-space-size=384"
 
   - type: worker
     name: infinity-gauntlet-cache
@@ -216,6 +230,10 @@ services:
         value: "0"
       - key: CACHE_WORKER_INTERVAL_JITTER_MS
         value: "0"
+      - key: RENDER_PLAN_TIER
+        value: starter
+      - key: NODE_OPTIONS
+        value: "--max-old-space-size=384"
 
   - type: worker
     name: infinity-gauntlet-data-pipeline
@@ -264,6 +282,10 @@ services:
         value: "900000"
       - key: DATA_PIPELINE_RUN_ON_BOOT
         value: "false"
+      - key: RENDER_PLAN_TIER
+        value: starter
+      - key: NODE_OPTIONS
+        value: "--max-old-space-size=384"
 
   # Canonical Pokédex cache worker (persistent disk + scheduler)
   - type: worker
@@ -325,6 +347,10 @@ services:
         sync: false
       - key: GITHUB_TOKEN
         sync: false
+      - key: RENDER_PLAN_TIER
+        value: starter
+      - key: NODE_OPTIONS
+        value: "--max-old-space-size=384"
 
   # Optional failsafe cron job: refresh GitHub fallback only
   - type: cron

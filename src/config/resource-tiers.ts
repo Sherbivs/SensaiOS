@@ -98,6 +98,16 @@ export interface DiscordCacheLimits {
   threads: number;
 }
 
+/** In-memory cache budgets (facade + legacy security cache) */
+export interface CacheBudgets {
+  /** Cache facade hot-layer max bytes (e.g. 2 MiB on Starter, 5 MiB on Standard) */
+  facadeMaxBytes: number;
+  /** Cache facade max items in LRU */
+  facadeMaxItems: number;
+  /** Legacy security cache max in-memory entries */
+  memoryCacheMaxEntries: number;
+}
+
 /** Suggested V8 heap limit (MB) — for NODE_OPTIONS --max-old-space-size */
 export interface HeapConfig {
   /** Recommended --max-old-space-size value (MB) */
@@ -128,6 +138,8 @@ export interface TierProfile {
   engine: EngineDbBudgets;
   /** Discord.js cache limits */
   discord: DiscordCacheLimits;
+  /** In-memory cache budgets */
+  cache: CacheBudgets;
   /** V8 heap configuration */
   heap: HeapConfig;
 }
@@ -188,6 +200,11 @@ const TIER_PROFILES: Record<RenderPlanTier, Omit<TierProfile, 'detectedVia' | 'd
       guildMembers: 500,
       threads: 25,
     },
+    cache: {
+      facadeMaxBytes: 2 * 1024 * 1024,   // 2 MiB (reduced from 5 MiB)
+      facadeMaxItems: 100,                 // Reduced from 200
+      memoryCacheMaxEntries: 500,          // Reduced from 1000
+    },
     heap: { maxOldSpaceMB: 384 },   // 75% of 512
   },
 
@@ -212,6 +229,11 @@ const TIER_PROFILES: Record<RenderPlanTier, Omit<TierProfile, 'detectedVia' | 'd
       messagesPerChannel: 50,
       guildMembers: 1000,
       threads: 50,
+    },
+    cache: {
+      facadeMaxBytes: 5 * 1024 * 1024,   // 5 MiB
+      facadeMaxItems: 200,
+      memoryCacheMaxEntries: 1000,
     },
     heap: { maxOldSpaceMB: 1536 },  // 75% of 2048
   },
@@ -238,6 +260,11 @@ const TIER_PROFILES: Record<RenderPlanTier, Omit<TierProfile, 'detectedVia' | 'd
       guildMembers: 2000,
       threads: 100,
     },
+    cache: {
+      facadeMaxBytes: 10 * 1024 * 1024,  // 10 MiB
+      facadeMaxItems: 500,
+      memoryCacheMaxEntries: 2000,
+    },
     heap: { maxOldSpaceMB: 3072 },  // 75% of 4096
   },
 
@@ -262,6 +289,11 @@ const TIER_PROFILES: Record<RenderPlanTier, Omit<TierProfile, 'detectedVia' | 'd
       messagesPerChannel: 200,
       guildMembers: 5000,
       threads: 200,
+    },
+    cache: {
+      facadeMaxBytes: 16 * 1024 * 1024,  // 16 MiB
+      facadeMaxItems: 1000,
+      memoryCacheMaxEntries: 5000,
     },
     heap: { maxOldSpaceMB: 6144 },  // 75% of 8192
   },
@@ -288,6 +320,11 @@ const TIER_PROFILES: Record<RenderPlanTier, Omit<TierProfile, 'detectedVia' | 'd
       guildMembers: 10000,
       threads: 500,
     },
+    cache: {
+      facadeMaxBytes: 32 * 1024 * 1024,  // 32 MiB
+      facadeMaxItems: 2000,
+      memoryCacheMaxEntries: 10000,
+    },
     heap: { maxOldSpaceMB: 12288 }, // 75% of 16384
   },
 
@@ -312,6 +349,11 @@ const TIER_PROFILES: Record<RenderPlanTier, Omit<TierProfile, 'detectedVia' | 'd
       messagesPerChannel: 1000,
       guildMembers: 20000,
       threads: 1000,
+    },
+    cache: {
+      facadeMaxBytes: 64 * 1024 * 1024,  // 64 MiB
+      facadeMaxItems: 5000,
+      memoryCacheMaxEntries: 20000,
     },
     heap: { maxOldSpaceMB: 24576 }, // 75% of 32768
   },

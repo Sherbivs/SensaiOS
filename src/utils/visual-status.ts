@@ -8,6 +8,8 @@
  * @priority HIGHEST (Role 0 - UX/Visual Simplification)
  */
 
+import { TIER } from '../config/resource-tiers.js';
+
 // ============================================================================
 // ANSI Color Codes (Terminal Safe)
 // ============================================================================
@@ -94,7 +96,7 @@ export interface ServiceStatus {
 // Status Classification (Color Thresholds)
 // ============================================================================
 
-export function getMemoryStatus(usedMB: number, limitMB: number = 2048): {
+export function getMemoryStatus(usedMB: number, limitMB: number = TIER.memory.planLimitMB): {
   color: string;
   indicator: string;
   severity: 'healthy' | 'warning' | 'critical';

@@ -20,6 +20,7 @@ const logger = getLogger();
 import { getErrorMessage } from '../shared/utils/index.js';
 import { CACHE_CONSTANTS } from '../shared/constants.js';
 import { prisma } from '../shared/prisma.js';
+import { TIER } from '../config/resource-tiers.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -71,7 +72,7 @@ const CACHE_NAMESPACE = 'discord-cache';
 
 // In-memory LRU cache for hot data
 const memoryCache = new Map<string, { value: unknown; expiresAt: number }>();
-const MAX_MEMORY_ENTRIES = 1000;
+const MAX_MEMORY_ENTRIES = TIER.cache.memoryCacheMaxEntries; // Adaptive: Starter=500, Standard=1000
 
 // Default TTL: 24 hours (in ms)
 const DEFAULT_TTL_MS = 24 * 60 * 60 * 1000;
