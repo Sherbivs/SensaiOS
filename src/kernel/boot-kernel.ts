@@ -175,20 +175,23 @@ import {
   getPlugin,
   getAllPlugins,
   setPluginEnabled,
-  dispatchToPlugins as _dispatchToPlugins,
-  dispatchToPluginsSync as _dispatchToPluginsSync,
-  initializePluginSystem as _initializePluginSystem,
+  dispatchToPlugins,
+  dispatchToPluginsSync,
+  initializePluginSystem,
   flushAllPlugins,
-  shutdownPluginSystem as _shutdownPluginSystem,
+  shutdownPluginSystem,
   getPluginSystemState,
   isPluginSystemReady,
   createConsolePlugin,
   createBufferedPlugin,
   createFilteredPlugin,
-  type KernelOutputPlugin as _KernelOutputPlugin,
-  type PluginStats as _PluginStats,
-  type PluginRegistration as _PluginRegistration,
-  type OutputPluginManagerState as _OutputPluginManagerState,
+} from './kernel-output-plugins.js';
+
+export type {
+  KernelOutputPlugin,
+  PluginStats,
+  PluginRegistration,
+  OutputPluginManagerState,
 } from './kernel-output-plugins.js';
 
 // Step 7: Import correlation ID tracking
@@ -271,6 +274,9 @@ installErrorHandlers();
 
 // Initialize persistence layer
 initializePersistence();
+
+// Initialize output plugin system (wires dispatch into kernel-logger pipeline)
+initializePluginSystem();
 
 // Set initial phase
 setPhase('MODULE_LOAD');
@@ -617,7 +623,11 @@ const Kernel = {
     get: getPlugin,
     getAll: getAllPlugins,
     setEnabled: setPluginEnabled,
+    dispatch: dispatchToPlugins,
+    dispatchSync: dispatchToPluginsSync,
+    initialize: initializePluginSystem,
     flush: flushAllPlugins,
+    shutdown: shutdownPluginSystem,
     getState: getPluginSystemState,
     isReady: isPluginSystemReady,
     // Plugin factories for common patterns

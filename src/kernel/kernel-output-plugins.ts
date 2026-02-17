@@ -28,6 +28,7 @@
  */
 
 import type { KernelLogEntry, KernelLogLevel } from './kernel-logger.js';
+import { setPluginDispatch } from './kernel-logger.js';
 const writePluginStdout = (line: string): void => {
   process.stdout.write(`${line}\n`);
 };
@@ -371,11 +372,15 @@ export function dispatchToPluginsSync(entry: KernelLogEntry): void {
 // ============================================================================
 
 /**
- * Initialize the plugin system
+ * Initialize the plugin system and wire dispatch into kernel-logger
  */
 export function initializePluginSystem(): void {
   initialized = true;
   shuttingDown = false;
+  
+  // Wire plugin dispatch into kernel-logger's processLogEntry pipeline.
+  // This is the critical connection that makes plugins actually receive logs.
+  setPluginDispatch(dispatchToPluginsSync);
 }
 
 /**

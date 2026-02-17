@@ -8,6 +8,12 @@
  * MIGRATION (2025-12-27): File logging disabled (Database-First Architecture)
  * - Ring buffer + console output retained (synchronous, zero-dependency)
  * - Use kernel.exportLogs() to persist to database after boot
+ * 
+ * OUTPUT PLUGIN WIRING (2026-02-17): KERNEL.LOGGING.OUTPUT_PLUGINS
+ * - processLogEntry() dispatches to registered output plugins after ring buffer
+ * - dispatchToPluginsSync() fires plugins without blocking the sync pipeline
+ * - Plugin system init occurs AFTER logger module loads (no circular deps)
+ * - Pre-boot entries are replayed to plugins during markBooted()
  * ═══════════════════════════════════════════════════════════════════════════
  * 
  * Provides synchronous, dependency-free logging that works from the very
@@ -25,6 +31,7 @@
  * - Pre-boot queue with automatic replay
  * - Ring buffer for memory-bounded storage
  * - Console output for crash recovery
+ * - Output plugin dispatch for extensible destinations
  * - Structured JSON entries with timestamps
  * - Severity levels (KERNEL, CRITICAL, ERROR, WARN, INFO, DEBUG, TRACE)
  * 
@@ -42,6 +49,36 @@ const writeStderr = (line: string): void => {
 // NOTE: File system imports removed - Database-First Architecture (2025-12-27)
 // Ring buffer + console is sufficient for pre-boot logging
 // File persistence replaced with database export after boot
+
+// ============================================================================
+// OUTPUT PLUGIN DISPATCH HOOK (KERNEL.LOGGING.OUTPUT_PLUGINS)
+// ============================================================================
+
+/**
+ * Plugin dispatch function, injected after kernel-output-plugins.ts loads.
+ * This avoids circular imports: kernel-logger.ts has ZERO import deps,
+ * and the plugin system registers itself via setPluginDispatch().
+ * 
+ * Before injection, this is a no-op. After injection, every processLogEntry()
+ * call also dispatches to registered output plugins.
+ */
+let pluginDispatchFn: ((entry: KernelLogEntry) => void) | null = null;
+
+/**
+ * Register the plugin dispatch function.
+ * Called by kernel-output-plugins.ts during initialization.
+ * @param fn - The sync dispatch function (dispatchToPluginsSync)
+ */
+export function setPluginDispatch(fn: (entry: KernelLogEntry) => void): void {
+  pluginDispatchFn = fn;
+}
+
+/**
+ * Check if plugin dispatch is wired.
+ */
+export function isPluginDispatchWired(): boolean {
+  return pluginDispatchFn !== null;
+}
 
 // ============================================================================
 // TYPES
@@ -229,6 +266,17 @@ function processLogEntry(entry: KernelLogEntry): void {
   
   // Output to file (disabled)
   outputToFile(entry);
+  
+  // Dispatch to registered output plugins (fire-and-forget, sync path)
+  // Plugin failures are isolated — they never break core logging
+  if (pluginDispatchFn) {
+    try {
+      pluginDispatchFn(entry);
+    } catch {
+      // Plugin dispatch errors are silently ignored
+      // Plugins track their own errors via getStats()
+    }
+  }
 }
 
 /**
