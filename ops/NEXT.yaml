@@ -24,14 +24,23 @@ auto_promote_if_empty: true
 # Blueprint: 10 components (C1-C4, C7-C10), ~115 tests, 11-day rollout
 # See Tasklist.md for full dependency chain: PHASE1.1 → ... → PHASE5.2
 main_tasks:
-  - id: KERNEL.LOGGING.PII_SCRUBBING
+  - id: KERNEL.LOGGING.CORRELATION_IDS
     status: READY
-    priority: P0-CRITICAL
-    effort: 4h
+    priority: P1-HIGH
+    effort: 2h
     files_hint:
+      - src/kernel/correlation.ts
+      - src/kernel/boot-kernel.ts
       - src/kernel/kernel-logger.ts
-      - src/kernel/outputs/
-    description: "Add PII scrubbing to kernel logging pipeline — pattern matching for tokens, emails, IPs before output."
+    description: "Add correlation ID and request tracing support — context API + propagation across kernel logging."
+  - id: KERNEL.LOGGING.SAMPLING
+    status: READY
+    priority: P2-MEDIUM
+    effort: 1.5h
+    files_hint:
+      - src/kernel/log-sampling.ts
+      - src/kernel/kernel-logger.ts
+    description: "Add level-aware log sampling for high-frequency events while preserving ERROR/CRITICAL."
   - id: MEMLEAK.PHASE4.2
     status: READY
     priority: P2-MEDIUM
@@ -45,21 +54,25 @@ quick_task: null
   # Cleared 2026-02-17: DISCORD.MEMBER_FETCH.RATE_LIMIT → DONE
 
 # Timestamp and rationale
-timestamp_utc: "2026-02-17T11:00:00Z"
+timestamp_utc: "2026-02-17T12:30:00Z"
 note: |
-  === 2026-02-17 OUTPUT_PLUGINS COMPLETE ===
-  
-  ✅ KERNEL.LOGGING.OUTPUT_PLUGINS → DONE (2026-02-17, commit 6b2b8c1e)
-  - Plugin dispatch wired into kernel-logger processLogEntry() via setPluginDispatch()
-  - ConsoleOutputPlugin (ANSI/JSON) + FileOutputPlugin (no-op Database-First)
-  - 47 new tests, 3167/3167 total suite passing, 0 regressions
-  - Dependency injection pattern avoids circular imports
-  - Downstream tasks unblocked: PII_SCRUBBING, CORRELATION_IDS, STRUCTURED_OUTPUT
-  
-  🔄 KERNEL.LOGGING.PII_SCRUBBING promoted to main_tasks (P0-CRITICAL)
-  - Next in logging chain — depends on OUTPUT_PLUGINS (now DONE)
+  === 2026-02-17 PII SCRUBBING COMPLETE ===
 
-  📊 Vitest: 3167/3167 passed | tsc 0 errors | ESLint 0 warnings
+  ✅ KERNEL.LOGGING.PII_SCRUBBING → DONE (2026-02-17)
+  - Added src/kernel/kernel-scrubber.ts (ScrubConfig + scrubEntry)
+  - Default patterns: tokens, webhooks, emails, password assignments
+  - Wired scrubbing in dispatchToPlugins()/dispatchToPluginsSync() BEFORE plugin.write()
+  - Added tests/kernel/kernel-scrubber.spec.ts (15 tests)
+  - Coverage for kernel-scrubber.ts: 100% statements/branches/functions/lines
+  - Added integration assertion in output-plugins.spec.ts
+
+  🔄 KERNEL.LOGGING.CORRELATION_IDS promoted to main_tasks (P1-HIGH)
+  - Next priority after PII hardening in logging chain
+
+  🔄 KERNEL.LOGGING.SAMPLING promoted to main_tasks (P2-MEDIUM)
+  - Ready for volume control work once correlation context lands
+  
+  📊 Kernel tests: 63/63 passed | Scrubber coverage: 100% | tsc 0 errors | ESLint 0 warnings
 
 router_version: 3
 last_notes_read_utc: 2026-02-10T00:00:00Z

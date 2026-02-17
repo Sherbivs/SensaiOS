@@ -259,6 +259,27 @@ describe('Kernel Output Plugin System', () => {
       expect(plugin.writeCalls[0].message).toBe('async dispatch');
     });
 
+    it('should scrub sensitive values before plugin write', async () => {
+      const plugin = createSpyPlugin({ name: 'scrub-test' });
+      await registerOutputPlugin(plugin);
+
+      dispatchToPluginsSync(createEntry({
+        message: 'token mfa.abcdefghijklmnopqrstuvwxyz1234567890',
+        data: {
+          webhook: 'https://discord.com/api/webhooks/123456789012345678/abc_DEF-123',
+          email: 'trainer@example.com',
+          password: 'super-secret-value',
+        },
+      }));
+
+      expect(plugin.writeCalls).toHaveLength(1);
+      const written = plugin.writeCalls[0];
+      expect(written.message).not.toContain('mfa.abcdefghijklmnopqrstuvwxyz1234567890');
+      expect(String(written.data?.webhook ?? '')).toContain('[WEBHOOK_REDACTED]');
+      expect(String(written.data?.email ?? '')).toBe('[EMAIL_REDACTED]');
+      expect(String(written.data?.password ?? '')).toBe('[REDACTED]');
+    });
+
     it('should dispatch in registration order', async () => {
       const order: string[] = [];
       const plugin1 = createSpyPlugin({

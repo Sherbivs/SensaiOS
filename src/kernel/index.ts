@@ -104,3 +104,14 @@ export {
   type KernelSnapshot,
   type DatabaseExportHook,
 } from './kernel-persistence.js';
+
+// ─── PII Scrubber (for secure output pipelines) ───────────────────────────
+export {
+  scrubEntry,
+  getScrubConfig,
+  configureScrubber,
+  resetScrubConfig,
+  type ScrubConfig,
+  type ScrubPattern,
+  type ScrubField,
+} from './kernel-scrubber.js';

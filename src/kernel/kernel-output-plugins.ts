@@ -29,6 +29,7 @@
 
 import type { KernelLogEntry, KernelLogLevel } from './kernel-logger.js';
 import { setPluginDispatch } from './kernel-logger.js';
+import { scrubEntry } from './kernel-scrubber.js';
 const writePluginStdout = (line: string): void => {
   process.stdout.write(`${line}\n`);
 };
@@ -297,8 +298,10 @@ export async function dispatchToPlugins(entry: KernelLogEntry): Promise<void> {
   if (shuttingDown) {
     return;
   }
+
+  const scrubbedEntry = scrubEntry(entry);
   
-  const entryPriority = LEVEL_PRIORITY[entry.level];
+  const entryPriority = LEVEL_PRIORITY[scrubbedEntry.level];
   
   // Process each plugin in registration order
   for (const name of pluginOrder) {
@@ -313,13 +316,13 @@ export async function dispatchToPlugins(entry: KernelLogEntry): Promise<void> {
     }
     
     // Check custom filter
-    if (plugin.filter && !plugin.filter(entry)) {
+    if (plugin.filter && !plugin.filter(scrubbedEntry)) {
       continue;
     }
     
     // Write to plugin (errors are isolated)
     try {
-      await plugin.write(entry);
+      await plugin.write(scrubbedEntry);
     } catch {
       // Plugin errors are silently ignored to prevent cascade
       // Plugin should track its own errors via getStats()
@@ -335,8 +338,10 @@ export function dispatchToPluginsSync(entry: KernelLogEntry): void {
   if (shuttingDown) {
     return;
   }
+
+  const scrubbedEntry = scrubEntry(entry);
   
-  const entryPriority = LEVEL_PRIORITY[entry.level];
+  const entryPriority = LEVEL_PRIORITY[scrubbedEntry.level];
   
   for (const name of pluginOrder) {
     const plugin = plugins.get(name);
@@ -348,13 +353,13 @@ export function dispatchToPluginsSync(entry: KernelLogEntry): void {
       continue;
     }
     
-    if (plugin.filter && !plugin.filter(entry)) {
+    if (plugin.filter && !plugin.filter(scrubbedEntry)) {
       continue;
     }
     
     try {
       // Fire and forget for sync dispatch
-      const result = plugin.write(entry);
+      const result = plugin.write(scrubbedEntry);
       // If it returns a promise, we don't wait (async plugins handle themselves)
       if (result instanceof Promise) {
         result.catch(() => {

@@ -2,7 +2,7 @@
 Title: Kernel Root Observer Layer
 Purpose: Production-grade kernel module providing unified logging, error detection, system observation, metrics collection, and persistence.
 Owned Globs: src/kernel/**
-Last Updated (UTC): 2026-02-17T10:00:00Z
+Last Updated (UTC): 2026-02-17T12:00:00Z
 
 
 
@@ -97,7 +97,7 @@ All other modules depend on the kernel for observability and reliability.
 | `kernel-metrics.ts` | ~350 | Performance metrics, rate tracking, dashboards |
 | `kernel-persistence.ts` | ~520 | Snapshot management, database export, retention |
 | `kernel-output-plugins.ts` | ~500 | Output plugin architecture for routing logs to multiple destinations |
-| `pii-scrubber.ts` | ~500 | PII scrubbing patterns for sensitive data protection |
+| `kernel-scrubber.ts` | ~220 | PII scrubbing pipeline for output dispatch (tokens/webhooks/emails/passwords) |
 
 ### Subdirectories
 

@@ -1,12 +1,12 @@
 # Prompt.md
-Timestamp (UTC): 2026-02-17T11:00:00Z
-Revision: 7.3
+Timestamp (UTC): 2026-02-17T12:30:00Z
+Revision: 7.4
 
 **Cross-References**:
 - See `Patch.md` for contract rules (updated 2026-02-09T00:00:00Z Rev 1.76)
-- See `Tasklist.md` for active backlog and current tasks (Rev 2.174 — 15 DONE, 4 READY, 3 PROPOSED)
+- See `Tasklist.md` for active backlog and current tasks (Rev 2.175 — 16 DONE, 5 READY, 2 PROPOSED)
 - See `docs/archive/tasks/` for completed task history (~115+ tasks archived by project/phase)
-- See `ops/NEXT.yaml` for current task pointer (KERNEL.LOGGING.PII_SCRUBBING — READY, P0-CRITICAL)
+- See `ops/NEXT.yaml` for current task pointer (KERNEL.LOGGING.CORRELATION_IDS — READY, P1-HIGH)
 - See `ops/MEMORY-LEAK-PATCH-BLUEPRINT.md` for comprehensive memory leak fix plan (1776 lines)
 - See `ops/CODEBASE-INVENTORY.md` for comprehensive file-by-file alignment checklist
 - See `docs/architecture-bible/INDEX.md` for architecture documentation (28 sections)
@@ -25,6 +25,14 @@ Revision: 7.3
 5. When Git remote validation or CI guards fail locally, stop and request human assistance rather than proceeding.
 
 ## Last Repo Changes
+- **✅ KERNEL.LOGGING.PII_SCRUBBING COMPLETE (2026-02-17T12:30Z):**
+  - Added `src/kernel/kernel-scrubber.ts` with `ScrubConfig`, `scrubEntry()`, and config API
+  - Wired scrubbing into output dispatch path before every `plugin.write()` call
+  - Default patterns active: tokens, webhooks, emails, passwords
+  - Added `tests/kernel/kernel-scrubber.spec.ts` (15 tests) + plugin integration assertion
+  - Coverage for scrubber logic: 100% statements / 100% branches / 100% functions / 100% lines
+  - Installed `@vitest/coverage-v8` for deterministic file-level coverage verification
+
 - **✅ KERNEL.LOGGING.OUTPUT_PLUGINS COMPLETE (2026-02-17T11:00Z, commit 6b2b8c1e):**
   - Plugin dispatch wired into kernel-logger processLogEntry() via setPluginDispatch() injection
   - ConsoleOutputPlugin (ANSI colors, JSON mode, TTY detection) in src/kernel/outputs/
@@ -128,8 +136,8 @@ Revision: 7.3
   - ✅ HOMESTEAD MIGRATION — Private guild channels (homestead-{username})
   - ✅ Adaptive Tier System — Resource tier auto-detection (4 commits)
 
-- **NEXT Pointer:** KERNEL.LOGGING.PII_SCRUBBING (P0-CRITICAL — READY)
-  - **Main Tasks:** PII_SCRUBBING (token/email/IP scrubbing), PHASE4.2 (canary deploy + soak test)
+- **NEXT Pointer:** KERNEL.LOGGING.CORRELATION_IDS (P1-HIGH — READY)
+  - **Main Tasks:** CORRELATION_IDS (trace context), SAMPLING (rate control), PHASE4.2 (canary deploy + soak test)
   - **Quick Task:** (empty — available for hot tasks)
 
 ## System Highlights
@@ -157,14 +165,14 @@ Revision: 7.3
 
 ## Embedded PATCHSET Echo
 <!-- PATCHSET:ECHO BEGIN -->
-HEAD: 6b2b8c1e
-Change: KERNEL.LOGGING.OUTPUT_PLUGINS complete — plugin dispatch wired, ConsoleOutput + FileOutput created, 47 tests.
-TasklistDiff: true (Rev 2.173 → 2.174, OUTPUT_PLUGINS DONE, 3 tasks promoted READY).
-Tests: 3167/3167 passing (Vitest). tsc 0 errors. ESLint 0 warnings.
+HEAD: (pending commit)
+Change: KERNEL.LOGGING.PII_SCRUBBING complete — kernel-scrubber added; output registry now scrubs before plugin.write().
+TasklistDiff: true (Rev 2.174 → 2.175, PII_SCRUBBING DONE, CORRELATION_IDS + SAMPLING promoted READY).
+Tests: kernel suite 63/63 passing; scrubber coverage 100% (statements/branches/functions/lines). tsc 0 errors. ESLint 0 warnings.
 Build: clean.
 Docs: Tasklist.md, ops/NEXT.yaml, Prompt.md updated.
 Contracts: ON (Patch Engine active).
-NextPointer: KERNEL.LOGGING.PII_SCRUBBING (P0-CRITICAL, READY).
+NextPointer: KERNEL.LOGGING.CORRELATION_IDS (P1-HIGH, READY).
 <!-- PATCHSET:ECHO END -->
 
 ## AI Worker Prompt (copy/paste for Copilot/GPT)

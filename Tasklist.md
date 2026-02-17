@@ -1,7 +1,12 @@
 # Tasklist
-Last Updated (UTC): 2026-02-17T11:00:00Z
-Revision: 2.174
+Last Updated (UTC): 2026-02-17T12:30:00Z
+Revision: 2.175
 <!-- # TASKLIST UPDATE -->
+
+**Recent Activity (2026-02-17T12:30Z):**
+- ✅ **KERNEL.LOGGING.PII_SCRUBBING → DONE** — Added kernel-scrubber pipeline; dispatch scrubs BEFORE plugin write; 100% coverage on scrubber logic
+- 🚀 **KERNEL.LOGGING.CORRELATION_IDS → READY** — Promoted as next logging priority (P1-HIGH)
+- 🚀 **KERNEL.LOGGING.SAMPLING → READY** — Promoted (deps met: OUTPUT_PLUGINS DONE)
 
 **Recent Activity (2026-02-17T11:00Z):**
 - ✅ **KERNEL.LOGGING.OUTPUT_PLUGINS → DONE** — Plugin dispatch wired into kernel-logger, ConsoleOutput + FileOutput created, 47 tests (3167/3167 suite)
@@ -1094,21 +1099,26 @@ Completed tasks have been moved to project-specific archive files to keep this f
 
 - id: KERNEL.LOGGING.PII_SCRUBBING
   title: Add PII scrubbing pipeline to log outputs
-  status: PROPOSED
+  status: DONE
   depends_on: [KERNEL.LOGGING.OUTPUT_PLUGINS]
   priority: P0-CRITICAL
   effort: 2h
   acceptance_criteria:
-    - ScrubConfig interface (patterns, fields, replacement)
-    - kernel-scrubber.ts with scrubEntry()
-    - Default patterns: tokens, webhooks, emails, passwords
-    - Scrubbing in OutputRegistry BEFORE write()
-    - 100% test coverage on scrubbing logic
-  notes: CRITICAL for security. Must complete before external outputs.
+    - ✅ ScrubConfig interface (patterns, fields, replacement)
+    - ✅ kernel-scrubber.ts with scrubEntry()
+    - ✅ Default patterns: tokens, webhooks, emails, passwords
+    - ✅ Scrubbing in OutputRegistry BEFORE write()
+    - ✅ 100% test coverage on scrubbing logic
+  notes: |
+    DONE 2026-02-17. Added src/kernel/kernel-scrubber.ts and wired scrubEntry()
+    into kernel-output-plugins dispatch path before plugin.write(). Added
+    comprehensive tests in tests/kernel/kernel-scrubber.spec.ts (15 tests) and
+    integration assertion in output-plugins.spec.ts. Coverage: 100% statements,
+    100% branches, 100% functions, 100% lines for kernel-scrubber.ts.
 
 - id: KERNEL.LOGGING.CORRELATION_IDS
   title: Add correlation ID and request tracing support
-  status: PROPOSED
+  status: READY
   depends_on: [KERNEL.LOGGING.OUTPUT_PLUGINS]
   priority: P1-HIGH
   effort: 2h
@@ -1121,7 +1131,7 @@ Completed tasks have been moved to project-specific archive files to keep this f
 
 - id: KERNEL.LOGGING.SAMPLING
   title: Add log sampling for high-frequency events
-  status: PROPOSED
+  status: READY
   depends_on: [KERNEL.LOGGING.OUTPUT_PLUGINS]
   priority: P2-MEDIUM
   effort: 1.5h

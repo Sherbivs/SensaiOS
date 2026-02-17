@@ -187,12 +187,25 @@ import {
   createFilteredPlugin,
 } from './kernel-output-plugins.js';
 
+import {
+  scrubEntry,
+  getScrubConfig,
+  configureScrubber,
+  resetScrubConfig,
+} from './kernel-scrubber.js';
+
 export type {
   KernelOutputPlugin,
   PluginStats,
   PluginRegistration,
   OutputPluginManagerState,
 } from './kernel-output-plugins.js';
+
+export type {
+  ScrubConfig,
+  ScrubPattern,
+  ScrubField,
+} from './kernel-scrubber.js';
 
 // Step 7: Import correlation ID tracking
 import {
@@ -634,6 +647,12 @@ const Kernel = {
     createConsole: createConsolePlugin,
     createBuffered: createBufferedPlugin,
     createFiltered: createFilteredPlugin,
+    scrubber: {
+      scrubEntry,
+      getConfig: getScrubConfig,
+      configure: configureScrubber,
+      reset: resetScrubConfig,
+    },
   },
   
   // ─── Correlation ID Tracking API ─────────────────────────────────────────
