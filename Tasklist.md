@@ -1,7 +1,14 @@
 # Tasklist
-Last Updated (UTC): 2026-02-10T19:30:00Z
-Revision: 2.172
+Last Updated (UTC): 2026-02-17T10:00:00Z
+Revision: 2.173
 <!-- # TASKLIST UPDATE -->
+
+**Recent Activity (2026-02-17T10:00Z):**
+- ✅ **DISCORD.MEMBER_FETCH.RATE_LIMIT → DONE** — Code verified: constants in shared/constants.ts, cooldown/backoff in bot/main.js
+- ✅ **MEMLEAK.PHASE4.1 → DONE** — 24h baseline captured (14.2 MB log), Grafana dashboard deployed, RSS baseline ~215 MB
+- ✅ **ESLint 0 warnings** — Last warning (_KERNEL_ABSOLUTE_START) fixed, Phase 0.3 fully complete
+- 🔄 **MEMLEAK.PHASE4.2 → READY** — Promoted (deps met: PHASE4.1 DONE)
+- 🚀 **KERNEL.LOGGING.OUTPUT_PLUGINS → READY** — Next priority (P0-CRITICAL, promoted to NEXT.yaml)
 
 **Recent Activity (2026-02-10T19:30Z):**
 - 🚧 **MEMLEAK.PHASE4.1 → IN_PROGRESS** — Baseline capture restarted (17:28Z), log `Store/monitoring/memory-growth-2026-02-10.log`
@@ -676,11 +683,12 @@ Each task has:
 
 - id: MEMLEAK.PHASE4.1
   title: "Pre-deployment baseline capture + Grafana dashboard"
-  status: IN_PROGRESS
+  status: DONE
   depends_on: [MEMLEAK.PHASE3.2]
   priority: P2-MEDIUM
   effort: 2h
   assigned_to: AI_SUBAGENT
+  completed: 2026-02-17T10:00:00Z
   files:
     - ops/grafana-memory-leak-rollout.json
     - ops/MEMORY-LEAK-PATCH-BLUEPRINT.md
@@ -689,11 +697,15 @@ Each task has:
     - Grafana dashboard for RSS, heap, bounded utilization, error rate
     - Document baseline numbers in blueprint
   notes: |
-    IN PROGRESS (2026-02-10): Dashboard added; baseline capture restarted 17:28Z.
+    COMPLETED 2026-02-17. All 3 acceptance criteria met:
+    - 24h baseline captured: Store/monitoring/memory-growth-2026-02-10.log (14.2 MB)
+    - Grafana rollout dashboard: ops/grafana-memory-leak-rollout.json (deployed)
+    - RSS baseline: ~215 MB first sample, captures complete
+    - Phase 4.2 promoted to READY.
 
 - id: MEMLEAK.PHASE4.2
   title: "Deploy to canary worker + 24h soak test validation"
-  status: PROPOSED
+  status: READY
   depends_on: [MEMLEAK.PHASE4.1]
   priority: P2-MEDIUM
   effort: 2h
@@ -739,11 +751,12 @@ Each task has:
 
 - id: DISCORD.MEMBER_FETCH.RATE_LIMIT
   title: "Apply gateway rate limit cooldown for guild member fetches"
-  status: IN_PROGRESS
+  status: DONE
   depends_on: []
   priority: P1-HIGH
   effort: 1h
   assigned_to: AI_SUBAGENT
+  completed: 2026-02-10T19:30:00Z
   files:
     - src/bot/main.ts
     - src/shared/constants.ts
@@ -752,7 +765,10 @@ Each task has:
     - Cooldown applied using retryAfter with floor/ceiling bounds
     - Member fetch attempts skipped while cooldown active
   notes: |
-    IN PROGRESS (2026-02-10): Implementing cooldown/backoff handling.
+    COMPLETED 2026-02-10. All 3 acceptance criteria verified:
+    - MEMBER_FETCH_COOLDOWN_MS, MEMBER_FETCH_MIN_RETRY_MS, MEMBER_FETCH_MAX_RETRY_MS in constants.ts
+    - ensureGuildMembersCached in bot/main.js: rate limit detection, cooldown guard, floor/ceil clamping
+    - Verified via codebase audit 2026-02-17.
 
 ---
 

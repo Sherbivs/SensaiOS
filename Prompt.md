@@ -1,12 +1,12 @@
 # Prompt.md
-Timestamp (UTC): 2026-02-10T21:20:00Z
-Revision: 7.1
+Timestamp (UTC): 2026-02-17T10:00:00Z
+Revision: 7.2
 
 **Cross-References**:
 - See `Patch.md` for contract rules (updated 2026-02-09T00:00:00Z Rev 1.76)
-- See `Tasklist.md` for active backlog and current tasks (Rev 2.169 — 17 granular MEMLEAK sub-tasks)
+- See `Tasklist.md` for active backlog and current tasks (Rev 2.173 — 14 DONE, 2 READY, 3 PROPOSED)
 - See `docs/archive/tasks/` for completed task history (~115+ tasks archived by project/phase)
-- See `ops/NEXT.yaml` for current task pointer (MEMLEAK.PHASE4.1 — IN_PROGRESS)
+- See `ops/NEXT.yaml` for current task pointer (KERNEL.LOGGING.OUTPUT_PLUGINS — READY, P0-CRITICAL)
 - See `ops/MEMORY-LEAK-PATCH-BLUEPRINT.md` for comprehensive memory leak fix plan (1776 lines)
 - See `ops/CODEBASE-INVENTORY.md` for comprehensive file-by-file alignment checklist
 - See `docs/architecture-bible/INDEX.md` for architecture documentation (28 sections)
@@ -25,38 +25,28 @@ Revision: 7.1
 5. When Git remote validation or CI guards fail locally, stop and request human assistance rather than proceeding.
 
 ## Last Repo Changes
-- **🚧 MEMLEAK.PHASE4.1 IN PROGRESS (2026-02-10T21:20Z):**
-  - Baseline capture restarted at 21:00:19Z (30-minute interval)
-  - First sample: RSS 214.7 MB (baseline set)
-  - Noted data gaps earlier due to WSL missing and PowerShell Host variable conflicts
-  - Blueprint and touchmap updated to reflect baseline restart
-- **🚧 MEMLEAK.PHASE4.1 IN PROGRESS (2026-02-10T19:30Z):**
-  - Baseline capture restarted (17:28Z) with 30-minute interval
-  - Blueprint updated with latest baseline capture log path
+- **✅ HOUSEKEEPING COMPLETE (2026-02-17T10:00Z):**
+  - DISCORD.MEMBER_FETCH.RATE_LIMIT → DONE (code verified: constants.ts + bot/main.js)
+  - MEMLEAK.PHASE4.1 → DONE (24h baseline captured, Grafana deployed, RSS ~215 MB)
+  - MEMLEAK.PHASE4.2 promoted to READY (dependency PHASE4.1 cleared)
+  - NEXT.yaml cleared quick_task, promoted KERNEL.LOGGING.OUTPUT_PLUGINS to main_tasks
+  - ESLint 0 warnings (commit 48b55ca6: _KERNEL_ABSOLUTE_START prefix fix)
 
-- **🚧 DISCORD.MEMBER_FETCH.RATE_LIMIT IN PROGRESS (2026-02-10T18:30Z):**
-  - Added gateway opcode 8 rate limit detection + cooldown guard in ensureGuildMembersCached
-  - Added cooldown bounds to DISCORD_CONSTANTS
+- **📊 FULL ROADMAP AUDIT (2026-02-17):**
+  - Phase 0: 7/7 DONE (HP formula, tests, ESLint, memory baseline, rate limit, starter moves, IVs)
+  - Phase 1: 79% compliant (9/14 homestead files, 37 interaction.reply() → .update() conversions needed)
+  - Phase 2: 91% complete (20/22 GameServerAPI methods, 1 hard stub: submitBattleMoveInternal)
+  - Phase 4: 65% built / 0% wired (19,845 lines SensaiOS, kernel-boot.ts not imported, runGuarded not adopted)
+  - Build: tsc 0 errors, ESLint 0 warnings, Vitest 3120/3120 passed
 
-- **🚧 MEMLEAK.PHASE4.1 IN PROGRESS (2026-02-10T17:15Z):**
-  - Grafana rollout dashboard added for RSS/heap/bounded utilization
-  - Baseline capture underway (24h RSS + heap trends)
-  - Baseline monitor started: scripts/monitor-memory-24h.ps1
-  - First sample: RSS 311.5 MB (2026-02-10 16:08)
+- **✅ 5-STREAM LOG CLEANUP (2026-02-15, commit 6ac585aa):**
+  - Removed duplicate/stale logs from adaptive tier system
+  - Clean console output with standardized formatting
 
-- **✅ META.TASKLIST.ARCHIVE COMPLETE (2026-02-10T17:25Z):**
-  - SensaiOS Ring Security archived to docs/archive/tasks/sensaios-ring-security.md
-  - Tasklist cleaned to archive pointer only
-
-- **🧭 TASKLIST RESTORE (2026-02-10T17:15Z):**
-  - MEMLEAK 17-task roadmap reinserted (Phase 1–5 chain)
-  - Tasklist header updated to Rev 2.169
-
-- **✅ MEMLEAK.PHASE3.2 COMPLETE (2026-02-10T16:20Z):**
-  - Added centralized memory metrics service for bounded structures
-  - `/ops memory` now reports bounded structure utilization
-  - Phase 4.1 promoted to READY (baseline capture + Grafana dashboard)
-  - Router headers normalized; router index regenerated
+- **✅ ADAPTIVE TIER SYSTEM (2026-02-14, commits 2644ae7b → 975b846a):**
+  - Resource tier auto-detection for Render plan (Starter/Standard/Pro)
+  - TIER singleton in src/config/resource-tiers.ts
+  - 4 progressive patches with comprehensive test coverage
 
 - **✅ ROUTER HEADER FIXES (2026-02-10T16:50Z):**
   - Standardized Title/Purpose/Last Updated fields across missing ROUTER.md files
@@ -123,15 +113,17 @@ Revision: 7.1
   - Memory leak blueprint: `ops/MEMORY-LEAK-PATCH-BLUEPRINT.md` (1776 lines, 10 components)
   - Two audits completed: First audit (4 areas), Second QA audit (5 NEW areas including root cause)
 
-- **Prior Completed Milestones (2025-12 through 2026-01):**
+- **Prior Completed Milestones (2025-12 through 2026-02):**
+  - ✅ MEMLEAK Phases 1-4.1 — 14/17 tasks DONE (bounded structures, metrics, baseline captured)
   - ✅ SensaiOS Ring Security Model — ALL 4 PHASES COMPLETE (16 tasks, ~10,000 lines, 202 tests)
   - ✅ META.ALIGNMENT.SCAN — 486 files verified (412 code + 74 docs)
   - ✅ Kernel-First Logging Sprint 1 — Boot logger, preboot queue, scoped logger
   - ✅ HOMESTEAD MIGRATION — Private guild channels (homestead-{username})
+  - ✅ Adaptive Tier System — Resource tier auto-detection (4 commits)
 
-- **NEXT Pointer:** MEMLEAK.PHASE4.1 (P2-MEDIUM — IN_PROGRESS)
-  - **Main Tasks:** PHASE4.1 (baseline capture + Grafana dashboard)
-  - **Quick Task:** META.TASKLIST.ARCHIVE (archive + Tasklist cleanup in progress)
+- **NEXT Pointer:** KERNEL.LOGGING.OUTPUT_PLUGINS (P0-CRITICAL — READY)
+  - **Main Tasks:** OUTPUT_PLUGINS (output plugin system), PHASE4.2 (canary deploy + soak test)
+  - **Quick Task:** (empty — available for hot tasks)
 
 ## System Highlights
 - **Database:** Production uses unified Render-managed PostgreSQL (`PROD_DATABASE_URL`). Optional workstation development via `DATABASE_ONPREMISE_DEV_PRIMARY`. See `operations-bible/02-database-operations.md`.
@@ -158,14 +150,14 @@ Revision: 7.1
 
 ## Embedded PATCHSET Echo
 <!-- PATCHSET:ECHO BEGIN -->
-HEAD: d65d864e
-Change: Updated Phase 4.1 baseline capture notes and touchmap for latest restart and data gaps.
-TasklistDiff: false.
-Tests: not run (documentation update only).
-Build: not run.
-Docs: ops/MEMORY-LEAK-PATCH-BLUEPRINT.md, ops/TOUCHMAP.yaml, Prompt.md updated.
+HEAD: 48b55ca6
+Change: Housekeeping — marked RATE_LIMIT + PHASE4.1 DONE, promoted OUTPUT_PLUGINS to NEXT, full roadmap audit complete.
+TasklistDiff: true (Rev 2.172 → 2.173, 2 tasks DONE, 1 promoted READY).
+Tests: 3120/3120 passing (Vitest). tsc 0 errors. ESLint 0 warnings.
+Build: clean.
+Docs: Tasklist.md, ops/NEXT.yaml, Prompt.md updated.
 Contracts: ON (Patch Engine active).
-NextPointer: MEMLEAK.PHASE4.1 + quick_task DISCORD.MEMBER_FETCH.RATE_LIMIT.
+NextPointer: KERNEL.LOGGING.OUTPUT_PLUGINS (P0-CRITICAL, READY).
 <!-- PATCHSET:ECHO END -->
 
 ## AI Worker Prompt (copy/paste for Copilot/GPT)

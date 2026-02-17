@@ -24,55 +24,54 @@ auto_promote_if_empty: true
 # Blueprint: 10 components (C1-C4, C7-C10), ~115 tests, 11-day rollout
 # See Tasklist.md for full dependency chain: PHASE1.1 → ... → PHASE5.2
 main_tasks:
-  - id: MEMLEAK.PHASE4.1
-    status: IN_PROGRESS
+  - id: KERNEL.LOGGING.OUTPUT_PLUGINS
+    status: READY
+    priority: P0-CRITICAL
+    effort: 3h
+    files_hint:
+      - src/kernel/outputs/
+      - src/kernel/boot-kernel.ts
+    description: "Add output plugin system to Kernel — LogOutput interface, OutputRegistry, ConsoleOutput + FileOutput plugins."
+  - id: MEMLEAK.PHASE4.2
+    status: READY
     priority: P2-MEDIUM
     effort: 2h
     files_hint:
-      - ops/grafana-memory-leak-rollout.json
-    description: "Pre-deployment baseline capture + Grafana dashboard."
+      - render.yaml
+    description: "Deploy memory leak patch to canary worker + 24h soak test validation."
 
 # Quick/hot task slot (< 30 min work)
-quick_task:
-  id: DISCORD.MEMBER_FETCH.RATE_LIMIT
-  status: IN_PROGRESS
-  effort: 1h
-  description: "Apply gateway opcode 8 rate limit cooldown/backoff to guild member fetches"
-  files_hint:
-    - src/bot/main.ts
-    - src/shared/constants.ts
+quick_task: null
+  # Cleared 2026-02-17: DISCORD.MEMBER_FETCH.RATE_LIMIT → DONE
 
 # Timestamp and rationale
-timestamp_utc: "2026-02-10T19:30:00Z"
+timestamp_utc: "2026-02-17T10:00:00Z"
 note: |
-  ✅ MEMLEAK.PHASE2.6 COMPLETE (2026-02-10T15:10Z)
-  - Phase 2 integration gate cleared: npm test (full suite) + npm run build
-  - Integration test: tests/memory/phase2-integration.spec.ts
-  - PHASE3.1 promoted to READY (next in dependency chain)
-
-  ✅ MEMLEAK.PHASE3.1 COMPLETE (2026-02-10T16:05Z)
-  - Bounded verification suite added (20/20 tests passing)
-  - Tests: npm test -- tests/memory/bounded-verification.spec.ts
-  - PHASE3.2 promoted to READY (next in dependency chain)
-
-  ✅ MEMLEAK.PHASE3.2 COMPLETE (2026-02-10T16:20Z)
-  - Memory metrics service + /ops memory integration complete
-  - Tests: npm test -- tests/services/monitoring/memory-metrics.spec.ts
-  - PHASE4.1 promoted to READY (next in dependency chain)
+  === 2026-02-17 HOUSEKEEPING ===
   
-  🚧 MEMLEAK.PHASE4.1 IN PROGRESS (2026-02-10T17:15Z)
-  - Grafana rollout dashboard added (ops/grafana-memory-leak-rollout.json)
-  - Baseline capture in progress (RSS/heap growth)
-  - Baseline capture restarted 2026-02-10T17:28Z (log: Store/monitoring/memory-growth-2026-02-10.log)
+  ✅ DISCORD.MEMBER_FETCH.RATE_LIMIT → DONE (verified 2026-02-17)
+  - All 3 acceptance criteria confirmed via codebase audit
+  - Constants in shared/constants.ts, cooldown logic in bot/main.js
+  - Quick task slot cleared
 
-  ✅ META.TASKLIST.ARCHIVE COMPLETE (2026-02-10T17:25Z)
-  - SensaiOS Ring Security archived to docs/archive/tasks/sensaios-ring-security.md
-  - Tasklist cleaned to archive pointer only
+  ✅ MEMLEAK.PHASE4.1 → DONE (2026-02-17)
+  - 24h baseline captured: Store/monitoring/memory-growth-2026-02-10.log (14.2 MB)
+  - Grafana dashboard deployed: ops/grafana-memory-leak-rollout.json
+  - RSS baseline ~215 MB. PHASE4.2 promoted to READY.
 
-  🚧 DISCORD.MEMBER_FETCH.RATE_LIMIT IN PROGRESS (2026-02-10T18:30Z)
-  - Gateway opcode 8 rate limit handling via cooldown/backoff in ensureGuildMembersCached
+  ✅ ESLint 0 warnings (2026-02-17, commit 48b55ca6)
+  - Fixed _KERNEL_ABSOLUTE_START in boot-kernel.ts. Phase 0.3 fully complete.
 
-  📋 PAUSED: KERNEL.LOGGING.OUTPUT_PLUGINS (deprioritized for memory leak urgency)
+  🔄 KERNEL.LOGGING.OUTPUT_PLUGINS promoted to main_tasks (P0-CRITICAL)
+  - Unpaused — memory leak critical path cleared through Phase 4.1
+  - Dependencies met: KERNEL.LOGGING.PREBOOT_QUEUE = DONE
+  
+  📊 Full Roadmap Audit completed (2026-02-17):
+  - Phase 0: 7/7 DONE (all verified against codebase)
+  - Phase 1: 79% compliant (37 interaction.reply → update conversions needed)
+  - Phase 2: 91% complete (1 hard stub: submitBattleMove)
+  - Phase 4: 65% built, 0% wired (19,845 lines of SensaiOS code not connected)
+  - Build: tsc 0 errors, ESLint 0 warnings, Vitest 3120/3120 passed
 
 router_version: 3
 last_notes_read_utc: 2026-02-10T00:00:00Z
