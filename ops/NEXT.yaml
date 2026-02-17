@@ -54,25 +54,29 @@ quick_task: null
   # Cleared 2026-02-17: DISCORD.MEMBER_FETCH.RATE_LIMIT → DONE
 
 # Timestamp and rationale
-timestamp_utc: "2026-02-17T12:30:00Z"
+timestamp_utc: "2026-02-17T18:00:00Z"
 note: |
-  === 2026-02-17 PII SCRUBBING COMPLETE ===
+  === 2026-02-17 VISION MAPPING + IMPLEMENTATION PLANNING ===
 
-  ✅ KERNEL.LOGGING.PII_SCRUBBING → DONE (2026-02-17)
-  - Added src/kernel/kernel-scrubber.ts (ScrubConfig + scrubEntry)
-  - Default patterns: tokens, webhooks, emails, password assignments
-  - Wired scrubbing in dispatchToPlugins()/dispatchToPluginsSync() BEFORE plugin.write()
-  - Added tests/kernel/kernel-scrubber.spec.ts (15 tests)
-  - Coverage for kernel-scrubber.ts: 100% statements/branches/functions/lines
-  - Added integration assertion in output-plugins.spec.ts
+  ✅ SENSAIOS-PERFECTED-VISION.md v1.0.2 — Committed (3d5f04f7)
+  - ~712 lines: golden architecture, reality check, industry landscape, gap map
+  - Deep audit: 10+ critical files (7,000+ lines analyzed)
+  - 7-part implementation plan delivered:
+    1. Kernel Bridge (~4hrs) — Connect sensaios/kernel-boot.ts to index.ts
+    2. Database Substrate (~2wks) — 6 new Prisma tables + 7 stub replacements
+    3. Detachable App Architecture (~1wk) — enable/disable from InstalledApp DB
+    4. GameServerAPI Stubs (~1wk) — 13 TODO methods calling real engines
+    5. Ring Enforcement Migration (~2wks) — Homestead files through GameServerAPI
+    6. OS Workers (~2wks) — Export projector, job runner, outbox deliverer, GC
+    7. Database Self-Management (~2wks) — Automated lifecycle, schema discovery
+  - Timeline: 10-12 weeks estimated
 
-  🔄 KERNEL.LOGGING.CORRELATION_IDS promoted to main_tasks (P1-HIGH)
-  - Next priority after PII hardening in logging chain
+  📊 Tests: 3183/3183 passing | tsc 0 errors | ESLint 0 warnings
 
-  🔄 KERNEL.LOGGING.SAMPLING promoted to main_tasks (P2-MEDIUM)
-  - Ready for volume control work once correlation context lands
-  
-  📊 Kernel tests: 63/63 passed | Scrubber coverage: 100% | tsc 0 errors | ESLint 0 warnings
+  === PRIOR: 2026-02-17 PII SCRUBBING COMPLETE ===
+  ✅ KERNEL.LOGGING.PII_SCRUBBING → DONE
+  🔄 KERNEL.LOGGING.CORRELATION_IDS → main_tasks (P1-HIGH)
+  🔄 KERNEL.LOGGING.SAMPLING → main_tasks (P2-MEDIUM)
 
 router_version: 3
 last_notes_read_utc: 2026-02-10T00:00:00Z
