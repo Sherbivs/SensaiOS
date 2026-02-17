@@ -482,11 +482,11 @@ export const errorLearningConfig: ServiceConfig = {
  * - Resource leak detection and alerting
  * - Integrated with intelligent logger for visibility
  * 
- * Memory Protection Levels (Standard Plan: 2 GB):
- * - NORMAL: <1536MB (75%) - Monitor only
- * - WARNING: 1536-1740MB (75-85%) - Preemptive pruning
- * - CRITICAL: 1741-1842MB (85-90%) - Aggressive pruning
- * - EMERGENCY: 1843-2047MB (90-99%) - Nuclear pruning
+ * Memory Protection Levels (adaptive — derived from detected Render plan tier):
+ * - NORMAL: <75% of plan limit - Monitor only
+ * - WARNING: 75-85% of plan limit - Preemptive pruning
+ * - CRITICAL: 85-90% of plan limit - Aggressive pruning
+ * - EMERGENCY: 90-100% of plan limit - Nuclear pruning
  * 
  * Dependencies: None (standalone monitoring service)
  * 

@@ -141,8 +141,8 @@ const MONITOR_CONFIG = {
   // Alert thresholds (adaptive — aligned with detected plan tier)
   thresholds: {
     // Resource count limits (scaled for detected plan capacity)
-    totalResourcesWarning: 300,      // Increased from 150 (2x for Standard plan)
-    totalResourcesCritical: 500,     // Increased from 250 (2x for Standard plan)
+    totalResourcesWarning: 300,      // Increased from 150 (scaled for detected plan tier)
+    totalResourcesCritical: 500,     // Increased from 250 (scaled for detected plan tier)
     
     // Leak detection (strict - keep as-is)
     leakSuspectsWarning: 5,          // Warn if >5 leak suspects
@@ -150,11 +150,11 @@ const MONITOR_CONFIG = {
     resourceGrowthRate: 1.5,         // Warn if resources grow >50% between checks
     
     // Memory utilization thresholds (aligned with plan specs)
-    memoryWarningMB: MEMORY_THRESHOLDS.warningMB,       // 1536 MB (75%)
-    memoryCriticalMB: MEMORY_THRESHOLDS.criticalMB,     // 1741 MB (85%)
-    memoryEmergencyMB: MEMORY_THRESHOLDS.emergencyMB,   // 1843 MB (90%)
-    memoryOptimalMinMB: MEMORY_THRESHOLDS.optimalMinMB, // 1229 MB (60%)
-    memoryOptimalMaxMB: MEMORY_THRESHOLDS.optimalMaxMB, // 1536 MB (75%)
+    memoryWarningMB: MEMORY_THRESHOLDS.warningMB,       // 75% of plan limit
+    memoryCriticalMB: MEMORY_THRESHOLDS.criticalMB,     // 85% of plan limit
+    memoryEmergencyMB: MEMORY_THRESHOLDS.emergencyMB,   // 90% of plan limit
+    memoryOptimalMinMB: MEMORY_THRESHOLDS.optimalMinMB, // 60% of plan limit
+    memoryOptimalMaxMB: MEMORY_THRESHOLDS.optimalMaxMB, // 75% of plan limit
     memoryUnderutilizedMB: MEMORY_THRESHOLDS.underutilizedMB, // 256 MB (50%)
     
     // CPU utilization thresholds
@@ -1139,7 +1139,7 @@ class ResourceMonitor {
   }
   
   /**
-   * Handle NORMAL pressure (<1536 MB) - All good
+   * Handle NORMAL pressure (below warning threshold) - All good
    */
   private handleNormalPressure(snapshot: MemorySnapshot): void {
     // Only log periodically to avoid spam (every 10 minutes)
@@ -1218,7 +1218,7 @@ class ResourceMonitor {
       },
       threshold: {
         level,
-        triggerPoint: level === 'EMERGENCY' ? '1843 MB (90%)' : '1741 MB (85%)',
+        triggerPoint: level === 'EMERGENCY' ? `${MEMORY_THRESHOLDS.emergencyMB} MB (90%)` : `${MEMORY_THRESHOLDS.criticalMB} MB (85%)`,
       },
       action: {
         immediate: level === 'EMERGENCY' ? 'Emergency cache pruning + Force GC' : 'Aggressive cache pruning',

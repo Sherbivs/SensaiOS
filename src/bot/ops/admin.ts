@@ -68,6 +68,9 @@ import { alertDispatcher, type AlertLevel } from '../../services/alert-dispatche
 // SensaiOS Ring Security (Task: SENSAI.VISIBILITY.DASHBOARD)
 import { prisma } from '../../shared/prisma.js';
 
+// Adaptive resource tier detection (replaces hardcoded Render plan limits)
+import { TIER } from '../../config/resource-tiers.js';
+
 // Import state persistence modules (optional - bot/state may be in JS)
 let stateModules: any = null;
 async function getStateModules() {
@@ -2122,11 +2125,11 @@ export async function handleOpsCommand(
       
       lines.push("");
       
-      // Section 3: Resource Limits (Render Standard = 2 GB RAM, 1 GB disk)
-      const renderLimitMB = 2048;  // 2 GB RAM Standard plan (NOT disk)
-      const warningLimitMB = 1536;  // 75%
-      const criticalLimitMB = 1741; // 85%
-      const emergencyLimitMB = 1843; // 90%
+      // Section 3: Resource Limits (adaptive — detected from Render plan tier)
+      const renderLimitMB = TIER.memory.planLimitMB;
+      const warningLimitMB = TIER.memory.warningMB;
+      const criticalLimitMB = TIER.memory.criticalMB;
+      const emergencyLimitMB = TIER.memory.emergencyMB;
       
       const rssPercent = formatPercent(current.rss, renderLimitMB * 1024 * 1024);
       const status = 
@@ -2313,7 +2316,7 @@ export async function handleOpsCommand(
       // Process Memory
       lines.push("**💾 Process Memory Usage (RAM)**");
       lines.push("");
-      lines.push("**⚠️ RESOURCE TYPE:** RAM (2 GB volatile process memory), NOT persistent disk (1 GB /Store)");
+      lines.push(`**⚠️ RESOURCE TYPE:** RAM (${TIER.memory.planLimitMB >= 1024 ? (TIER.memory.planLimitMB / 1024).toFixed(0) + ' GB' : TIER.memory.planLimitMB + ' MB'} volatile process memory), NOT persistent disk (1 GB /Store)`);
       lines.push("");
       lines.push(`• RSS (Resident Set): ${formatSnapshotBytes(mem.rss)}`);
       lines.push(`• Heap Total: ${formatSnapshotBytes(mem.heapTotal)}`);
