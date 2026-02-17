@@ -165,7 +165,7 @@ Revision: 7.4
 
 ## Embedded PATCHSET Echo
 <!-- PATCHSET:ECHO BEGIN -->
-HEAD: (pending commit)
+HEAD: 2828b67b
 Change: KERNEL.LOGGING.PII_SCRUBBING complete — kernel-scrubber added; output registry now scrubs before plugin.write().
 TasklistDiff: true (Rev 2.174 → 2.175, PII_SCRUBBING DONE, CORRELATION_IDS + SAMPLING promoted READY).
 Tests: kernel suite 63/63 passing; scrubber coverage 100% (statements/branches/functions/lines). tsc 0 errors. ESLint 0 warnings.
