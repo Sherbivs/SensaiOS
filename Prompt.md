@@ -1,12 +1,12 @@
 # Prompt.md
-Timestamp (UTC): 2026-02-17T10:00:00Z
-Revision: 7.2
+Timestamp (UTC): 2026-02-17T11:00:00Z
+Revision: 7.3
 
 **Cross-References**:
 - See `Patch.md` for contract rules (updated 2026-02-09T00:00:00Z Rev 1.76)
-- See `Tasklist.md` for active backlog and current tasks (Rev 2.173 — 14 DONE, 2 READY, 3 PROPOSED)
+- See `Tasklist.md` for active backlog and current tasks (Rev 2.174 — 15 DONE, 4 READY, 3 PROPOSED)
 - See `docs/archive/tasks/` for completed task history (~115+ tasks archived by project/phase)
-- See `ops/NEXT.yaml` for current task pointer (KERNEL.LOGGING.OUTPUT_PLUGINS — READY, P0-CRITICAL)
+- See `ops/NEXT.yaml` for current task pointer (KERNEL.LOGGING.PII_SCRUBBING — READY, P0-CRITICAL)
 - See `ops/MEMORY-LEAK-PATCH-BLUEPRINT.md` for comprehensive memory leak fix plan (1776 lines)
 - See `ops/CODEBASE-INVENTORY.md` for comprehensive file-by-file alignment checklist
 - See `docs/architecture-bible/INDEX.md` for architecture documentation (28 sections)
@@ -25,6 +25,13 @@ Revision: 7.2
 5. When Git remote validation or CI guards fail locally, stop and request human assistance rather than proceeding.
 
 ## Last Repo Changes
+- **✅ KERNEL.LOGGING.OUTPUT_PLUGINS COMPLETE (2026-02-17T11:00Z, commit 6b2b8c1e):**
+  - Plugin dispatch wired into kernel-logger processLogEntry() via setPluginDispatch() injection
+  - ConsoleOutputPlugin (ANSI colors, JSON mode, TTY detection) in src/kernel/outputs/
+  - FileOutputPlugin (no-op stub per Database-First Architecture)
+  - 47 new tests, 3167/3167 total suite passing, 0 regressions
+  - Downstream tasks unblocked: PII_SCRUBBING, CORRELATION_IDS, STRUCTURED_OUTPUT
+
 - **✅ HOUSEKEEPING COMPLETE (2026-02-17T10:00Z):**
   - DISCORD.MEMBER_FETCH.RATE_LIMIT → DONE (code verified: constants.ts + bot/main.js)
   - MEMLEAK.PHASE4.1 → DONE (24h baseline captured, Grafana deployed, RSS ~215 MB)
@@ -121,8 +128,8 @@ Revision: 7.2
   - ✅ HOMESTEAD MIGRATION — Private guild channels (homestead-{username})
   - ✅ Adaptive Tier System — Resource tier auto-detection (4 commits)
 
-- **NEXT Pointer:** KERNEL.LOGGING.OUTPUT_PLUGINS (P0-CRITICAL — READY)
-  - **Main Tasks:** OUTPUT_PLUGINS (output plugin system), PHASE4.2 (canary deploy + soak test)
+- **NEXT Pointer:** KERNEL.LOGGING.PII_SCRUBBING (P0-CRITICAL — READY)
+  - **Main Tasks:** PII_SCRUBBING (token/email/IP scrubbing), PHASE4.2 (canary deploy + soak test)
   - **Quick Task:** (empty — available for hot tasks)
 
 ## System Highlights
@@ -150,14 +157,14 @@ Revision: 7.2
 
 ## Embedded PATCHSET Echo
 <!-- PATCHSET:ECHO BEGIN -->
-HEAD: 48b55ca6
-Change: Housekeeping — marked RATE_LIMIT + PHASE4.1 DONE, promoted OUTPUT_PLUGINS to NEXT, full roadmap audit complete.
-TasklistDiff: true (Rev 2.172 → 2.173, 2 tasks DONE, 1 promoted READY).
-Tests: 3120/3120 passing (Vitest). tsc 0 errors. ESLint 0 warnings.
+HEAD: 6b2b8c1e
+Change: KERNEL.LOGGING.OUTPUT_PLUGINS complete — plugin dispatch wired, ConsoleOutput + FileOutput created, 47 tests.
+TasklistDiff: true (Rev 2.173 → 2.174, OUTPUT_PLUGINS DONE, 3 tasks promoted READY).
+Tests: 3167/3167 passing (Vitest). tsc 0 errors. ESLint 0 warnings.
 Build: clean.
 Docs: Tasklist.md, ops/NEXT.yaml, Prompt.md updated.
 Contracts: ON (Patch Engine active).
-NextPointer: KERNEL.LOGGING.OUTPUT_PLUGINS (P0-CRITICAL, READY).
+NextPointer: KERNEL.LOGGING.PII_SCRUBBING (P0-CRITICAL, READY).
 <!-- PATCHSET:ECHO END -->
 
 ## AI Worker Prompt (copy/paste for Copilot/GPT)

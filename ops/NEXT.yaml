@@ -24,14 +24,14 @@ auto_promote_if_empty: true
 # Blueprint: 10 components (C1-C4, C7-C10), ~115 tests, 11-day rollout
 # See Tasklist.md for full dependency chain: PHASE1.1 → ... → PHASE5.2
 main_tasks:
-  - id: KERNEL.LOGGING.OUTPUT_PLUGINS
+  - id: KERNEL.LOGGING.PII_SCRUBBING
     status: READY
     priority: P0-CRITICAL
-    effort: 3h
+    effort: 4h
     files_hint:
+      - src/kernel/kernel-logger.ts
       - src/kernel/outputs/
-      - src/kernel/boot-kernel.ts
-    description: "Add output plugin system to Kernel — LogOutput interface, OutputRegistry, ConsoleOutput + FileOutput plugins."
+    description: "Add PII scrubbing to kernel logging pipeline — pattern matching for tokens, emails, IPs before output."
   - id: MEMLEAK.PHASE4.2
     status: READY
     priority: P2-MEDIUM
@@ -45,33 +45,21 @@ quick_task: null
   # Cleared 2026-02-17: DISCORD.MEMBER_FETCH.RATE_LIMIT → DONE
 
 # Timestamp and rationale
-timestamp_utc: "2026-02-17T10:00:00Z"
+timestamp_utc: "2026-02-17T11:00:00Z"
 note: |
-  === 2026-02-17 HOUSEKEEPING ===
+  === 2026-02-17 OUTPUT_PLUGINS COMPLETE ===
   
-  ✅ DISCORD.MEMBER_FETCH.RATE_LIMIT → DONE (verified 2026-02-17)
-  - All 3 acceptance criteria confirmed via codebase audit
-  - Constants in shared/constants.ts, cooldown logic in bot/main.js
-  - Quick task slot cleared
-
-  ✅ MEMLEAK.PHASE4.1 → DONE (2026-02-17)
-  - 24h baseline captured: Store/monitoring/memory-growth-2026-02-10.log (14.2 MB)
-  - Grafana dashboard deployed: ops/grafana-memory-leak-rollout.json
-  - RSS baseline ~215 MB. PHASE4.2 promoted to READY.
-
-  ✅ ESLint 0 warnings (2026-02-17, commit 48b55ca6)
-  - Fixed _KERNEL_ABSOLUTE_START in boot-kernel.ts. Phase 0.3 fully complete.
-
-  🔄 KERNEL.LOGGING.OUTPUT_PLUGINS promoted to main_tasks (P0-CRITICAL)
-  - Unpaused — memory leak critical path cleared through Phase 4.1
-  - Dependencies met: KERNEL.LOGGING.PREBOOT_QUEUE = DONE
+  ✅ KERNEL.LOGGING.OUTPUT_PLUGINS → DONE (2026-02-17, commit 6b2b8c1e)
+  - Plugin dispatch wired into kernel-logger processLogEntry() via setPluginDispatch()
+  - ConsoleOutputPlugin (ANSI/JSON) + FileOutputPlugin (no-op Database-First)
+  - 47 new tests, 3167/3167 total suite passing, 0 regressions
+  - Dependency injection pattern avoids circular imports
+  - Downstream tasks unblocked: PII_SCRUBBING, CORRELATION_IDS, STRUCTURED_OUTPUT
   
-  📊 Full Roadmap Audit completed (2026-02-17):
-  - Phase 0: 7/7 DONE (all verified against codebase)
-  - Phase 1: 79% compliant (37 interaction.reply → update conversions needed)
-  - Phase 2: 91% complete (1 hard stub: submitBattleMove)
-  - Phase 4: 65% built, 0% wired (19,845 lines of SensaiOS code not connected)
-  - Build: tsc 0 errors, ESLint 0 warnings, Vitest 3120/3120 passed
+  🔄 KERNEL.LOGGING.PII_SCRUBBING promoted to main_tasks (P0-CRITICAL)
+  - Next in logging chain — depends on OUTPUT_PLUGINS (now DONE)
+
+  📊 Vitest: 3167/3167 passed | tsc 0 errors | ESLint 0 warnings
 
 router_version: 3
 last_notes_read_utc: 2026-02-10T00:00:00Z

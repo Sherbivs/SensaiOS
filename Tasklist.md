@@ -1,14 +1,20 @@
 # Tasklist
-Last Updated (UTC): 2026-02-17T10:00:00Z
-Revision: 2.173
+Last Updated (UTC): 2026-02-17T11:00:00Z
+Revision: 2.174
 <!-- # TASKLIST UPDATE -->
+
+**Recent Activity (2026-02-17T11:00Z):**
+- ✅ **KERNEL.LOGGING.OUTPUT_PLUGINS → DONE** — Plugin dispatch wired into kernel-logger, ConsoleOutput + FileOutput created, 47 tests (3167/3167 suite)
+- 🚀 **KERNEL.LOGGING.PII_SCRUBBING → READY** — Promoted (deps met: OUTPUT_PLUGINS DONE)
+- 🚀 **KERNEL.LOGGING.CORRELATION_IDS → READY** — Promoted (deps met: OUTPUT_PLUGINS DONE)
+- 🚀 **KERNEL.LOGGING.STRUCTURED_OUTPUT → READY** — Promoted (deps met: OUTPUT_PLUGINS DONE)
 
 **Recent Activity (2026-02-17T10:00Z):**
 - ✅ **DISCORD.MEMBER_FETCH.RATE_LIMIT → DONE** — Code verified: constants in shared/constants.ts, cooldown/backoff in bot/main.js
 - ✅ **MEMLEAK.PHASE4.1 → DONE** — 24h baseline captured (14.2 MB log), Grafana dashboard deployed, RSS baseline ~215 MB
 - ✅ **ESLint 0 warnings** — Last warning (_KERNEL_ABSOLUTE_START) fixed, Phase 0.3 fully complete
 - 🔄 **MEMLEAK.PHASE4.2 → READY** — Promoted (deps met: PHASE4.1 DONE)
-- 🚀 **KERNEL.LOGGING.OUTPUT_PLUGINS → READY** — Next priority (P0-CRITICAL, promoted to NEXT.yaml)
+- 🚀 **KERNEL.LOGGING.OUTPUT_PLUGINS → DONE** — Completed
 
 **Recent Activity (2026-02-10T19:30Z):**
 - 🚧 **MEMLEAK.PHASE4.1 → IN_PROGRESS** — Baseline capture restarted (17:28Z), log `Store/monitoring/memory-growth-2026-02-10.log`
@@ -1069,18 +1075,22 @@ Completed tasks have been moved to project-specific archive files to keep this f
 
 - id: KERNEL.LOGGING.OUTPUT_PLUGINS
   title: Add output plugin system to Kernel
-  status: READY
+  status: DONE
   depends_on: [KERNEL.LOGGING.PREBOOT_QUEUE]
   priority: P0-CRITICAL
   effort: 3h
   assigned_to: AI_SUBAGENT
   acceptance_criteria:
-    - Create src/kernel/outputs/ directory structure
-    - Define LogOutput interface (id, name, write, flush, minLevel)
-    - OutputRegistry with add/remove/list
-    - Migrate console to ConsoleOutput plugin
-    - Migrate file to FileOutput plugin
-  notes: Foundation for all external integrations.
+    - ✅ Create src/kernel/outputs/ directory structure
+    - ✅ Define LogOutput interface (id, name, write, flush, minLevel)
+    - ✅ OutputRegistry with add/remove/list
+    - ✅ Migrate console to ConsoleOutput plugin
+    - ✅ Migrate file to FileOutput plugin
+  notes: |
+    DONE 2026-02-17. Plugin dispatch wired into kernel-logger processLogEntry()
+    via setPluginDispatch() injection (avoids circular imports). ConsoleOutputPlugin
+    with ANSI/JSON modes + FileOutputPlugin (no-op per Database-First). 47 new tests
+    (3167/3167 total). Commit 6b2b8c1e.
 
 - id: KERNEL.LOGGING.PII_SCRUBBING
   title: Add PII scrubbing pipeline to log outputs
