@@ -53,7 +53,7 @@
 // ============================================================================
 
 // Capture absolute start time FIRST
-const KERNEL_ABSOLUTE_START = Date.now();
+const _KERNEL_ABSOLUTE_START = Date.now(); // Wall-clock epoch; reserved for future telemetry labels
 const KERNEL_START_TIME = process.hrtime.bigint();
 
 // Step 1: Initialize kernel logger (creates log file, ring buffer)
