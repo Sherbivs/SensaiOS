@@ -69,6 +69,7 @@ import { log as baseLog, report } from '../shared/logging/index.js';
 import opsNotifier from '../utils/opsNotifier.js';
 import { resourceMonitor } from '../services/monitoring/resource-monitor.js';
 import { prisma } from '../shared/prisma.js';
+import { TIER } from '../config/resource-tiers.js';
 
 import { createDripAlertManager, DRIP_ALERT_SEVERITY, type DripAlertManager, type DescribeUserFunction } from './dripAlerts.js';
 import { buildRestartSummary } from './state/context.js';
@@ -454,18 +455,19 @@ const client = new Client({
     },
   },
   // Limit cache sizes to prevent unbounded growth
+  // Values are adaptive based on detected Render plan tier (see resource-tiers.ts)
   makeCache: (manager) => {
-    // Limit messages to 50 per channel (aggressive memory optimization)
+    // Limit messages per channel (adaptive memory optimization)
     if (manager.name === 'MessageManager') {
-      return new LimitedCollection({ maxSize: 50 });
+      return new LimitedCollection({ maxSize: TIER.discord.messagesPerChannel });
     }
-    // Limit guild members to 1000 (for large servers)
+    // Limit guild members cached
     if (manager.name === 'GuildMemberManager') {
-      return new LimitedCollection({ maxSize: 1000 });
+      return new LimitedCollection({ maxSize: TIER.discord.guildMembers });
     }
-    // Limit threads to 50
+    // Limit threads cached
     if (manager.name === 'ThreadManager') {
-      return new LimitedCollection({ maxSize: 50 });
+      return new LimitedCollection({ maxSize: TIER.discord.threads });
     }
     // Default caching for other managers
     return new Collection();

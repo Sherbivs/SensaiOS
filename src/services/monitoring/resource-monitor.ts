@@ -10,20 +10,29 @@
  * - Resource leak detection and alerting
  * - Integrated with intelligent logger for visibility
  * 
- * Memory Protection Levels (Standard Plan: 2 GB RAM):
- * - NORMAL: <1536MB (75%) - Monitor only
- * - WARNING: 1536-1740MB (75-85%) - Preemptive pruning
- * - CRITICAL: 1741-1842MB (85-90%) - Aggressive pruning
- * - EMERGENCY: 1843-2047MB (90-99%) - Nuclear pruning
+ * Memory Protection Levels (adaptive — auto-detected via resource-tiers.ts):
+ * - NORMAL: <75% of plan RAM — Monitor only
+ * - WARNING: 75-85% — Preemptive pruning
+ * - CRITICAL: 85-90% — Aggressive pruning
+ * - EMERGENCY: 90-100% — Nuclear pruning
  * 
- * Resource Types (Render Standard Plan):
- * - RAM: 2 GB (2048 MB) — Tracked by this module via process.memoryUsage().rss
+ * Supported Render Plans:
+ * - Starter: 512 MB / 0.5 vCPU ($7/mo)
+ * - Standard: 2 GB / 1 vCPU ($25/mo)
+ * - Pro: 4 GB / 2 vCPU ($85/mo)
+ * - Pro Plus/Max/Ultra: 8-32 GB / 4-8 vCPU
+ * 
+ * Resource Types:
+ * - RAM: Auto-detected plan limit — Tracked by this module via process.memoryUsage().rss
  * - Disk: 1 GB (974 MB formatted) — NOT tracked here, see cache systems for disk checks
  * 
  * For disk monitoring, see:
  * - src/services/cache/facade.ts — Uses fs.statfsSync() for disk checks
  * - src/config/engine-db-config.ts — Defines disk thresholds (75%, 90%)
  * - docs/RESOURCE-LIMITS-RAM-VS-DISK.md — Complete resource guide
+ * 
+ * For tier detection, see:
+ * - src/config/resource-tiers.ts — Adaptive Render plan detection
  * 
  * Integration: Called from src/index.ts boot() and gracefulShutdown()
  */
@@ -39,6 +48,7 @@ import { getErrorMessage } from '../../shared/utils/error-utils.js';
 import { EventBus } from '../../shared/event-bus.js';
 import type { ResourceStats } from './resource-manager.js';
 import { RESOURCE_MONITOR_INTERVAL_MS, DISK_WARNING_THRESHOLD, DISK_CRITICAL_THRESHOLD, DISK_EMERGENCY_THRESHOLD } from '../../config/env.js';
+import { TIER } from '../../config/resource-tiers.js';
 
 // ============================================================================
 // Types
@@ -66,9 +76,9 @@ export interface IPrunableCache {
 // ⚠️ CRITICAL: These thresholds are for RAM (process memory) ONLY.
 // They do NOT apply to persistent disk (/Store directory).
 //
-// RAM Monitoring (2 GB Standard Plan):
+// RAM Monitoring (adaptive — detected via resource-tiers.ts):
 // - Metric: process.memoryUsage().rss (Resident Set Size)
-// - Limit: 2048 MB (2 GB)
+// - Limit: Detected dynamically from Render plan tier
 // - Failure: 100% RAM → OUT OF MEMORY (OOM) → Process crash
 //
 // Disk Monitoring (1 GB /Store):
@@ -79,25 +89,26 @@ export interface IPrunableCache {
 //
 // See: docs/RESOURCE-LIMITS-RAM-VS-DISK.md for complete distinction
 
-// Standard thresholds aligned with Render Standard plan (2 GB RAM, 1 vCPU)
-// Upgraded from Starter (512 MB, 0.5 vCPU) on 2025-11-17
-// See: docs/deployment/RESOURCE-MONITOR-STANDARDS.md for complete specification
+// Adaptive thresholds derived from detected Render plan tier.
+// Previously hardcoded for Standard plan (2 GB RAM, 1 vCPU).
+// Now auto-detects via os.totalmem() / process.constrainedMemory().
+// See: src/config/resource-tiers.ts for tier profiles and detection logic.
 const MEMORY_THRESHOLDS = {
-  planLimitMB: 2048,      // 2 GB RAM (Standard plan) — NOT disk space
-  emergencyMB: 1843,      // 90% - Immediate action required
-  criticalMB: 1741,       // 85% - Scale or optimize
-  warningMB: 1536,        // 75% - Monitor closely
-  optimalMinMB: 1229,     // 60% - Target minimum
-  optimalMaxMB: 1536,     // 75% - Target maximum
-  underutilizedMB: 1024,  // 50% - Consider optimization
+  planLimitMB: TIER.memory.planLimitMB,
+  emergencyMB: TIER.memory.emergencyMB,
+  criticalMB: TIER.memory.criticalMB,
+  warningMB: TIER.memory.warningMB,
+  optimalMinMB: TIER.memory.optimalMinMB,
+  optimalMaxMB: TIER.memory.optimalMaxMB,
+  underutilizedMB: TIER.memory.underutilizedMB,
 };
 
 const CPU_THRESHOLDS = {
-  planVCPU: 1.0,          // 1 full vCPU (Standard plan)
-  emergencyPercent: 90,
-  criticalPercent: 70,
-  warningPercent: 50,
-  normalMinPercent: 30,
+  planVCPU: TIER.cpu.planVCPU,
+  emergencyPercent: TIER.cpu.emergencyPercent,
+  criticalPercent: TIER.cpu.criticalPercent,
+  warningPercent: TIER.cpu.warningPercent,
+  normalMinPercent: TIER.cpu.normalMinPercent,
 };
 
 // Disk thresholds for /Store volume (1 GB persistent disk)

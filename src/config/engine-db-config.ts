@@ -3,9 +3,14 @@
  * 
  * Single source of truth for:
  * - File paths (environment-aware)
- * - Memory limits (cache + buffer sizing)
+ * - Memory limits (adaptive — derived from detected Render plan tier)
  * - Performance thresholds (flush intervals, timeouts)
  * - Validation settings (quality thresholds, sampling rates)
+ * 
+ * Resource limits are tier-aware via src/config/resource-tiers.ts:
+ * - Starter (512 MB): L1=3MB, pool=2, queue=500, SQLite=500 pages
+ * - Standard (2 GB):  L1=6MB, pool=5, queue=2000, SQLite=2000 pages
+ * - Pro (4 GB):       L1=12MB, pool=10, queue=5000, SQLite=4000 pages
  * 
  * Referenced By: src/services/engine-cache.ts, src/services/engine-write-buffer.ts, 
  *                src/workers/engine-workers.ts, docs/engine-db-replication.md
@@ -15,6 +20,7 @@
 
 import path from 'node:path';
 import { getErrorMessage } from '../shared/utils/index.js';
+import { TIER } from './resource-tiers.js';
 
 // ============================================================================
 // Environment Detection
@@ -97,7 +103,7 @@ export const ENGINE_READ_VERSION_PATH = path.join(STORAGE_BASE_DIR, 'engine-read
  * 
  * Extended Pokemon (Gen 3-9) lazy-loaded on-demand from Read-DB, then cached with LRU eviction.
  */
-export const L1_CACHE_MAX_SIZE_MB = IS_TEST ? 5 : 6;
+export const L1_CACHE_MAX_SIZE_MB = IS_TEST ? 5 : TIER.engine.l1CacheMaxMB;
 
 /**
  * L1 cache refresh interval (background worker)
@@ -130,7 +136,7 @@ export const L1_CACHE_INIT_TIMEOUT_MS = IS_TEST ? 5000 : 30000; // 30 seconds
  * OPTIMIZATION (Phase 2): Reduced from 10k → 2k (5x reduction) to achieve
  * 154 MB → 100 MB runtime memory target. Write buffer: 25 MB → 5 MB.
  */
-export const WRITE_BUFFER_MAX_QUEUE_SIZE = IS_TEST ? 100 : 2_000;
+export const WRITE_BUFFER_MAX_QUEUE_SIZE = IS_TEST ? 100 : TIER.engine.writeBufferMaxQueue;
 
 /**
  * Write buffer flush interval (drain queues to Write-DB)
@@ -228,7 +234,7 @@ export const VALIDATION_SAMPLING_RATE = IS_TEST ? 1.0 : 0.10; // 10%
  * Validation batch size (rows processed per chunk)
  * Larger batches = better performance, higher memory usage
  */
-export const VALIDATION_BATCH_SIZE = IS_TEST ? 10 : 1000;
+export const VALIDATION_BATCH_SIZE = IS_TEST ? 10 : TIER.engine.validationBatchSize;
 
 /**
  * Validation timeout per batch (prevents runaway workers)
@@ -259,15 +265,16 @@ export const SQLITE_PAGE_SIZE = 4096;
 
 /**
  * SQLite cache size (pages in memory)
- * Default: 2000 pages * 4 KB = 8 MB per database
+ * Adaptive: tier-derived pages × 4 KB per database
+ * Starter: 500 pages (≈2 MB), Standard: 2000 pages (≈8 MB), Pro: 4000 pages (≈16 MB)
  */
-export const SQLITE_CACHE_SIZE_PAGES = 2000;
+export const SQLITE_CACHE_SIZE_PAGES = TIER.engine.sqliteCachePages;
 
 /**
  * PostgreSQL connection pool size (PROD uploads)
  * Only used by Worker 4 during Write-DB → PROD sync
  */
-export const POSTGRES_POOL_SIZE = IS_TEST ? 1 : 5;
+export const POSTGRES_POOL_SIZE = IS_TEST ? 1 : TIER.engine.postgresPoolSize;
 
 /**
  * PostgreSQL query timeout (milliseconds)
@@ -333,7 +340,7 @@ export const DISK_SPACE_EMERGENCY_THRESHOLD = 0.90; // 90%
  * Write-DB max size before emergency VACUUM (megabytes)
  * Forces cleanup even if retention period not reached
  */
-export const WRITE_DB_MAX_SIZE_MB = IS_TEST ? 10 : 500; // 500 MB
+export const WRITE_DB_MAX_SIZE_MB = IS_TEST ? 10 : TIER.engine.writeDbMaxMB;
 
 // ============================================================================
 // Health Check Configuration (Render Integration)

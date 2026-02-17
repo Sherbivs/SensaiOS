@@ -23,6 +23,7 @@ import {
 } from '../shared/logging/console-renderer.js';
 import { lokiTransport } from '../shared/logging/loki-transport.js';
 import { osConsole, OS_CONSOLE_ENABLED } from '../shared/logging/os-console.js';
+import { TIER } from '../config/resource-tiers.js';
 
 const writeStdout = (line: string): void => {
   process.stdout.write(`${line}\n`);
@@ -886,7 +887,7 @@ function printOsConsoleStatus(): void {
   };
 
   const ramUsedMB = parseMemoryMB(statsCache.node.memory.rss);
-  const ramTotalMB = 2048; // Render Standard: 2 GB
+  const ramTotalMB = TIER.memory.planLimitMB; // Adaptive: detected from Render plan tier
   const ramPercent = Math.round((ramUsedMB / ramTotalMB) * 100);
   
   // CPU percentage
@@ -991,7 +992,7 @@ function printInfinityConsole(): void {
   };
 
   const ramUsedMB = parseMemoryMB(statsCache.node.memory.rss);
-  const ramTotalMB = 2048; // Render Standard plan: 2 GB
+  const ramTotalMB = TIER.memory.planLimitMB; // Adaptive: detected from Render plan tier
 
   // Parse disk values
   const parseDiskMB = (str: string): number => {
