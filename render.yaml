@@ -6,7 +6,7 @@ databases:
 
 services:
   # Discord bot workers and background services
-  # NOTE: Main worker (Infinity-Gauntlet) upgraded to Standard plan via dashboard (2025-11-17)
+  # All services on Starter plan (512 MB / 0.5 vCPU). Resource limits auto-adapt via resource-tiers.ts.
   - type: worker
     name: infinity-gauntlet-outbox
     runtime: node
