@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=.vscode/render-permissive.json
+# yaml-language-server: $schema=.render-schema.json
 # (Overrides the SchemaStore render schema which is outdated and incorrectly
 #  flags valid Render.com properties like `disks` and `rootDirectory`.)
 databases:

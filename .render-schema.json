@@ -1,0 +1,6 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "description": "Permissive schema for render.yaml — the SchemaStore render schema is outdated and flags valid properties like `rootDirectory` and `disks`. This schema accepts any valid object without restriction.",
+  "type": "object",
+  "additionalProperties": true
+}
