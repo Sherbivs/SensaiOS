@@ -1,10 +1,10 @@
 # Prompt.md
-Timestamp (UTC): 2026-02-17T18:00:00Z
-Revision: 7.5
+Timestamp (UTC): 2026-02-19T04:00:00Z
+Revision: 7.6
 
 **Cross-References**:
 - See `Patch.md` for contract rules (updated 2026-02-09T00:00:00Z Rev 1.76)
-- See `Tasklist.md` for active backlog and current tasks (Rev 2.175 — 16 DONE, 5 READY, 2 PROPOSED)
+- See `Tasklist.md` for active backlog and current tasks (Rev 2.176 — 16 DONE, 4 READY, 1 IN_PROGRESS, 2 PROPOSED)
 - See `docs/archive/tasks/` for completed task history (~115+ tasks archived by project/phase)
 - See `ops/NEXT.yaml` for current task pointer (KERNEL.LOGGING.CORRELATION_IDS — READY, P1-HIGH)
 - See `ops/MEMORY-LEAK-PATCH-BLUEPRINT.md` for comprehensive memory leak fix plan (1776 lines)
@@ -25,6 +25,15 @@ Revision: 7.5
 5. When Git remote validation or CI guards fail locally, stop and request human assistance rather than proceeding.
 
 ## Last Repo Changes
+- **✅ OOM CRASH FIX — UserManager cache cap + V8 hardening (2026-02-19T04:00Z, commit 1783c3e3):**
+  - Root cause: `UserManager` (global Discord.js cache) completely absent from `cacheWithLimits` — accumulated every unique user forever
+  - RSS grew from ~215 MB baseline (Feb 11) to >512 MB Render limit over 8 days → OOM kill at 3:56 AM Feb 19
+  - Fix 1 (`src/bot/index.ts`): Added `UserManager: 500` + `GuildScheduledEventManager: 0` to cacheWithLimits
+  - Fix 2 (`render.yaml`): Changed `startCommand` from `npm start` → `node --max-old-space-size=380 --max-semi-space-size=32 dist/index.js`
+  - Also updated `NODE_OPTIONS` in render.yaml to match (child process fallback)
+  - autoDeploy triggered; `infinity-gauntlet` (srv-d3snk2ndiees73cn709g) redeploying
+  - MEMLEAK.PHASE4.2 → IN_PROGRESS; 24h soak window: 2026-02-19T04:00Z → 2026-02-20T04:00Z
+
 - **✅ SENSAIOS PERFECTED VISION v1.0.2 (2026-02-17T18:00Z, commit 3d5f04f7):**
   - Created `docs/projects/SensaiOS/SENSAIOS-PERFECTED-VISION.md` (~712 lines)
   - Vision mapping: golden architecture, reality check, industry landscape, perfected end-state

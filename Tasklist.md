@@ -725,15 +725,24 @@ Each task has:
 
 - id: MEMLEAK.PHASE4.2
   title: "Deploy to canary worker + 24h soak test validation"
-  status: READY
+  status: IN_PROGRESS
   depends_on: [MEMLEAK.PHASE4.1]
   priority: P2-MEDIUM
   effort: 2h
   assigned_to: AI_SUBAGENT
+  started: 2026-02-19T04:00:00Z
   acceptance_criteria:
     - Canary deploy + 24h monitoring
     - Validate RSS <300MB baseline, growth <50MB/24h
-  notes: Requires operator permission (NO-RESTART policy).
+  notes: |
+    CANARY DEPLOYED 2026-02-19 via commit 1783c3e3 (autoDeploy on main branch).
+    OOM root cause identified: UserManager (global Discord.js cache) was completely
+    uncapped — grew from ~215 MB baseline (Feb 11) to >512 MB Render limit over 8 days.
+    Fix: UserManager capped at 500, GuildScheduledEventManager disabled, V8 flags
+    applied directly (node --max-old-space-size=380 --max-semi-space-size=32) bypassing
+    npm. Service infinity-gauntlet (srv-d3snk2ndiees73cn709g) is the canary.
+    24h monitoring window: 2026-02-19T04:00Z → 2026-02-20T04:00Z.
+    Target: RSS <300 MB, growth <50 MB/24h, no OOM.
 
 ---
 

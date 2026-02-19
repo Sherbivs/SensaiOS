@@ -42,12 +42,13 @@ main_tasks:
       - src/kernel/kernel-logger.ts
     description: "Add level-aware log sampling for high-frequency events while preserving ERROR/CRITICAL."
   - id: MEMLEAK.PHASE4.2
-    status: READY
+    status: IN_PROGRESS
     priority: P2-MEDIUM
     effort: 2h
     files_hint:
       - render.yaml
-    description: "Deploy memory leak patch to canary worker + 24h soak test validation."
+      - src/bot/index.ts
+    description: "Canary deployed 2026-02-19 (commit 1783c3e3). UserManager capped at 500, V8 flags hardened. 24h soak window ends 2026-02-20T04:00Z. Validate RSS <300 MB."
 
 # Quick/hot task slot (< 30 min work)
 quick_task: null

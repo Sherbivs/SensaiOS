@@ -1373,12 +1373,12 @@ export function formatMemoryMetrics(summary: MemoryMetricsSummary): string {
 ### Phase 4: Canary Deployment (Days 7-8)
 
 **Day 7:****
-- [ ] Deploy to canary environment (single worker)
-- [ ] Monitor for 24 hours
-- [ ] Compare memory usage to baseline
+- [x] Deploy to canary environment (single worker) — commit 1783c3e3, autoDeploy 2026-02-19T04:00Z
+- [ ] Monitor for 24 hours — window closes 2026-02-20T04:00Z
+- [ ] Compare memory usage to baseline (~215 MB)
 
 **Day 8:**
-- [ ] Analyze canary results
+- [ ] Analyze canary results (check /ops memory in Discord after 24h)
 - [ ] If successful, proceed to rollout
 - [ ] If issues found, rollback and fix
 
