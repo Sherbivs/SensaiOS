@@ -1,3 +1,6 @@
+# yaml-language-server: $schema=.vscode/render-permissive.json
+# (Overrides the SchemaStore render schema which is outdated and incorrectly
+#  flags valid Render.com properties like `disks` and `rootDirectory`.)
 databases:
   - name: infinity-gauntlet-db
     plan: starter
