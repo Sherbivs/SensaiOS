@@ -74,7 +74,11 @@ services:
     branch: main
     rootDirectory: .
     buildCommand: "rm -rf node_modules && npm install --include=dev --omit=optional && npm run prebuild"
-    startCommand: "npm start"
+    # Bypass npm to apply V8 flags at the process level. 380 MB heap cap leaves
+    # ~132 MB headroom for off-heap (Buffers, Discord.js internals, Prisma) before
+    # Render's 512 MB RSS limit. --max-semi-space-size=32 tightens the young
+    # generation to reduce GC latency spikes under steady load.
+    startCommand: "node --max-old-space-size=380 --max-semi-space-size=32 dist/index.js"
     autoDeploy: true
     # Health check configuration (HTTP endpoint monitoring)
     healthCheckPath: /health
@@ -131,9 +135,10 @@ services:
       # Adaptive resource tier: explicit override ensures correct detection in container
       - key: RENDER_PLAN_TIER
         value: starter
-      # V8 heap limit: 75% of 512 MB plan RAM prevents OOM before GC can act
+      # NODE_OPTIONS matches startCommand flags as belt-and-suspenders fallback
+      # for any child process spawned at runtime.
       - key: NODE_OPTIONS
-        value: "--max-old-space-size=384"
+        value: "--max-old-space-size=380 --max-semi-space-size=32"
 
   - type: worker
     name: infinity-gauntlet-security

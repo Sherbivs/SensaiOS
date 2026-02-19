@@ -88,6 +88,10 @@ export async function bootDiscord(opts: BotStartOptions = {}): Promise<Client> {
 		makeCache: Options.cacheWithLimits({
 			MessageManager: 200, // Last 200 messages per channel (needed for DM interactions)
 			GuildMemberManager: 200, // 200 members per guild (needed for battle challenges)
+			// MEMORY FIX (2026-02-19): UserManager is a GLOBAL cache (not per-guild).
+			// Without a limit it accumulates every user the bot has ever seen indefinitely.
+			// This was the primary driver of RSS growth from 215 MB → >512 MB over 8 days.
+			UserManager: 500,
 			PresenceManager: 0, // Disable - not used
 			ReactionManager: 0, // Disable - not used
 			VoiceStateManager: 0, // Disable - not used
@@ -99,6 +103,7 @@ export async function bootDiscord(opts: BotStartOptions = {}): Promise<Client> {
 			StageInstanceManager: 0, // Disable - not used
 			ThreadManager: 0, // Disable - not used
 			ThreadMemberManager: 0, // Disable - not used
+			GuildScheduledEventManager: 0, // Disable - not used
 		}),
 		sweepers: {
 			// Sweep messages older than 30 minutes every hour
