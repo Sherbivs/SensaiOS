@@ -85,12 +85,17 @@ export async function bootDiscord(opts: BotStartOptions = {}): Promise<Client> {
 		// MEMORY OPTIMIZATION (2025-11-17): Prevent unbounded cache growth on idle bot
 		// Discord.js caches everything indefinitely by default, causing 50-200 MB/day growth
 		// even with zero gameplay activity. Configure limits + sweeping to cap memory usage.
+		//
+		// MEMORY FIX v2 (2026-02-19): Chart analysis of 3 crash cycles showed continued
+		// growth post-UserManager cap. Root cause: caps without sweepers fill to their
+		// limit and stay full. Added periodic sweepers for users and guildMembers.
+		// MessageManager reduced 200 → 50 per channel (guild with 80 channels was holding
+		// 16,000 message objects; 50 × 80 = 4,000 is sufficient for interactions).
 		makeCache: Options.cacheWithLimits({
-			MessageManager: 200, // Last 200 messages per channel (needed for DM interactions)
+			MessageManager: 50, // 50 per channel (was 200 — unnecessary for slash commands)
 			GuildMemberManager: 200, // 200 members per guild (needed for battle challenges)
-			// MEMORY FIX (2026-02-19): UserManager is a GLOBAL cache (not per-guild).
-			// Without a limit it accumulates every user the bot has ever seen indefinitely.
-			// This was the primary driver of RSS growth from 215 MB → >512 MB over 8 days.
+			// UserManager is a GLOBAL cache (not per-guild). Was uncapped — primary driver
+			// of RSS growth from 215 MB baseline → >512 MB over 8 days (OOM Feb 19).
 			UserManager: 500,
 			PresenceManager: 0, // Disable - not used
 			ReactionManager: 0, // Disable - not used
@@ -110,6 +115,19 @@ export async function bootDiscord(opts: BotStartOptions = {}): Promise<Client> {
 			messages: {
 				interval: 3600, // 1 hour (in seconds)
 				lifetime: 1800, // 30 minutes (in seconds)
+			},
+			// Sweep the entire user cache every 2 hours. Without periodic eviction,
+			// UserManager fills to its 500-entry cap and stays full permanently.
+			// Users are re-cached lazily on next interaction, so eviction is safe.
+			users: {
+				interval: 7200, // 2 hours (in seconds)
+				filter: () => () => true,
+			},
+			// Sweep all cached guild members every 2 hours.
+			// Members are re-fetched on demand during interactions/battles.
+			guildMembers: {
+				interval: 7200, // 2 hours (in seconds)
+				filter: () => () => true,
 			},
 		},
 	});
