@@ -1993,6 +1993,38 @@ export async function boot(): Promise<void> {
       log.warn("index", "boot", "Memory profiling failed", { error: { name: 'MemoryProfilingError', message: getErrorMessage(memErr) } });
     }
     
+    // ══════════════════════════════════════════════════════════════════════════
+    // PERIODIC FORCED GC — Reclaims fragmented V8 heap accumulated over time
+    // ══════════════════════════════════════════════════════════════════════════
+    // All JavaScript-level Maps/buffers are bounded (see MEMLEAK.PHASE4 audit).
+    // The residual ~3 MB/hr growth is V8 heap fragmentation + Discord.js REST
+    // route-bucket accumulation which the GC can compact every 30 minutes.
+    // Requires --expose-gc flag (set in render.yaml startCommand + NODE_OPTIONS).
+    // Falls back silently if not enabled (local dev without --expose-gc).
+    if (typeof (global as { gc?: () => void }).gc === 'function') {
+      const FORCED_GC_INTERVAL_MS = 30 * 60 * 1000; // 30 minutes
+      const gcTimer = setInterval(() => {
+        try {
+          const memBefore = process.memoryUsage();
+          (global as { gc?: () => void }).gc!();
+          const memAfter = process.memoryUsage();
+          const reclaimedMb = bytesToMB(memBefore.rss - memAfter.rss);
+          log.info("index", "gc", "Forced GC cycle complete", {
+            metadata: {
+              rss_before_mb: bytesToMB(memBefore.rss),
+              rss_after_mb: bytesToMB(memAfter.rss),
+              reclaimed_mb: reclaimedMb,
+              heap_used_mb: bytesToMB(memAfter.heapUsed),
+            },
+          });
+        } catch { /* ignore GC errors */ }
+      }, FORCED_GC_INTERVAL_MS);
+      gcTimer.unref();
+      log.info("index", "boot", "Periodic forced GC enabled (30 min interval, --expose-gc active)");
+    } else {
+      log.info("index", "boot", "Periodic forced GC disabled (run with --expose-gc to enable)");
+    }
+
     // Schedule automatic restart every 12 hours (production only)
     // DISABLED 2025-12-28: Auto-restart no longer needed per operator request
     // if (process.env.RENDER) {

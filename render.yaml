@@ -78,7 +78,9 @@ services:
     # ~132 MB headroom for off-heap (Buffers, Discord.js internals, Prisma) before
     # Render's 512 MB RSS limit. --max-semi-space-size=32 tightens the young
     # generation to reduce GC latency spikes under steady load.
-    startCommand: "node --max-old-space-size=380 --max-semi-space-size=32 dist/index.js"
+    # --expose-gc enables the periodic forced-GC call in src/index.ts that reclaims
+    # fragmented heap memory (~3 MB/hr residual growth without it).
+    startCommand: "node --max-old-space-size=380 --max-semi-space-size=32 --expose-gc dist/index.js"
     autoDeploy: true
     # Health check configuration (HTTP endpoint monitoring)
     healthCheckPath: /health
@@ -138,7 +140,7 @@ services:
       # NODE_OPTIONS matches startCommand flags as belt-and-suspenders fallback
       # for any child process spawned at runtime.
       - key: NODE_OPTIONS
-        value: "--max-old-space-size=380 --max-semi-space-size=32"
+        value: "--max-old-space-size=380 --max-semi-space-size=32 --expose-gc"
 
   - type: worker
     name: infinity-gauntlet-security
@@ -148,8 +150,10 @@ services:
     repo: https://github.com/sherbivs/infinity-gauntlet
     branch: main
     rootDirectory: .
-    buildCommand: "npm install --include=dev --omit=optional && npm run prebuild"
-    startCommand: "npx tsx security-bot.ts"
+    buildCommand: "rm -rf node_modules && npm install --include=dev --omit=optional && npm run prebuild"
+    # Compiled entry point replaces npx tsx (saves 50-100 MB interpreter overhead).
+    # security-bot.ts -> src/security-main.ts -> dist/security-main.js via normal build.
+    startCommand: "node --max-old-space-size=380 --max-semi-space-size=32 dist/security-main.js"
     autoDeploy: true
     disks:
       - name: security-state
@@ -190,8 +194,10 @@ services:
         value: "true"
       - key: RENDER_PLAN_TIER
         value: starter
+      # Match startCommand flags: 380 MB heap cap + 32 MB semi-space (same as main bot).
+      # Removed npx tsx overhead; compiled JS startup reduces off-heap by ~50-100 MB.
       - key: NODE_OPTIONS
-        value: "--max-old-space-size=384"
+        value: "--max-old-space-size=380 --max-semi-space-size=32"
 
   - type: worker
     name: infinity-gauntlet-cache
