@@ -1,6 +1,6 @@
 # Prompt.md
-Timestamp (UTC): 2026-02-19T04:00:00Z
-Revision: 7.6
+Timestamp (UTC): 2026-02-23T12:00:00Z
+Revision: 7.7
 
 **Cross-References**:
 - See `Patch.md` for contract rules (updated 2026-02-09T00:00:00Z Rev 1.76)
@@ -25,7 +25,25 @@ Revision: 7.6
 5. When Git remote validation or CI guards fail locally, stop and request human assistance rather than proceeding.
 
 ## Last Repo Changes
-- **✅ OOM CRASH FIX — UserManager cache cap + V8 hardening (2026-02-19T04:00Z, commit 1783c3e3):**
+- **✅ OOM FIX v3 — Security bot compiled entry + --expose-gc + periodic forced GC (2026-02-23T12:00Z, commit 8d027203):**
+  - NEW CRASH Feb 23 — audited 35 module-level Map/Set instances, all confirmed bounded
+  - Root cause 1: Security bot service (`infinity-gauntlet-security`) used `npx tsx security-bot.ts` → 50-100 MB interpreter overhead + wrong V8 flags
+  - Root cause 2: Main bot residual ~3.1 MB/hr from V8 heap fragmentation, not retained JS refs
+  - Fix 1 (`src/security-main.ts`): NEW — compiled entry inside src/ → builds to dist/security-main.js, imports ./bot/main.js
+  - Fix 2 (`render.yaml`): security bot startCommand → `node --max-old-space-size=380 --max-semi-space-size=32 dist/security-main.js`; NODE_OPTIONS aligned; buildCommand gains `rm -rf node_modules &&`
+  - Fix 3 (`render.yaml`): main bot startCommand + NODE_OPTIONS gain `--expose-gc`
+  - Fix 4 (`src/index.ts`): periodic `global.gc()` every 30 min, logs rss_before/after/reclaimed; gcTimer.unref()
+  - `npx tsc --noEmit` → exit 0; autoDeploy triggered on both services
+  - NEW 24h soak window: 2026-02-23T12:00Z → 2026-02-24T12:00Z
+
+- **✅ OOM FIX v2 — Cap-without-sweeper + MessageManager reduction (2026-02-19, commit 5e275b1d):**
+  - Identified cap-without-eviction: MessageManager 200 × 80 channels = 16,000 objects retained indefinitely
+  - Added full-eviction sweepers: `users` and `guildMembers` → `() => () => true` every 2h
+  - Reduced MessageManager limit: 200 → 50
+  - Sweepers confirmed registering (count: 16) via Discord.js internal log
+  - Growth halved to ~3.1 MB/hr but crash recurred Feb 23 (~96h after deploy)
+
+- **✅ OOM FIX v1 — UserManager cache cap + V8 hardening (2026-02-19T04:00Z, commit 1783c3e3):**
   - Root cause: `UserManager` (global Discord.js cache) completely absent from `cacheWithLimits` — accumulated every unique user forever
   - RSS grew from ~215 MB baseline (Feb 11) to >512 MB Render limit over 8 days → OOM kill at 3:56 AM Feb 19
   - Fix 1 (`src/bot/index.ts`): Added `UserManager: 500` + `GuildScheduledEventManager: 0` to cacheWithLimits

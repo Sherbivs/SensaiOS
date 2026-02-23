@@ -48,7 +48,7 @@ main_tasks:
     files_hint:
       - render.yaml
       - src/bot/index.ts
-    description: "Canary deployed 2026-02-19 (commit 1783c3e3). UserManager capped at 500, V8 flags hardened. 24h soak window ends 2026-02-20T04:00Z. Validate RSS <300 MB."
+    description: "Fix v3 deployed 2026-02-23 (commit 8d027203). 3 root causes addressed: (1) security bot npx tsx → compiled dist/security-main.js, (2) main bot --expose-gc, (3) periodic forced GC every 30 min. New 24h soak window ends 2026-02-24T12:00Z. Validate RSS <300 MB, growth <50 MB/24h."
 
 # Quick/hot task slot (< 30 min work)
 quick_task: null

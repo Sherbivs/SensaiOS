@@ -735,14 +735,28 @@ Each task has:
     - Canary deploy + 24h monitoring
     - Validate RSS <300MB baseline, growth <50MB/24h
   notes: |
-    CANARY DEPLOYED 2026-02-19 via commit 1783c3e3 (autoDeploy on main branch).
-    OOM root cause identified: UserManager (global Discord.js cache) was completely
-    uncapped — grew from ~215 MB baseline (Feb 11) to >512 MB Render limit over 8 days.
-    Fix: UserManager capped at 500, GuildScheduledEventManager disabled, V8 flags
-    applied directly (node --max-old-space-size=380 --max-semi-space-size=32) bypassing
-    npm. Service infinity-gauntlet (srv-d3snk2ndiees73cn709g) is the canary.
-    24h monitoring window: 2026-02-19T04:00Z → 2026-02-20T04:00Z.
-    Target: RSS <300 MB, growth <50 MB/24h, no OOM.
+    === FIX v1 — 2026-02-19 (commit 1783c3e3): UserManager cap + V8 flags ===
+    OOM root cause: UserManager completely uncapped → 8-day 6 MB/hr growth → OOM kill.
+    Fix: UserManager: 500, GuildScheduledEventManager: 0, V8 flags direct (not npm).
+    Result: Growth halved to ~3.1 MB/hr. Crash recurred ~96h later (Feb 23).
+
+    === FIX v2 — 2026-02-19 (commit 5e275b1d): Cap-without-sweeper ===
+    MessageManager: 200 × 80 channels = 16,000 objects with no eviction.
+    Fix: Full-eviction sweepers (users + guildMembers every 2h), MessageManager 200→50.
+    Sweepers confirmed registering (count: 16). Crash still recurred Feb 23.
+
+    === FIX v3 — 2026-02-23 (commit 8d027203): Security bot + forced GC ===
+    NEW CRASH FEB 23 — investigated 35 module-level Map/Set suspects, all bounded.
+    Root causes of residual ~3.1 MB/hr growth:
+      1. Security bot service never fixed: npx tsx (50-100 MB overhead), old NODE_OPTIONS
+      2. Main bot: V8 heap fragmentation not reclaimed without forced GC
+    Fix applied:
+      - src/security-main.ts: compiled entry inside src/ → dist/security-main.js
+      - render.yaml security: compiled startCommand + NODE_OPTIONS matching main bot
+      - render.yaml main: --expose-gc added to startCommand + NODE_OPTIONS
+      - src/index.ts: periodic forced GC every 30 min, logs rss before/after/reclaimed
+    Testing: npx tsc --noEmit → exit 0. autoDeploy triggered on both services.
+    NEW 24h soak window: 2026-02-23 → 2026-02-24. Target: RSS <300 MB, growth <50 MB/24h.
 
 ---
 
