@@ -1326,6 +1326,15 @@ function extractAuditRoleIds(change: AuditRoleChange | null | undefined): string
     .filter((id): id is string => id !== null);
 }
 
+// Role IDs that are always treated as authorized executors by the security bot.
+// Members holding these roles can make role/permission changes without triggering
+// a revert. Declared here rather than in env.ts because they are server-specific
+// constants, not operator-configurable environment variables.
+const AUTHORIZED_ROLE_IDS = new Set<string>([
+  '1121277160963981372', // Admin
+  '1318637907078283285', // Server Admin
+]);
+
 async function evaluateExecutorAuthorization(guild: Guild | null, executor: GuildMember | User | null): Promise<ExecutorAuthorizationResult> {
   if (!guild || !executor) {
     return { authorized: false, reason: 'unknown-executor', member: null };
@@ -1365,6 +1374,14 @@ async function evaluateExecutorAuthorization(guild: Guild | null, executor: Guil
 
   if (member?.permissions?.has?.(PermissionsBitField.Flags.Administrator)) {
     return { authorized: true, reason: 'administrator', member };
+  }
+
+  // Authorize members holding a specifically named admin role by ID.
+  // This covers "Admin" and "Server Admin" which may not carry the Discord
+  // Administrator permission flag but are trusted to manage the server.
+  if (member?.roles?.cache?.some((role) => AUTHORIZED_ROLE_IDS.has(role.id))) {
+    const matchedRole = member.roles.cache.find((role) => AUTHORIZED_ROLE_IDS.has(role.id));
+    return { authorized: true, reason: `authorized-role:${matchedRole?.name ?? matchedRole?.id}`, member };
   }
 
   return {
