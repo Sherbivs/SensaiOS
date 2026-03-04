@@ -1891,6 +1891,12 @@ function updateMonitoringPhase() {
 }
 
 const STANDARD_PERMISSIONS = {
+  // ── Admin-tier roles: full authority, never reduced by the security bot ──
+  // Role IDs: Admin (1121277160963981372), Server Admin (1318637907078283285)
+  // 'ALL' maps to PermissionsBitField.resolve(ALL_FLAGS) at enforcement time.
+  'Admin': 'ALL',
+  'Server Admin': 'ALL',
+  // ─────────────────────────────────────────────────────────────────────────
   'Super Admin': [
     'KickMembers','BanMembers','ManageMessages','ModerateMembers','ManageNicknames','ViewAuditLog','CreateEvents',
     'UseApplicationCommands','ManageThreads','CreatePublicThreads','CreatePrivateThreads','SendMessages','EmbedLinks',
