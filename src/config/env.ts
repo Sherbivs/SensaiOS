@@ -372,6 +372,14 @@ export const ADMIN_ROLE_ID = process.env.ADMIN_ROLE_ID ?? "1121277160963981372";
 export const SERVER_ADMIN_ROLE_ID = process.env.SERVER_ADMIN_ROLE_ID ?? "1318637907078283285";
 export const SUPER_ADMIN_ROLE_ID = process.env.SUPER_ADMIN_ROLE_ID ?? "1336098912284708896";
 export const DRIP_ROLE_ID = process.env.DRIP_ROLE_ID ?? "1430739109135126531";
+
+/** Channel IDs intentionally excluded from Drip role overwrite enforcement.
+ *  Comma-separated. Only configure if explicitly authorized (DRIPTVDD / server owner).
+ *  All other channels are always enforced regardless of other conditions. */
+export const DRIP_ROLE_EXCLUDE_CHANNEL_IDS: Set<string> = new Set(
+  (process.env.DRIP_ROLE_EXCLUDE_CHANNEL_IDS ?? "")
+    .split(',').map((s) => s.trim()).filter(Boolean),
+);
 export const ZAPIER_ROLE_ID = process.env.ZAPIER_ROLE_ID ?? "1319232349140946950";
 export const FRESHTOK_ROLE_ID = process.env.FRESHTOK_ROLE_ID ?? "1319239915522756673";
 export const POKETWO_ROLE_ID = process.env.POKETWO_ROLE_ID ?? "1233893448986394738";

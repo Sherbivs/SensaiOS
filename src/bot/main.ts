@@ -20,6 +20,7 @@ import {
   type User,
   type PartialUser,
   type GuildAuditLogsEntry,
+  type GuildChannel,
   type ChatInputCommandInteraction,
   type AutocompleteInteraction,
   type PermissionsString,
@@ -58,6 +59,8 @@ import {
   SERVER_ADMIN_ROLE_ID,
   SUPER_ADMIN_ROLE_ID,
   DRIP_ROLE_ID,
+  DRIP_USER_ID,
+  DRIP_ROLE_EXCLUDE_CHANNEL_IDS,
   ZAPIER_ROLE_ID,
   FRESHTOK_ROLE_ID,
   POKETWO_ROLE_ID,
@@ -1946,6 +1949,28 @@ const ROLE_POLICY_REGISTRY: Record<string, RolePolicy> = {
   // ── Inactive/empty roles ──
   [DND_CANDIDATE_ROLE_ID]: { name: 'D&D Candidate', permissions: [] },
 };
+// ─────────────────────────────────────────────────────────────────────────────
+// Drip Role Channel Persistence
+// ─────────────────────────────────────────────────────────────────────────────
+/**
+ * Channel-level permissions the Drip role must be ALLOWED on every guild channel.
+ * Applied on channelCreate, channelUpdate (tamper detection), boot, and periodic sweeps.
+ * Individual channels can be excluded via DRIP_ROLE_EXCLUDE_CHANNEL_IDS env var.
+ */
+const DRIP_CHANNEL_OVERWRITE_PERMS: PermissionsString[] = [
+  'ViewChannel', 'ManageChannels', 'ManageRoles', 'ManageWebhooks',
+  'CreateInstantInvite', 'SendMessages', 'SendMessagesInThreads',
+  'CreatePublicThreads', 'CreatePrivateThreads', 'ManageMessages',
+  'ManageThreads', 'EmbedLinks', 'AttachFiles', 'AddReactions',
+  'UseExternalEmojis', 'UseExternalStickers', 'MentionEveryone',
+  'ReadMessageHistory', 'UseApplicationCommands', 'SendPolls',
+  'Connect', 'Speak', 'Stream', 'UseEmbeddedActivities',
+  'UseVAD', 'PrioritySpeaker', 'DeafenMembers', 'MoveMembers',
+  'MuteMembers', 'UseSoundboard', 'UseExternalSounds', 'RequestToSpeak',
+];
+/** Pre-computed bitfield for fast overwrite comparison. */
+const DRIP_REQUIRED_BITS = new PermissionsBitField(DRIP_CHANNEL_OVERWRITE_PERMS);
+
 // ----- Snapshot helpers -----
 function snapshotKey(guildId: string, roleId: string): string {
   return `role-perm-snapshot:${guildId}:${roleId}`;
@@ -2589,6 +2614,110 @@ async function enforceRolePermissions(role: Role | null): Promise<void> {
     }, error), 'error');
   }
 }
+// ─────────────────────────────────────────────────────────────────────────────
+// Drip Role Channel Overwrite Enforcement
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Returns true if actorId is allowed to intentionally weaken/remove the Drip
+ * role's channel overwrite. Unauthorized changes are always restored.
+ *
+ * Authorized: the bot itself · DRIPTVDD (DRIP_USER_ID) · the guild owner.
+ */
+function isAuthorizedDripActor(actorId: string | null | undefined, guild: Guild): boolean {
+  if (!actorId) return false;
+  return (
+    actorId === client.user?.id ||
+    actorId === DRIP_USER_ID ||
+    actorId === guild.ownerId
+  );
+}
+
+/**
+ * Ensures the Drip role has the required allow-overwrite on a single channel.
+ * No-ops if the overwrite is already complete and nothing is denied.
+ * Skips threads (they inherit from their parent) and excluded channels.
+ *
+ * @returns true if an overwrite was applied or updated.
+ */
+async function ensureDripRoleOnChannel(channel: GuildChannel, origin: string): Promise<boolean> {
+  if (channel.isThread()) return false;
+  if (DRIP_ROLE_EXCLUDE_CHANNEL_IDS.has(channel.id)) return false;
+  if (!('permissionOverwrites' in channel)) return false;
+
+  const existing = channel.permissionOverwrites.cache.get(DRIP_ROLE_ID);
+  if (existing) {
+    const alreadyAllowed = existing.allow.has(DRIP_REQUIRED_BITS);
+    const nothingDenied  = !existing.deny.any(DRIP_REQUIRED_BITS);
+    if (alreadyAllowed && nothingDenied) return false; // already correct
+  }
+
+  try {
+    await channel.permissionOverwrites.edit(
+      DRIP_ROLE_ID,
+      Object.fromEntries(DRIP_CHANNEL_OVERWRITE_PERMS.map((p) => [p, true])) as Record<PermissionsString, boolean>,
+      { reason: `Drip role channel persistence — ${origin}` },
+    );
+    report('Drip Channel Overwrite Applied', {
+      channel: channel.id,
+      channelName: channel.name,
+      guild: describeGuild(channel.guild),
+      origin,
+      action: existing ? 'restored' : 'created',
+    }, existing ? 'warn' : 'success');
+    return true;
+  } catch (error) {
+    report('Drip Channel Overwrite Error', mergeReportError({
+      channel: channel.id,
+      channelName: channel.name,
+      guild: describeGuild(channel.guild),
+      origin,
+    }, error), 'error');
+    return false;
+  }
+}
+
+/**
+ * Enforces the Drip role overwrite on ALL non-thread channels in the guild.
+ * Processes in batches of 8 with 150 ms separation to respect rate limits.
+ */
+async function enforceDripRoleAllChannels(guild: Guild, origin: string): Promise<void> {
+  const guildSummary = describeGuild(guild);
+  let applied = 0;
+  let errored = 0;
+
+  try {
+    await guild.channels.fetch(); // populate cache via REST
+    const channels = [...guild.channels.cache.values()].filter(
+      (ch) => !ch.isThread() && !DRIP_ROLE_EXCLUDE_CHANNEL_IDS.has(ch.id),
+    );
+
+    const BATCH_SIZE = 8;
+    for (let i = 0; i < channels.length; i += BATCH_SIZE) {
+      const batch = channels.slice(i, i + BATCH_SIZE);
+      const results = await Promise.allSettled(
+        batch.map((ch) => ensureDripRoleOnChannel(ch as GuildChannel, origin)),
+      );
+      for (const r of results) {
+        if (r.status === 'fulfilled' && r.value) applied++;
+        if (r.status === 'rejected') errored++;
+      }
+      if (i + BATCH_SIZE < channels.length) await wait(150);
+    }
+
+    if (applied > 0 || errored > 0) {
+      report('Drip Channel Enforcement Complete', {
+        guild: guildSummary,
+        origin,
+        channelsUpdated: applied,
+        errored,
+      }, errored > 0 ? 'warn' : 'success');
+    }
+  } catch (error) {
+    report('Drip Channel Enforcement Error', mergeReportError({ guild: guildSummary, origin }, error), 'error');
+  }
+}
+
 interface AssignmentCacheEntry {
   assigned?: boolean;
   timestamp?: number;
@@ -3476,6 +3605,27 @@ client.once(Events.ClientReady, async () => {
     }
   }, GYM_SYNC_INTERVAL_MS);
   gymSyncTimer.unref?.();
+
+  // ── Drip Role Channel Persistence ──────────────────────────────────────────
+  // Boot pass: apply the Drip overwrite to every channel that is missing it.
+  void (async () => {
+    for (const [, guild] of client.guilds.cache) {
+      await enforceDripRoleAllChannels(guild, 'boot');
+    }
+  })();
+
+  // Periodic re-enforcement every 4 hours to heal any drift.
+  const DRIP_CHANNEL_SYNC_MS = 4 * 60 * 60 * 1000;
+  const dripChannelSyncTimer = setInterval(() => {
+    if (isClientReady()) {
+      void (async () => {
+        for (const [, guild] of client.guilds.cache) {
+          await enforceDripRoleAllChannels(guild, 'periodic');
+        }
+      })();
+    }
+  }, DRIP_CHANNEL_SYNC_MS);
+  dripChannelSyncTimer.unref?.();
 });
 
 // Slash commands and autocomplete
@@ -3678,6 +3828,88 @@ client.on('roleUpdate', async (oldRole, newRole) => {
       guild: describeGuild(newRole.guild),
       role: describeRole(newRole),
     }, err), 'error');
+  }
+});
+
+// ── Drip Role: apply overwrite immediately on every new channel ──────────────
+client.on('channelCreate', async (channel) => {
+  try {
+    await ensureDripRoleOnChannel(channel as unknown as GuildChannel, 'channelCreate');
+  } catch (err) {
+    report('Drip Channel Overwrite Error (channelCreate)', mergeReportError({ channelId: channel.id }, err), 'error');
+  }
+});
+
+// ── Drip Role: detect and restore tampered overwrites ────────────────────────
+// The Drip role's channel overwrite must persist regardless of other conditions.
+// If an unauthorized actor removes or weakens it the bot restores it instantly.
+// Authorized actors (bot · DRIPTVDD · guild owner) who need to exclude a specific
+// channel should add it to DRIP_ROLE_EXCLUDE_CHANNEL_IDS instead.
+client.on('channelUpdate', async (oldChannel, newChannel) => {
+  if (!('guild' in newChannel) || !('guild' in oldChannel)) return;
+  if (DRIP_ROLE_EXCLUDE_CHANNEL_IDS.has(newChannel.id)) return;
+  if ((newChannel as GuildChannel).isThread()) return;
+
+  const oldOverwrite = oldChannel.permissionOverwrites.cache.get(DRIP_ROLE_ID);
+  const newOverwrite = newChannel.permissionOverwrites.cache.get(DRIP_ROLE_ID);
+
+  // Was the Drip overwrite previously in a correct state?
+  const wasCorrect = Boolean(
+    oldOverwrite &&
+    oldOverwrite.allow.has(DRIP_REQUIRED_BITS) &&
+    !oldOverwrite.deny.any(DRIP_REQUIRED_BITS),
+  );
+  // Is it still correct now?
+  const isCorrect = Boolean(
+    newOverwrite &&
+    newOverwrite.allow.has(DRIP_REQUIRED_BITS) &&
+    !newOverwrite.deny.any(DRIP_REQUIRED_BITS),
+  );
+
+  if (!wasCorrect || isCorrect) return; // Nothing to heal
+
+  // Overwrite was correct before and is now degraded — check executor.
+  const guild = newChannel.guild;
+  let executorId: string | null = null;
+  try {
+    // Fetch recent audit log entries for channel overwrite changes.
+    const auditTypes = [AuditLogEvent.ChannelOverwriteDelete, AuditLogEvent.ChannelOverwriteUpdate] as const;
+    for (const auditType of auditTypes) {
+      if (executorId) break;
+      try {
+        const logs = await guild.fetchAuditLogs({ type: auditType, limit: 5 });
+        for (const [, entry] of logs.entries) {
+          const t = entry.target;
+          if (t && typeof t === 'object' && 'id' in t && (t as { id: string }).id === newChannel.id) {
+            executorId = entry.executor?.id ?? null;
+            break;
+          }
+        }
+      } catch { /* audit log entry may not exist yet */ }
+    }
+  } catch { /* audit log unavailable — fall through to restore */ }
+
+  if (isAuthorizedDripActor(executorId, guild)) {
+    report('Drip Channel Overwrite Modified by Authorized Actor — Skipping Restore', {
+      channel: newChannel.id, channelName: newChannel.name,
+      guild: describeGuild(guild), executorId,
+    }, 'info');
+    return;
+  }
+
+  // Unauthorized modification — restore and alert.
+  report('Drip Channel Overwrite Tampered — Restoring', {
+    channel: newChannel.id, channelName: newChannel.name,
+    guild: describeGuild(guild), executorId: executorId ?? 'unknown',
+  }, 'warn');
+  await ensureDripRoleOnChannel(newChannel as unknown as GuildChannel, 'channelUpdate-tamper-restore');
+  if (dripAlertManager) {
+    await dripAlertManager.recordAlert(
+      DRIP_ALERT_SEVERITY.security,
+      `Drip role overwrite tampered in #${newChannel.name} — restored`,
+      { channelId: newChannel.id, channelName: newChannel.name,
+        guild: describeGuild(guild), executorId: executorId ?? 'unknown' },
+    );
   }
 });
 
