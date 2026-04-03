@@ -2047,6 +2047,12 @@ function hasNoAssignableRoles(member: GuildMember | PartialGuildMember): boolean
   return member.roles.cache.size <= 1;
 }
 
+/** Check if member is missing the Trainer role specifically (not just "roleless").
+ *  This catches members who have other roles (e.g. Gym Leader) but lack Trainer. */
+function isMissingTrainerRole(member: GuildMember | PartialGuildMember): boolean {
+  return !member.roles.cache.has(TRAINER_ROLE_ID);
+}
+
 function collectAssignableRoles(member: GuildMember | PartialGuildMember | null): Collection<string, Role> | null {
   if (!member || !member.roles?.cache || !member.guild?.roles?.everyone) {
     return null;
@@ -2251,6 +2257,57 @@ async function maybeAlertRoleAssignments(oldMember: GuildMember | PartialGuildMe
       lastAlertSentAt: new Date(),
       lastAlertMessage: title,
     });
+
+    // DB audit trail: record each unauthorized role change
+    const botId = client.user?.id ?? 'SYSTEM';
+    const botTag = client.user?.tag ?? 'SYSTEM#0000';
+    for (const role of [...addedRoles, ...removedRoles]) {
+      const changeType = addedRoles.includes(role) ? RoleChangeType.ADDITION : RoleChangeType.REMOVAL;
+      roleAuditService.recordRoleChange({
+        memberId: newMember.id,
+        memberTag: newMember.user.tag,
+        guildId: guild.id,
+        guildName: guild.name,
+        changeType,
+        roleId: role.id,
+        roleName: role.name,
+        rolePosition: role.position,
+        executorId: executor?.id ?? 'unknown',
+        executorTag: executor ? describeUser(executor) : 'unknown',
+        authorized: false,
+        origin: 'unauthorized-role-change',
+        metadata: { revertStatus: revertOutcome.success ? 'success' : 'failed', auditId: auditEntry?.id ?? null },
+      }).catch((err) =>
+        report('Unauthorized Role Change — RoleChangeAudit Write Error', mergeReportError({
+          guild: describeGuild(guild),
+          userId: newMember.id,
+          roleId: role.id,
+        }, err), 'error'),
+      );
+    }
+    securityEventService.recordEvent({
+      eventType: 'unauthorized-role-change',
+      severity: SecuritySeverity.HIGH,
+      guildId: guild.id,
+      guildName: guild.name,
+      memberId: newMember.id,
+      memberTag: newMember.user.tag,
+      executorId: executor?.id ?? 'unknown',
+      executorTag: executor ? describeUser(executor) : 'unknown',
+      origin: 'role-assignment-monitor',
+      metadata: {
+        addedRoles: addedRoles.map((r) => r.id),
+        removedRoles: removedRoles.map((r) => r.id),
+        revertStatus: revertOutcome.success ? 'success' : 'failed',
+        auditId: auditEntry?.id ?? null,
+      },
+    }).catch((err) =>
+      report('Unauthorized Role Change — SecurityEvent Write Error', mergeReportError({
+        guild: describeGuild(guild),
+        userId: newMember.id,
+      }, err), 'error'),
+    );
+
     report('Unauthorized Role Change Reverted', meta, 'warn');
     return { changed: true, unauthorized: true, revertStatus: meta.revertStatus as string };
   }
@@ -2309,6 +2366,57 @@ async function maybeAlertRoleAssignments(oldMember: GuildMember | PartialGuildMe
     lastAlertSentAt: new Date(),
     lastAlertMessage: summary,
   });
+
+  // DB audit trail: record each authorized role change
+  const botId = client.user?.id ?? 'SYSTEM';
+  const botTag = client.user?.tag ?? 'SYSTEM#0000';
+  for (const role of [...addedRoles, ...removedRoles]) {
+    const changeType = addedRoles.includes(role) ? RoleChangeType.ADDITION : RoleChangeType.REMOVAL;
+    roleAuditService.recordRoleChange({
+      memberId: newMember.id,
+      memberTag: newMember.user.tag,
+      guildId: guild.id,
+      guildName: guild.name,
+      changeType,
+      roleId: role.id,
+      roleName: role.name,
+      rolePosition: role.position,
+      executorId: executor?.id ?? 'unknown',
+      executorTag: executor ? describeUser(executor) : 'unknown',
+      authorized: true,
+      origin: 'authorized-role-change',
+      metadata: { alertType, auditId: auditEntry?.id ?? null },
+    }).catch((err) =>
+      report('Authorized Role Change — RoleChangeAudit Write Error', mergeReportError({
+        guild: describeGuild(guild),
+        userId: newMember.id,
+        roleId: role.id,
+      }, err), 'error'),
+    );
+  }
+  securityEventService.recordEvent({
+    eventType: 'authorized-role-change',
+    severity: SecuritySeverity.INFO,
+    guildId: guild.id,
+    guildName: guild.name,
+    memberId: newMember.id,
+    memberTag: newMember.user.tag,
+    executorId: executor?.id ?? 'unknown',
+    executorTag: executor ? describeUser(executor) : 'unknown',
+    origin: 'role-assignment-monitor',
+    metadata: {
+      addedRoles: addedRoles.map((r) => r.id),
+      removedRoles: removedRoles.map((r) => r.id),
+      alertType,
+      auditId: auditEntry?.id ?? null,
+    },
+  }).catch((err) =>
+    report('Authorized Role Change — SecurityEvent Write Error', mergeReportError({
+      guild: describeGuild(guild),
+      userId: newMember.id,
+    }, err), 'error'),
+  );
+
   report('Role Assignment Alert', {
     guild: meta.guild,
     member: meta.member,
@@ -2739,6 +2847,17 @@ async function enforceDripRoleAllChannels(guild: Guild, origin: string): Promise
     }
   } catch (error) {
     report('Drip Channel Enforcement Error', mergeReportError({ guild: guildSummary, origin }, error), 'error');
+    securityEventService.recordEvent({
+      eventType: 'drip-channel-enforcement-error',
+      severity: SecuritySeverity.MEDIUM,
+      guildId: guild.id,
+      guildName: guild.name,
+      executorId: client.user?.id ?? 'SYSTEM',
+      origin: 'drip-channel-enforcement',
+      metadata: { trigger: origin, error: getErrorMessage(error) },
+    }).catch((err) =>
+      report('Drip Enforcement Error — SecurityEvent Write Error', mergeReportError({ guild: guildSummary }, err), 'error'),
+    );
   }
 }
 
@@ -2778,15 +2897,12 @@ async function ensureTrainerFor(member: GuildMember | PartialGuildMember | null,
     return;
   }
 
-  if (!hasNoAssignableRoles(member)) {
-    const assignableRoles = member.roles.cache
-      .filter((r: Role) => r.id !== member.guild.roles.everyone.id)
-      .map(describeRole);
+  if (!isMissingTrainerRole(member)) {
     report('Member Skipped', {
       origin,
       guild: guildSummary,
       member: memberSummary,
-      existingRoles: assignableRoles.length ? assignableRoles.join(', ') : 'n/a'
+      reason: 'already has Trainer role'
     }, 'detail');
     return;
   }
@@ -2832,6 +2948,49 @@ async function ensureTrainerFor(member: GuildMember | PartialGuildMember | null,
     });
     bumpRoleMemberCount(member.guild, 1);
     cache.writeCache(cacheKey, { assigned: true, timestamp: Date.now() });
+
+    // DB audit trail: record bot-initiated Trainer role assignment
+    const botId = client.user?.id ?? 'SYSTEM';
+    const botTag = client.user?.tag ?? 'SYSTEM#0000';
+    roleAuditService.recordRoleChange({
+      memberId: member.id,
+      memberTag: member.user.tag,
+      guildId: member.guild.id,
+      guildName: member.guild.name,
+      changeType: RoleChangeType.ADDITION,
+      roleId: role.id,
+      roleName: role.name,
+      rolePosition: role.position,
+      executorId: botId,
+      executorTag: botTag,
+      authorized: true,
+      origin: 'trainer-auto-assign',
+      metadata: { trigger: origin },
+    }).catch((err) =>
+      report('Trainer Auto-Assign — RoleChangeAudit Write Error', mergeReportError({
+        guild: guildSummary,
+        userId: member.id,
+      }, err), 'error'),
+    );
+    securityEventService.recordEvent({
+      eventType: 'trainer-auto-assign',
+      severity: SecuritySeverity.INFO,
+      guildId: member.guild.id,
+      guildName: member.guild.name,
+      memberId: member.id,
+      memberTag: member.user.tag,
+      roleId: role.id,
+      roleName: role.name,
+      executorId: botId,
+      executorTag: botTag,
+      origin: 'trainer-auto-assign',
+      metadata: { trigger: origin },
+    }).catch((err) =>
+      report('Trainer Auto-Assign — SecurityEvent Write Error', mergeReportError({
+        guild: guildSummary,
+        userId: member.id,
+      }, err), 'error'),
+    );
   } catch (error) {
     const err = error as ErrorWithCode;
     const hint = (err && (String(err.message).includes('Missing Permissions') || err.code === 50013))
@@ -2873,7 +3032,7 @@ async function sweepGuild(guild: Guild, origin: string): Promise<void> {
       return;
     }
 
-    const toAssign = guild.members.cache.filter(member => hasNoAssignableRoles(member));
+    const toAssign = guild.members.cache.filter(member => isMissingTrainerRole(member) && !member.user.bot);
     candidates = toAssign.size;
     if (toAssign.size === 0) {
       report('Sweep No-Op', {
@@ -2989,8 +3148,162 @@ async function sweepGuild(guild: Guild, origin: string): Promise<void> {
         log('warn', 'Failed to record sweep in state', mergeLogError({ guild: guildSummary }, error));
       }
     }
+
+    // Persist guild/member/role snapshot to DB after every sweep (fire-and-forget)
+    syncGuildSnapshot(guild).catch((err) =>
+      log('warn', 'Guild snapshot sync failed (non-blocking)', mergeLogError({ guild: guildSummary }, err)),
+    );
     
     updateMonitoringPhase();
+  }
+}
+
+// ============================================================================
+// Guild Snapshot Sync — Persist Discord state to DiscordGuild/DiscordMember/DiscordRole
+// The schema comment on DiscordGuild says "Synced by security bot periodic sweeps".
+// These tables feed cross-reference validation, anomaly baselines, and historical queries.
+// ============================================================================
+
+async function syncGuildSnapshot(guild: Guild): Promise<void> {
+  const guildSummary = describeGuild(guild);
+  const now = new Date();
+
+  try {
+    // 1. Upsert DiscordGuild
+    await prisma.discordGuild.upsert({
+      where: { id: guild.id },
+      update: {
+        name: guild.name,
+        ownerId: guild.ownerId,
+        icon: guild.icon,
+        memberCount: guild.memberCount ?? guild.members.cache.size,
+        roleCount: guild.roles.cache.size,
+        channelCount: guild.channels.cache.size,
+        lastSweepAt: now,
+        sweepCount: { increment: 1 },
+        lastUpdatedAt: now,
+      },
+      create: {
+        id: guild.id,
+        name: guild.name,
+        ownerId: guild.ownerId,
+        icon: guild.icon,
+        memberCount: guild.memberCount ?? guild.members.cache.size,
+        roleCount: guild.roles.cache.size,
+        channelCount: guild.channels.cache.size,
+        monitoringEnabled: true,
+        lastSweepAt: now,
+        sweepCount: 1,
+        firstSeenAt: now,
+        lastUpdatedAt: now,
+      },
+    });
+
+    // 2. Batch upsert DiscordMembers (chunked to avoid oversized transactions)
+    const members = [...guild.members.cache.values()];
+    const MEMBER_CHUNK = 50;
+    for (let i = 0; i < members.length; i += MEMBER_CHUNK) {
+      const chunk = members.slice(i, i + MEMBER_CHUNK);
+      await prisma.$transaction(
+        chunk.map((m) =>
+          prisma.discordMember.upsert({
+            where: {
+              discordUserId_guildId: { discordUserId: m.id, guildId: guild.id },
+            },
+            update: {
+              username: m.user.username,
+              displayName: m.displayName ?? null,
+              avatar: m.user.avatar,
+              bot: m.user.bot,
+              roles: m.roles.cache.filter((r) => r.id !== guild.roles.everyone.id).map((r) => r.id),
+              joinedAt: m.joinedAt,
+              premiumSince: m.premiumSince,
+              pending: m.pending ?? false,
+              communicationDisabledUntil: m.communicationDisabledUntil,
+              roleCount: m.roles.cache.size - 1, // exclude @everyone
+              highestRolePosition: m.roles.highest.position,
+              isAdministrator: m.permissions.has('Administrator'),
+              isOwner: m.id === guild.ownerId,
+              lastUpdatedAt: now,
+            },
+            create: {
+              discordUserId: m.id,
+              guildId: guild.id,
+              username: m.user.username,
+              displayName: m.displayName ?? null,
+              avatar: m.user.avatar,
+              bot: m.user.bot,
+              roles: m.roles.cache.filter((r) => r.id !== guild.roles.everyone.id).map((r) => r.id),
+              joinedAt: m.joinedAt,
+              premiumSince: m.premiumSince,
+              pending: m.pending ?? false,
+              communicationDisabledUntil: m.communicationDisabledUntil,
+              roleCount: m.roles.cache.size - 1,
+              highestRolePosition: m.roles.highest.position,
+              isAdministrator: m.permissions.has('Administrator'),
+              isOwner: m.id === guild.ownerId,
+              firstSeenAt: now,
+              lastUpdatedAt: now,
+            },
+          }),
+        ),
+      );
+    }
+
+    // 3. Batch upsert DiscordRoles
+    const roles = [...guild.roles.cache.values()].filter((r) => r.id !== guild.roles.everyone.id);
+    const ROLE_CHUNK = 25;
+    for (let i = 0; i < roles.length; i += ROLE_CHUNK) {
+      const chunk = roles.slice(i, i + ROLE_CHUNK);
+      await prisma.$transaction(
+        chunk.map((r) =>
+          prisma.discordRole.upsert({
+            where: {
+              discordRoleId_guildId: { discordRoleId: r.id, guildId: guild.id },
+            },
+            update: {
+              name: r.name,
+              color: r.color,
+              hoist: r.hoist,
+              position: r.position,
+              permissions: r.permissions.bitfield.toString(),
+              mentionable: r.mentionable,
+              managed: r.managed,
+              isAdmin: r.permissions.has('Administrator'),
+              isDangerous: r.permissions.has('Administrator') || r.permissions.has('BanMembers') || r.permissions.has('KickMembers'),
+              memberCount: r.members.size,
+              lastUpdatedAt: now,
+            },
+            create: {
+              discordRoleId: r.id,
+              guildId: guild.id,
+              name: r.name,
+              color: r.color,
+              hoist: r.hoist,
+              position: r.position,
+              permissions: r.permissions.bitfield.toString(),
+              mentionable: r.mentionable,
+              managed: r.managed,
+              isAdmin: r.permissions.has('Administrator'),
+              isDangerous: r.permissions.has('Administrator') || r.permissions.has('BanMembers') || r.permissions.has('KickMembers'),
+              memberCount: r.members.size,
+              firstSeenAt: now,
+              lastUpdatedAt: now,
+            },
+          }),
+        ),
+      );
+    }
+
+    report('Guild Snapshot Synced', {
+      guild: guildSummary,
+      members: members.length,
+      roles: roles.length,
+    }, 'detail');
+  } catch (error) {
+    report('Guild Snapshot Sync Error', mergeReportError({
+      guild: guildSummary,
+    }, error), 'error');
   }
 }
 
@@ -3712,6 +4025,28 @@ async function handleRolePermissionUpdate(oldRole: Role | null, newRole: Role | 
   const executorSummary = executor ? describeUser(executor) : 'unknown user';
 
   if (authorization.authorized) {
+    // DB audit trail: record authorized permission change for full visibility
+    securityEventService.recordEvent({
+      eventType: 'authorized-permission-change',
+      severity: SecuritySeverity.INFO,
+      guildId: guild.id,
+      guildName: guild.name,
+      roleId: newRole.id,
+      roleName: newRole.name,
+      executorId: executor?.id ?? 'unknown',
+      executorTag: executor ? describeUser(executor) : 'unknown',
+      origin: 'permission-update-monitor',
+      metadata: {
+        previousPermissions: oldRole.permissions.toArray(),
+        newPermissions: newRole.permissions.toArray(),
+        auditId: auditEntry?.id ?? null,
+      },
+    }).catch((err) =>
+      report('Authorized Permission Change — SecurityEvent Write Error', mergeReportError({
+        guild: describeGuild(guild),
+        roleId: newRole.id,
+      }, err), 'error'),
+    );
     return { changed: true, unauthorized: false };
   }
 
@@ -3759,6 +4094,31 @@ async function handleRolePermissionUpdate(oldRole: Role | null, newRole: Role | 
     lastAlertSentAt: new Date(),
     lastAlertMessage: title,
   });
+
+  // DB audit trail: record unauthorized permission change
+  securityEventService.recordEvent({
+    eventType: 'unauthorized-permission-change',
+    severity: SecuritySeverity.HIGH,
+    guildId: guild.id,
+    guildName: guild.name,
+    roleId: newRole.id,
+    roleName: newRole.name,
+    executorId: executor?.id ?? 'unknown',
+    executorTag: executor ? describeUser(executor) : 'unknown',
+    origin: 'permission-update-monitor',
+    metadata: {
+      previousPermissions: oldRole.permissions.toArray(),
+      attemptedPermissions: newRole.permissions.toArray(),
+      revertStatus: revertError ? 'failed' : 'success',
+      auditId: auditEntry?.id ?? null,
+    },
+  }).catch((err) =>
+    report('Unauthorized Permission Change — SecurityEvent Write Error', mergeReportError({
+      guild: describeGuild(guild),
+      roleId: newRole.id,
+    }, err), 'error'),
+  );
+
   report('Unauthorized Role Permission Change Reverted', alertMeta, 'warn');
 
   return { changed: true, unauthorized: true, revertStatus: alertMeta.revertStatus };
@@ -3809,6 +4169,25 @@ client.on('guildMemberAdd', async (member) => {
               userId: member.id,
             }, err), 'error'),
           );
+          securityEventService.recordEvent({
+            eventType: 'moderator-channel-sync',
+            severity: SecuritySeverity.INFO,
+            guildId: member.guild.id,
+            guildName: member.guild.name,
+            memberId: member.id,
+            memberTag: member.user.tag,
+            roleId: GYM_LEADER_ROLE_ID,
+            roleName: gymLeaderRole?.name ?? 'Gym Leader',
+            executorId: botId,
+            executorTag: botTag,
+            origin: 'moderator-channel-sync',
+            metadata: { changeType: 'addition', channelId: MODERATOR_ONLY_CHANNEL_ID, trigger: 'member-rejoin' },
+          }).catch((err) =>
+            report('Gym Leader Grant (rejoin) — SecurityEvent Write Error', mergeReportError({
+              guild: guildSummary,
+              userId: member.id,
+            }, err), 'error'),
+          );
           report('Gym Leader Role Granted on Rejoin', {
             guild: guildSummary,
             member: memberSummary,
@@ -3825,17 +4204,160 @@ client.on('guildMemberAdd', async (member) => {
   }
 });
 
-// Heal members who lose all assignable roles (drop to @everyone only)
+// Heal members who lose Trainer role (covers both roleless and members with other roles)
 client.on('guildMemberUpdate', async (oldMember, newMember) => {
   try {
     const result = await maybeAlertRoleAssignments(oldMember, newMember);
-    if (!result?.unauthorized && hasNoAssignableRoles(newMember)) {
+    if (!result?.unauthorized && isMissingTrainerRole(newMember) && !newMember.user.bot) {
       await ensureTrainerFor(newMember, 'member-update');
     }
   } catch (err) {
     report('Member Update Heal Error', mergeReportError({
       guild: describeGuild(newMember.guild),
       member: describeMember(newMember),
+    }, err), 'error');
+  }
+});
+
+// Track member departures — persist to DiscordMember + log security event
+client.on('guildMemberRemove', async (member) => {
+  const guild = member.guild;
+  const guildSummary = describeGuild(guild);
+  const now = new Date();
+  try {
+    // Mark the member record with a lastUpdatedAt bump (role list stays as-was at departure)
+    await prisma.discordMember.upsert({
+      where: {
+        discordUserId_guildId: { discordUserId: member.id, guildId: guild.id },
+      },
+      update: {
+        lastUpdatedAt: now,
+        securityFlags: { push: 'DEPARTED' },
+      },
+      create: {
+        discordUserId: member.id,
+        guildId: guild.id,
+        username: member.user?.username ?? 'unknown',
+        bot: member.user?.bot ?? false,
+        roles: [],
+        roleCount: 0,
+        highestRolePosition: 0,
+        isAdministrator: false,
+        isOwner: false,
+        firstSeenAt: now,
+        lastUpdatedAt: now,
+        securityFlags: ['DEPARTED'],
+      },
+    });
+
+    // Update guild member count
+    await prisma.discordGuild.update({
+      where: { id: guild.id },
+      data: {
+        memberCount: guild.memberCount ?? guild.members.cache.size,
+        lastUpdatedAt: now,
+      },
+    }).catch(() => { /* guild row may not exist yet */ });
+
+    report('Member Left Guild', {
+      guild: guildSummary,
+      user: member.user?.tag ?? member.id,
+      wasBot: member.user?.bot ?? false,
+    }, 'detail');
+  } catch (err) {
+    report('Member Remove Tracking Error', mergeReportError({
+      guild: guildSummary,
+      userId: member.id,
+    }, err), 'error');
+  }
+});
+
+// Track role creation — persist to DiscordRole + log security event
+client.on('roleCreate', async (role) => {
+  const guild = role.guild;
+  const now = new Date();
+  try {
+    await prisma.discordRole.upsert({
+      where: {
+        discordRoleId_guildId: { discordRoleId: role.id, guildId: guild.id },
+      },
+      update: {
+        name: role.name,
+        color: role.color,
+        hoist: role.hoist,
+        position: role.position,
+        permissions: role.permissions.bitfield.toString(),
+        mentionable: role.mentionable,
+        managed: role.managed,
+        isAdmin: role.permissions.has('Administrator'),
+        isDangerous: role.permissions.has('Administrator') || role.permissions.has('BanMembers') || role.permissions.has('KickMembers'),
+        memberCount: role.members.size,
+        lastUpdatedAt: now,
+      },
+      create: {
+        discordRoleId: role.id,
+        guildId: guild.id,
+        name: role.name,
+        color: role.color,
+        hoist: role.hoist,
+        position: role.position,
+        permissions: role.permissions.bitfield.toString(),
+        mentionable: role.mentionable,
+        managed: role.managed,
+        isAdmin: role.permissions.has('Administrator'),
+        isDangerous: role.permissions.has('Administrator') || role.permissions.has('BanMembers') || role.permissions.has('KickMembers'),
+        memberCount: role.members.size,
+        firstSeenAt: now,
+        lastUpdatedAt: now,
+      },
+    });
+
+    // Update guild role count
+    await prisma.discordGuild.update({
+      where: { id: guild.id },
+      data: { roleCount: guild.roles.cache.size, lastUpdatedAt: now },
+    }).catch(() => { /* guild row may not exist yet */ });
+
+    report('Role Created', {
+      guild: describeGuild(guild),
+      role: describeRole(role),
+      isAdmin: role.permissions.has('Administrator'),
+      isDangerous: role.permissions.has('Administrator') || role.permissions.has('BanMembers') || role.permissions.has('KickMembers'),
+    }, 'detail');
+  } catch (err) {
+    report('Role Create Tracking Error', mergeReportError({
+      guild: describeGuild(guild),
+      roleId: role.id,
+    }, err), 'error');
+  }
+});
+
+// Track role deletion — remove from DiscordRole + log security event
+client.on('roleDelete', async (role) => {
+  const guild = role.guild;
+  const now = new Date();
+  try {
+    // Delete the DB row if it exists
+    await prisma.discordRole.deleteMany({
+      where: { discordRoleId: role.id, guildId: guild.id },
+    });
+
+    // Update guild role count
+    await prisma.discordGuild.update({
+      where: { id: guild.id },
+      data: { roleCount: guild.roles.cache.size, lastUpdatedAt: now },
+    }).catch(() => { /* guild row may not exist yet */ });
+
+    report('Role Deleted', {
+      guild: describeGuild(guild),
+      roleId: role.id,
+      roleName: role.name,
+      wasAdmin: role.permissions.has('Administrator'),
+    }, 'detail');
+  } catch (err) {
+    report('Role Delete Tracking Error', mergeReportError({
+      guild: describeGuild(guild),
+      roleId: role.id,
     }, err), 'error');
   }
 });
