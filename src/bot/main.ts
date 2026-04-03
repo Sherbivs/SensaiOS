@@ -3018,19 +3018,36 @@ function startContinuousSweepLoop(transformer?: (guilds: Guild[], signal?: Abort
  * Gym Leader role; members who have the role but no overwrite have it stripped.
  * Called at boot and can be called on demand.
  */
+// Guards against concurrent invocations of syncModeratorChannelRoles for the
+// same guild (e.g., bot restart racing with a periodic tick). Keyed by guildId.
+const gymSyncInProgress = new Set<string>();
+
 async function syncModeratorChannelRoles(trigger: string): Promise<void> {
   for (const [, guild] of client.guilds.cache) {
+    // Skip if a sync is already running for this guild (e.g., periodic tick
+    // fires while the boot sync is still in progress).
+    if (gymSyncInProgress.has(guild.id)) {
+      report('Gym Leader Role Sync Skipped — Already In Progress', {
+        guild: describeGuild(guild),
+        trigger,
+      }, 'info');
+      continue;
+    }
+    gymSyncInProgress.add(guild.id);
     try {
-      const channel = guild.channels.cache.get(MODERATOR_ONLY_CHANNEL_ID)
-        ?? await guild.channels.fetch(MODERATOR_ONLY_CHANNEL_ID).catch(() => null);
+      // Always force-fetch the channel via REST so permission overwrites reflect
+      // live Discord state. The local cache is empty or stale at boot-time,
+      // which would cause memberIdsWithAccess to resolve as an empty Set and
+      // silently skip every member who should receive the Gym Leader role.
+      const channel = await guild.channels.fetch(MODERATOR_ONLY_CHANNEL_ID).catch(() => null);
 
       if (!channel || !('permissionOverwrites' in channel)) {
         // Channel not found in this guild — not an error, bot may be in multiple guilds.
         continue;
       }
 
-      const gymLeaderRole = guild.roles.cache.get(GYM_LEADER_ROLE_ID)
-        ?? await guild.roles.fetch(GYM_LEADER_ROLE_ID).catch(() => null);
+      // Always force-fetch the role so we use its live ID-based reference.
+      const gymLeaderRole = await guild.roles.fetch(GYM_LEADER_ROLE_ID).catch(() => null);
 
       if (!gymLeaderRole) {
         report('Gym Leader Role Not Found', {
@@ -3184,6 +3201,8 @@ async function syncModeratorChannelRoles(trigger: string): Promise<void> {
         guild: describeGuild(guild),
         trigger,
       }, err), 'error');
+    } finally {
+      gymSyncInProgress.delete(guild.id);
     }
   }
 }
@@ -3403,6 +3422,16 @@ client.once(Events.ClientReady, async () => {
   // the moderator-only channel holds the Gym Leader role, and anyone who
   // shouldn't (no overwrite) does not.
   void syncModeratorChannelRoles('boot');
+
+  // Periodic re-sync every 4 hours: corrects any drift caused by missed
+  // channelUpdate events (gateway reconnects, Discord outages, etc.).
+  const GYM_SYNC_INTERVAL_MS = 4 * 60 * 60 * 1000; // 4 hours
+  const gymSyncTimer = setInterval(() => {
+    if (isClientReady()) {
+      void syncModeratorChannelRoles('periodic');
+    }
+  }, GYM_SYNC_INTERVAL_MS);
+  gymSyncTimer.unref?.();
 });
 
 // Slash commands and autocomplete
@@ -3526,6 +3555,56 @@ client.on('guildMemberAdd', async (member) => {
   });
 
   await ensureTrainerFor(member, 'member-join');
+
+  // Check whether the rejoining member already has a per-member overwrite on
+  // the moderator-only channel (e.g., they left and rejoined the server).
+  // If so, grant the Gym Leader role immediately by ID — don't wait for the
+  // next boot-time or periodic sync.
+  try {
+    const channel = member.guild.channels.cache.get(MODERATOR_ONLY_CHANNEL_ID)
+      ?? await member.guild.channels.fetch(MODERATOR_ONLY_CHANNEL_ID).catch(() => null);
+    if (channel && 'permissionOverwrites' in channel) {
+      const overwrite = channel.permissionOverwrites.cache.get(member.id);
+      if (overwrite && overwrite.type === OverwriteType.Member) {
+        if (!member.roles.cache.has(GYM_LEADER_ROLE_ID)) {
+          await member.roles.add(GYM_LEADER_ROLE_ID, 'Moderator-only channel access (member rejoin)');
+          const botId = client.user?.id ?? 'SYSTEM';
+          const botTag = client.user?.tag ?? 'SYSTEM#0000';
+          const gymLeaderRole = member.guild.roles.cache.get(GYM_LEADER_ROLE_ID);
+          roleAuditService.recordRoleChange({
+            memberId: member.id,
+            memberTag: member.user.tag,
+            guildId: member.guild.id,
+            guildName: member.guild.name,
+            changeType: RoleChangeType.ADDITION,
+            roleId: GYM_LEADER_ROLE_ID,
+            roleName: gymLeaderRole?.name ?? 'Gym Leader',
+            rolePosition: gymLeaderRole?.position ?? null,
+            executorId: botId,
+            executorTag: botTag,
+            authorized: true,
+            origin: 'moderator-channel-sync',
+            metadata: { channelId: MODERATOR_ONLY_CHANNEL_ID, trigger: 'member-rejoin' },
+          }).catch((err) =>
+            report('Gym Leader Grant (rejoin) — RoleChangeAudit Write Error', mergeReportError({
+              guild: guildSummary,
+              userId: member.id,
+            }, err), 'error'),
+          );
+          report('Gym Leader Role Granted on Rejoin', {
+            guild: guildSummary,
+            member: memberSummary,
+            channelId: MODERATOR_ONLY_CHANNEL_ID,
+          });
+        }
+      }
+    }
+  } catch (err) {
+    report('Gym Leader Rejoin Check Error', mergeReportError({
+      guild: guildSummary,
+      member: memberSummary,
+    }, err), 'error');
+  }
 });
 
 // Heal members who lose all assignable roles (drop to @everyone only)
@@ -3591,6 +3670,16 @@ client.on('channelUpdate', async (oldChannel, newChannel) => {
   for (const ow of added) {
     try {
       const member = await guild.members.fetch(ow.id);
+      // Idempotency: member was already given the role by a previous event or
+      // a concurrent sync run. Skip the API call and audit record to avoid
+      // duplicates and confusing log noise.
+      if (member.roles.cache.has(GYM_LEADER_ROLE_ID)) {
+        report('Gym Leader Role Already Held — Skipping Grant', {
+          guild: describeGuild(guild),
+          userId: ow.id,
+        }, 'info');
+        continue;
+      }
       await member.roles.add(GYM_LEADER_ROLE_ID, 'Moderator-only channel access granted');
       report('Gym Leader Role Granted', {
         guild: describeGuild(guild),
@@ -3650,6 +3739,15 @@ client.on('channelUpdate', async (oldChannel, newChannel) => {
   for (const ow of removed) {
     try {
       const member = await guild.members.fetch(ow.id);
+      // Idempotency: member never held the role or it was already removed.
+      // Skip to avoid a no-op Discord API call and a spurious audit record.
+      if (!member.roles.cache.has(GYM_LEADER_ROLE_ID)) {
+        report('Gym Leader Role Not Held — Skipping Revoke', {
+          guild: describeGuild(guild),
+          userId: ow.id,
+        }, 'info');
+        continue;
+      }
       await member.roles.remove(GYM_LEADER_ROLE_ID, 'Moderator-only channel access revoked');
       report('Gym Leader Role Revoked', {
         guild: describeGuild(guild),
