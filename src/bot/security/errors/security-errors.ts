@@ -180,6 +180,10 @@ export const ExternalServiceErrorCode = {
   NETWORK_ERROR: 'SEC_EXT_004',
   SERVICE_TIMEOUT: 'SEC_EXT_005',
   INVALID_RESPONSE: 'SEC_EXT_006',
+  /** Discord REST fetch for channel/role failed during gym leader sync */
+  DISCORD_FETCH_FAILED: 'SEC_EXT_007',
+  /** guild.members.fetch() failed or timed out */
+  MEMBER_FETCH_FAILED: 'SEC_EXT_008',
 } as const;
 
 /**
@@ -205,6 +209,14 @@ export const ConfigurationErrorCode = {
   ENCRYPTION_KEY_MISSING: 'SEC_CFG_003',
   ENVIRONMENT_INVALID: 'SEC_CFG_004',
   FEATURE_DISABLED: 'SEC_CFG_005',
+  /** Role ID env var resolved to a non-existent Discord role at startup */
+  ROLE_NOT_FOUND: 'SEC_CFG_006',
+  /** Channel ID env var resolved to a non-existent Discord channel at startup */
+  CHANNEL_NOT_FOUND: 'SEC_CFG_007',
+  /** HOMESTEAD_CATEGORY_ID pointed to a non-category channel */
+  CATEGORY_TYPE_MISMATCH: 'SEC_CFG_008',
+  /** HMAC key still using well-known dev default in production */
+  INSECURE_HMAC_KEY: 'SEC_CFG_009',
 } as const;
 
 /**
@@ -216,6 +228,12 @@ export const InternalErrorCode = {
   STATE_CORRUPTION: 'SEC_ERR_003',
   MEMORY_EXCEEDED: 'SEC_ERR_004',
   UNHANDLED_CASE: 'SEC_ERR_005',
+  /** Gym Leader sync concurrency guard prevented parallel execution */
+  SYNC_ALREADY_IN_PROGRESS: 'SEC_ERR_006',
+  /** Gym Leader role grant/revoke failed for a specific member */
+  ROLE_SYNC_MEMBER_ERROR: 'SEC_ERR_007',
+  /** Discord REST fetch failed during boot-time reconciliation */
+  BOOT_RECONCILIATION_ERROR: 'SEC_ERR_008',
 } as const;
 
 /**

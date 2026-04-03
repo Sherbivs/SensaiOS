@@ -210,10 +210,10 @@ export class HomesteadChannelManager {
    * Get or create Homesteads category
    */
   private async getOrCreateCategory() {
-    // ID-first: try direct lookup by ID if configured
+    // ID-first: try direct lookup by ID if configured (verify it's a category)
     if (HOMESTEAD_CATEGORY_ID) {
       const byId = this.guild.channels.cache.get(HOMESTEAD_CATEGORY_ID);
-      if (byId) return byId;
+      if (byId && byId.type === ChannelType.GuildCategory) return byId;
     }
 
     // Fallback: find by name (covers first-run before ID is configured)

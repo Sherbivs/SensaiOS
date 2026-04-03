@@ -310,7 +310,7 @@ services:
     repo: https://github.com/sherbivs/infinity-gauntlet
     branch: main
     rootDirectory: .
-    buildCommand: "npm install --include=dev --omit=optional && npm run prebuild"
+    buildCommand: "rm -rf node_modules && npm install --include=dev --omit=optional && npm run prebuild"
     startCommand: "node scripts/worker.mjs"
     autoDeploy: true
     disks:
@@ -374,7 +374,7 @@ services:
     repo: https://github.com/sherbivs/infinity-gauntlet
     branch: main
     rootDirectory: .
-    buildCommand: "npm install --include=dev --omit=optional && npm run prebuild"
+    buildCommand: "rm -rf node_modules && npm install --include=dev --omit=optional && npm run prebuild"
     startCommand: "node scripts/refresh_cache_gh_only.mjs"
     schedule: "0 0 * * 4"
     envVars:

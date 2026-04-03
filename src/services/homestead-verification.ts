@@ -218,10 +218,11 @@ export class HomesteadVerificationService {
   ): Promise<TextChannel> {
     const categoryName = options.categoryName || HOMESTEAD_CATEGORY_NAME;
     
-    // ID-first: try direct lookup by ID if configured
+    // ID-first: try direct lookup by ID if configured (verify it's a category)
     let category = HOMESTEAD_CATEGORY_ID
-      ? guild.channels.cache.get(HOMESTEAD_CATEGORY_ID) ?? null
+      ? (guild.channels.cache.get(HOMESTEAD_CATEGORY_ID) ?? null)
       : null;
+    if (category && category.type !== ChannelType.GuildCategory) category = null;
 
     // Fallback: find by name (covers first-run before ID is configured)
     if (!category) {
@@ -237,8 +238,8 @@ export class HomesteadVerificationService {
       });
     }
 
-    // Fetch Discord user to get username
-    const discordUser = await this.discordClient.users.fetch(user.id);
+    // Fetch Discord user to get username (use discordId, NOT Prisma CUID id)
+    const discordUser = await this.discordClient.users.fetch(user.discordId);
     const channelName = `homestead-${discordUser.username.toLowerCase().replace(/[^a-z0-9]/g, '')}`;
 
     // Create private channel
@@ -252,7 +253,7 @@ export class HomesteadVerificationService {
           deny: [...EVERYONE_DENY],
         },
         {
-          id: user.id, // User
+          id: user.discordId, // User (Discord snowflake, not Prisma CUID)
           allow: [...USER_PERMISSIONS],
         },
         {

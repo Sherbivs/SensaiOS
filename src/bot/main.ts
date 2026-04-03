@@ -1346,11 +1346,10 @@ function extractAuditRoleIds(change: AuditRoleChange | null | undefined): string
 
 // Role IDs that are always treated as authorized executors by the security bot.
 // Members holding these roles can make role/permission changes without triggering
-// a revert. Declared here rather than in env.ts because they are server-specific
-// constants, not operator-configurable environment variables.
+// a revert. Uses imported constants from env.ts for consistency with ID-first pattern.
 const AUTHORIZED_ROLE_IDS = new Set<string>([
-  '1121277160963981372', // Admin
-  '1318637907078283285', // Server Admin
+  ADMIN_ROLE_ID,        // Admin
+  SERVER_ADMIN_ROLE_ID, // Server Admin
 ]);
 
 async function evaluateExecutorAuthorization(guild: Guild | null, executor: GuildMember | User | null): Promise<ExecutorAuthorizationResult> {
@@ -3051,7 +3050,12 @@ async function syncModeratorChannelRoles(trigger: string): Promise<void> {
       // live Discord state. The local cache is empty or stale at boot-time,
       // which would cause memberIdsWithAccess to resolve as an empty Set and
       // silently skip every member who should receive the Gym Leader role.
-      const channel = await guild.channels.fetch(MODERATOR_ONLY_CHANNEL_ID).catch(() => null);
+      const channel = await guild.channels.fetch(MODERATOR_ONLY_CHANNEL_ID).catch((err) => {
+        log('warn', 'Gym Leader Sync: Failed to fetch moderator channel', mergeLogError({
+          guild: describeGuild(guild), channelId: MODERATOR_ONLY_CHANNEL_ID, trigger,
+        }, err));
+        return null;
+      });
 
       if (!channel || !('permissionOverwrites' in channel)) {
         // Channel not found in this guild — not an error, bot may be in multiple guilds.
@@ -3059,7 +3063,12 @@ async function syncModeratorChannelRoles(trigger: string): Promise<void> {
       }
 
       // Always force-fetch the role so we use its live ID-based reference.
-      const gymLeaderRole = await guild.roles.fetch(GYM_LEADER_ROLE_ID).catch(() => null);
+      const gymLeaderRole = await guild.roles.fetch(GYM_LEADER_ROLE_ID).catch((err) => {
+        log('warn', 'Gym Leader Sync: Failed to fetch gym leader role', mergeLogError({
+          guild: describeGuild(guild), roleId: GYM_LEADER_ROLE_ID, trigger,
+        }, err));
+        return null;
+      });
 
       if (!gymLeaderRole) {
         report('Gym Leader Role Not Found', {
@@ -3308,6 +3317,29 @@ client.once(Events.ClientReady, async () => {
     connectedAs: client.user?.tag ?? 'Unknown',
     userId: client.user?.id ?? 'Unknown',
   });
+
+  // Startup validation: verify critical role IDs resolve to actual Discord roles.
+  // A silent lookup failure here means the security bot won't assign roles at all.
+  for (const [, guild] of client.guilds.cache) {
+    const trainerRole = guild.roles.cache.get(TRAINER_ROLE_ID);
+    if (!trainerRole) {
+      report('⚠️ TRAINER_ROLE_ID Not Found In Guild', {
+        guild: describeGuild(guild),
+        trainerRoleId: TRAINER_ROLE_ID,
+        availableRoleCount: guild.roles.cache.size,
+        impact: 'Trainer role assignment will silently fail for this guild',
+      }, 'error');
+    }
+    const gymRole = guild.roles.cache.get(GYM_LEADER_ROLE_ID);
+    if (!gymRole) {
+      report('⚠️ GYM_LEADER_ROLE_ID Not Found In Guild', {
+        guild: describeGuild(guild),
+        gymLeaderRoleId: GYM_LEADER_ROLE_ID,
+        impact: 'Gym Leader sync will skip this guild',
+      }, 'warn');
+    }
+  }
+
   if (commands && commands.size) {
     log('info', 'Slash commands loaded', { count: commands.size });
   }
