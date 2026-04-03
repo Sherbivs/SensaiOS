@@ -2741,6 +2741,25 @@ function isAuthorizedDripActor(actorId: string | null | undefined, guild: Guild)
   );
 }
 
+function getDripChannelOverwriteEditability(channel: GuildChannel): {
+  ok: boolean;
+  missing: PermissionsString[];
+} {
+  const me = channel.guild.members.me;
+  if (!me) {
+    return { ok: false, missing: ['ViewChannel', 'ManageChannels'] };
+  }
+
+  const effectivePermissions = channel.permissionsFor(me);
+  const required: PermissionsString[] = ['ViewChannel', 'ManageChannels'];
+  const missing = required.filter((permission) => !effectivePermissions?.has(permission));
+
+  return {
+    ok: missing.length === 0,
+    missing,
+  };
+}
+
 /**
  * Ensures the Drip role has the required allow-overwrite on a single channel.
  * No-ops if the overwrite is already complete and nothing is denied.
@@ -2752,6 +2771,19 @@ async function ensureDripRoleOnChannel(channel: GuildChannel, origin: string): P
   if (channel.isThread()) return false;
   if (DRIP_ROLE_EXCLUDE_CHANNEL_IDS.has(channel.id)) return false;
   if (!('permissionOverwrites' in channel)) return false;
+
+  const editability = getDripChannelOverwriteEditability(channel);
+  if (!editability.ok) {
+    report('Drip Channel Overwrite Skipped', {
+      channel: channel.id,
+      channelName: channel.name,
+      guild: describeGuild(channel.guild),
+      origin,
+      missingPermissions: editability.missing,
+      hint: 'Grant the bot ViewChannel and ManageChannels on this channel or its parent category.',
+    }, 'warn');
+    return false;
+  }
 
   const existing = channel.permissionOverwrites.cache.get(DRIP_ROLE_ID);
   if (existing) {
