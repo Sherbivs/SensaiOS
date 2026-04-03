@@ -317,6 +317,8 @@ export const RESOURCE_MONITOR_INTERVAL_MS = toNumber(process.env.RESOURCE_MONITO
 // ============================================================================
 
 export const HOMESTEAD_CATEGORY_NAME = process.env.HOMESTEAD_CATEGORY_NAME ?? "Homesteads";
+// Homestead category channel ID — set after first creation, used for ID-first lookup.
+export const HOMESTEAD_CATEGORY_ID = process.env.HOMESTEAD_CATEGORY_ID ?? "";
 export const HOMESTEAD_CLEANUP_DAYS = toNumber(process.env.HOMESTEAD_CLEANUP_DAYS, 90);
 export const HOMESTEAD_CHECK_INTERVAL_MS = toNumber(process.env.HOMESTEAD_CHECK_INTERVAL_MS, 1000);
 export const HOMESTEAD_MIN_RECHECK_MS = toNumber(process.env.HOMESTEAD_MIN_RECHECK_MS, 60 * 60 * 1000); // 1 hour
@@ -348,12 +350,34 @@ export const ROLE_PERMISSION_SNAPSHOT_UPDATE = toBool(process.env.ROLE_PERMISSIO
 
 export const DEFAULT_ROLE_NAME = "Trainer";
 export const ROLE_NAME = process.env.ROLE_NAME ?? DEFAULT_ROLE_NAME;
-export const ROLE_ID = process.env.ROLE_ID ?? "";
+
+// Trainer role ID — production default from discord_roles table.
+// This is the primary role assigned to new guild members.
+export const TRAINER_ROLE_ID = process.env.TRAINER_ROLE_ID ?? process.env.ROLE_ID ?? "1333469904799666373";
+/** @deprecated Use TRAINER_ROLE_ID instead */
+export const ROLE_ID = TRAINER_ROLE_ID;
 
 // Channel-role sync: members added to the moderator-only channel receive the
 // Gym Leader role; members removed from that channel lose it.
 export const GYM_LEADER_ROLE_ID = process.env.GYM_LEADER_ROLE_ID ?? "1349132231880216631";
 export const MODERATOR_ONLY_CHANNEL_ID = process.env.MODERATOR_ONLY_CHANNEL_ID ?? "1129075047416463381";
+
+// ============================================================================
+// Discord Role ID Registry (Production Defaults)
+// ============================================================================
+// IDs are the source of truth — names are display-only labels.
+// Queried from discord_roles table. Update if roles are recreated.
+
+export const ADMIN_ROLE_ID = process.env.ADMIN_ROLE_ID ?? "1121277160963981372";
+export const SERVER_ADMIN_ROLE_ID = process.env.SERVER_ADMIN_ROLE_ID ?? "1318637907078283285";
+export const SUPER_ADMIN_ROLE_ID = process.env.SUPER_ADMIN_ROLE_ID ?? "1336098912284708896";
+export const DRIP_ROLE_ID = process.env.DRIP_ROLE_ID ?? "1430739109135126531";
+export const ZAPIER_ROLE_ID = process.env.ZAPIER_ROLE_ID ?? "1319232349140946950";
+export const FRESHTOK_ROLE_ID = process.env.FRESHTOK_ROLE_ID ?? "1319239915522756673";
+export const POKETWO_ROLE_ID = process.env.POKETWO_ROLE_ID ?? "1233893448986394738";
+export const DND_CANDIDATE_ROLE_ID = process.env.DND_CANDIDATE_ROLE_ID ?? "1323081760967364688";
+export const SERVER_BOOSTER_ROLE_ID = process.env.SERVER_BOOSTER_ROLE_ID ?? "1131814378694524981";
+export const EVERYONE_ROLE_ID = process.env.EVERYONE_ROLE_ID ?? "1100976155579912222";
 
 // ============================================================================
 // Alert/Reporting Configuration (extended)
@@ -363,11 +387,13 @@ export const ALERT_WEBHOOK_URL = process.env.ALERT_WEBHOOK_URL ?? "";
 export const ALERT_USER_ID = process.env.ALERT_USER_ID ?? "";
 export const SECURITY_BOT_TOKEN = process.env.SECURITY_BOT_TOKEN ?? process.env.BOT_TOKEN ?? "";
 
-export const RESTART_DM_RECIPIENT = process.env.RESTART_DM_RECIPIENT ?? "DripTVDD";
+// Alert recipients: ID-first. DRIP_USER_ID (563220840708177927) is the default.
+// resolveAlertUser() will fetch by ID directly — no username search needed.
+export const RESTART_DM_RECIPIENT = process.env.RESTART_DM_RECIPIENT ?? DRIP_USER_ID;
 export const SUMMARY_REPORT_RECIPIENT = process.env.SUMMARY_REPORT_RECIPIENT ?? RESTART_DM_RECIPIENT;
 export const SUMMARY_REPORT_HOUR = Math.max(0, Math.min(23, toNumber(process.env.SUMMARY_REPORT_HOUR, 3)));
 export const SUMMARY_REPORT_MINUTE = Math.max(0, Math.min(59, toNumber(process.env.SUMMARY_REPORT_MINUTE, 0)));
-export const DRIP_ALERT_RECIPIENT = process.env.DRIP_ALERT_RECIPIENT ?? "DripTVDD";
+export const DRIP_ALERT_RECIPIENT = process.env.DRIP_ALERT_RECIPIENT ?? DRIP_USER_ID;
 export const DRIP_ALERT_HOUR = Math.max(0, Math.min(23, toNumber(process.env.DRIP_ALERT_HOUR, 2)));
 export const DRIP_ALERT_MINUTE = Math.max(0, Math.min(59, toNumber(process.env.DRIP_ALERT_MINUTE, 0)));
 export const DRIP_ALERT_TIMEZONE = process.env.DRIP_ALERT_TIMEZONE ?? "America/New_York";
@@ -401,8 +427,13 @@ export const STANDARD_ENFORCE_ALL = toBool(process.env.STANDARD_ENFORCE_ALL);
 export const UNLISTED_PERMISSIONS = toList(process.env.UNLISTED_PERMISSIONS).length > 0
   ? toList(process.env.UNLISTED_PERMISSIONS)
   : ["ViewChannel", "SendMessages", "ReadMessageHistory", "AddReactions", "UseExternalEmojis", "EmbedLinks", "AttachFiles"];
-export const STANDARD_EXEMPT_ROLES = new Set(toList(process.env.STANDARD_EXEMPT_ROLES));
-export const STANDARD_ALL_PERMS_ROLES = new Set(toList(process.env.STANDARD_ALL_PERMS_ROLES));
+// Exempt/all-perms role sets: use role IDs (not names).
+export const STANDARD_EXEMPT_ROLE_IDS = new Set(toList(process.env.STANDARD_EXEMPT_ROLE_IDS));
+export const STANDARD_ALL_PERMS_ROLE_IDS = new Set(toList(process.env.STANDARD_ALL_PERMS_ROLE_IDS));
+/** @deprecated Use STANDARD_EXEMPT_ROLE_IDS */
+export const STANDARD_EXEMPT_ROLES = STANDARD_EXEMPT_ROLE_IDS;
+/** @deprecated Use STANDARD_ALL_PERMS_ROLE_IDS */
+export const STANDARD_ALL_PERMS_ROLES = STANDARD_ALL_PERMS_ROLE_IDS;
 
 // ============================================================================
 // DoS Protection Configuration

@@ -31,7 +31,7 @@ import type { User, HomesteadChannel } from '@prisma/client';
 import { ensureError } from '../shared/utils/error-utils.js';
 import { ImmutableAuditService } from '../bot/security/services/immutable-audit-service.js';
 import { EventBus } from '../shared/event-bus.js';
-import { HOMESTEAD_HMAC_KEY } from '../config/env.js';
+import { HOMESTEAD_HMAC_KEY, HOMESTEAD_CATEGORY_ID, HOMESTEAD_CATEGORY_NAME } from '../config/env.js';
 import { USER_PERMISSIONS, EVERYONE_DENY } from './homestead-permissions.js';
 import { getErrorMessage } from '../shared/utils/error-utils.js';
 
@@ -216,12 +216,19 @@ export class HomesteadVerificationService {
     guild: Guild,
     options: HomesteadCreationOptions
   ): Promise<TextChannel> {
-    const categoryName = options.categoryName || 'Homesteads';
+    const categoryName = options.categoryName || HOMESTEAD_CATEGORY_NAME;
     
-    // Find or create category
-    let category = guild.channels.cache.find(
-      ch => ch.name === categoryName && ch.type === ChannelType.GuildCategory
-    );
+    // ID-first: try direct lookup by ID if configured
+    let category = HOMESTEAD_CATEGORY_ID
+      ? guild.channels.cache.get(HOMESTEAD_CATEGORY_ID) ?? null
+      : null;
+
+    // Fallback: find by name (covers first-run before ID is configured)
+    if (!category) {
+      category = guild.channels.cache.find(
+        ch => ch.name === categoryName && ch.type === ChannelType.GuildCategory
+      ) ?? null;
+    }
 
     if (!category) {
       category = await guild.channels.create({
@@ -611,7 +618,10 @@ export class HomesteadVerificationService {
 
     // Check Discord channels exist in DB
     const homesteadChannels = discordChannels.filter(ch => 
-      ch.name.startsWith('homestead-') && ch.parent?.name === 'Homesteads'
+      ch.name.startsWith('homestead-') && (
+        (HOMESTEAD_CATEGORY_ID && ch.parentId === HOMESTEAD_CATEGORY_ID) ||
+        ch.parent?.name === HOMESTEAD_CATEGORY_NAME
+      )
     );
 
     for (const [channelId, channel] of homesteadChannels) {

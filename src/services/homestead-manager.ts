@@ -18,7 +18,7 @@ import { Client, Guild, TextChannel, ChannelType, PermissionFlagsBits, User } fr
 import { prisma } from '../shared/prisma.js';
 import { getErrorMessage } from '../shared/utils/error-utils.js';
 import { daysAgo } from '../shared/utils/date-utils.js';
-import { HOMESTEAD_CATEGORY_NAME, HOMESTEAD_CLEANUP_DAYS } from '../config/env.js';
+import { HOMESTEAD_CATEGORY_NAME, HOMESTEAD_CATEGORY_ID, HOMESTEAD_CLEANUP_DAYS } from '../config/env.js';
 import { homesteadRepository } from './homestead-repository.js';
 import { USER_PERMISSIONS, BOT_PERMISSIONS, EVERYONE_DENY } from './homestead-permissions.js';
 
@@ -84,7 +84,7 @@ export class HomesteadChannelManager {
     // Step 1: Check database for existing homestead in THIS guild (multi-guild support)
     let homesteadRecord = await homesteadRepository.findByUserAndGuild(userId, guildId);
 
-    let channel: TextChannel | null = null;
+    let channel: TextChannel | null;
     let isNew = false;
 
     // Step 2: If record exists, verify Discord channel
@@ -210,7 +210,13 @@ export class HomesteadChannelManager {
    * Get or create Homesteads category
    */
   private async getOrCreateCategory() {
-    // Try to find existing category
+    // ID-first: try direct lookup by ID if configured
+    if (HOMESTEAD_CATEGORY_ID) {
+      const byId = this.guild.channels.cache.get(HOMESTEAD_CATEGORY_ID);
+      if (byId) return byId;
+    }
+
+    // Fallback: find by name (covers first-run before ID is configured)
     const existing = this.guild.channels.cache.find(
       (c) => c.type === ChannelType.GuildCategory && c.name === HOMESTEAD_CATEGORY_NAME
     );

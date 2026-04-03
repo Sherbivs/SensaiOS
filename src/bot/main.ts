@@ -40,7 +40,7 @@ import {
   ALERT_USER_ID,
   BOT_TOKEN,
   ROLE_NAME,
-  ROLE_ID,
+  TRAINER_ROLE_ID,
   GYM_LEADER_ROLE_ID,
   MODERATOR_ONLY_CHANNEL_ID,
   BACKFILL_CONCURRENCY,
@@ -52,8 +52,16 @@ import {
   OPS_REPORT_INTERVAL_SECONDS,
   STANDARD_ENFORCE_ALL,
   UNLISTED_PERMISSIONS,
-  STANDARD_EXEMPT_ROLES,
-  STANDARD_ALL_PERMS_ROLES,
+  STANDARD_EXEMPT_ROLE_IDS,
+  STANDARD_ALL_PERMS_ROLE_IDS,
+  ADMIN_ROLE_ID,
+  SERVER_ADMIN_ROLE_ID,
+  SUPER_ADMIN_ROLE_ID,
+  DRIP_ROLE_ID,
+  ZAPIER_ROLE_ID,
+  FRESHTOK_ROLE_ID,
+  POKETWO_ROLE_ID,
+  DND_CANDIDATE_ROLE_ID,
   RESTART_DM_RECIPIENT,
   SUMMARY_REPORT_RECIPIENT,
   SUMMARY_REPORT_HOUR,
@@ -1900,38 +1908,44 @@ function updateMonitoringPhase() {
   updateSecurityCliSection({ status: label });
 }
 
-const STANDARD_PERMISSIONS = {
-  // ── Admin-tier roles: full authority, never reduced by the security bot ──
-  // Role IDs: Admin (1121277160963981372), Server Admin (1318637907078283285)
-  // 'ALL' maps to PermissionsBitField.resolve(ALL_FLAGS) at enforcement time.
-  'Admin': 'ALL',
-  'Server Admin': 'ALL',
-  // ─────────────────────────────────────────────────────────────────────────
-  'Super Admin': [
+// ── Role Policy Registry (ID-keyed) ─────────────────────────────────────────
+// Discord role IDs are the source of truth. Names are display-only labels
+// preserved for logging/audit readability. Never look up policy by name.
+interface RolePolicy {
+  /** Display name — for logging and auditing only */
+  name: string;
+  /** Permission policy: 'ALL' for full authority, or explicit list */
+  permissions: PermissionsString[] | 'ALL';
+}
+
+const ROLE_POLICY_REGISTRY: Record<string, RolePolicy> = {
+  // ── Admin-tier: full authority, never reduced by the security bot ──
+  [ADMIN_ROLE_ID]:        { name: 'Admin',        permissions: 'ALL' },
+  [SERVER_ADMIN_ROLE_ID]: { name: 'Server Admin',  permissions: 'ALL' },
+  [DRIP_ROLE_ID]:         { name: 'Drip',          permissions: 'ALL' },
+  // ── Elevated roles ──
+  [SUPER_ADMIN_ROLE_ID]:  { name: 'Super Admin',   permissions: [
     'KickMembers','BanMembers','ManageMessages','ModerateMembers','ManageNicknames','ViewAuditLog','CreateEvents',
     'UseApplicationCommands','ManageThreads','CreatePublicThreads','CreatePrivateThreads','SendMessages','EmbedLinks',
     'AttachFiles','ReadMessageHistory','MentionEveryone','UseExternalEmojis','Connect','Speak','DeafenMembers','MoveMembers',
     'UseVAD','PrioritySpeaker','Stream','UseEmbeddedActivities','UseSoundboard','CreateGuildExpressions','UseExternalSounds',
     'SendPolls','UseExternalApps'
-  ],
-  'Gym Leader': [
+  ]},
+  [GYM_LEADER_ROLE_ID]:   { name: 'Gym Leader',    permissions: [
     'ManageMessages','ModerateMembers','ManageThreads','CreatePublicThreads','CreatePrivateThreads','SendMessages',
     'EmbedLinks','AttachFiles','ReadMessageHistory','MentionEveryone','UseExternalEmojis','Connect','Speak','UseVAD',
     'SendPolls','UseEmbeddedActivities'
-  ],
-  // Least-privilege baseline for general members
-  'Trainer': [
+  ]},
+  // ── Member-tier: least-privilege baseline ──
+  [TRAINER_ROLE_ID]:      { name: 'Trainer',        permissions: [
     'ViewChannel','SendMessages','ReadMessageHistory','AddReactions','UseExternalEmojis','EmbedLinks','AttachFiles'
-  ],
-  'Trainers': [
-    'ViewChannel','SendMessages','ReadMessageHistory','AddReactions','UseExternalEmojis','EmbedLinks','AttachFiles'
-  ],
-  'Zapier': ['SendMessages','EmbedLinks','AttachFiles','ManageWebhooks','ViewChannel'],
-  'FreshTok': ['SendMessages','EmbedLinks','AttachFiles','ManageWebhooks','ViewChannel'],
-  'Drip': 'ALL',
-  'Pokétwo': ['SendMessages','ManageMessages','AddReactions','EmbedLinks','AttachFiles','ReadMessageHistory','UseExternalEmojis'],
-  'D&D Candidate': [],
-  
+  ]},
+  // ── Integration roles ──
+  [ZAPIER_ROLE_ID]:       { name: 'Zapier',         permissions: ['SendMessages','EmbedLinks','AttachFiles','ManageWebhooks','ViewChannel'] },
+  [FRESHTOK_ROLE_ID]:     { name: 'FreshTok',       permissions: ['SendMessages','EmbedLinks','AttachFiles','ManageWebhooks','ViewChannel'] },
+  [POKETWO_ROLE_ID]:      { name: 'Pokétwo',        permissions: ['SendMessages','ManageMessages','AddReactions','EmbedLinks','AttachFiles','ReadMessageHistory','UseExternalEmojis'] },
+  // ── Inactive/empty roles ──
+  [DND_CANDIDATE_ROLE_ID]: { name: 'D&D Candidate', permissions: [] },
 };
 // ----- Snapshot helpers -----
 function snapshotKey(guildId: string, roleId: string): string {
@@ -1955,7 +1969,9 @@ interface DesiredPermissionsResult {
 }
 
 function desiredPermissionsForRole(role: Role, currentPerms: PermissionsString[]): DesiredPermissionsResult {
-  const standard = STANDARD_PERMISSIONS[role.name as keyof typeof STANDARD_PERMISSIONS] as PermissionsString[] | 'ALL' | undefined;
+  // ID-first: look up policy by role.id, not role.name
+  const policy = ROLE_POLICY_REGISTRY[role.id];
+  const standard = policy?.permissions;
 
   if (ROLE_PERMISSION_POLICY === 'snapshot') {
     const snap = getSnapshot(role);
@@ -1968,16 +1984,16 @@ function desiredPermissionsForRole(role: Role, currentPerms: PermissionsString[]
     }
     // Fallbacks when snapshot is absent and auto-seed is disabled
     if (standard) return { policy: 'standard', expected: standard };
-    if (STANDARD_ENFORCE_ALL && !STANDARD_EXEMPT_ROLES.has(role.name)) {
-      if (STANDARD_ALL_PERMS_ROLES.has(role.name)) return { policy: 'all', expected: 'ALL' };
+    if (STANDARD_ENFORCE_ALL && !STANDARD_EXEMPT_ROLE_IDS.has(role.id)) {
+      if (STANDARD_ALL_PERMS_ROLE_IDS.has(role.id)) return { policy: 'all', expected: 'ALL' };
       return { policy: 'standard', expected: UNLISTED_PERMISSIONS as PermissionsString[] };
     }
     return { policy: 'unmanaged', expected: null };
   }
 
   if (!standard) {
-    if (STANDARD_ENFORCE_ALL && !STANDARD_EXEMPT_ROLES.has(role.name)) {
-      if (STANDARD_ALL_PERMS_ROLES.has(role.name)) return { policy: 'all', expected: 'ALL' };
+    if (STANDARD_ENFORCE_ALL && !STANDARD_EXEMPT_ROLE_IDS.has(role.id)) {
+      if (STANDARD_ALL_PERMS_ROLE_IDS.has(role.id)) return { policy: 'all', expected: 'ALL' };
       return { policy: 'standard', expected: UNLISTED_PERMISSIONS as PermissionsString[] };
     }
     return { policy: 'unmanaged', expected: null };
@@ -2282,11 +2298,9 @@ async function maybeAlertRoleAssignments(oldMember: GuildMember | PartialGuildMe
 }
 
 function findRole(guild: Guild): Role | null {
-  if (ROLE_ID) {
-    return guild.roles.cache.get(ROLE_ID) || null;
-  }
-  const target = ROLE_NAME.toLowerCase();
-  return guild.roles.cache.find(r => r.name.toLowerCase() === target) || null;
+  // ID-first: TRAINER_ROLE_ID always has a production default.
+  // Name-based lookup removed — IDs are the sole authority.
+  return guild.roles.cache.get(TRAINER_ROLE_ID) || null;
 }
 
 async function reportGuildRoles(guild: Guild): Promise<void> {
@@ -2607,7 +2621,7 @@ async function ensureTrainerFor(member: GuildMember | PartialGuildMember | null,
       origin,
       guild: guildSummary,
       roleName: ROLE_NAME,
-      roleId: ROLE_ID || 'resolved at runtime'
+      roleId: TRAINER_ROLE_ID
     }, 'warn');
     return;
   }
@@ -2724,7 +2738,7 @@ async function sweepGuild(guild: Guild, origin: string): Promise<void> {
         origin,
         guild: guildSummary,
         roleName: ROLE_NAME,
-        roleId: ROLE_ID || 'resolved at runtime'
+        roleId: TRAINER_ROLE_ID
       }, 'warn');
       sweepOutcome = 'role missing';
       return;
@@ -2831,7 +2845,7 @@ async function sweepGuild(guild: Guild, origin: string): Promise<void> {
 async function runCliDebugDump() {
   report('CLI Debug Start', {
     guildsObserved: client.guilds.cache.size,
-    roleResolution: ROLE_ID ? `ROLE_ID:${ROLE_ID}` : `ROLE_NAME:${ROLE_NAME}`
+    roleResolution: `TRAINER_ROLE_ID:${TRAINER_ROLE_ID}`
   });
 
   for (const [, guild] of client.guilds.cache) {
@@ -2899,9 +2913,7 @@ async function runCliDebugDump() {
         members: memberSummaries.length,
         mismatchedRoles: mismatchDetails.length
       },
-      targetRole: ROLE_ID
-        ? { mode: 'ROLE_ID', value: ROLE_ID }
-        : { mode: 'ROLE_NAME', value: ROLE_NAME },
+      targetRole: { mode: 'TRAINER_ROLE_ID', value: TRAINER_ROLE_ID },
       roles: roleSummaries,
       permissionDiffs: mismatchDetails,
       members: memberSummaries
@@ -3313,8 +3325,8 @@ client.once(Events.ClientReady, async () => {
 
   report('Runtime Configuration', {
     roleName: ROLE_NAME,
-    roleId: ROLE_ID || 'resolved at runtime',
-    roleDiscovery: ROLE_ID ? 'ROLE_ID exact match' : 'ROLE_NAME case-insensitive search',
+    roleId: TRAINER_ROLE_ID,
+    roleDiscovery: 'TRAINER_ROLE_ID exact match',
     startupBackfill: 'enabled',
     continuousSweep: ENABLE_CONTINUOUS_SWEEP
       ? `continuous (idle target ${BACKFILL_INTERVAL_SECONDS}s)`
