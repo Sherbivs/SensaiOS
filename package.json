@@ -117,6 +117,7 @@
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@types/express": "^5.0.6",
+    "@types/ioredis": "^4.28.10",
     "@types/node": "^25.5.2",
     "@types/pg": "^8.20.0",
     "@types/sql.js": "^1.4.11",
