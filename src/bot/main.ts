@@ -84,6 +84,10 @@ import opsNotifier from '../utils/opsNotifier.js';
 import { resourceMonitor } from '../services/monitoring/resource-monitor.js';
 import { prisma, ensurePrisma, getDatabaseStats, onPremiseDevPrisma, onPremiseExperimentPrisma } from '../shared/prisma.js';
 import { TIER } from '../config/resource-tiers.js';
+import { engineCache, engineWriteBuffer } from '../services/cache/index.js';
+import * as engineReadDb from '../services/database/engine-read-db.js';
+import * as engineWriteDb from '../services/database/engine-write-db.js';
+import { getEngineWorkersStatus } from '../workers/engine-workers.js';
 
 import { createDripAlertManager, DRIP_ALERT_SEVERITY, type DripAlertManager, type DescribeUserFunction } from './dripAlerts.js';
 import { SecurityEventService } from './security/services/security-event-service.js';
@@ -1928,6 +1932,14 @@ function formatDatabaseStatusLine(
   return `• ${parts.join(' | ')}`;
 }
 
+function formatEngineWorkerLine(
+  label: string,
+  worker: { isRunning: boolean; successCount: number; errorCount: number; lastRunTime: Date | null },
+): string {
+  const status = worker.isRunning ? 'running' : 'idle';
+  return `• ${label}: ${status} | ${worker.successCount} runs | ${worker.errorCount} errors | last ${describeMomentForCli(worker.lastRunTime)}`;
+}
+
 async function buildDripStatsMessage(): Promise<string> {
   await ensurePrisma();
   await refreshMemberStats('drip-dm-stats');
@@ -2008,6 +2020,29 @@ async function buildDripStatsMessage(): Promise<string> {
   lines.push(formatDatabaseStatusLine('ONPREMISE-DEV', dbStats.onPremiseDev, onPremiseDevPingMs));
   lines.push(formatDatabaseStatusLine('ONPREMISE-EXPERIMENT', dbStats.onPremiseExperiment, onPremiseExperimentPingMs));
   lines.push(`• Snapshot rows: guilds ${discordGuildRows ?? 'n/a'} | members ${discordMemberRows ?? 'n/a'} | roles ${discordRoleRows ?? 'n/a'}`);
+
+  lines.push('');
+  lines.push('⚙️ **Engine DB**');
+  const engineReady = Boolean((global as typeof globalThis & { engineReady?: boolean }).engineReady);
+  lines.push(`• Engine ready: ${engineReady ? 'yes' : 'no'}`);
+  try {
+    const cacheStats = engineCache.getStats();
+    const bufferStats = engineWriteBuffer.getStats();
+    const readDbStats = engineReadDb.getStats();
+    const writeDbStats = engineWriteDb.getStats();
+    const workerStatus = getEngineWorkersStatus();
+
+    lines.push(`• L1 Cache: ${cacheStats.isInitialized ? 'initialized' : 'offline'} | ${cacheStats.pokemonCount} pokemon | ${cacheStats.moveCount} moves | ${cacheStats.hitRate.toFixed(1)}% hit rate | ${cacheStats.avgLatencyUs.toFixed(2)} us | ${cacheStats.memorySizeMb.toFixed(1)} MB`);
+    lines.push(`• Write Buffer: ${bufferStats.totalQueueSize} pending | ${bufferStats.flushCount} flushes | ${(bufferStats.utilizationPercent * 100).toFixed(1)}% utilized | backpressure ${bufferStats.isBackpressureActive ? 'active' : 'inactive'}`);
+    lines.push(`• Read-DB: ${readDbStats.status} | ${readDbStats.pokemonCount} pokemon | ${readDbStats.moveCount} moves | ${readDbStats.typeEffectivenessCount} type chart | ${formatBytes(readDbStats.sizeBytes)} | ${readDbStats.latency != null ? `${readDbStats.latency.toFixed(1)}ms` : 'n/a'}`);
+    lines.push(`• Write-DB: ${writeDbStats.status} | ${writeDbStats.battleLogCount} battles | ${writeDbStats.moveUsageCount} moves | ${writeDbStats.anomalyCount} anomalies | ${writeDbStats.walEntryCount} WAL | ${formatBytes(writeDbStats.sizeBytes)} | oldest ${writeDbStats.oldestEntryAge > 0 ? formatDuration(writeDbStats.oldestEntryAge) : 'n/a'}`);
+    lines.push(formatEngineWorkerLine('Cache Refresh', workerStatus.cacheRefresh));
+    lines.push(formatEngineWorkerLine('Buffer Flush', workerStatus.bufferFlush));
+    lines.push(formatEngineWorkerLine('Read-DB Sync', workerStatus.readDbSync));
+    lines.push(formatEngineWorkerLine('Write-DB Validator', workerStatus.writeDbValidator));
+  } catch (error) {
+    lines.push(`• Engine stats unavailable: ${getErrorMessage(error)}`);
+  }
 
   lines.push('');
   lines.push('⚠️ **Recent Errors**');
