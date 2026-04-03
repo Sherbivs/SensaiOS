@@ -73,7 +73,10 @@ console.log(formatKeyValueList(urlResults).join('\n'));
 console.log();
 
 // Check NODE_ENV and ensure correct environment-specific URL is set
-const nodeEnv = process.env.NODE_ENV || 'development';
+// Render sets RENDER=true during both build and runtime, but NODE_ENV from
+// render.yaml envVars only applies at start time — not during the build step.
+// Treat any Render build as production to avoid the misleading "development" label.
+const nodeEnv = process.env.NODE_ENV || (process.env.RENDER ? 'production' : 'development');
 console.log(formatKeyValueList([["Environment", nodeEnv]]).join('\n'));
 
 // Verify environment-specific database URLs are configured
