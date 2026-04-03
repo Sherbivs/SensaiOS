@@ -82,7 +82,7 @@ import { installFatalErrorHandlers } from '../utils/fatalErrorGuard.js';
 import { log as baseLog, report } from '../shared/logging/index.js';
 import opsNotifier from '../utils/opsNotifier.js';
 import { resourceMonitor } from '../services/monitoring/resource-monitor.js';
-import { prisma } from '../shared/prisma.js';
+import { prisma, ensurePrisma, getDatabaseStats, onPremiseDevPrisma, onPremiseExperimentPrisma } from '../shared/prisma.js';
 import { TIER } from '../config/resource-tiers.js';
 
 import { createDripAlertManager, DRIP_ALERT_SEVERITY, type DripAlertManager, type DescribeUserFunction } from './dripAlerts.js';
@@ -427,9 +427,10 @@ installFatalErrorHandlers({ log, report });
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMembers
+    GatewayIntentBits.GuildMembers,
+    GatewayIntentBits.DirectMessages,
   ],
-  partials: [Partials.User],
+  partials: [Partials.User, Partials.Channel],
   // MEMORY MANAGEMENT: Aggressive cache sweeping to prevent memory leaks
   sweepers: {
     // Sweep messages every 15 minutes, keep only 30 minutes
@@ -1902,6 +1903,144 @@ async function notifyServiceRestart(): Promise<void> {
   }
 }
 
+async function measureDatabasePing(
+  db: { $queryRawUnsafe(query: string): Promise<unknown> } | null,
+): Promise<number | null> {
+  if (!db) {
+    return null;
+  }
+  const start = process.hrtime.bigint();
+  await db.$queryRawUnsafe('SELECT 1');
+  return Number(process.hrtime.bigint() - start) / 1_000_000;
+}
+
+function formatDatabaseStatusLine(
+  label: string,
+  status: { status: string; latency: number | null; source: string; transport: string },
+  livePingMs: number | null,
+): string {
+  const parts = [
+    `${label}: ${status.status}`,
+    `heartbeat ${status.latency != null ? `${status.latency.toFixed(1)}ms` : 'n/a'}`,
+    `live ${livePingMs != null ? `${livePingMs.toFixed(1)}ms` : 'n/a'}`,
+    `${status.transport}/${status.source}`,
+  ];
+  return `• ${parts.join(' | ')}`;
+}
+
+async function buildDripStatsMessage(): Promise<string> {
+  await ensurePrisma();
+  await refreshMemberStats('drip-dm-stats');
+
+  const guildSnapshots = await Promise.all(
+    Array.from(client.guilds.cache.values()).map(async (guild) => {
+      const freshGuild = await guild.fetch().catch(() => guild);
+      return {
+        id: guild.id,
+        name: freshGuild.name,
+        memberCount: Number.isFinite(freshGuild.memberCount) ? freshGuild.memberCount : guild.members.cache.size,
+      };
+    }),
+  );
+
+  const totalMembers = guildSnapshots.reduce((sum, guild) => sum + (guild.memberCount || 0), 0);
+  const monitoredGuilds = botState
+    ? Object.values(botState.guilds).filter((guild) => guild.monitoring).length
+    : client.guilds.cache.size;
+
+  const dbStats = getDatabaseStats();
+  const [prodPingMs, onPremiseDevPingMs, onPremiseExperimentPingMs] = await Promise.all([
+    measureDatabasePing(prisma),
+    measureDatabasePing(onPremiseDevPrisma),
+    measureDatabasePing(onPremiseExperimentPrisma),
+  ]);
+
+  const [discordGuildRows, discordMemberRows, discordRoleRows] = await Promise.all([
+    prisma.discordGuild.count().catch(() => null),
+    prisma.discordMember.count().catch(() => null),
+    prisma.discordRole.count().catch(() => null),
+  ]);
+
+  const recentOpsErrors = typeof opsNotifier.getRecentErrors === 'function'
+    ? opsNotifier.getRecentErrors().slice(-5).reverse()
+    : [];
+
+  const lines: string[] = [];
+  lines.push('🛡️ **Dripbot Stats**');
+  lines.push(`Queried: ${toEasternString(new Date())}`);
+  lines.push(`Identity: ${client.user?.tag ?? 'unknown'} | Uptime: ${formatDuration(process.uptime() * 1000)}`);
+  lines.push(`Environment: ${process.env.NODE_ENV || (process.env.RENDER ? 'production' : 'development')} | Service: ${process.env.SERVICE_NAME || 'security-bot'}`);
+
+  lines.push('');
+  lines.push('👥 **Guilds**');
+  lines.push(`• Guilds: ${client.guilds.cache.size} total | ${monitoredGuilds} monitored`);
+  lines.push(`• Members: ${totalMembers.toLocaleString()} total`);
+  if (securityCliState.memberStats) {
+    const coverage = securityCliState.memberStats.totalMembers > 0
+      ? (securityCliState.memberStats.totalWithRole / securityCliState.memberStats.totalMembers) * 100
+      : 0;
+    lines.push(`• Trainer coverage: ${securityCliState.memberStats.totalWithRole}/${securityCliState.memberStats.totalMembers} (${coverage.toFixed(1)}%)${securityCliState.memberStats.partial ? ' est.' : ''}`);
+  }
+  const topGuilds = guildSnapshots
+    .sort((left, right) => right.memberCount - left.memberCount)
+    .slice(0, 3)
+    .map((guild) => `${guild.name}: ${guild.memberCount}`);
+  if (topGuilds.length > 0) {
+    lines.push(`• Top guilds: ${topGuilds.join(' | ')}`);
+  }
+
+  lines.push('');
+  lines.push('🧹 **Sweeps**');
+  lines.push(`• Total sweeps: ${botState?.cumulative.sweepCount ?? securityCliState.totalSweeps}`);
+  lines.push(`• Total alerts: ${botState?.cumulative.alertCount ?? 0}`);
+  if (securityCliState.lastSweepCompletedAt) {
+    lines.push(`• Last sweep: ${securityCliState.lastSweepGuild || 'unknown guild'} via ${securityCliState.lastSweepOrigin || 'unspecified'}`);
+    lines.push(`• Completed: ${describeMomentForCli(securityCliState.lastSweepCompletedAt)}`);
+    lines.push(`• Result: ${securityCliState.lastSweepAssigned} assigned, ${securityCliState.lastSweepFailed} failed${securityCliState.lastSweepResult ? ` | ${securityCliState.lastSweepResult}` : ''}`);
+  }
+  if (securityCliState.lastAlertSentAt) {
+    lines.push(`• Last alert: ${describeMomentForCli(securityCliState.lastAlertSentAt)}`);
+  }
+
+  lines.push('');
+  lines.push('🗄️ **Databases**');
+  lines.push(formatDatabaseStatusLine('PROD', dbStats.prod, prodPingMs));
+  lines.push(formatDatabaseStatusLine('ONPREMISE-DEV', dbStats.onPremiseDev, onPremiseDevPingMs));
+  lines.push(formatDatabaseStatusLine('ONPREMISE-EXPERIMENT', dbStats.onPremiseExperiment, onPremiseExperimentPingMs));
+  lines.push(`• Snapshot rows: guilds ${discordGuildRows ?? 'n/a'} | members ${discordMemberRows ?? 'n/a'} | roles ${discordRoleRows ?? 'n/a'}`);
+
+  lines.push('');
+  lines.push('⚠️ **Recent Errors**');
+  if (recentOpsErrors.length > 0) {
+    for (const error of recentOpsErrors.slice(0, 4)) {
+      lines.push(`• ${describeMomentForCli(error.timestamp)}: ${error.message}`);
+    }
+  } else if (botState?.timeline) {
+    const timelineErrors = botState.timeline
+      .filter((entry) => entry.type === 'error')
+      .slice(-4)
+      .reverse();
+    if (timelineErrors.length > 0) {
+      for (const error of timelineErrors) {
+        const details = error.details as unknown as Record<string, unknown> | undefined;
+        const detailMessage = typeof details?.error === 'string'
+          ? details.error
+          : typeof details?.message === 'string'
+            ? details.message
+            : 'Unknown error';
+        lines.push(`• ${describeMomentForCli(error.timestamp)}: ${detailMessage}`);
+      }
+    } else {
+      lines.push('• None recorded recently');
+    }
+  } else {
+    lines.push('• None recorded recently');
+  }
+  lines.push(`• Pending ops queue: ${pendingOpsErrorQueue.length}`);
+
+  return lines.join('\n').slice(0, 1900);
+}
+
 function updateMonitoringPhase() {
   const count = client.guilds.cache.size;
   const label = `Monitoring ${count} guild${count === 1 ? '' : 's'}`;
@@ -2041,10 +2180,6 @@ function analyzeRolePermissions(role: Role): RoleAnalysis {
   const missing = expected.filter((p) => !current.includes(p as PermissionsString));
   const extra = current.filter((p) => !expected.includes(p));
   return { policy: desired.policy, expected, current, missing, extra };
-}
-function hasNoAssignableRoles(member: GuildMember | PartialGuildMember): boolean {
-  // members always have @everyone; size === 1 means no additional roles
-  return member.roles.cache.size <= 1;
 }
 
 /** Check if member is missing the Trainer role specifically (not just "roleless").
@@ -2259,8 +2394,6 @@ async function maybeAlertRoleAssignments(oldMember: GuildMember | PartialGuildMe
     });
 
     // DB audit trail: record each unauthorized role change
-    const botId = client.user?.id ?? 'SYSTEM';
-    const botTag = client.user?.tag ?? 'SYSTEM#0000';
     for (const role of [...addedRoles, ...removedRoles]) {
       const changeType = addedRoles.includes(role) ? RoleChangeType.ADDITION : RoleChangeType.REMOVAL;
       roleAuditService.recordRoleChange({
@@ -2368,8 +2501,6 @@ async function maybeAlertRoleAssignments(oldMember: GuildMember | PartialGuildMe
   });
 
   // DB audit trail: record each authorized role change
-  const botId = client.user?.id ?? 'SYSTEM';
-  const botTag = client.user?.tag ?? 'SYSTEM#0000';
   for (const role of [...addedRoles, ...removedRoles]) {
     const changeType = addedRoles.includes(role) ? RoleChangeType.ADDITION : RoleChangeType.REMOVAL;
     roleAuditService.recordRoleChange({
@@ -4505,6 +4636,31 @@ client.on('channelUpdate', async (oldChannel, newChannel) => {
     `Drip overwrite tampered in #${newChannel.name} — restored`,
     { channelId: newChannel.id, channelName: newChannel.name, guild: describeGuild(guild), executorId: executorId ?? 'unknown' },
   );
+});
+
+client.on(Events.MessageCreate, async (message) => {
+  if (message.author?.bot) return;
+  if (message.guildId) return;
+  if (message.author.id !== DRIP_USER_ID) return;
+
+  const content = message.content.trim().toLowerCase();
+  if (content !== 'stats' && content !== 'status') return;
+
+  try {
+    const response = await buildDripStatsMessage();
+    await message.reply({
+      content: response,
+      allowedMentions: { repliedUser: false },
+    });
+  } catch (error) {
+    log('error', 'Failed to generate Drip DM stats response', mergeLogError({
+      requester: describeUser(message.author),
+    }, error));
+    await message.reply({
+      content: 'Failed to generate stats report. Check recent logs and database health.',
+      allowedMentions: { repliedUser: false },
+    }).catch(() => undefined);
+  }
 });
 
 // Sync Gym Leader role when members are added to or removed from the
