@@ -350,6 +350,11 @@ export const DEFAULT_ROLE_NAME = "Trainer";
 export const ROLE_NAME = process.env.ROLE_NAME ?? DEFAULT_ROLE_NAME;
 export const ROLE_ID = process.env.ROLE_ID ?? "";
 
+// Channel-role sync: members added to the moderator-only channel receive the
+// Gym Leader role; members removed from that channel lose it.
+export const GYM_LEADER_ROLE_ID = process.env.GYM_LEADER_ROLE_ID ?? "1349132231880216631";
+export const MODERATOR_ONLY_CHANNEL_ID = process.env.MODERATOR_ONLY_CHANNEL_ID ?? "1129075047416463381";
+
 // ============================================================================
 // Alert/Reporting Configuration (extended)
 // ============================================================================

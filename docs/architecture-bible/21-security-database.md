@@ -1,7 +1,7 @@
 ````markdown
 # Section 21: Security Database Architecture
 
-**Last Updated**: 2025-12-27 | **Status**: Production | **Phase 1**: ✅ Complete (2025-12-27)
+**Last Updated**: 2026-04-03 | **Status**: Production | **Phase 1**: ✅ Complete (2025-12-27)
 
 [← Back to INDEX](INDEX.md) | [← Previous: Resource Limits](20-resource-limits.md) | [Next: Future Roadmap →](14-future-roadmap.md)
 
@@ -119,12 +119,25 @@ interface RoleChangeAudit {
   reason?: string;               // Change justification
   reverted: boolean;             // Was change reverted?
   revertReason?: string;         // Why reverted
+  origin: string;                // Source of the change (see Origin Values)
   eventId: string;               // Link to SecurityEvent
   checksum: string;              // Integrity signature
   previousAuditHash: string;     // Hash chain for audit trail
   timestamp: Date;
 }
 ```
+
+**Origin Values** — The `origin` field classifies how the role change was initiated:
+
+| Origin | Source | Description |
+|--------|--------|-------------|
+| `sweep` | Continuous sweep worker | Detected during periodic guild scans |
+| `member-join` | Guild member join event | Auto-role on new member |
+| `member-update` | guildMemberUpdate event | Manual role change by admin/mod |
+| `admin-manual` | Admin CLI / dashboard | Operator-initiated change |
+| `security-bot-revert` | Security bot | Unauthorized change automatically reverted |
+| `moderator-channel-sync` | channelUpdate / boot sync | **Gym Leader role** granted/revoked based on 👑moderator-only👑 channel access (added 2026-04-03) |
+| `role-reaction` | Reaction role system | User self-assigned via reaction |
 
 ### 21.2.3 Threat Detection
 

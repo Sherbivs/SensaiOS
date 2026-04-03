@@ -11,6 +11,7 @@ import {
   Collection,
   LimitedCollection,
   AuditLogEvent,
+  OverwriteType,
   PermissionsBitField,
   type Guild,
   type GuildMember,
@@ -40,6 +41,8 @@ import {
   BOT_TOKEN,
   ROLE_NAME,
   ROLE_ID,
+  GYM_LEADER_ROLE_ID,
+  MODERATOR_ONLY_CHANNEL_ID,
   BACKFILL_CONCURRENCY,
   BACKFILL_DELAY_MS,
   BACKFILL_INTERVAL_SECONDS,
@@ -72,6 +75,9 @@ import { prisma } from '../shared/prisma.js';
 import { TIER } from '../config/resource-tiers.js';
 
 import { createDripAlertManager, DRIP_ALERT_SEVERITY, type DripAlertManager, type DescribeUserFunction } from './dripAlerts.js';
+import { SecurityEventService } from './security/services/security-event-service.js';
+import { RoleAuditService } from './security/services/role-audit-service.js';
+import { SecuritySeverity, RoleChangeType } from './security/types/database-models.js';
 import { buildRestartSummary } from './state/context.js';
 import { initializeState, shutdownState, startAutoSave, stopAutoSave } from './state/persistence.js';
 import { recordSweep, recordMemberFetchTimeout } from './state/stats.js';
@@ -736,6 +742,10 @@ let loginPromise: Promise<string> | null = null;
 let dripAlertManager: DripAlertManager | null = null;
 let botState: SecurityBotState | null = null;
 let autoSaveInterval: ReturnType<typeof setInterval> | null = null;
+
+// Security audit services (HMAC + hash-chain SOC 2 compliance)
+const securityEventService = new SecurityEventService(prisma);
+const roleAuditService = new RoleAuditService(prisma);
 
 const describeRole = (role: Role): string => `${role.name} (#${role.id})`;
 const describeMember = (member: GuildMember | PartialGuildMember): string => `${member.user?.tag ?? member.displayName ?? 'unknown'} (#${member.id})`;
@@ -3001,6 +3011,183 @@ function startContinuousSweepLoop(transformer?: (guilds: Guild[], signal?: Abort
   return continuousSweepState.loopPromise;
 }
 
+/**
+ * Sync Gym Leader role for all current members of the moderator-only channel.
+ *
+ * Members who have an explicit per-member overwrite on the channel receive the
+ * Gym Leader role; members who have the role but no overwrite have it stripped.
+ * Called at boot and can be called on demand.
+ */
+async function syncModeratorChannelRoles(trigger: string): Promise<void> {
+  for (const [, guild] of client.guilds.cache) {
+    try {
+      const channel = guild.channels.cache.get(MODERATOR_ONLY_CHANNEL_ID)
+        ?? await guild.channels.fetch(MODERATOR_ONLY_CHANNEL_ID).catch(() => null);
+
+      if (!channel || !('permissionOverwrites' in channel)) {
+        // Channel not found in this guild — not an error, bot may be in multiple guilds.
+        continue;
+      }
+
+      const gymLeaderRole = guild.roles.cache.get(GYM_LEADER_ROLE_ID)
+        ?? await guild.roles.fetch(GYM_LEADER_ROLE_ID).catch(() => null);
+
+      if (!gymLeaderRole) {
+        report('Gym Leader Role Not Found', {
+          guild: describeGuild(guild),
+          roleId: GYM_LEADER_ROLE_ID,
+          trigger,
+        }, 'warn');
+        continue;
+      }
+
+      // Collect member IDs that have an explicit per-member overwrite on the channel.
+      const memberIdsWithAccess = new Set<string>(
+        [...channel.permissionOverwrites.cache.values()]
+          .filter((ow) => ow.type === OverwriteType.Member)
+          .map((ow) => ow.id),
+      );
+
+      // Fetch all guild members so we can inspect their current roles.
+      const members = await guild.members.fetch();
+
+      let granted = 0;
+      let revoked = 0;
+      const errors: string[] = [];
+      const botId = client.user?.id ?? 'SYSTEM';
+      const botTag = client.user?.tag ?? 'SYSTEM#0000';
+
+      // Collect audit inputs for batch write after the loop.
+      const roleAuditInputs: Parameters<typeof roleAuditService.recordRoleChange>[0][] = [];
+
+      for (const [memberId, member] of members) {
+        const hasAccess = memberIdsWithAccess.has(memberId);
+        const hasRole = member.roles.cache.has(GYM_LEADER_ROLE_ID);
+
+        if (hasAccess && !hasRole) {
+          try {
+            await member.roles.add(GYM_LEADER_ROLE_ID, `Moderator-only channel sync (${trigger})`);
+            granted++;
+            roleAuditInputs.push({
+              memberId: member.id,
+              memberTag: member.user.tag,
+              guildId: guild.id,
+              guildName: guild.name,
+              changeType: RoleChangeType.ADDITION,
+              roleId: GYM_LEADER_ROLE_ID,
+              roleName: gymLeaderRole.name,
+              rolePosition: gymLeaderRole.position,
+              executorId: botId,
+              executorTag: botTag,
+              authorized: true,
+              origin: 'moderator-channel-sync',
+              metadata: { trigger, channelId: MODERATOR_ONLY_CHANNEL_ID },
+            });
+          } catch (err) {
+            errors.push(`grant:${memberId}:${getErrorMessage(err)}`);
+          }
+        } else if (!hasAccess && hasRole) {
+          try {
+            await member.roles.remove(GYM_LEADER_ROLE_ID, `Moderator-only channel sync (${trigger})`);
+            revoked++;
+            roleAuditInputs.push({
+              memberId: member.id,
+              memberTag: member.user.tag,
+              guildId: guild.id,
+              guildName: guild.name,
+              changeType: RoleChangeType.REMOVAL,
+              roleId: GYM_LEADER_ROLE_ID,
+              roleName: gymLeaderRole.name,
+              rolePosition: gymLeaderRole.position,
+              executorId: botId,
+              executorTag: botTag,
+              authorized: true,
+              origin: 'moderator-channel-sync',
+              metadata: { trigger, channelId: MODERATOR_ONLY_CHANNEL_ID },
+            });
+          } catch (err) {
+            errors.push(`revoke:${memberId}:${getErrorMessage(err)}`);
+          }
+        }
+      }
+
+      // Batch-write role change audit records with HMAC + hash-chain integrity.
+      if (roleAuditInputs.length > 0) {
+        roleAuditService.recordRoleChangesBatch(roleAuditInputs).catch((err) =>
+          report('Gym Leader Sync — RoleChangeAudit Batch Write Error', mergeReportError({
+            guild: describeGuild(guild),
+            trigger,
+            count: roleAuditInputs.length,
+          }, err), 'error'),
+        );
+      }
+
+      // Write a summary SecurityEvent for the sync operation.
+      securityEventService.recordEvent({
+        eventType: 'moderator-channel-sync',
+        severity: (granted + revoked) > 10 ? SecuritySeverity.MEDIUM : SecuritySeverity.INFO,
+        guildId: guild.id,
+        guildName: guild.name,
+        roleId: GYM_LEADER_ROLE_ID,
+        roleName: gymLeaderRole.name,
+        executorId: botId,
+        executorTag: botTag,
+        origin: `security-bot-sync:${trigger}`,
+        metadata: {
+          trigger,
+          channelId: MODERATOR_ONLY_CHANNEL_ID,
+          membersWithAccess: memberIdsWithAccess.size,
+          granted,
+          revoked,
+          errors: errors.length > 0 ? errors : undefined,
+        },
+      }).catch((err) =>
+        report('Gym Leader Sync — SecurityEvent Write Error', mergeReportError({
+          guild: describeGuild(guild),
+          trigger,
+        }, err), 'error'),
+      );
+
+      // DRIP alert when the sync actually changed anything.
+      if (dripAlertManager && (granted + revoked) > 0) {
+        const alertSeverity = (granted + revoked) > 10
+          ? DRIP_ALERT_SEVERITY.security
+          : DRIP_ALERT_SEVERITY.notice;
+        const alertTitle = `🔑 Gym Leader sync (${trigger}): +${granted} granted, -${revoked} revoked`;
+        const alertMeta = {
+          guild: describeGuild(guild),
+          trigger,
+          granted,
+          revoked,
+          channelId: MODERATOR_ONLY_CHANNEL_ID,
+        };
+        dripAlertManager.recordAlert(alertSeverity, alertTitle, alertMeta).catch((err) =>
+          report('Gym Leader Sync — DRIP Alert Error', mergeReportError(alertMeta, err), 'error'),
+        );
+        activityTracker.recordActivity('gym-leader-sync', alertTitle, alertMeta);
+        updateSecurityCliSection({
+          lastAlertSentAt: new Date(),
+          lastAlertMessage: alertTitle,
+        });
+      }
+
+      report('Gym Leader Role Sync Complete', {
+        guild: describeGuild(guild),
+        trigger,
+        membersWithAccess: memberIdsWithAccess.size,
+        granted,
+        revoked,
+        errors: errors.length > 0 ? errors : undefined,
+      }, errors.length > 0 ? 'warn' : 'info');
+    } catch (err) {
+      report('Gym Leader Role Sync Error', mergeReportError({
+        guild: describeGuild(guild),
+        trigger,
+      }, err), 'error');
+    }
+  }
+}
+
 client.once(Events.ClientReady, async () => {
   // Initialize operational state persistence
   try {
@@ -3211,6 +3398,11 @@ client.once(Events.ClientReady, async () => {
     }, MEMBER_STATS_REFRESH_INTERVAL_MS);
     memberStatsInterval.unref?.();
   }
+
+  // Boot-time sync: ensure everyone who already has a per-member overwrite in
+  // the moderator-only channel holds the Gym Leader role, and anyone who
+  // shouldn't (no overwrite) does not.
+  void syncModeratorChannelRoles('boot');
 });
 
 // Slash commands and autocomplete
@@ -3363,6 +3555,155 @@ client.on('roleUpdate', async (oldRole, newRole) => {
       guild: describeGuild(newRole.guild),
       role: describeRole(newRole),
     }, err), 'error');
+  }
+});
+
+// Sync Gym Leader role when members are added to or removed from the
+// moderator-only channel (👑moderator-only👑, ID: MODERATOR_ONLY_CHANNEL_ID).
+// Adding a per-member overwrite to that channel → grant Gym Leader role.
+// Removing a per-member overwrite from that channel → strip Gym Leader role.
+client.on('channelUpdate', async (oldChannel, newChannel) => {
+  if (newChannel.id !== MODERATOR_ONLY_CHANNEL_ID) return;
+
+  // DM channels carry no permission overwrites — bail out early.
+  if (!('guild' in newChannel) || !('guild' in oldChannel)) return;
+
+  const guild = newChannel.guild;
+  const oldOverwrites = oldChannel.permissionOverwrites.cache;
+  const newOverwrites = newChannel.permissionOverwrites.cache;
+
+  // Member overwrites added (present in new, absent in old)
+  const added = [...newOverwrites.values()].filter(
+    (ow) => ow.type === OverwriteType.Member && !oldOverwrites.has(ow.id),
+  );
+
+  // Member overwrites removed (present in old, absent in new)
+  const removed = [...oldOverwrites.values()].filter(
+    (ow) => ow.type === OverwriteType.Member && !newOverwrites.has(ow.id),
+  );
+
+  const botId = client.user?.id ?? 'SYSTEM';
+  const botTag = client.user?.tag ?? 'SYSTEM#0000';
+  const gymLeaderRole = guild.roles.cache.get(GYM_LEADER_ROLE_ID);
+  const gymLeaderRoleName = gymLeaderRole?.name ?? 'Gym Leader';
+  const gymLeaderRolePosition = gymLeaderRole?.position ?? null;
+
+  for (const ow of added) {
+    try {
+      const member = await guild.members.fetch(ow.id);
+      await member.roles.add(GYM_LEADER_ROLE_ID, 'Moderator-only channel access granted');
+      report('Gym Leader Role Granted', {
+        guild: describeGuild(guild),
+        userId: ow.id,
+        channelId: newChannel.id,
+        channelName: newChannel.name,
+      });
+      // Write RoleChangeAudit + SecurityEvent with full channel context and proper origin tag.
+      // (guildMemberUpdate will fire the DRIP notice and activityTracker entry automatically.)
+      roleAuditService.recordRoleChange({
+        memberId: member.id,
+        memberTag: member.user.tag,
+        guildId: guild.id,
+        guildName: guild.name,
+        changeType: RoleChangeType.ADDITION,
+        roleId: GYM_LEADER_ROLE_ID,
+        roleName: gymLeaderRoleName,
+        rolePosition: gymLeaderRolePosition,
+        executorId: botId,
+        executorTag: botTag,
+        authorized: true,
+        origin: 'moderator-channel-sync',
+        metadata: { channelId: newChannel.id, channelName: newChannel.name, trigger: 'channel-update' },
+      }).catch((err) =>
+        report('Gym Leader Grant — RoleChangeAudit Write Error', mergeReportError({
+          guild: describeGuild(guild),
+          userId: ow.id,
+        }, err), 'error'),
+      );
+      securityEventService.recordEvent({
+        eventType: 'moderator-channel-sync',
+        severity: SecuritySeverity.INFO,
+        guildId: guild.id,
+        guildName: guild.name,
+        memberId: member.id,
+        memberTag: member.user.tag,
+        roleId: GYM_LEADER_ROLE_ID,
+        roleName: gymLeaderRoleName,
+        executorId: botId,
+        executorTag: botTag,
+        origin: 'moderator-channel-sync',
+        metadata: { changeType: 'addition', channelId: newChannel.id, channelName: newChannel.name },
+      }).catch((err) =>
+        report('Gym Leader Grant — SecurityEvent Write Error', mergeReportError({
+          guild: describeGuild(guild),
+          userId: ow.id,
+        }, err), 'error'),
+      );
+    } catch (err) {
+      report('Gym Leader Role Grant Error', mergeReportError({
+        guild: describeGuild(guild),
+        userId: ow.id,
+      }, err), 'error');
+    }
+  }
+
+  for (const ow of removed) {
+    try {
+      const member = await guild.members.fetch(ow.id);
+      await member.roles.remove(GYM_LEADER_ROLE_ID, 'Moderator-only channel access revoked');
+      report('Gym Leader Role Revoked', {
+        guild: describeGuild(guild),
+        userId: ow.id,
+        channelId: newChannel.id,
+        channelName: newChannel.name,
+      });
+      // Write RoleChangeAudit + SecurityEvent with full channel context and proper origin tag.
+      // (guildMemberUpdate will fire the DRIP notice and activityTracker entry automatically.)
+      roleAuditService.recordRoleChange({
+        memberId: member.id,
+        memberTag: member.user.tag,
+        guildId: guild.id,
+        guildName: guild.name,
+        changeType: RoleChangeType.REMOVAL,
+        roleId: GYM_LEADER_ROLE_ID,
+        roleName: gymLeaderRoleName,
+        rolePosition: gymLeaderRolePosition,
+        executorId: botId,
+        executorTag: botTag,
+        authorized: true,
+        origin: 'moderator-channel-sync',
+        metadata: { channelId: newChannel.id, channelName: newChannel.name, trigger: 'channel-update' },
+      }).catch((err) =>
+        report('Gym Leader Revoke — RoleChangeAudit Write Error', mergeReportError({
+          guild: describeGuild(guild),
+          userId: ow.id,
+        }, err), 'error'),
+      );
+      securityEventService.recordEvent({
+        eventType: 'moderator-channel-sync',
+        severity: SecuritySeverity.INFO,
+        guildId: guild.id,
+        guildName: guild.name,
+        memberId: member.id,
+        memberTag: member.user.tag,
+        roleId: GYM_LEADER_ROLE_ID,
+        roleName: gymLeaderRoleName,
+        executorId: botId,
+        executorTag: botTag,
+        origin: 'moderator-channel-sync',
+        metadata: { changeType: 'removal', channelId: newChannel.id, channelName: newChannel.name },
+      }).catch((err) =>
+        report('Gym Leader Revoke — SecurityEvent Write Error', mergeReportError({
+          guild: describeGuild(guild),
+          userId: ow.id,
+        }, err), 'error'),
+      );
+    } catch (err) {
+      report('Gym Leader Role Revoke Error', mergeReportError({
+        guild: describeGuild(guild),
+        userId: ow.id,
+      }, err), 'error');
+    }
   }
 });
 

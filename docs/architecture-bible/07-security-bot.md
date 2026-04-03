@@ -1,6 +1,6 @@
 # Section 7: Security Bot
 
-**Last Updated**: 2025-12-27 | **Status**: Production | **Phase 1 PostgreSQL Migration**: ✅ Complete
+**Last Updated**: 2026-04-03 | **Status**: Production | **Phase 1 PostgreSQL Migration**: ✅ Complete
 
 [← Back to INDEX](INDEX.md) | [← Previous: Error System](06-error-system.md) | [Next: Router System →](08-router-system.md)
 
@@ -362,6 +362,70 @@ SECURITY_BOT_DM_COOLDOWN=3600000         # Min time between DMs (1h)
 - ✅ Crash detection and recovery visibility
 - ✅ Operational continuity context
 - ✅ Historical stats preserved and communicated
+
+---
+
+## 7.3 Gym Leader Channel-Role Sync
+
+**Automated Role Assignment via Channel Access** — The 👑moderator-only👑 channel drives Gym Leader role membership.
+
+**Added**: 2026-04-03 | **Channel ID**: `1129075047416463381` | **Role ID**: `1349132231880216631`
+
+**Problem**: Gym Leader role assignment was manual and error-prone. Members added to the moderator-only channel should automatically receive the Gym Leader role, and members removed should lose it.
+
+**Solution**: Two-path synchronization that covers both live changes and boot-time reconciliation.
+
+### 7.3.1 Live Synchronization (channelUpdate)
+
+When a Discord admin adds or removes a per-member permission overwrite on the moderator-only channel, the `channelUpdate` event handler:
+
+1. Detects added/removed `OverwriteType.Member` entries by diffing old vs new overwrites
+2. Grants or strips the Gym Leader role via `member.roles.add()` / `member.roles.remove()`
+3. Writes a `RoleChangeAudit` record with `origin: 'moderator-channel-sync'` (HMAC + hash-chain)
+4. Writes a `SecurityEvent` record with `eventType: 'moderator-channel-sync'`
+5. The subsequent `guildMemberUpdate` event fires `maybeAlertRoleAssignments` which creates a DRIP `notice` alert (bot is recognized as authorized executor)
+
+### 7.3.2 Boot-Time Reconciliation (syncModeratorChannelRoles)
+
+On `ClientReady`, the bot runs a full reconciliation:
+
+1. Fetches all per-member overwrites on the channel
+2. Fetches all guild members
+3. Grants the role to members with channel access who lack it
+4. Strips the role from members without channel access who have it
+5. Batch-writes all changes to `RoleChangeAudit` via `recordRoleChangesBatch()` (single hash-chain transaction)
+6. Writes a summary `SecurityEvent` with severity `MEDIUM` if >10 changes, `INFO` otherwise
+7. Fires DRIP alert (`security` severity if >10 changes, `notice` otherwise)
+8. Records activity via `activityTracker` and updates CLI dashboard
+
+### 7.3.3 Integration Matrix
+
+| System | Boot Sync | Live channelUpdate |
+|--------|-----------|-------------------|
+| `RoleChangeAudit` (DB) | Batch write | Per-change write |
+| `SecurityEvent` (DB) | Summary event | Per-change event |
+| DRIP Alerts | If changes > 0 | Via guildMemberUpdate |
+| `activityTracker` | Direct call | Via guildMemberUpdate |
+| `updateSecurityCliSection` | Direct call | Via guildMemberUpdate |
+| `report()` logging | Per-guild summary | Per-change log |
+
+### 7.3.4 Configuration
+
+```bash
+# Environment variables (overridable, defaults to production IDs)
+GYM_LEADER_ROLE_ID=1349132231880216631
+MODERATOR_ONLY_CHANNEL_ID=1129075047416463381
+```
+
+**Source**: `src/config/env.ts` | **Handler**: `src/bot/main.ts`
+
+### 7.3.5 Security Properties
+
+- **No false alarms**: `maybeAlertRoleAssignments` recognizes the bot as authorized executor via audit log lookup
+- **Idempotent**: Boot sync is safe to run multiple times — only acts on actual mismatches
+- **Audit trail**: Every grant/revoke has a corresponding `RoleChangeAudit` with HMAC signature and hash-chain link
+- **Graceful degradation**: DB write failures are caught and logged but don't block the role operation
+- **Gateway intents**: Requires `Guilds` (channelUpdate) + `GuildMembers` (member.roles operations) — both already enabled
 
 ---
 
