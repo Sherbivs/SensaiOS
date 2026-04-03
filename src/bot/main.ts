@@ -2665,6 +2665,23 @@ async function ensureDripRoleOnChannel(channel: GuildChannel, origin: string): P
       origin,
       action: existing ? 'restored' : 'created',
     }, existing ? 'warn' : 'success');
+    activityTracker.recordActivity(
+      'drip-channel-enforcement',
+      `Drip overwrite ${existing ? 'restored' : 'applied'} on #${channel.name}`,
+      { channelId: channel.id, channelName: channel.name, guild: describeGuild(channel.guild), origin, action: existing ? 'restored' : 'applied' },
+    );
+    securityEventService.recordEvent({
+      eventType: 'drip-channel-overwrite',
+      severity: existing ? SecuritySeverity.MEDIUM : SecuritySeverity.INFO,
+      guildId: channel.guild.id,
+      guildName: channel.guild.name,
+      executorId: client.user?.id ?? 'SYSTEM',
+      executorTag: client.user?.tag ?? 'SYSTEM#0000',
+      origin: 'drip-channel-sync',
+      metadata: { channelId: channel.id, channelName: channel.name, trigger: origin, action: existing ? 'restored' : 'applied' },
+    }).catch((err) =>
+      report('Drip Channel Overwrite — SecurityEvent Write Error', mergeReportError({ channelId: channel.id }, err), 'error'),
+    );
     return true;
   } catch (error) {
     report('Drip Channel Overwrite Error', mergeReportError({
@@ -2712,6 +2729,13 @@ async function enforceDripRoleAllChannels(guild: Guild, origin: string): Promise
         channelsUpdated: applied,
         errored,
       }, errored > 0 ? 'warn' : 'success');
+      if (applied > 0) {
+        activityTracker.recordActivity(
+          'drip-channel-enforcement',
+          `Drip overwrite sweep complete — ${applied} channel${applied === 1 ? '' : 's'} updated`,
+          { guild: guildSummary, origin, applied, errored },
+        );
+      }
     }
   } catch (error) {
     report('Drip Channel Enforcement Error', mergeReportError({ guild: guildSummary, origin }, error), 'error');
@@ -3911,6 +3935,22 @@ client.on('channelUpdate', async (oldChannel, newChannel) => {
         guild: describeGuild(guild), executorId: executorId ?? 'unknown' },
     );
   }
+  securityEventService.recordEvent({
+    eventType: 'drip-channel-tamper',
+    severity: SecuritySeverity.HIGH,
+    guildId: guild.id,
+    guildName: guild.name,
+    executorId: executorId ?? 'unknown',
+    origin: 'drip-tamper-restore',
+    metadata: { channelId: newChannel.id, channelName: newChannel.name, action: 'tamper-detected-restored' },
+  }).catch((err) =>
+    report('Drip Channel Tamper — SecurityEvent Write Error', mergeReportError({ channelId: newChannel.id }, err), 'error'),
+  );
+  activityTracker.recordActivity(
+    'security-alert',
+    `Drip overwrite tampered in #${newChannel.name} — restored`,
+    { channelId: newChannel.id, channelName: newChannel.name, guild: describeGuild(guild), executorId: executorId ?? 'unknown' },
+  );
 });
 
 // Sync Gym Leader role when members are added to or removed from the
