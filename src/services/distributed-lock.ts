@@ -19,9 +19,19 @@
 import { getLogger } from '../shared/logging/index.js';
 const logger = getLogger();
 
-import RedisModule from 'ioredis';
-import type { Redis as RedisType } from 'ioredis';
 import { getErrorMessage } from '../shared/utils/error-utils.js';
+
+/**
+ * Minimal interface for the Redis client methods used by this module.
+ * Defined locally so that 'ioredis' is an optional runtime dependency —
+ * it is imported dynamically only when REDIS_URL is explicitly configured.
+ */
+interface IRedisClient {
+  set(key: string, value: string, expireMode: 'EX', ttl: number, setMode: 'NX'): Promise<string | null>;
+  eval(script: string, numkeys: number, ...args: string[]): Promise<unknown>;
+  quit(): Promise<string>;
+  on(event: 'connect' | 'error' | 'close', listener: (...args: unknown[]) => void): this;
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -67,7 +77,9 @@ export interface Lock {
  * Configured via REDIS_URL environment variable.
  * Falls back to localhost:6379 if not specified.
  */
-let redisClient: RedisType | null = null;
+let redisClient: IRedisClient | null = null;
+/** Promise cache — prevents concurrent initializations racing each other. */
+let redisInitPromise: Promise<IRedisClient | null> | null = null;
 let redisAvailable = false;
 
 /**
@@ -99,101 +111,120 @@ const lockStats: LockStats = {
 /**
  * Initialize Redis connection.
  * Called automatically on first lock attempt.
+ *
+ * Only activates when REDIS_URL is explicitly set in the environment.
+ * 'ioredis' is imported dynamically so it is never a required build-time
+ * dependency — the module loads cleanly even when ioredis is not installed.
  */
-function initializeRedis(): RedisType | null {
-  if (redisClient) {
-    return redisClient;
-  }
+async function initializeRedis(): Promise<IRedisClient | null> {
+  // Return already-initialized client immediately.
+  if (redisClient) return redisClient;
+  // Return in-flight promise to prevent concurrent initializations.
+  if (redisInitPromise) return redisInitPromise;
 
-  const redisUrl = process.env['REDIS_URL'] || 'redis://localhost:6379';
-  const redisEnabled = process.env['REDIS_ENABLED'] !== 'false'; // Default: enabled
+  const redisUrl = process.env['REDIS_URL'];
+  const redisEnabled = process.env['REDIS_ENABLED'] !== 'false';
 
-  if (!redisEnabled) {
-    logger.warn('distributed-lock', 'init', 'Redis explicitly disabled - using in-memory fallback', {
-      metadata: { mode: 'in-memory-only' },
-    });
-    return null;
-  }
-
-  try {
-    redisClient = new RedisModule(redisUrl, {
-      maxRetriesPerRequest: 3,
-      enableReadyCheck: true,
-      retryStrategy(times: number) {
-        const delay = Math.min(times * 50, 2000);
-        return delay;
-      },
-      reconnectOnError(err: Error) {
-        const targetError = 'READONLY';
-        if (err.message.includes(targetError)) {
-          // Reconnect on READONLY errors
-          return true;
-        }
-        return false;
-      },
-    });
-
-    redisClient.on('connect', () => {
-      redisAvailable = true;
-      logger.info('distributed-lock', 'connect', 'Redis connected', {
-        metadata: { url: redisUrl.replace(/:[^:@]+@/, ':***@') },
+  // Only attempt Redis when REDIS_URL is explicitly configured.
+  if (!redisUrl || !redisEnabled) {
+    if (!redisEnabled) {
+      logger.warn('distributed-lock', 'init', 'Redis explicitly disabled - using in-memory fallback', {
+        metadata: { mode: 'in-memory-only' },
       });
-    });
-
-    redisClient.on('error', (err: Error) => {
-      redisAvailable = false;
-      lockStats.lastError = {
-        message: err.message,
-        timestamp: new Date().toISOString(),
-      };
-      logger.error('distributed-lock', 'error', 'Redis error - falling back to in-memory', {
-        error: { name: err.name, message: err.message },
-      });
-    });
-
-    redisClient.on('close', () => {
-      redisAvailable = false;
-      logger.warn('distributed-lock', 'close', 'Redis connection closed', {
-        metadata: { mode: 'fallback-active' },
-      });
-    });
-
-    // Start in-memory lock cleanup (runs every 10 seconds)
-    if (!cleanupInterval) {
-      cleanupInterval = setInterval(() => {
-        const now = Date.now();
-        let cleaned = 0;
-
-        for (const [key, lock] of inMemoryLocks.entries()) {
-          if (lock.expiresAt < now) {
-            inMemoryLocks.delete(key);
-            cleaned++;
-          }
-        }
-
-        if (cleaned > 0) {
-          logger.debug('distributed-lock', 'cleanup', 'Cleaned expired in-memory locks', {
-            metadata: { cleaned, remaining: inMemoryLocks.size },
-          });
-        }
-      }, 10000);
-
-      // Prevent process from staying alive just for cleanup
-      cleanupInterval.unref();
     }
-
-    return redisClient;
-  } catch (err) {
-    const message = getErrorMessage(err);
-    logger.error('distributed-lock', 'init', 'Failed to initialize Redis', {
-      metadata: { fallback: 'in-memory', errorMsg: message },
-    });
-    lockStats.lastError = {
-      message,
-      timestamp: new Date().toISOString(),
-    };
+    redisInitPromise = Promise.resolve(null);
     return null;
   }
+
+  redisInitPromise = (async (): Promise<IRedisClient | null> => {
+    try {
+      // Dynamic import — only executed when REDIS_URL is present.
+      // Cast through unknown to satisfy the local IRedisClient interface.
+      // @ts-expect-error — ioredis is an optional runtime dependency; not installed by default.
+      // Install it with: npm install ioredis  (only needed when REDIS_URL is configured)
+      const { default: RedisModule } = await import('ioredis');
+      const client = new RedisModule(redisUrl, {
+        maxRetriesPerRequest: 3,
+        enableReadyCheck: true,
+        retryStrategy(times: number) {
+          const delay = Math.min(times * 50, 2000);
+          return delay;
+        },
+        reconnectOnError(err: Error) {
+          if (err.message.includes('READONLY')) return true;
+          return false;
+        },
+      }) as unknown as IRedisClient;
+
+      client.on('connect', () => {
+        redisAvailable = true;
+        logger.info('distributed-lock', 'connect', 'Redis connected', {
+          metadata: { url: redisUrl.replace(/:[^:@]+@/, ':***@') },
+        });
+      });
+
+      client.on('error', (err: unknown) => {
+        redisAvailable = false;
+        const e = err as Error;
+        lockStats.lastError = {
+          message: e.message,
+          timestamp: new Date().toISOString(),
+        };
+        logger.error('distributed-lock', 'error', 'Redis error - falling back to in-memory', {
+          error: { name: e.name, message: e.message },
+        });
+      });
+
+      client.on('close', () => {
+        redisAvailable = false;
+        logger.warn('distributed-lock', 'close', 'Redis connection closed', {
+          metadata: { mode: 'fallback-active' },
+        });
+      });
+
+      // Start in-memory lock cleanup (runs every 10 seconds).
+      if (!cleanupInterval) {
+        cleanupInterval = setInterval(() => {
+          const now = Date.now();
+          let cleaned = 0;
+          for (const [key, lock] of inMemoryLocks.entries()) {
+            if (lock.expiresAt < now) {
+              inMemoryLocks.delete(key);
+              cleaned++;
+            }
+          }
+          if (cleaned > 0) {
+            logger.debug('distributed-lock', 'cleanup', 'Cleaned expired in-memory locks', {
+              metadata: { cleaned, remaining: inMemoryLocks.size },
+            });
+          }
+        }, 10000);
+        cleanupInterval.unref();
+      }
+
+      redisClient = client;
+      return client;
+    } catch (err) {
+      const message = getErrorMessage(err);
+      const isNotFound =
+        err instanceof Error &&
+        'code' in err &&
+        (err as NodeJS.ErrnoException).code === 'ERR_MODULE_NOT_FOUND';
+      if (isNotFound) {
+        logger.warn('distributed-lock', 'init', 'ioredis not installed - using in-memory fallback', {
+          metadata: { hint: 'Run: npm install ioredis' },
+        });
+      } else {
+        logger.error('distributed-lock', 'init', 'Failed to initialize Redis', {
+          metadata: { fallback: 'in-memory', errorMsg: message },
+        });
+      }
+      lockStats.lastError = { message, timestamp: new Date().toISOString() };
+      return null;
+    }
+  })();
+
+  return redisInitPromise;
 }
 
 /**
@@ -297,7 +328,7 @@ export async function acquireLock(key: string, ttlMs = 5000): Promise<Lock | nul
   const ttlSeconds = Math.ceil(ttlMs / 1000);
 
   // Try Redis first
-  const redis = initializeRedis();
+  const redis = await initializeRedis();
   if (redis && redisAvailable) {
     try {
       // SET NX EX - atomic operation
