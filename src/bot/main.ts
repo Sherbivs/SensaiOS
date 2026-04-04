@@ -2907,6 +2907,20 @@ function isAuthorizedDripActor(actorId: string | null | undefined, guild: Guild)
   );
 }
 
+function canUseDirectStatusCommand(userId: string): boolean {
+  if (userId === DRIP_USER_ID) {
+    return true;
+  }
+
+  for (const guild of client.guilds.cache.values()) {
+    if (guild.ownerId === userId) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 function getDripChannelOverwriteEditability(channel: GuildChannel): {
   ok: boolean;
   missing: PermissionsString[];
@@ -4676,25 +4690,112 @@ client.on('channelUpdate', async (oldChannel, newChannel) => {
 client.on(Events.MessageCreate, async (message) => {
   if (message.author?.bot) return;
   if (message.guildId) return;
-  if (message.author.id !== DRIP_USER_ID) return;
+  if (!canUseDirectStatusCommand(message.author.id)) return;
 
   const content = message.content.trim().toLowerCase();
-  if (content !== 'stats' && content !== 'status') return;
 
-  try {
-    const response = await buildDripStatsMessage();
+  // ── stats / status ────────────────────────────────────────────────────────
+  if (content === 'stats' || content === 'status') {
+    try {
+      const response = await buildDripStatsMessage();
+      await message.reply({
+        content: response,
+        allowedMentions: { repliedUser: false },
+      });
+    } catch (error) {
+      log('error', 'Failed to generate Drip DM stats response', mergeLogError({
+        requester: describeUser(message.author),
+      }, error));
+      await message.reply({
+        content: 'Failed to generate stats report. Check recent logs and database health.',
+        allowedMentions: { repliedUser: false },
+      }).catch(() => undefined);
+    }
+    return;
+  }
+
+  // ── force sweep ───────────────────────────────────────────────────────────
+  if (content === 'force sweep' || content === 'forcesweep') {
+    const requester = describeUser(message.author);
+    log('warn', 'Force sweep triggered via DM', { requester });
+    report('Force Sweep — DM Triggered', { requester }, 'warn');
+
     await message.reply({
-      content: response,
-      allowedMentions: { repliedUser: false },
-    });
-  } catch (error) {
-    log('error', 'Failed to generate Drip DM stats response', mergeLogError({
-      requester: describeUser(message.author),
-    }, error));
-    await message.reply({
-      content: 'Failed to generate stats report. Check recent logs and database health.',
+      content: `⚙️ Force sweep started across **${client.guilds.cache.size}** guild(s). This may take a moment…`,
       allowedMentions: { repliedUser: false },
     }).catch(() => undefined);
+
+    const guilds = [...client.guilds.cache.values()];
+    const sweepStart = Date.now();
+
+    let trainerAssigned = 0;
+    let trainerFailed = 0;
+    let dripApplied = 0;
+    let sweepErrors = 0;
+
+    // 1. Trainer role sweep across all guilds
+    for (const guild of guilds) {
+      try {
+        // Capture securityCliState counters before/after to measure deltas
+        const assignedBefore = securityCliState.lastSweepAssigned;
+        const failedBefore   = securityCliState.lastSweepFailed;
+        await sweepGuild(guild, 'dm-force-sweep');
+        trainerAssigned += Math.max(0, securityCliState.lastSweepAssigned - assignedBefore);
+        trainerFailed   += Math.max(0, securityCliState.lastSweepFailed   - failedBefore);
+      } catch (err) {
+        sweepErrors++;
+        log('error', 'Force sweep — sweepGuild error', mergeLogError({ guild: describeGuild(guild) }, err));
+      }
+    }
+
+    // 2. Drip role channel enforcement across all guilds
+    for (const guild of guilds) {
+      try {
+        const channelsBefore = securityCliState.totalSweeps; // use as proxy signal
+        await enforceDripRoleAllChannels(guild, 'dm-force-sweep');
+        void channelsBefore; // not used for counting — enforceDripRoleAllChannels reports internally
+        dripApplied++; // count guilds processed, not individual channels
+      } catch (err) {
+        sweepErrors++;
+        log('error', 'Force sweep — enforceDripRoleAllChannels error', mergeLogError({ guild: describeGuild(guild) }, err));
+      }
+    }
+
+    // 3. Gym Leader role sync (operates over all guilds internally)
+    try {
+      await syncModeratorChannelRoles('dm-force-sweep');
+    } catch (err) {
+      sweepErrors++;
+      log('error', 'Force sweep — syncModeratorChannelRoles error', mergeLogError({}, err));
+    }
+
+    const elapsed = Math.round((Date.now() - sweepStart) / 1000);
+    const lines: string[] = [
+      `✅ **Force sweep complete** — ${elapsed}s`,
+      ``,
+      `**Guilds swept:** ${guilds.length}`,
+      `**Trainer roles assigned:** ${trainerAssigned}`,
+      `**Trainer assignment failures:** ${trainerFailed}`,
+      `**Drip channel guilds enforced:** ${dripApplied}`,
+      `**Gym Leader role sync:** completed`,
+      sweepErrors > 0 ? `⚠️ **Errors encountered:** ${sweepErrors} — check logs` : `**Errors:** none`,
+    ];
+
+    await message.reply({
+      content: lines.join('\n'),
+      allowedMentions: { repliedUser: false },
+    }).catch(() => undefined);
+
+    report('Force Sweep — DM Complete', {
+      requester,
+      guilds: guilds.length,
+      trainerAssigned,
+      trainerFailed,
+      dripApplied,
+      sweepErrors,
+      elapsedSeconds: elapsed,
+    }, sweepErrors > 0 ? 'warn' : 'success');
+    return;
   }
 });
 
