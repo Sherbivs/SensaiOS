@@ -4697,7 +4697,7 @@ client.on(Events.MessageCreate, async (message) => {
   // ── help ──────────────────────────────────────────────────────────────────
   if (content === 'help' || content === '?') {
     const pad = (s: string, n: number) => s.padEnd(n);
-    const col = 18;
+    const col = 16;
     const lines: string[] = [
       '```',
       'Dripbot Direct-Message Commands',
@@ -4705,10 +4705,25 @@ client.on(Events.MessageCreate, async (message) => {
       '',
       `${pad('COMMAND', col)}  DESCRIPTION`,
       `${pad('-------', col)}  -----------`,
-      `${pad('stats', col)}  Full system status report (bot, guilds, DB, engine).`,
+      '',
+      '--- Status ---',
+      `${pad('stats', col)}  Full system status (bot, guilds, DB, engine).`,
       `${pad('status', col)}  Alias for STATS.`,
-      `${pad('force sweep', col)}  Immediately sweep all guilds: Trainer roles, Drip`,
-      `${pad('', col)}  channel overwrites, and Gym Leader role alignment.`,
+      `${pad('guilds', col)}  List all monitored guilds with member counts.`,
+      `${pad('errors', col)}  Recent error log (last 8 entries).`,
+      '',
+      '--- Sweep Control ---',
+      `${pad('force sweep', col)}  Run full compliance sweep on all guilds now.`,
+      `${pad('pause sweep', col)}  Stop the continuous sweep loop.`,
+      `${pad('resume sweep', col)}  Restart the continuous sweep loop.`,
+      `${pad('restart sweep', col)}  Stop then restart the sweep loop.`,
+      '',
+      '--- Cache ---',
+      `${pad('clear cache', col)}  Purge role-assignment cache entries so next`,
+      `${pad('', col)}  sweep re-evaluates every member from scratch.`,
+      `${pad('rebuild cache', col)}  Reload the L1 engine cache from Read-DB.`,
+      '',
+      '--- General ---',
       `${pad('help', col)}  Show this command reference.`,
       `${pad('?', col)}  Alias for HELP.`,
       '',
@@ -4738,6 +4753,167 @@ client.on(Events.MessageCreate, async (message) => {
         content: 'Failed to generate stats report. Check recent logs and database health.',
         allowedMentions: { repliedUser: false },
       }).catch(() => undefined);
+    }
+    return;
+  }
+
+  // ── guilds ────────────────────────────────────────────────────────────────
+  if (content === 'guilds') {
+    const guildLines: string[] = ['**Monitored Guilds**'];
+    let i = 0;
+    for (const guild of client.guilds.cache.values()) {
+      i++;
+      const lastSweep = securityCliState.lastSweepGuild?.startsWith(guild.name)
+        ? securityCliState.lastSweepCompletedAt
+        : null;
+      const sweepAgo = lastSweep
+        ? `last sweep ${Math.round((Date.now() - lastSweep.getTime()) / 60000)}m ago`
+        : 'not yet swept';
+      guildLines.push(`${i}. **${guild.name}** (${guild.id}) — ${guild.memberCount?.toLocaleString() ?? guild.members.cache.size.toLocaleString()} members | ${sweepAgo}`);
+    }
+    if (guildLines.length === 1) guildLines.push('No guilds found.');
+    await message.reply({
+      content: guildLines.join('\n').slice(0, 1900),
+      allowedMentions: { repliedUser: false },
+    }).catch(() => undefined);
+    return;
+  }
+
+  // ── errors ────────────────────────────────────────────────────────────────
+  if (content === 'errors') {
+    const errorLines: string[] = ['**Recent Errors (last 8)**'];
+    const queueErrors = pendingOpsErrorQueue.slice(-8);
+    if (queueErrors.length > 0) {
+      errorLines.push('*From ops queue:*');
+      for (const e of queueErrors) {
+        const ts = e.timestamp ? new Date(e.timestamp).toISOString().slice(11, 19) : '?';
+        errorLines.push(`• \`${ts}\` ${e.message}`);
+      }
+    }
+    const timelineErrors = botState?.timeline
+      ? (botState.timeline as TimelineEntryWithDetails[])
+          .filter((t) => t.type === 'error' || t.type === 'alert')
+          .slice(-8)
+      : [];
+    if (timelineErrors.length > 0) {
+      errorLines.push('*From timeline:*');
+      for (const e of timelineErrors) {
+        const ts = e.timestamp ? new Date(e.timestamp).toISOString().slice(11, 19) : '?';
+        const label = (e.details as { message?: string; error?: string } | null)?.message
+          ?? (e.details as { error?: string } | null)?.error
+          ?? e.type;
+        errorLines.push(`• \`${ts}\` ${label}`);
+      }
+    }
+    if (errorLines.length === 1) errorLines.push('No recent errors found.');
+    await message.reply({
+      content: errorLines.join('\n').slice(0, 1900),
+      allowedMentions: { repliedUser: false },
+    }).catch(() => undefined);
+    return;
+  }
+
+  // ── pause sweep ───────────────────────────────────────────────────────────
+  if (content === 'pause sweep' || content === 'pausesweep') {
+    const requester = describeUser(message.author);
+    if (!continuousSweepState.running) {
+      await message.reply({ content: 'ℹ️ Continuous sweep loop is already stopped.', allowedMentions: { repliedUser: false } }).catch(() => undefined);
+      return;
+    }
+    continuousSweepState.abortController?.abort();
+    log('warn', 'Continuous sweep loop paused via DM', { requester });
+    report('Sweep Loop Paused — DM Command', { requester }, 'warn');
+    await message.reply({ content: '⏸️ Sweep loop pause signalled. It will stop after the current guild finishes.', allowedMentions: { repliedUser: false } }).catch(() => undefined);
+    return;
+  }
+
+  // ── resume sweep ──────────────────────────────────────────────────────────
+  if (content === 'resume sweep' || content === 'resumesweep') {
+    const requester = describeUser(message.author);
+    if (continuousSweepState.running) {
+      await message.reply({ content: 'ℹ️ Continuous sweep loop is already running.', allowedMentions: { repliedUser: false } }).catch(() => undefined);
+      return;
+    }
+    if (!ENABLE_CONTINUOUS_SWEEP) {
+      await message.reply({ content: '⚠️ `ENABLE_CONTINUOUS_SWEEP` is disabled in config — cannot resume.', allowedMentions: { repliedUser: false } }).catch(() => undefined);
+      return;
+    }
+    startContinuousSweepLoop();
+    log('warn', 'Continuous sweep loop resumed via DM', { requester });
+    report('Sweep Loop Resumed — DM Command', { requester }, 'warn');
+    await message.reply({ content: '▶️ Sweep loop restarted.', allowedMentions: { repliedUser: false } }).catch(() => undefined);
+    return;
+  }
+
+  // ── restart sweep ─────────────────────────────────────────────────────────
+  if (content === 'restart sweep' || content === 'restartsweep') {
+    const requester = describeUser(message.author);
+    if (!ENABLE_CONTINUOUS_SWEEP) {
+      await message.reply({ content: '⚠️ `ENABLE_CONTINUOUS_SWEEP` is disabled in config — cannot restart.', allowedMentions: { repliedUser: false } }).catch(() => undefined);
+      return;
+    }
+    // Abort if running, then wait a beat and restart
+    if (continuousSweepState.running) {
+      continuousSweepState.abortController?.abort();
+      // Give the loop one tick to mark itself stopped before re-starting
+      await new Promise<void>((resolve) => setTimeout(resolve, 500));
+    }
+    startContinuousSweepLoop();
+    log('warn', 'Continuous sweep loop restarted via DM', { requester });
+    report('Sweep Loop Restarted — DM Command', { requester }, 'warn');
+    await message.reply({ content: '🔄 Sweep loop restarted.', allowedMentions: { repliedUser: false } }).catch(() => undefined);
+    return;
+  }
+
+  // ── clear cache ───────────────────────────────────────────────────────────
+  if (content === 'clear cache' || content === 'clearcache') {
+    const requester = describeUser(message.author);
+    log('warn', 'Cache clear triggered via DM', { requester });
+    await message.reply({ content: '🗑️ Clearing role-assignment cache…', allowedMentions: { repliedUser: false } }).catch(() => undefined);
+    try {
+      // Delete all assignment cache entries (discord-cache namespace, key prefix assign:)
+      const result = await prisma.cacheEntry.deleteMany({
+        where: {
+          namespace: 'discord-cache',
+          key: { startsWith: 'discord-cache:assign:' },
+        },
+      });
+      // Also clean expired entries from memory + DB
+      cache.cleanOldCache();
+      report('Cache Cleared — DM Command', { requester, deletedEntries: result.count }, 'warn');
+      await message.reply({
+        content: `✅ Cleared **${result.count}** assignment cache entry/entries. Expired entries also pruned. Next sweep will re-evaluate all members.`,
+        allowedMentions: { repliedUser: false },
+      }).catch(() => undefined);
+    } catch (err) {
+      log('error', 'Cache clear failed', mergeLogError({ requester }, err));
+      await message.reply({ content: `❌ Cache clear failed: ${getErrorMessage(err)}`, allowedMentions: { repliedUser: false } }).catch(() => undefined);
+    }
+    return;
+  }
+
+  // ── rebuild cache ─────────────────────────────────────────────────────────
+  if (content === 'rebuild cache' || content === 'rebuildcache') {
+    const requester = describeUser(message.author);
+    log('warn', 'Engine cache rebuild triggered via DM', { requester });
+    await message.reply({ content: '⚙️ Rebuilding L1 engine cache from Read-DB…', allowedMentions: { repliedUser: false } }).catch(() => undefined);
+    const start = Date.now();
+    try {
+      await engineCache.initialize();
+      const elapsed = Math.round((Date.now() - start) / 1000);
+      const stats = engineCache.getStats();
+      report('Engine Cache Rebuilt — DM Command', { requester, elapsedSeconds: elapsed }, 'warn');
+      await message.reply({
+        content: [
+          `✅ **L1 engine cache rebuilt** — ${elapsed}s`,
+          `Pokemon: ${stats.pokemonCount} | Moves: ${stats.moveCount} | Type chart: ${stats.typeEffectivenessCount}`,
+          `Memory: ${stats.memorySizeMb.toFixed(1)} MB`,
+        ].join('\n'),
+        allowedMentions: { repliedUser: false },
+      }).catch(() => undefined);
+    } catch (err) {
+      log('error', 'Engine cache rebuild failed', mergeLogError({ requester }, err));
+      await message.reply({ content: `❌ Cache rebuild failed: ${getErrorMessage(err)}`, allowedMentions: { repliedUser: false } }).catch(() => undefined);
     }
     return;
   }
