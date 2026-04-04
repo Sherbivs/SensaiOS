@@ -4694,6 +4694,34 @@ client.on(Events.MessageCreate, async (message) => {
 
   const content = message.content.trim().toLowerCase();
 
+  // ── help ──────────────────────────────────────────────────────────────────
+  if (content === 'help' || content === '?') {
+    const pad = (s: string, n: number) => s.padEnd(n);
+    const col = 18;
+    const lines: string[] = [
+      '```',
+      'Dripbot Direct-Message Commands',
+      '================================',
+      '',
+      `${pad('COMMAND', col)}  DESCRIPTION`,
+      `${pad('-------', col)}  -----------`,
+      `${pad('stats', col)}  Full system status report (bot, guilds, DB, engine).`,
+      `${pad('status', col)}  Alias for STATS.`,
+      `${pad('force sweep', col)}  Immediately sweep all guilds: Trainer roles, Drip`,
+      `${pad('', col)}  channel overwrites, and Gym Leader role alignment.`,
+      `${pad('help', col)}  Show this command reference.`,
+      `${pad('?', col)}  Alias for HELP.`,
+      '',
+      'All commands are case-insensitive.',
+      '```',
+    ];
+    await message.reply({
+      content: lines.join('\n'),
+      allowedMentions: { repliedUser: false },
+    }).catch(() => undefined);
+    return;
+  }
+
   // ── stats / status ────────────────────────────────────────────────────────
   if (content === 'stats' || content === 'status') {
     try {
