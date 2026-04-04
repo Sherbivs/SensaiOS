@@ -4714,12 +4714,13 @@ client.on(Events.MessageCreate, async (message) => {
       `${pad('errors', col)}  Recent error log (last 8 entries).`,
       '',
       '--- Data Browse ---',
-      `${pad('roles', col)}  All roles with IDs, position, member count.`,
-      `${pad('members', col)}  Top 25 members by role count with IDs.`,
+      `${pad('roles', col)}  All roles with IDs, position, Drip indicator.`,
+      `${pad('members', col)}  Top 25 members by role count, Drip status.`,
       `${pad('admins', col)}  Admin/owner members + dangerous roles.`,
-      `${pad('channels', col)}  All channels grouped by category with IDs.`,
-      `${pad('bots', col)}  Bot accounts with IDs and roles.`,
+      `${pad('channels', col)}  All channels with Drip overwrite status.`,
+      `${pad('bots', col)}  Bot accounts with Dripbot indicator.`,
       `${pad('audit', col)}  Last 15 role changes (add/remove/revert).`,
+      `${pad('changes', col)}  Last 20 change attempts incl. failures.`,
       '',
       '--- Sweep Control ---',
       `${pad('force sweep', col)}  Run full compliance sweep on all guilds now.`,
@@ -4939,6 +4940,7 @@ client.on(Events.MessageCreate, async (message) => {
       const lines: string[] = ['**Roles** (' + roles.length + ')'];
       for (const r of roles) {
         const flags: string[] = [];
+        if (r.discordRoleId === DRIP_ROLE_ID) flags.push('🤖 DRIP ROLE');
         if (r.isAdmin) flags.push('ADMIN');
         if (r.isDangerous) flags.push('DANGEROUS');
         if (r.managed) flags.push('managed');
@@ -4974,6 +4976,7 @@ client.on(Events.MessageCreate, async (message) => {
         const flags: string[] = [];
         if (m.isOwner) flags.push('👑');
         if (m.isAdministrator) flags.push('ADMIN');
+        if (m.roles.includes(DRIP_ROLE_ID)) flags.push('🤖 Has Drip');
         const flagStr = flags.length > 0 ? ` ${flags.join(' ')}` : '';
         const display = m.displayName && m.displayName !== m.username ? ` (${m.displayName})` : '';
         lines.push(`${i + 1}. **${m.username}**${display} \`${m.discordUserId}\` — ${m.roleCount} roles${flagStr}`);
@@ -4990,6 +4993,7 @@ client.on(Events.MessageCreate, async (message) => {
   if (content === 'admins') {
     try {
       const db = await ensurePrisma();
+      const botUserId = client.user?.id ?? '';
       const adminMembers = await db.discordMember.findMany({
         where: { OR: [{ isAdministrator: true }, { isOwner: true }] },
         orderBy: { roleCount: 'desc' },
@@ -5006,6 +5010,8 @@ client.on(Events.MessageCreate, async (message) => {
           const tags: string[] = [];
           if (m.isOwner) tags.push('👑 Owner');
           if (m.isAdministrator) tags.push('Admin');
+          if (m.roles.includes(DRIP_ROLE_ID)) tags.push('🤖 Has Drip');
+          if (m.discordUserId === DRIP_USER_ID || m.discordUserId === botUserId) tags.push('🤖 Dripbot');
           const display = m.displayName && m.displayName !== m.username ? ` (${m.displayName})` : '';
           lines.push(`• **${m.username}**${display} \`${m.discordUserId}\` — ${tags.join(', ')}`);
         }
@@ -5015,6 +5021,7 @@ client.on(Events.MessageCreate, async (message) => {
         lines.push('__Dangerous/Admin Roles__');
         for (const r of dangerousRoles) {
           const flags: string[] = [];
+          if (r.discordRoleId === DRIP_ROLE_ID) flags.push('🤖 DRIP ROLE');
           if (r.isAdmin) flags.push('ADMIN');
           if (r.isDangerous) flags.push('DANGEROUS');
           lines.push(`• **${r.name}** (${r.discordRoleId}) — ${r.memberCount} members [${flags.join(', ')}]`);
@@ -5054,13 +5061,20 @@ client.on(Events.MessageCreate, async (message) => {
     const categories = channels.filter(c => c.type === ChannelType.GuildCategory);
     const uncategorized = channels.filter(c => c.type !== ChannelType.GuildCategory && !c.parentId);
 
-    const lines: string[] = [`**Channels** — ${guild.name} (${channels.length} total)`];
+    const dripTag = (ch: typeof channels[number]): string => {
+      if (ch.type === ChannelType.GuildCategory) return '';
+      if (!('permissionOverwrites' in ch)) return ' ❓';
+      const ow = (ch as { permissionOverwrites: { cache: Map<string, unknown> } }).permissionOverwrites.cache;
+      return ow.has(DRIP_ROLE_ID) ? ' ✅🤖' : ' ❌🤖';
+    };
+
+    const lines: string[] = [`**Channels** — ${guild.name} (${channels.length} total)`, '_✅🤖 = Drip overwrite present · ❌🤖 = missing_'];
 
     if (uncategorized.length > 0) {
       lines.push('');
       lines.push('__No Category__');
       for (const ch of uncategorized) {
-        lines.push(`  \`${typeLabel(ch.type).padEnd(8)}\` **${ch.name}** (${ch.id})`);
+        lines.push(`  \`${typeLabel(ch.type).padEnd(8)}\` **${ch.name}** (${ch.id})${dripTag(ch)}`);
       }
     }
 
@@ -5069,7 +5083,7 @@ client.on(Events.MessageCreate, async (message) => {
       lines.push('');
       lines.push(`__${cat.name}__ (${cat.id})`);
       for (const ch of children) {
-        lines.push(`  \`${typeLabel(ch.type).padEnd(8)}\` **${ch.name}** (${ch.id})`);
+        lines.push(`  \`${typeLabel(ch.type).padEnd(8)}\` **${ch.name}** (${ch.id})${dripTag(ch)}`);
       }
     }
 
@@ -5126,6 +5140,57 @@ client.on(Events.MessageCreate, async (message) => {
     return;
   }
 
+  // ── changes ─────────────────────────────────────────────────────────────────
+  if (content === 'changes') {
+    try {
+      const db = await ensurePrisma();
+      const entries = await db.roleChangeAudit.findMany({
+        orderBy: { createdAt: 'desc' },
+        take: 20,
+      });
+      if (entries.length === 0) {
+        await message.reply({ content: 'No change attempts recorded.', allowedMentions: { repliedUser: false } }).catch(() => undefined);
+        return;
+      }
+      const total = await db.roleChangeAudit.count();
+      const lines: string[] = [`**Recent Changes** (last 20 of ${total})`];
+      for (const e of entries) {
+        const ts = e.createdAt.toISOString().slice(0, 16).replace('T', ' ');
+        const action = e.changeType === 'addition' ? '➕' : '➖';
+        const flags: string[] = [];
+        if (!e.authorized) flags.push('❌ UNAUTHORIZED');
+        if (e.reverted) flags.push('↩️ REVERTED');
+        if (e.roleId === DRIP_ROLE_ID) flags.push('🤖 Drip');
+        const flagStr = flags.length > 0 ? `\n    ${flags.join(' | ')}` : '';
+        const reason = e.revertReason ? `\n    Reason: ${e.revertReason}` : '';
+        const auth = e.authReason ? `\n    Auth: ${e.authReason}` : '';
+        lines.push(`\`${ts}\` ${action} **${e.roleName}** → ${e.memberTag}\n    by ${e.executorTag} · origin: ${e.origin}${flagStr}${reason}${auth}`);
+      }
+      // Split into chunks for Discord message limit
+      const full = lines.join('\n');
+      if (full.length <= 1900) {
+        await message.reply({ content: full, allowedMentions: { repliedUser: false } }).catch(() => undefined);
+      } else {
+        let chunk = '';
+        for (const line of lines) {
+          if ((chunk + '\n' + line).length > 1900) {
+            await message.reply({ content: chunk, allowedMentions: { repliedUser: false } }).catch(() => undefined);
+            chunk = line;
+          } else {
+            chunk = chunk ? chunk + '\n' + line : line;
+          }
+        }
+        if (chunk) {
+          await message.reply({ content: chunk, allowedMentions: { repliedUser: false } }).catch(() => undefined);
+        }
+      }
+    } catch (err) {
+      log('error', 'DM changes command failed', mergeLogError({}, err));
+      await message.reply({ content: `❌ Failed to fetch changes: ${getErrorMessage(err)}`, allowedMentions: { repliedUser: false } }).catch(() => undefined);
+    }
+    return;
+  }
+
   // ── bots ───────────────────────────────────────────────────────────────────
   if (content === 'bots') {
     try {
@@ -5139,10 +5204,15 @@ client.on(Events.MessageCreate, async (message) => {
         return;
       }
       const lines: string[] = [`**Bot Accounts** (${bots.length})`];
+      const botUserId = client.user?.id ?? '';
       for (const b of bots) {
         const display = b.displayName && b.displayName !== b.username ? ` (${b.displayName})` : '';
         const roleList = b.roles.length > 0 ? ` — roles: ${b.roles.join(', ')}` : '';
-        lines.push(`• **${b.username}**${display} \`${b.discordUserId}\` — ${b.roleCount} roles${roleList}`);
+        const tags: string[] = [];
+        if (b.discordUserId === DRIP_USER_ID || b.discordUserId === botUserId) tags.push('🤖 THIS BOT');
+        if (b.roles.includes(DRIP_ROLE_ID)) tags.push('Has Drip');
+        const tagStr = tags.length > 0 ? ` [${tags.join(', ')}]` : '';
+        lines.push(`• **${b.username}**${display} \`${b.discordUserId}\` — ${b.roleCount} roles${roleList}${tagStr}`);
       }
       await message.reply({ content: lines.join('\n').slice(0, 1900), allowedMentions: { repliedUser: false } }).catch(() => undefined);
     } catch (err) {
