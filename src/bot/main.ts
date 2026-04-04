@@ -13,6 +13,7 @@ import {
   AuditLogEvent,
   OverwriteType,
   PermissionsBitField,
+  ChannelType,
   type Guild,
   type GuildMember,
   type PartialGuildMember,
@@ -4712,6 +4713,14 @@ client.on(Events.MessageCreate, async (message) => {
       `${pad('guilds', col)}  List all monitored guilds with member counts.`,
       `${pad('errors', col)}  Recent error log (last 8 entries).`,
       '',
+      '--- Data Browse ---',
+      `${pad('roles', col)}  All roles with IDs, position, member count.`,
+      `${pad('members', col)}  Top 25 members by role count with IDs.`,
+      `${pad('admins', col)}  Admin/owner members + dangerous roles.`,
+      `${pad('channels', col)}  All channels grouped by category with IDs.`,
+      `${pad('bots', col)}  Bot accounts with IDs and roles.`,
+      `${pad('audit', col)}  Last 15 role changes (add/remove/revert).`,
+      '',
       '--- Sweep Control ---',
       `${pad('force sweep', col)}  Run full compliance sweep on all guilds now.`,
       `${pad('pause sweep', col)}  Stop the continuous sweep loop.`,
@@ -4914,6 +4923,231 @@ client.on(Events.MessageCreate, async (message) => {
     } catch (err) {
       log('error', 'Engine cache rebuild failed', mergeLogError({ requester }, err));
       await message.reply({ content: `❌ Cache rebuild failed: ${getErrorMessage(err)}`, allowedMentions: { repliedUser: false } }).catch(() => undefined);
+    }
+    return;
+  }
+
+  // ── roles ───────────────────────────────────────────────────────────────
+  if (content === 'roles') {
+    try {
+      const db = await ensurePrisma();
+      const roles = await db.discordRole.findMany({ orderBy: { position: 'desc' } });
+      if (roles.length === 0) {
+        await message.reply({ content: 'No roles found in database.', allowedMentions: { repliedUser: false } }).catch(() => undefined);
+        return;
+      }
+      const lines: string[] = ['**Roles** (' + roles.length + ')'];
+      for (const r of roles) {
+        const flags: string[] = [];
+        if (r.isAdmin) flags.push('ADMIN');
+        if (r.isDangerous) flags.push('DANGEROUS');
+        if (r.managed) flags.push('managed');
+        if (r.hoist) flags.push('hoist');
+        const flagStr = flags.length > 0 ? ` [${flags.join(', ')}]` : '';
+        lines.push(`\`${r.position.toString().padStart(2)}\` **${r.name}** (${r.discordRoleId}) — ${r.memberCount} members${flagStr}`);
+      }
+      await message.reply({ content: lines.join('\n').slice(0, 1900), allowedMentions: { repliedUser: false } }).catch(() => undefined);
+    } catch (err) {
+      log('error', 'DM roles command failed', mergeLogError({}, err));
+      await message.reply({ content: `❌ Failed to fetch roles: ${getErrorMessage(err)}`, allowedMentions: { repliedUser: false } }).catch(() => undefined);
+    }
+    return;
+  }
+
+  // ── members ────────────────────────────────────────────────────────────────
+  if (content === 'members') {
+    try {
+      const db = await ensurePrisma();
+      const members = await db.discordMember.findMany({
+        where: { bot: false },
+        orderBy: { roleCount: 'desc' },
+        take: 25,
+      });
+      if (members.length === 0) {
+        await message.reply({ content: 'No members found in database.', allowedMentions: { repliedUser: false } }).catch(() => undefined);
+        return;
+      }
+      const total = await db.discordMember.count({ where: { bot: false } });
+      const lines: string[] = [`**Members** (top 25 of ${total})`];
+      for (let i = 0; i < members.length; i++) {
+        const m = members[i];
+        const flags: string[] = [];
+        if (m.isOwner) flags.push('👑');
+        if (m.isAdministrator) flags.push('ADMIN');
+        const flagStr = flags.length > 0 ? ` ${flags.join(' ')}` : '';
+        const display = m.displayName && m.displayName !== m.username ? ` (${m.displayName})` : '';
+        lines.push(`${i + 1}. **${m.username}**${display} \`${m.discordUserId}\` — ${m.roleCount} roles${flagStr}`);
+      }
+      await message.reply({ content: lines.join('\n').slice(0, 1900), allowedMentions: { repliedUser: false } }).catch(() => undefined);
+    } catch (err) {
+      log('error', 'DM members command failed', mergeLogError({}, err));
+      await message.reply({ content: `❌ Failed to fetch members: ${getErrorMessage(err)}`, allowedMentions: { repliedUser: false } }).catch(() => undefined);
+    }
+    return;
+  }
+
+  // ── admins ─────────────────────────────────────────────────────────────────
+  if (content === 'admins') {
+    try {
+      const db = await ensurePrisma();
+      const adminMembers = await db.discordMember.findMany({
+        where: { OR: [{ isAdministrator: true }, { isOwner: true }] },
+        orderBy: { roleCount: 'desc' },
+      });
+      const dangerousRoles = await db.discordRole.findMany({
+        where: { OR: [{ isAdmin: true }, { isDangerous: true }] },
+        orderBy: { position: 'desc' },
+      });
+      const lines: string[] = ['**Admins & Dangerous Roles**'];
+      if (adminMembers.length > 0) {
+        lines.push('');
+        lines.push('__Admin/Owner Members__');
+        for (const m of adminMembers) {
+          const tags: string[] = [];
+          if (m.isOwner) tags.push('👑 Owner');
+          if (m.isAdministrator) tags.push('Admin');
+          const display = m.displayName && m.displayName !== m.username ? ` (${m.displayName})` : '';
+          lines.push(`• **${m.username}**${display} \`${m.discordUserId}\` — ${tags.join(', ')}`);
+        }
+      }
+      if (dangerousRoles.length > 0) {
+        lines.push('');
+        lines.push('__Dangerous/Admin Roles__');
+        for (const r of dangerousRoles) {
+          const flags: string[] = [];
+          if (r.isAdmin) flags.push('ADMIN');
+          if (r.isDangerous) flags.push('DANGEROUS');
+          lines.push(`• **${r.name}** (${r.discordRoleId}) — ${r.memberCount} members [${flags.join(', ')}]`);
+        }
+      }
+      if (adminMembers.length === 0 && dangerousRoles.length === 0) {
+        lines.push('No admin members or dangerous roles found.');
+      }
+      await message.reply({ content: lines.join('\n').slice(0, 1900), allowedMentions: { repliedUser: false } }).catch(() => undefined);
+    } catch (err) {
+      log('error', 'DM admins command failed', mergeLogError({}, err));
+      await message.reply({ content: `❌ Failed to fetch admins: ${getErrorMessage(err)}`, allowedMentions: { repliedUser: false } }).catch(() => undefined);
+    }
+    return;
+  }
+
+  // ── channels ───────────────────────────────────────────────────────────────
+  if (content === 'channels') {
+    const guild = client.guilds.cache.first();
+    if (!guild) {
+      await message.reply({ content: 'No guilds in cache.', allowedMentions: { repliedUser: false } }).catch(() => undefined);
+      return;
+    }
+    const typeLabel = (t: number): string => {
+      switch (t) {
+        case ChannelType.GuildText: return 'text';
+        case ChannelType.GuildVoice: return 'voice';
+        case ChannelType.GuildCategory: return 'category';
+        case ChannelType.GuildAnnouncement: return 'announce';
+        case ChannelType.GuildForum: return 'forum';
+        case ChannelType.GuildStageVoice: return 'stage';
+        default: return `type-${t}`;
+      }
+    };
+
+    const channels = [...guild.channels.cache.values()].sort((a, b) => ('position' in a ? a.position : 0) - ('position' in b ? b.position : 0));
+    const categories = channels.filter(c => c.type === ChannelType.GuildCategory);
+    const uncategorized = channels.filter(c => c.type !== ChannelType.GuildCategory && !c.parentId);
+
+    const lines: string[] = [`**Channels** — ${guild.name} (${channels.length} total)`];
+
+    if (uncategorized.length > 0) {
+      lines.push('');
+      lines.push('__No Category__');
+      for (const ch of uncategorized) {
+        lines.push(`  \`${typeLabel(ch.type).padEnd(8)}\` **${ch.name}** (${ch.id})`);
+      }
+    }
+
+    for (const cat of categories) {
+      const children = channels.filter(c => c.parentId === cat.id).sort((a, b) => ('position' in a ? a.position : 0) - ('position' in b ? b.position : 0));
+      lines.push('');
+      lines.push(`__${cat.name}__ (${cat.id})`);
+      for (const ch of children) {
+        lines.push(`  \`${typeLabel(ch.type).padEnd(8)}\` **${ch.name}** (${ch.id})`);
+      }
+    }
+
+    // Discord message limit — split if too long
+    const full = lines.join('\n');
+    if (full.length <= 1900) {
+      await message.reply({ content: full, allowedMentions: { repliedUser: false } }).catch(() => undefined);
+    } else {
+      // Send in chunks
+      let chunk = '';
+      for (const line of lines) {
+        if ((chunk + '\n' + line).length > 1900) {
+          await message.reply({ content: chunk, allowedMentions: { repliedUser: false } }).catch(() => undefined);
+          chunk = line;
+        } else {
+          chunk = chunk ? chunk + '\n' + line : line;
+        }
+      }
+      if (chunk) {
+        await message.reply({ content: chunk, allowedMentions: { repliedUser: false } }).catch(() => undefined);
+      }
+    }
+    return;
+  }
+
+  // ── audit ──────────────────────────────────────────────────────────────────
+  if (content === 'audit') {
+    try {
+      const db = await ensurePrisma();
+      const entries = await db.roleChangeAudit.findMany({
+        orderBy: { createdAt: 'desc' },
+        take: 15,
+      });
+      if (entries.length === 0) {
+        await message.reply({ content: 'No role change audit entries found.', allowedMentions: { repliedUser: false } }).catch(() => undefined);
+        return;
+      }
+      const total = await db.roleChangeAudit.count();
+      const lines: string[] = [`**Role Change Audit** (last 15 of ${total})`];
+      for (const e of entries) {
+        const ts = e.createdAt.toISOString().slice(0, 16).replace('T', ' ');
+        const action = e.changeType === 'addition' ? '➕' : '➖';
+        const flags: string[] = [];
+        if (e.reverted) flags.push('reverted');
+        if (!e.authorized) flags.push('UNAUTHORIZED');
+        const flagStr = flags.length > 0 ? ` [${flags.join(', ')}]` : '';
+        lines.push(`\`${ts}\` ${action} **${e.roleName}** → ${e.memberTag} by ${e.executorTag}${flagStr}`);
+      }
+      await message.reply({ content: lines.join('\n').slice(0, 1900), allowedMentions: { repliedUser: false } }).catch(() => undefined);
+    } catch (err) {
+      log('error', 'DM audit command failed', mergeLogError({}, err));
+      await message.reply({ content: `❌ Failed to fetch audit log: ${getErrorMessage(err)}`, allowedMentions: { repliedUser: false } }).catch(() => undefined);
+    }
+    return;
+  }
+
+  // ── bots ───────────────────────────────────────────────────────────────────
+  if (content === 'bots') {
+    try {
+      const db = await ensurePrisma();
+      const bots = await db.discordMember.findMany({
+        where: { bot: true },
+        orderBy: { roleCount: 'desc' },
+      });
+      if (bots.length === 0) {
+        await message.reply({ content: 'No bot accounts found in database.', allowedMentions: { repliedUser: false } }).catch(() => undefined);
+        return;
+      }
+      const lines: string[] = [`**Bot Accounts** (${bots.length})`];
+      for (const b of bots) {
+        const display = b.displayName && b.displayName !== b.username ? ` (${b.displayName})` : '';
+        const roleList = b.roles.length > 0 ? ` — roles: ${b.roles.join(', ')}` : '';
+        lines.push(`• **${b.username}**${display} \`${b.discordUserId}\` — ${b.roleCount} roles${roleList}`);
+      }
+      await message.reply({ content: lines.join('\n').slice(0, 1900), allowedMentions: { repliedUser: false } }).catch(() => undefined);
+    } catch (err) {
+      log('error', 'DM bots command failed', mergeLogError({}, err));
+      await message.reply({ content: `❌ Failed to fetch bots: ${getErrorMessage(err)}`, allowedMentions: { repliedUser: false } }).catch(() => undefined);
     }
     return;
   }
