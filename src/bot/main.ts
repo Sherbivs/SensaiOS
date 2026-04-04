@@ -3362,10 +3362,20 @@ async function sweepGuild(guild: Guild, origin: string): Promise<void> {
       }
     }
 
-    // Persist guild/member/role snapshot to DB after every sweep (fire-and-forget)
-    syncGuildSnapshot(guild).catch((err) =>
-      log('warn', 'Guild snapshot sync failed (non-blocking)', mergeLogError({ guild: guildSummary }, err)),
-    );
+    // Persist guild/member/role snapshot to DB.
+    // At startup, BLOCK until sync completes so downstream operations see accurate data.
+    // During continuous/periodic sweeps, fire-and-forget to avoid blocking the loop.
+    if (origin === 'startup') {
+      try {
+        await syncGuildSnapshot(guild);
+      } catch (err) {
+        log('warn', 'Startup guild snapshot sync failed', mergeLogError({ guild: guildSummary }, err));
+      }
+    } else {
+      syncGuildSnapshot(guild).catch((err) =>
+        log('warn', 'Guild snapshot sync failed (non-blocking)', mergeLogError({ guild: guildSummary }, err)),
+      );
+    }
     
     updateMonitoringPhase();
   }
@@ -4144,7 +4154,12 @@ client.once(Events.ClientReady, async () => {
   // Boot-time sync: ensure everyone who already has a per-member overwrite in
   // the moderator-only channel holds the Gym Leader role, and anyone who
   // shouldn't (no overwrite) does not.
-  void syncModeratorChannelRoles('boot');
+  // Blocking at boot so DB + channel state is consistent before periodic work begins.
+  try {
+    await syncModeratorChannelRoles('boot');
+  } catch (err) {
+    log('warn', 'Boot gym sync failed (non-fatal)', mergeLogError({}, err));
+  }
 
   // Periodic re-sync every 4 hours: corrects any drift caused by missed
   // channelUpdate events (gateway reconnects, Discord outages, etc.).
@@ -4158,11 +4173,14 @@ client.once(Events.ClientReady, async () => {
 
   // ── Drip Role Channel Persistence ──────────────────────────────────────────
   // Boot pass: apply the Drip overwrite to every channel that is missing it.
-  void (async () => {
-    for (const [, guild] of client.guilds.cache) {
+  // Blocking at boot so channel permissions are fully applied before periodic work begins.
+  for (const [, guild] of client.guilds.cache) {
+    try {
       await enforceDripRoleAllChannels(guild, 'boot');
+    } catch (err) {
+      log('warn', 'Boot Drip channel enforcement failed (non-fatal)', mergeLogError({ guild: guild.name }, err));
     }
-  })();
+  }
 
   // Periodic re-enforcement every 4 hours to heal any drift.
   const DRIP_CHANNEL_SYNC_MS = 4 * 60 * 60 * 1000;
