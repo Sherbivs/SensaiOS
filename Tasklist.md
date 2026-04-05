@@ -1,7 +1,16 @@
 # Tasklist
-Last Updated (UTC): 2026-02-17T18:00:00Z
-Revision: 2.176
+Last Updated (UTC): 2026-04-05T22:00:00Z
+Revision: 2.177
 <!-- # TASKLIST UPDATE -->
+
+**Recent Activity (2026-04-05T22:00Z):**
+- ✅ **Phase 9: DM Console UI + DB Resource Manager + QA Cleanup** (commit 27cfe06f)
+  - DM Console module: 4 files in `src/bot/dm-console/` — interactive embed/button UI replacing 17 text commands
+  - DB Resource Manager: ~520 lines, PostgreSQL storage monitoring, growth trends, anomaly detection
+  - Cache bloat GC fix, security events schema drift fix (migration deployed)
+  - QA: ~170 lines dead code removed, 14 lint warnings fixed, ROUTER.yaml structural errors fixed
+  - Post-mortems: schema drift + cache bloat documented
+- ✅ **MEMLEAK.PHASE4.2 → DONE** — OOM fix v3 soak passed (6 weeks, no recurrence). RSS stable.
 
 **Recent Activity (2026-02-17T18:00Z):**
 - ✅ **SENSAIOS-PERFECTED-VISION.md v1.0.2 created and committed** (commit 3d5f04f7)

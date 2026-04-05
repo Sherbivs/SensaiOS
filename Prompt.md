@@ -1,10 +1,10 @@
 # Prompt.md
-Timestamp (UTC): 2026-02-23T12:00:00Z
-Revision: 7.7
+Timestamp (UTC): 2026-04-05T22:00:00Z
+Revision: 7.8
 
 **Cross-References**:
 - See `Patch.md` for contract rules (updated 2026-02-09T00:00:00Z Rev 1.76)
-- See `Tasklist.md` for active backlog and current tasks (Rev 2.176 — 16 DONE, 4 READY, 1 IN_PROGRESS, 2 PROPOSED)
+- See `Tasklist.md` for active backlog and current tasks (Rev 2.177)
 - See `docs/archive/tasks/` for completed task history (~115+ tasks archived by project/phase)
 - See `ops/NEXT.yaml` for current task pointer (KERNEL.LOGGING.CORRELATION_IDS — READY, P1-HIGH)
 - See `ops/MEMORY-LEAK-PATCH-BLUEPRINT.md` for comprehensive memory leak fix plan (1776 lines)
@@ -25,6 +25,23 @@ Revision: 7.7
 5. When Git remote validation or CI guards fail locally, stop and request human assistance rather than proceeding.
 
 ## Last Repo Changes
+- **✅ PHASE 9: DM Console UI + DB Resource Manager + QA Cleanup (2026-04-05, commit 27cfe06f):**
+  - Phase 3: Security events schema drift fix (migration deployed to prod)
+  - Phase 4: Cache bloat GC fix (kernel-persistence.ts scheduler)
+  - Phase 5: Centralized DB budgets in resource-tiers.ts
+  - Phase 6: Database Resource Manager (~520 lines) — continuous PostgreSQL storage monitoring, growth trends, anomaly detection, adaptive GC retention. Wired into boot-kernel.ts + `/ops db` command.
+  - Phase 7-8: Meta/docs refresh + DB Resource Manager QA (9 intelligence upgrades)
+  - Phase 9: DM Console module (`src/bot/dm-console/`) — 4 files (types.ts, panels.ts, actions.ts, index.ts)
+    - Replaces 17 text-based DM commands with interactive embed/button Discord UI
+    - Main menu → Overview, Security, System, Logs navigation
+    - Security panel: sweep stats, alert tracking, assignments, select menu sub-nav
+    - Overview panel: engine cache stats, memory, guild coverage, trainer coverage
+    - Paginated: roles, members, channels, audit, changes, logs, errors, bots
+    - Action handlers: pause/resume/restart sweep, clear/rebuild cache, force sweep
+  - QA: Removed ~170 lines dead code, fixed 14 lint warnings, fixed ROUTER.yaml structural errors
+  - Post-mortems: schema drift + cache bloat documented in `docs/troubleshooting/`
+  - Build: 0 errors, VS Code error panel clean
+
 - **✅ OOM FIX v3 — Security bot compiled entry + --expose-gc + periodic forced GC (2026-02-23T12:00Z, commit 8d027203):**
   - NEW CRASH Feb 23 — audited 35 module-level Map/Set instances, all confirmed bounded
   - Root cause 1: Security bot service (`infinity-gauntlet-security`) used `npx tsx security-bot.ts` → 50-100 MB interpreter overhead + wrong V8 flags

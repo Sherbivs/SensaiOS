@@ -1,8 +1,8 @@
 # ROUTER
 Title: Discord Bot Layer
-Purpose: Client login, intents, command/interaction routing, homestead channel gameplay flows, security bot with DM command interface.
+Purpose: Client login, intents, command/interaction routing, homestead channel gameplay flows, security bot with DM Console UI.
 Owned Globs: src/bot/**
-Last Updated (UTC): 2026-04-04T00:00:00Z
+Last Updated (UTC): 2026-04-05T22:00:00Z
 
 Notes:
 - **Homestead Architecture (COMPLETE 2025-06-15):** All gameplay now occurs in private guild channels (homestead-{username}) instead of DMs. `src/bot/dm/` directory DELETED. Each user gets a dedicated channel with user-only permissions. Better moderation, audit trail, no DM delivery failures. See `docs/architecture-bible/18-private-channel-architecture.md`.
@@ -19,7 +19,7 @@ Notes:
 - Security sweeps respect `ENABLE_CONTINUOUS_SWEEP`; when false the bot defers to the dedicated Render worker and logs the disabled state to the CLI dashboard.
 - Trainer profile embeds now live under `profile/embed.ts`, shared by the `/profile` slash command to render Option C hybrid summaries.
 - **Startup Sync Blocking (2026-04-03):** `syncGuildSnapshot()`, `syncModeratorChannelRoles('boot')`, and `enforceDripRoleAllChannels('boot')` are now awaited at startup (blocking) instead of fire-and-forget. Failures are non-fatal (logged as warnings) but sync completes before periodic sweeps begin.
-- **DM Command Suite (2026-04-02–04-04):** Security bot accepts 17 DM commands from authorized operators (`canUseDirectStatusCommand()` auth gate). Commands span 5 sections: Status, Data Browse, Sweep Control, Cache, and General. See DM Command Surface section below for full listing.
+- **DM Console UI (2026-04-05):** Interactive embed/button management console replaces text-based DM commands. Module: `src/bot/dm-console/` (types.ts, panels.ts, actions.ts, index.ts). Panels: Main Menu, Overview (engine cache, memory, guilds), Security (sweep stats, alert tracking, sub-panels), System (sweep/cache actions), Logs. All paginated. Legacy text commands remain functional via backward-compatible mapping.
 - **Drip Relationship Indicators (2026-04-03):** All data browse commands annotate entries with Drip role/bot relationship flags (🤖 DRIP ROLE, 🤖 Has Drip, ✅🤖/❌🤖 channel overwrite status, 🤖 THIS BOT).
 - **Guild Snapshot Sync (2026-04-02):** Full guild state (members, roles, channels, bots) persisted to `discord_guilds`, `discord_members`, `discord_roles`, `discord_channels` on boot and before each sweep for production observability.
 - **Gym Leader Channel-Role Sync (2026-04-02):** Robust role sync with 4 defensive layers — root cause fix for stale role assignments.
@@ -27,6 +27,7 @@ Notes:
 
 Areas:
 - index.ts — client bootstrap and interaction switchboard
+- dm-console/* — DM Console UI module (types.ts, panels.ts, actions.ts, index.ts); embed/button management panels with pagination
 - homestead/* — Private guild channel flows (starters, heal, home views with pagination); see src/bot/homestead/ROUTER.md
 - arena/* — Arena thread helpers; see src/bot/arena/ROUTER.md
 - battle/* — Battle interaction handlers; see src/bot/battle/ROUTER.md
@@ -40,47 +41,34 @@ Areas:
 - dripAlerts.js — DM alert digest pipeline (DripTVDD security alerts); Event Bus Integration (2025-11-08): Migrated from in-memory queue to Event Bus for all alert queuing, delivery, and retry. Subscribes to `alert.critical|alert.security` (immediate delivery, priority 20) and `alert.warning|alert.notice` (digest delivery, priority 10). Uses Event Bus replay buffer for digest assembly. Re-emits failed deliveries to `alert.warning` with parentCorrelationId for retry tracking. Tested via Phase 2.3.1-2.3.4 validation (17 unit tests + 6 integration tests passing). See architecture-bible/05-event-bus.md for comprehensive Event Bus design and DripAlertManager integration patterns.
 - **bot-error-handler.ts (289 lines)** — Domain-specific error handler for Discord bot operations. Recognizes Discord API errors (DiscordAPIError), rate limits (429), interaction timeouts, command errors, member fetch failures. Enriches errors with bot-specific context (userId, guildId, commandName, interactionType). Classifies severity (CRITICAL for bot crashes, HIGH for command failures, MEDIUM for rate limits, LOW for validation). Suggests recovery actions (reconnect, retry with backoff, increase timeout). Integrates with ErrorTracker for persistence and recovery. Exposes handleBotError(error, context) API called from all bot command/interaction handlers. See architecture-bible/06-error-system.md and development-bible/05-error-handling.md for comprehensive error system documentation.
 
-## DM Command Surface (2026-04-02–04-04)
+## DM Console UI (2026-04-05)
 
-The security bot processes DM commands from authorized operators (guild owner + admin check via `canUseDirectStatusCommand()`). Commands are organized into 5 sections:
+The DM Console provides an interactive embed/button management interface for authorized operators. Module: `src/bot/dm-console/`
 
-### Status Commands (4)
-| Command | Description |
-|---------|-------------|
-| `stats` | Bot uptime, sweep count, alert count, permission changes, memory/CPU usage |
-| `status` | Current sweep state, guild monitoring summary, database connectivity |
-| `guilds` | All monitored guilds with member counts and last sweep times |
-| `errors` | Recent error log with timestamps, severity, and stack context |
+### Module Files
+| File | Purpose |
+|------|---------|
+| `types.ts` | ConsoleContext interface, panel IDs, pagination helpers, custom ID conventions |
+| `panels.ts` | All panel renderers (pure data → embed/component transforms), color theme |
+| `actions.ts` | Mutating action handlers (sweep control, cache operations) |
+| `index.ts` | Entry point: `handleDmMessage()`, `handleConsoleInteraction()`, text command mapper, panel router |
 
-### Data Browse Commands (7)
-| Command | Description |
-|---------|-------------|
-| `roles` | All guild roles from DB snapshot with position, color, member count. 🤖 DRIP ROLE flag on Drip's role. |
-| `members` | All guild members from DB with join date, roles, bot flag. 🤖 Has Drip indicator. |
-| `admins` | Administrators and moderators with permission breakdown. 🤖 Has Drip / 🤖 Dripbot / 🤖 DRIP ROLE flags. |
-| `channels` | All channels with type, position, topic. ✅🤖/❌🤖 per-channel Drip overwrite status with legend. |
-| `bots` | All bot users with status, roles, permissions. 🤖 THIS BOT tag on Dripbot. |
-| `audit` | Last 20 entries from `role_change_audit` — role changes, timestamps, operators. |
-| `changes` | Last 20 attempted changes from `role_change_audit` including failures, unauthorized flags, revert reasons, auth reasons, origin tracking. Multi-message chunking for Discord 2000-char limit. |
+### Panels
+| Panel | Key Data |
+|-------|----------|
+| Main Menu | Status, uptime, guilds, sweep/alert counts, 4 nav buttons |
+| Overview | Bot identity, memory, heap, engine cache (Pokémon/Moves/Types), guild list, trainer coverage |
+| Security | Sweep status, last alert, perm changes, assignments. Select menu → Roles, Members, Admins, Channels, Audit, Changes |
+| System | Pause/Resume/Restart sweep, Force sweep, Clear/Rebuild cache |
+| Logs | Recent log entries, Error queue, Bot list |
 
-### Sweep Control Commands (4)
-| Command | Description |
-|---------|-------------|
-| `force sweep` | Trigger immediate role permission sweep across all guilds |
-| `pause sweep` | Pause periodic sweep scheduler |
-| `resume sweep` | Resume periodic sweep scheduler |
-| `restart sweep` | Full sweep system restart (disable → re-enable) |
+### Backward Compatibility
+All 17 legacy text commands (stats, roles, members, etc.) are mapped to their corresponding panels in `TEXT_COMMAND_MAP`. Typing a command name in DMs triggers the panel render.
 
-### Cache Commands (2)
-| Command | Description |
-|---------|-------------|
-| `clear cache` | Purge in-memory caches (role cache, permission cache) |
-| `rebuild cache` | Clear then rebuild caches from database |
-
-### General Commands (2)
-| Command | Description |
-|---------|-------------|
-| `help` / `?` | Full command reference organized by section |
+### Wiring (main.ts)
+- `buildConsoleContext()` — Assembles all state/functions into `ConsoleContext`
+- InteractionCreate handler routes `dc:*` custom IDs to `handleConsoleInteraction()`
+- MessageCreate DM handler routes to `handleDmMessage()` for text commands and `!console` trigger
 
 State Persistence — Database-First Architecture (Updated 2025-12-27):
 - state/persistence.ts — Core state save/load/shutdown lifecycle; PostgreSQL CacheEntry storage

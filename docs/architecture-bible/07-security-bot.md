@@ -1,6 +1,6 @@
 # Section 7: Security Bot
 
-**Last Updated**: 2026-04-04 | **Status**: Production | **Phase 1 PostgreSQL Migration**: ✅ Complete
+**Last Updated**: 2026-04-05 | **Status**: Production | **Phase 1 PostgreSQL Migration**: ✅ Complete | **DM Console UI**: ✅ Active
 
 [← Back to INDEX](INDEX.md) | [← Previous: Error System](06-error-system.md) | [Next: Router System →](08-router-system.md)
 
@@ -12,24 +12,25 @@
 
 ## 7.1 State Persistence
 
-**Security Bot Memory Across Restarts** — Cumulative statistics and state preservation using 7-day rolling history.
+**Security Bot Memory Across Restarts** — Cumulative statistics and state preservation using database-first architecture.
 
 **Problem**: Original security bot lost all state on restart. Stats (sweeps, alerts, permission changes) reset to zero, losing operational history.
 
-**Solution**: Persistent state storage with automatic recovery.
+**Solution**: Database-first state storage with PostgreSQL `CacheEntry` table (migrated from /Store files 2025-12-27).
 
-**Storage Location**: `/Store/security-bot-state/`
+**Storage**: PostgreSQL `CacheEntry` table, namespace `security-bot-state`
 
-**File Structure**:
+**Database Keys**:
 
 ```
-/Store/security-bot-state/
-├── current.json                  # Active runtime state
-├── previous.json                 # Backup from last restart
-└── snapshots/                    # Hourly backups (7-day retention)
-    ├── 2025-11-10T15-00-00.json
-    ├── 2025-11-10T16-00-00.json
-    └── ...
+Namespace: security-bot-state
+Keys:
+├── security-bot-state:current       # Active runtime state
+├── security-bot-state:previous      # Backup from last save
+├── security-bot-state:snapshot:{ts}  # Timestamped snapshots (7-day retention)
+├── security-bot-state:backup-{n}    # Rotating backups (0, 1, 2)
+├── security-bot-state:role-archive   # Role change archive with HMAC
+└── security-bot-state:baselines      # Security baselines with HMAC
 ```
 
 **State Schema**:
@@ -429,52 +430,70 @@ MODERATOR_ONLY_CHANNEL_ID=1129075047416463381
 
 ---
 
-## 7.4 DM Command Surface (2026-04-02–04-04)
+## 7.4 DM Console UI (2026-04-05)
 
-**Operator Control via Direct Messages** — The security bot accepts 17 DM commands from authorized operators for real-time monitoring and control.
+**Interactive Management Console via Direct Messages** — The security bot provides a rich embed/button management console for authorized operators, replacing the original text-based DM command interface.
 
-**Authorization**: `canUseDirectStatusCommand()` gate checks guild ownership + Administrator permission before processing any DM command.
+**Architecture**: `src/bot/dm-console/` module (4 files: types.ts, panels.ts, actions.ts, index.ts)
 
-### 7.4.1 Command Sections
+**Authorization**: `canUseDirectStatusCommand()` gate checks guild ownership + Administrator permission.
 
-| Section | Commands | Purpose |
-|---------|----------|---------|
-| **Status** (4) | `stats`, `status`, `guilds`, `errors` | Real-time bot telemetry, guild monitoring overview, error log |
-| **Data Browse** (7) | `roles`, `members`, `admins`, `channels`, `bots`, `audit`, `changes` | Database snapshot browsing with Drip relationship indicators |
-| **Sweep Control** (4) | `force sweep`, `pause sweep`, `resume sweep`, `restart sweep` | Manual sweep lifecycle management |
-| **Cache** (2) | `clear cache`, `rebuild cache` | Runtime cache management |
-| **General** (2) | `help` / `?` | Full command reference |
+> **Note**: The original 17 text-based DM commands (stats, status, roles, etc.) remain functional via backward-compatible text command mapping in `dm-console/index.ts`. Typing a legacy command name automatically routes to the corresponding panel.
 
-### 7.4.2 Data Browse — Drip Relationship Indicators
+### 7.4.1 Panel Architecture
 
-All data browse commands annotate entries with Drip role/bot relationship flags:
+| Panel | Type | Content |
+|-------|------|---------|
+| **Main Menu** | Navigation hub | Status, uptime, guilds, sweep/alert counts, 4 nav buttons |
+| **Overview** | Read-only | Bot identity, memory, heap, environment, engine cache stats, guild list with sweep times, trainer coverage |
+| **Security** | Hub + select menu | Sweep status, last alert, perm changes, total sweeps, assignments. Sub-panels: Roles, Members, Admins, Channels, Audit, Changes |
+| **System** | Actions | Pause/Resume/Restart sweep, Force sweep, Clear/Rebuild cache |
+| **Logs** | Read-only | Recent log entries, error queue, bot list |
 
-| Indicator | Meaning | Commands |
-|-----------|---------|----------|
-| `🤖 DRIP ROLE` | The role belonging to Drip bot | `roles`, `admins` |
-| `🤖 Has Drip` | User/bot has the Drip role assigned | `members`, `admins`, `bots` |
-| `🤖 THIS BOT` | The Dripbot user itself | `bots` |
-| `✅🤖` / `❌🤖` | Channel has/lacks Drip permission overwrite | `channels` |
+### 7.4.2 Sub-Panels (Paginated)
 
-### 7.4.3 Changes Command
+| Panel | Data Source | Page Size |
+|-------|------------|-----------|
+| Roles | `discord_roles` | 12 per page |
+| Members | `discord_members` | 12 per page |
+| Admins | `discord_members` (filtered) | 12 per page |
+| Channels | `discord_channels` | 12 per page |
+| Audit | `role_change_audit` | 12 per page |
+| Changes | `role_change_audit` (failures) | 12 per page |
+| Errors | `pendingOpsErrorQueue` | 12 per page |
+| Bots | `discord_members` (bots) | 12 per page |
 
-The `changes` command queries the last 20 entries from `role_change_audit` including:
-- Successful and failed operations
-- `unauthorized` flag for permission violations
-- Revert reasons and auth reasons
-- Origin tracking (which system initiated the change)
-- Multi-message chunking for Discord's 2000-character limit
+### 7.4.3 Drip Relationship Indicators
 
-### 7.4.4 Data Sources
+| Indicator | Meaning |
+|-----------|---------|
+| `🤖 DRIP ROLE` | The role belonging to Drip bot |
+| `🤖 Has Drip` | User/bot has the Drip role assigned |
+| `🤖 THIS BOT` | The Dripbot user itself |
+| `✅🤖` / `❌🤖` | Channel has/lacks Drip permission overwrite |
 
-All browse commands query database tables populated by guild snapshot sync (§7.6):
-- `discord_guilds` — Guild metadata
-- `discord_members` — Member roster with roles
-- `discord_roles` — Role definitions with permissions
-- `discord_channels` — Channel list with types and overwrites
-- `role_change_audit` — Role change history with HMAC signatures
+### 7.4.4 Action Handlers
 
-**Source**: `src/bot/main.ts` (DM message handler)
+| Action | Button ID | Effect |
+|--------|-----------|--------|
+| Pause Sweep | `sys:pause` | Sets `continuousSweepState.running = false` |
+| Resume Sweep | `sys:resume` | Calls `startContinuousSweepLoop()` |
+| Restart Sweep | `sys:restart` | Stop → re-enable |
+| Force Sweep | `sys:force_sweep` | Immediate sweep all guilds |
+| Clear Cache | `sys:clear_cache` | Purge in-memory caches |
+| Rebuild Cache | `sys:rebuild_cache` | Clear + reinitialize engine cache |
+
+### 7.4.5 ConsoleContext
+
+The DM console receives a `ConsoleContext` object from `main.ts` containing all necessary state and functions — the console module has zero imports from `main.ts` internals. This includes:
+- Discord client, Prisma client
+- Security CLI state (sweep stats, alert tracking)
+- Bot persistent state (cumulative stats, timeline)
+- Sweep control functions
+- Engine cache reference
+- Logging/reporting functions
+
+**Source**: `src/bot/dm-console/` | **Wiring**: `src/bot/main.ts` (`buildConsoleContext()`, InteractionCreate handler, MessageCreate DM handler)
 
 ---
 

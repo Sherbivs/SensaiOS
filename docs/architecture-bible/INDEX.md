@@ -1,7 +1,7 @@
 # ARCHITECTURE BIBLE — INDEX
 
 **Centralized System Architecture Documentation**  
-**Created:** 2025-11-16 | **Last Updated:** 2026-01-05 | **Status:** PRODUCTION
+**Created:** 2025-11-16 | **Last Updated:** 2026-04-05 | **Status:** PRODUCTION
 
 ## Purpose
 
@@ -19,7 +19,7 @@ Single source of truth for Infinity Gauntlet architectural design, component rel
 | **4. Event Bus** | [04-event-bus.md](04-event-bus.md) | Pub-sub system, correlation tracking, pattern matching, backpressure |
 | **5. Logging Architecture** | [05-logging-architecture.md](05-logging-architecture.md) | Intelligent logging, buffer design, AI integration, scaling |
 | **6. Error System** | [06-error-system.md](06-error-system.md) | Error detection, guarantees, tracker integration, logging pipeline |
-| **7. Security Bot** | [07-security-bot.md](07-security-bot.md) | State persistence, restart DMs, DM command suite (17 commands), Gym Leader sync, startup sync blocking, guild snapshot, Drip enforcement |
+| **7. Security Bot** | [07-security-bot.md](07-security-bot.md) | DB-first state persistence, restart DMs, DM Console UI (embed/button panels), Gym Leader sync, startup sync blocking, guild snapshot, Drip enforcement |
 | **8. Router System** | [08-router-system.md](08-router-system.md) | Meta-router design, routing discipline, navigation patterns |
 | **9. Game Engine** | [09-game-engine.md](09-game-engine.md) | PBSL manifesto, battle flow, cache safety, DB replication, event tracking, Dex V2 |
 | **10. Discord Bot** | [10-discord-bot.md](10-discord-bot.md) | Command suite, homestead channels, admin commands, documentation index |

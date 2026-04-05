@@ -61,15 +61,16 @@ Muted callouts note local-only tooling that never ships to prod/cloud runtimes.
     - `outbox.ts` now wraps the event bus helpers so legacy drains can enqueue/claim messages while handlers migrate.
     - `worker-runtime.ts` centralizes worker lifecycle helpers (shutdown hooks, repeating tasks) for outbox/cache/data pipeline entries.
     - `log.ts` remains the structured logger, consuming the shared runtime config.
-  - `src/bot/ROUTER.md` — Discord Bot Layer (Updated 2026-04-04: 17 DM commands, startup sync blocking, Drip indicators)
+  - `src/bot/ROUTER.md` — Discord Bot Layer (Updated 2026-04-05: DM Console UI, DB Resource Manager, startup sync)
     - `src/bot/arena/ROUTER.md` — Arena threads and announcer summaries
     - `src/bot/battle/ROUTER.md` — Battle interaction handlers
     - `src/bot/daily/ROUTER.md` — Daily quest claim flow
+    - `src/bot/dm-console/` — DM Console UI (embed/button panels replacing text commands)
     - `src/bot/homestead/ROUTER.md` — Homestead channel gameplay (healing, starters, home views)
     - `src/bot/middleware/ROUTER.md` — Command guardrails and limits
     - `src/bot/ops/ROUTER.md` — `/ops` admin command surface
     - `src/bot/wilds/ROUTER.md` — Walk/catch encounter handlers
-    - **Security Bot DM Commands (2026-04-04):** 17 commands across 5 sections (Status: stats/status/guilds/errors; Data Browse: roles/members/admins/channels/bots/audit/changes; Sweep Control: force/pause/resume/restart sweep; Cache: clear/rebuild cache; General: help/?). All browse commands include Drip role/bot relationship indicators. Auth gate via `canUseDirectStatusCommand()`.
+    - **DM Console UI (2026-04-05):** Embed/button panel interface replacing 17 text DM commands. Panels: overview, security, guilds, roles, members, channels, sweep, cache. Action handlers for force-sweep, pause/resume, clear/rebuild cache. See `src/bot/dm-console/`.
     - **Startup Sync (2026-04-03):** `syncGuildSnapshot()`, `syncModeratorChannelRoles('boot')`, `enforceDripRoleAllChannels('boot')` now blocking at startup (non-fatal failures → warnings).
   - `docs/ROUTER.md` — Documentation Library
     <!-- NOTE: docs/dex-v2-design.md removed - consolidated into Bible system (2025-11-16) -->
@@ -308,12 +309,13 @@ empty ROUTER.md placeholder files with no actual code. Modern implementation is 
 - Last Task ID: T10.SCALE.WORKERS
 
 ### Discord Bot Layer (`src/bot/ROUTER.md`)
-- Purpose: Discord client bootstrap, slash commands, homestead channels, arena threads, admin ops.
+- Purpose: Discord client bootstrap, slash commands, homestead channels, arena threads, admin ops, DM Console UI.
 - Owned Globs: `src/bot/**`
-- Last Updated: 2025-12-18T00:00:00Z
+- Last Updated: 2026-04-05T22:00:00Z
 - Areas & Key Files:
   - `src/bot/index.ts` — Discord client bootstrap & routing with ready guards
   - `src/bot/commands/**` — Slash command registration (e.g., `/ops`, `/battle`)
+  - `src/bot/dm-console/**` — DM Console UI (embed/button panels: overview, security, guilds, roles, members, channels, sweep, cache)
   - `src/bot/homestead/**` — Homestead channels (party/box/profile views, starter selection, healing, daily quests); see `src/bot/homestead/ROUTER.md`
   - `src/bot/arena/**` — Arena thread creation and summary helpers; see `src/bot/arena/ROUTER.md`
   - `src/bot/battle/**` — Interaction handlers queuing moves, switches, and forfeits; see `src/bot/battle/ROUTER.md`
@@ -323,6 +325,7 @@ empty ROUTER.md placeholder files with no actual code. Modern implementation is 
   - `src/bot/wilds/**` — Walk/catch encounter controls; see `src/bot/wilds/ROUTER.md`
   - `src/bot/security/**` — Security bot module (role sweeps, DripTVDD alert digest); see `src/bot/security/ROUTER.md`
 - Notes:
+  - 2026-04-05: **DM Console UI** — Embed/button panel interface replacing 17 text DM commands. See `src/bot/dm-console/`.
   - 2025-06-15: **HOMESTEAD MIGRATION COMPLETE** — All gameplay moved from DMs to private guild channels (homestead-{username}).
   - 2025-10-27: DRIP security alerts now fire on role assignments with audit-log attribution and CLI telemetry.
 
