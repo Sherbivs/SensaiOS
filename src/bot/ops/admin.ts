@@ -33,7 +33,7 @@ import {
   getConfidenceEmoji
 } from "../../utils/memory-measurement.js";
 import { collectMemoryMetrics, formatMemoryMetrics } from "../../services/monitoring/memory-metrics.js";
-import { getDatabaseHealthReport, forceProbe, formatHealthSummary, type DbHealthReport } from "../../kernel/database-resource-manager.js";
+import { getDatabaseHealthReport, forceProbe, formatHealthSummary } from "../../kernel/database-resource-manager.js";
 
 // Query modules
 import { getUserBasic, countUsers } from "../../shared/models/user-queries-pg.js";

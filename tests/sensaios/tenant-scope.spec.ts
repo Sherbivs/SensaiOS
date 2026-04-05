@@ -30,6 +30,9 @@ describe('TenantScope', () => {
   beforeEach(() => {
     vi.stubEnv('NODE_ENV', 'development');
     vi.stubEnv('SERVICE_NAME', 'test-service');
+    vi.stubEnv('RENDER_SERVICE_ID', '');
+    vi.stubEnv('RENDER_INSTANCE_ID', '');
+    vi.stubEnv('RENDER_REGION', '');
   });
 
   afterEach(() => {

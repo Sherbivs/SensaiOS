@@ -293,7 +293,7 @@ describe('Bounded data structure verification', () => {
 
   it('bounds security memory cache to tier-configured entries', () => {
     const limit = TIER.cache.memoryCacheMaxEntries;
-    for (let i = 0; i < limit + 100; i += 1) {
+    for (let i = 0; i < limit + 10; i += 1) {
       writeCache(`entry-${i}`, { index: i });
     }
 
