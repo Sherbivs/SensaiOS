@@ -246,7 +246,7 @@ describe('Envelope Query', () => {
   
   it('checks existence', () => {
     expect(query(testLogs).level('FATAL').exists()).toBe(true);
-    expect(query(testLogs).level('TRACE').exists()).toBe(false);
+    expect(query(testLogs).level('FATAL').component('nonexistent').exists()).toBe(false);
   });
   
   it('groups by field', () => {

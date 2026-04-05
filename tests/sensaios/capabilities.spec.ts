@@ -9,7 +9,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { checkCapability, assertCapability, listCapabilities } from '../../src/sensaios/capabilities/assert-capability.js';
 import { SensaiError } from '../../src/sensaios/sensai-error.js';
-import type { PrismaClient } from '../../src/generated/prisma/client.js';
+import type { PrismaClient } from '@prisma/client';
 import type { TenantScope } from '../../src/sensaios/tenant-scope.js';
 
 // Mock Prisma client
@@ -23,7 +23,7 @@ const createMockPrisma = () => ({
 // Test scope
 const testScope: TenantScope = {
   tenant: 'test-guild-123',
-  environment: 'test',
+  environment: 'development',
   service: 'test-service',
   component: 'test-component',
 };

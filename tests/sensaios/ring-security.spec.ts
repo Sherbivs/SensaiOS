@@ -23,7 +23,7 @@ import {
 } from '../../src/sensaios/security/secure-import.js';
 import { RING } from '../../src/sensaios/types.js';
 import { SensaiError } from '../../src/sensaios/sensai-error.js';
-import type { PrismaClient } from '../../src/generated/prisma/client.js';
+import type { PrismaClient } from '@prisma/client';
 import type { TenantScope } from '../../src/sensaios/tenant-scope.js';
 
 // Mock Prisma client
@@ -37,7 +37,7 @@ const createMockPrisma = () => ({
 // Test scope
 const testScope: TenantScope = {
   tenant: 'test-guild-123',
-  environment: 'test',
+  environment: 'development',
   service: 'test-service',
   component: 'test-component',
 };
@@ -264,7 +264,7 @@ describe('Ring Security Model — Comprehensive Tests', () => {
       const result = await checkCapability(
         prisma,
         'game.battles',
-        'db.*',
+        'db.write',
         testScope
       );
 
@@ -420,7 +420,7 @@ describe('Ring Security Model — Comprehensive Tests', () => {
 
       const invalidScope: TenantScope = {
         tenant: '', // Empty tenant
-        environment: 'test',
+        environment: 'development',
         service: 'test-service',
         component: 'test-component',
       };
@@ -561,7 +561,9 @@ describe('Ring Security Model — Comprehensive Tests', () => {
       ringLevel: RING.APPS,
       scope: {
         tenant: 'test-tenant',
-        guildId: 'test-guild',
+        environment: 'development',
+        service: 'test-service',
+        component: 'test-component',
       },
       correlationId: 'test-correlation',
     };
@@ -707,7 +709,9 @@ describe('Ring Security Model — Comprehensive Tests', () => {
         ringLevel: RING.APPS,
         scope: {
           tenant: 'test-tenant',
-          guildId: 'test-guild',
+          environment: 'development',
+          service: 'test-service',
+          component: 'test-component',
         },
         correlationId: 'test-correlation-123',
       };
@@ -724,14 +728,16 @@ describe('Ring Security Model — Comprehensive Tests', () => {
         ringLevel: RING.APPS,
         scope: {
           tenant: 'test-tenant',
-          guildId: 'test-guild',
+          environment: 'development',
+          service: 'test-service',
+          component: 'test-component',
         },
       };
 
       const result = validateImport('src/bot/commands/battle.ts', mockContext);
       
       expect(result.allowed).toBe(true);
-      // Audit includes tenant + guildId
+      // Audit includes tenant scope
     });
 
     it('should audit successful import operations', () => {
@@ -740,7 +746,9 @@ describe('Ring Security Model — Comprehensive Tests', () => {
         ringLevel: RING.APPS,
         scope: {
           tenant: 'test-tenant',
-          guildId: 'test-guild',
+          environment: 'development',
+          service: 'test-service',
+          component: 'test-component',
         },
       });
       
@@ -754,7 +762,9 @@ describe('Ring Security Model — Comprehensive Tests', () => {
         ringLevel: RING.APPS,
         scope: {
           tenant: 'test-tenant',
-          guildId: 'test-guild',
+          environment: 'development',
+          service: 'test-service',
+          component: 'test-component',
         },
       });
       
@@ -773,7 +783,9 @@ describe('Ring Security Model — Comprehensive Tests', () => {
         ringLevel: RING.APPS,
         scope: {
           tenant: 'test-tenant',
-          guildId: 'test-guild',
+          environment: 'development',
+          service: 'test-service',
+          component: 'test-component',
         },
       });
       
@@ -787,7 +799,9 @@ describe('Ring Security Model — Comprehensive Tests', () => {
         ringLevel: RING.APPS,
         scope: {
           tenant: 'test-tenant',
-          guildId: 'test-guild',
+          environment: 'development',
+          service: 'test-service',
+          component: 'test-component',
         },
       });
       
@@ -802,7 +816,9 @@ describe('Ring Security Model — Comprehensive Tests', () => {
         ringLevel: RING.APPS,
         scope: {
           tenant: 'test-tenant',
-          guildId: 'test-guild',
+          environment: 'development',
+          service: 'test-service',
+          component: 'test-component',
         },
       });
       
