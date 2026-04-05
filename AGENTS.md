@@ -693,6 +693,44 @@ See `docs/db-replication-architecture.md` for comprehensive architecture documen
 
 See `docs/engine-db-replication.md` for comprehensive design documentation. See `src/services/ROUTER.md`, `src/workers/ROUTER.md`, and `src/config/ROUTER.md` for detailed API documentation and usage patterns.
 
+## Database Resource Manager (Kernel Layer)
+
+**As of 2026-04-06**, the kernel includes an intelligent **Database Resource Manager** that continuously monitors PostgreSQL storage usage, detects anomalies, and adapts garbage collection retention under pressure.
+
+**Architecture:** PostgreSQL → Probe (pg_database_size + per-namespace breakdown) → Growth Trend Analysis → Anomaly Detection → Adaptive Retention → GC Integration
+
+**Purpose:** Prevent database storage exhaustion on Render's 1 GB Starter plan by proactively monitoring growth, detecting runaway namespaces, and compressing GC retention as pressure increases.
+
+**Implementation:** `src/kernel/database-resource-manager.ts` (~520 lines)
+
+**Features:**
+- **Continuous Probing:** 15-minute interval, tracks `pg_database_size()` + per-namespace breakdown from `cache_entries` and `runtime_metrics`
+- **Growth Trend Analysis:** Linear regression over rolling 168-sample window, calculates MB/day rate, days-until-warn/emergency/full, confidence level
+- **Anomaly Detection:** 4 types — spike (>2x normal), stale-namespace (>24h unchanged), runaway-namespace (>budget), unexpected-shrink. Auto-clear after 24h
+- **Per-Namespace Budgets:** 9 default namespace budgets (security-bot-state: 50 MB, kernel-*: 30 MB, etc.)
+- **Adaptive Retention:** Under pressure (>75% full), reduces GC retention from configured days down to 1 day at 90%+. Smooth linear curve
+- **Health Classification:** HEALTHY / WARNING / CRITICAL / EMERGENCY based on TIER thresholds from `resource-tiers.ts`
+
+**Boot Integration:**
+- Starts at kernel boot Step 9.5 (after `initializePersistence()`, before engine workers)
+- Shuts down before `shutdownPersistence()` during graceful shutdown
+- Exposed via Kernel API: `Kernel.dbResource.getHealthReport()`, `getGrowthTrend()`, `getEffectiveRetentionDays()`, `getAnomalies()`, `forceProbe()`, `formatHealthSummary()`
+
+**Operations & Monitoring:**
+
+- **`/ops db` Command** — `src/bot/ops/admin.ts`
+  - Default: Health dashboard showing status, total size, thresholds (warn/emergency/max), effective retention days, growth trend (MB/day, projection), namespace breakdown, active anomalies
+  - `probe` subcommand: Forces immediate probe and returns fresh health report
+  - Access control: Admin-only via `isAdmin()` check
+  - Error handling: Graceful fallback with error messages
+
+**GC Integration:**
+- `kernel-persistence.ts` uses `getEffectiveRetentionDays()` instead of static TIER value
+- When DB pressure is high, retention compresses automatically — no operator intervention needed
+- Logs adaptive retention usage for observability
+
+See `src/kernel/ROUTER.md` for complete kernel architecture and `docs/architecture-bible/16-boot-sequence.md` Phase 5 for boot integration.
+
 ## Capabilities & Routing Hints
 
 **⚠️ PATCH ENGINE CHECKPOINT #3:** Reminder - Error handling, optimization, and system upgrade tasks must be added to `ops/NEXT.yaml` task queue before work begins.

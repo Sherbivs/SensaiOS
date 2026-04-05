@@ -1,5 +1,5 @@
 # Master Router Table
-Last Updated (UTC): 2026-01-21T00:00:00Z
+Last Updated (UTC): 2026-04-04T00:00:00Z
 Purpose: Text-only reference of every router, its downstream routers, and the primary files/routes they cover for hotfix navigation when automation is unavailable.
 Muted callouts note local-only tooling that never ships to prod/cloud runtimes.
 
@@ -61,7 +61,7 @@ Muted callouts note local-only tooling that never ships to prod/cloud runtimes.
     - `outbox.ts` now wraps the event bus helpers so legacy drains can enqueue/claim messages while handlers migrate.
     - `worker-runtime.ts` centralizes worker lifecycle helpers (shutdown hooks, repeating tasks) for outbox/cache/data pipeline entries.
     - `log.ts` remains the structured logger, consuming the shared runtime config.
-  - `src/bot/ROUTER.md` — Discord Bot Layer
+  - `src/bot/ROUTER.md` — Discord Bot Layer (Updated 2026-04-04: 17 DM commands, startup sync blocking, Drip indicators)
     - `src/bot/arena/ROUTER.md` — Arena threads and announcer summaries
     - `src/bot/battle/ROUTER.md` — Battle interaction handlers
     - `src/bot/daily/ROUTER.md` — Daily quest claim flow
@@ -69,6 +69,8 @@ Muted callouts note local-only tooling that never ships to prod/cloud runtimes.
     - `src/bot/middleware/ROUTER.md` — Command guardrails and limits
     - `src/bot/ops/ROUTER.md` — `/ops` admin command surface
     - `src/bot/wilds/ROUTER.md` — Walk/catch encounter handlers
+    - **Security Bot DM Commands (2026-04-04):** 17 commands across 5 sections (Status: stats/status/guilds/errors; Data Browse: roles/members/admins/channels/bots/audit/changes; Sweep Control: force/pause/resume/restart sweep; Cache: clear/rebuild cache; General: help/?). All browse commands include Drip role/bot relationship indicators. Auth gate via `canUseDirectStatusCommand()`.
+    - **Startup Sync (2026-04-03):** `syncGuildSnapshot()`, `syncModeratorChannelRoles('boot')`, `enforceDripRoleAllChannels('boot')` now blocking at startup (non-fatal failures → warnings).
   - `docs/ROUTER.md` — Documentation Library
     <!-- NOTE: docs/dex-v2-design.md removed - consolidated into Bible system (2025-11-16) -->
   - `src/core/ROUTER.md` — Core Game Engines
@@ -357,6 +359,25 @@ empty ROUTER.md placeholder files with no actual code. Modern implementation is 
   - `engine-db-config.ts` — Engine DB runtime configuration (Phase 17-22)
 - Notes:
   - 2025-12-20: Archived index.ts, schema.ts, loader.ts (927 lines, Zod system never integrated)
+
+### Kernel Root Observer (`src/kernel/ROUTER.md`)
+- Purpose: Production-grade kernel module providing unified logging, error detection, system observation, metrics, persistence, and database resource management.
+- Owned Globs: `src/kernel/**`
+- Last Updated: 2026-04-06T00:00:00Z
+- Key Files:
+  - `boot-kernel.ts` — Unified Kernel API facade (9+ step boot sequence)
+  - `database-resource-manager.ts` — DB storage monitoring: growth trends, anomaly detection, adaptive retention, namespace budgets
+  - `kernel-persistence.ts` — Snapshot management, database export, retention policies (adaptive via DRM)
+  - `kernel-logger.ts` — Structured logging with levels, rotation, formatting
+  - `kernel-error-detector.ts` — Global error capture, categorization, crash reports
+  - `kernel-observer.ts` — Observable patterns for system state tracking
+  - `kernel-metrics.ts` — Performance metrics, rate tracking, dashboards
+  - `kernel-hooks.ts` — Lifecycle event system (boot, ready, shutdown)
+  - `kernel-scrubber.ts` — PII scrubbing pipeline for output dispatch
+- Notes:
+  - ~5,515 lines of production-grade kernel code
+  - Database Resource Manager starts at kernel boot Step 9.5, provides adaptive GC retention
+  - Exposed via `Kernel.dbResource.*` API and `/ops db` command
 
 ### Event Bus & Battle Primitives (`src/engine/ROUTER.md`)
 - Purpose: Shared mechanics for battle calculations and worker orchestration.

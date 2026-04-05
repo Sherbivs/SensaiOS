@@ -108,6 +108,24 @@ export interface CacheBudgets {
   memoryCacheMaxEntries: number;
 }
 
+/** Managed PostgreSQL storage & GC budgets */
+export interface DatabaseBudgets {
+  /** Total managed DB storage limit in MB (e.g. 1024 for Render Starter) */
+  storageLimitMb: number;
+  /** DB size warning threshold in MB — triggers reduced retention */
+  sizeWarnMb: number;
+  /** DB size emergency threshold in MB — triggers aggressive 1-day prune */
+  sizeEmergencyMb: number;
+  /** Default data retention in days */
+  retentionDays: number;
+  /** GC cycle interval in ms */
+  gcIntervalMs: number;
+  /** Snapshot interval in ms (periodic state saves) */
+  snapshotIntervalMs: number;
+  /** Max snapshots stored per day */
+  maxSnapshotsPerDay: number;
+}
+
 /** Suggested V8 heap limit (MB) — for NODE_OPTIONS --max-old-space-size */
 export interface HeapConfig {
   /** Recommended --max-old-space-size value (MB) */
@@ -142,6 +160,8 @@ export interface TierProfile {
   cache: CacheBudgets;
   /** V8 heap configuration */
   heap: HeapConfig;
+  /** Managed PostgreSQL storage & GC budgets */
+  database: DatabaseBudgets;
 }
 
 // ============================================================================
@@ -206,6 +226,15 @@ const TIER_PROFILES: Record<RenderPlanTier, Omit<TierProfile, 'detectedVia' | 'd
       memoryCacheMaxEntries: 500,          // Reduced from 1000
     },
     heap: { maxOldSpaceMB: 384 },   // 75% of 512
+    database: {
+      storageLimitMb: 1024,            // Render Starter PostgreSQL: 1 GB
+      sizeWarnMb: 768,                 // 75% of 1 GB
+      sizeEmergencyMb: 922,            // 90% of 1 GB
+      retentionDays: 7,
+      gcIntervalMs: 4 * 60 * 60 * 1000,   // 4 hours
+      snapshotIntervalMs: 5 * 60 * 1000,  // 5 minutes
+      maxSnapshotsPerDay: 288,
+    },
   },
 
   // ─── Standard (2 GB / 1 vCPU) ────────────────────────────────────────
@@ -236,6 +265,15 @@ const TIER_PROFILES: Record<RenderPlanTier, Omit<TierProfile, 'detectedVia' | 'd
       memoryCacheMaxEntries: 1000,
     },
     heap: { maxOldSpaceMB: 1536 },  // 75% of 2048
+    database: {
+      storageLimitMb: 10 * 1024,       // Render Standard PostgreSQL: 10 GB
+      sizeWarnMb: 7680,                // 75% of 10 GB
+      sizeEmergencyMb: 9216,           // 90% of 10 GB
+      retentionDays: 14,
+      gcIntervalMs: 6 * 60 * 60 * 1000,   // 6 hours
+      snapshotIntervalMs: 5 * 60 * 1000,
+      maxSnapshotsPerDay: 288,
+    },
   },
 
   // ─── Pro (4 GB / 2 vCPU) ─────────────────────────────────────────────
@@ -266,6 +304,15 @@ const TIER_PROFILES: Record<RenderPlanTier, Omit<TierProfile, 'detectedVia' | 'd
       memoryCacheMaxEntries: 2000,
     },
     heap: { maxOldSpaceMB: 3072 },  // 75% of 4096
+    database: {
+      storageLimitMb: 50 * 1024,       // Render Pro PostgreSQL: 50 GB
+      sizeWarnMb: 38400,               // 75% of 50 GB
+      sizeEmergencyMb: 46080,          // 90% of 50 GB
+      retentionDays: 30,
+      gcIntervalMs: 12 * 60 * 60 * 1000,  // 12 hours
+      snapshotIntervalMs: 5 * 60 * 1000,
+      maxSnapshotsPerDay: 288,
+    },
   },
 
   // ─── Pro Plus (8 GB / 4 vCPU) ────────────────────────────────────────
@@ -296,6 +343,15 @@ const TIER_PROFILES: Record<RenderPlanTier, Omit<TierProfile, 'detectedVia' | 'd
       memoryCacheMaxEntries: 5000,
     },
     heap: { maxOldSpaceMB: 6144 },  // 75% of 8192
+    database: {
+      storageLimitMb: 128 * 1024,      // Render Pro Plus PostgreSQL: 128 GB
+      sizeWarnMb: 98304,               // 75% of 128 GB
+      sizeEmergencyMb: 117965,         // 90% of 128 GB
+      retentionDays: 60,
+      gcIntervalMs: 24 * 60 * 60 * 1000,  // 24 hours
+      snapshotIntervalMs: 5 * 60 * 1000,
+      maxSnapshotsPerDay: 288,
+    },
   },
 
   // ─── Pro Max (16 GB / 4 vCPU) ────────────────────────────────────────
@@ -326,6 +382,15 @@ const TIER_PROFILES: Record<RenderPlanTier, Omit<TierProfile, 'detectedVia' | 'd
       memoryCacheMaxEntries: 10000,
     },
     heap: { maxOldSpaceMB: 12288 }, // 75% of 16384
+    database: {
+      storageLimitMb: 256 * 1024,      // Render Pro Max PostgreSQL: 256 GB
+      sizeWarnMb: 196608,              // 75% of 256 GB
+      sizeEmergencyMb: 235930,         // 90% of 256 GB
+      retentionDays: 90,
+      gcIntervalMs: 24 * 60 * 60 * 1000,
+      snapshotIntervalMs: 5 * 60 * 1000,
+      maxSnapshotsPerDay: 288,
+    },
   },
 
   // ─── Pro Ultra (32 GB / 8 vCPU) ──────────────────────────────────────
@@ -356,6 +421,15 @@ const TIER_PROFILES: Record<RenderPlanTier, Omit<TierProfile, 'detectedVia' | 'd
       memoryCacheMaxEntries: 20000,
     },
     heap: { maxOldSpaceMB: 24576 }, // 75% of 32768
+    database: {
+      storageLimitMb: 512 * 1024,      // Render Pro Ultra PostgreSQL: 512 GB
+      sizeWarnMb: 393216,              // 75% of 512 GB
+      sizeEmergencyMb: 471859,         // 90% of 512 GB
+      retentionDays: 90,
+      gcIntervalMs: 24 * 60 * 60 * 1000,
+      snapshotIntervalMs: 5 * 60 * 1000,
+      maxSnapshotsPerDay: 288,
+    },
   },
 };
 
@@ -491,10 +565,13 @@ export function checkHeapConfiguration(): string | null {
  * Format a concise tier summary for boot logs.
  */
 export function formatTierSummary(): string {
+  const dbLimitLabel = TIER.database.storageLimitMb >= 1024
+    ? `${(TIER.database.storageLimitMb / 1024).toFixed(0)} GB`
+    : `${TIER.database.storageLimitMb} MB`;
   return (
     `[ResourceTier] ${TIER.label} | Detected: ${TIER.detectedRamMB} MB via ${TIER.detectedVia} | ` +
     `Memory: ${TIER.memory.planLimitMB} MB | CPU: ${TIER.cpu.planVCPU} vCPU | ` +
-    `L1 Cache: ${TIER.engine.l1CacheMaxMB} MB | Pool: ${TIER.engine.postgresPoolSize} | ` +
+    `DB: ${dbLimitLabel} | L1 Cache: ${TIER.engine.l1CacheMaxMB} MB | Pool: ${TIER.engine.postgresPoolSize} | ` +
     `Heap Limit: ${TIER.heap.maxOldSpaceMB} MB`
   );
 }

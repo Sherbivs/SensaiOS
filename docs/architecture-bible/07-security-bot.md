@@ -1,6 +1,6 @@
 # Section 7: Security Bot
 
-**Last Updated**: 2026-04-03 | **Status**: Production | **Phase 1 PostgreSQL Migration**: ✅ Complete
+**Last Updated**: 2026-04-04 | **Status**: Production | **Phase 1 PostgreSQL Migration**: ✅ Complete
 
 [← Back to INDEX](INDEX.md) | [← Previous: Error System](06-error-system.md) | [Next: Router System →](08-router-system.md)
 
@@ -84,7 +84,7 @@ interface SecurityBotState {
 **Initialization Flow**:
 
 ```typescript
-// Entry point: security-bot.ts → src/bot/main.js
+// Entry point: security-bot.ts → src/bot/main.ts
 import { SecurityBotState } from "./security-bot-state.js";
 
 async function initializeSecurityBot() {
@@ -280,7 +280,7 @@ All operations resumed normally.
 **Implementation**:
 
 ```typescript
-// Entry point: security-bot.ts → src/bot/main.js → src/bot/state/
+// Entry point: security-bot.ts → src/bot/main.ts → src/bot/state/
 import { SecurityBotState } from "./security-bot-state.js";
 import { sendAdminDMs } from "./security-bot-notifications.js";
 
@@ -426,6 +426,125 @@ MODERATOR_ONLY_CHANNEL_ID=1129075047416463381
 - **Audit trail**: Every grant/revoke has a corresponding `RoleChangeAudit` with HMAC signature and hash-chain link
 - **Graceful degradation**: DB write failures are caught and logged but don't block the role operation
 - **Gateway intents**: Requires `Guilds` (channelUpdate) + `GuildMembers` (member.roles operations) — both already enabled
+
+---
+
+## 7.4 DM Command Surface (2026-04-02–04-04)
+
+**Operator Control via Direct Messages** — The security bot accepts 17 DM commands from authorized operators for real-time monitoring and control.
+
+**Authorization**: `canUseDirectStatusCommand()` gate checks guild ownership + Administrator permission before processing any DM command.
+
+### 7.4.1 Command Sections
+
+| Section | Commands | Purpose |
+|---------|----------|---------|
+| **Status** (4) | `stats`, `status`, `guilds`, `errors` | Real-time bot telemetry, guild monitoring overview, error log |
+| **Data Browse** (7) | `roles`, `members`, `admins`, `channels`, `bots`, `audit`, `changes` | Database snapshot browsing with Drip relationship indicators |
+| **Sweep Control** (4) | `force sweep`, `pause sweep`, `resume sweep`, `restart sweep` | Manual sweep lifecycle management |
+| **Cache** (2) | `clear cache`, `rebuild cache` | Runtime cache management |
+| **General** (2) | `help` / `?` | Full command reference |
+
+### 7.4.2 Data Browse — Drip Relationship Indicators
+
+All data browse commands annotate entries with Drip role/bot relationship flags:
+
+| Indicator | Meaning | Commands |
+|-----------|---------|----------|
+| `🤖 DRIP ROLE` | The role belonging to Drip bot | `roles`, `admins` |
+| `🤖 Has Drip` | User/bot has the Drip role assigned | `members`, `admins`, `bots` |
+| `🤖 THIS BOT` | The Dripbot user itself | `bots` |
+| `✅🤖` / `❌🤖` | Channel has/lacks Drip permission overwrite | `channels` |
+
+### 7.4.3 Changes Command
+
+The `changes` command queries the last 20 entries from `role_change_audit` including:
+- Successful and failed operations
+- `unauthorized` flag for permission violations
+- Revert reasons and auth reasons
+- Origin tracking (which system initiated the change)
+- Multi-message chunking for Discord's 2000-character limit
+
+### 7.4.4 Data Sources
+
+All browse commands query database tables populated by guild snapshot sync (§7.6):
+- `discord_guilds` — Guild metadata
+- `discord_members` — Member roster with roles
+- `discord_roles` — Role definitions with permissions
+- `discord_channels` — Channel list with types and overwrites
+- `role_change_audit` — Role change history with HMAC signatures
+
+**Source**: `src/bot/main.ts` (DM message handler)
+
+---
+
+## 7.5 Startup Sync Blocking (2026-04-03)
+
+**Deterministic Boot Sequence** — Three sync operations are now awaited at startup instead of fire-and-forget.
+
+**Problem**: `syncGuildSnapshot()`, `syncModeratorChannelRoles('boot')`, and `enforceDripRoleAllChannels('boot')` were all fire-and-forget at boot. This meant the bot could start periodic sweeps before the initial sync completed, leading to stale data in browse commands and missed role corrections.
+
+**Solution**: All three operations are now `await`ed at startup with individual try/catch wrappers. Failures are non-fatal — logged as warnings but the bot continues startup. Only the `startup` origin triggers blocking; periodic sweeps remain fire-and-forget.
+
+### 7.5.1 Boot Sequence
+
+```
+ClientReady
+  ├── await syncGuildSnapshot()              ← Blocking: snapshot guild state to DB
+  ├── await syncModeratorChannelRoles('boot') ← Blocking: reconcile Gym Leader roles
+  ├── await enforceDripRoleAllChannels('boot') ← Blocking: ensure Drip overwrites
+  └── Start periodic sweep scheduler          ← Only begins after sync completes
+```
+
+### 7.5.2 Error Handling
+
+Each sync operation has its own try/catch:
+- Failure in one does not prevent the others from running
+- Errors are logged with full context (guild ID, operation name, error message)
+- The bot still starts and enables periodic sweeps even if a sync fails
+- This preserves the "security bot must always be running" invariant
+
+---
+
+## 7.6 Guild Snapshot Sync (2026-04-02)
+
+**Production-Ready Guild State Persistence** — Full guild state (members, roles, channels, bots) synced to PostgreSQL for observability and browse commands.
+
+**Purpose**: Provide a queryable database snapshot of guild state for the DM command surface (§7.4) and production observability.
+
+### 7.6.1 Sync Trigger Points
+
+| Trigger | Timing | Blocking? |
+|---------|--------|-----------|
+| Bot startup (`ClientReady`) | On boot | Yes (awaited) |
+| Before each periodic sweep | In sweep finally block | No (fire-and-forget) |
+
+### 7.6.2 Tables Updated
+
+| Table | Content | Key Fields |
+|-------|---------|------------|
+| `discord_guilds` | Guild metadata | id, name, memberCount, ownerId |
+| `discord_members` | Member roster | userId, username, roles[], joinedAt, isBot |
+| `discord_roles` | Role definitions | id, name, position, color, permissions, memberCount |
+| `discord_channels` | Channel list | id, name, type, position, topic |
+
+All records are upserted (create-or-update) using parameterized Prisma queries — no raw SQL, no injection vectors.
+
+---
+
+## 7.7 Channel Overwrite Enforcement (2026-04-02)
+
+**Persistent Drip Role Channel Access** — `enforceDripRoleAllChannels()` ensures the Drip bot role has `ViewChannel` + `SendMessages` permission overwrites on all guild channels.
+
+**Trigger Points**: Boot (blocking) + Periodic sweeps (fire-and-forget)
+
+**Per-Channel Logic**:
+1. Check if the channel already has a Drip role overwrite
+2. If missing, create an overwrite granting `ViewChannel` + `SendMessages`
+3. If present but insufficient, update to include required permissions
+4. Log each channel action (added/updated/skipped)
+
+**Source**: `src/bot/main.ts` → `enforceDripRoleAllChannels(origin)`
 
 ---
 

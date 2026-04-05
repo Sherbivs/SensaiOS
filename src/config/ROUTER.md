@@ -2,13 +2,14 @@
 Title: Configuration Modules
 Purpose: Environment config and centralized settings for services.
 Owned Globs: src/config/**
-Last Updated (UTC): 2025-12-20T21:00:00Z
+Last Updated (UTC): 2026-04-04T00:00:00Z
 
 Notes:
 - **env.ts** is the primary configuration module (14+ imports across codebase).
 - **engine-db-config.ts** provides Engine DB service configuration (5 imports).
 - Keep typings (`env.d.ts`) aligned with the real config loader to avoid drift.
 - **Engine DB Config (Phase 17-22)** provides centralized configuration for all Engine DB services with environment-aware defaults and validation.
+- **Drip Alert Config (2026-04-02):** Added `DRIP_ALERT_RECIPIENT`, `DRIP_ALERT_HOUR`, `DRIP_ALERT_MINUTE`, `DRIP_ALERT_TIMEZONE` exports to env.ts for configurable Drip alert scheduling.
 
 Key Files:
 - **env.ts** — Primary environment configuration (14+ imports) — ACTIVE.

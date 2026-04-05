@@ -1,4 +1,4 @@
-import fs from 'node:fs';
+﻿import fs from 'node:fs';
 import https from 'node:https';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -13,7 +13,6 @@ import {
   AuditLogEvent,
   OverwriteType,
   PermissionsBitField,
-  ChannelType,
   type Guild,
   type GuildMember,
   type PartialGuildMember,
@@ -83,12 +82,9 @@ import { installFatalErrorHandlers } from '../utils/fatalErrorGuard.js';
 import { log as baseLog, report } from '../shared/logging/index.js';
 import opsNotifier from '../utils/opsNotifier.js';
 import { resourceMonitor } from '../services/monitoring/resource-monitor.js';
-import { prisma, ensurePrisma, getDatabaseStats, onPremiseDevPrisma, onPremiseExperimentPrisma } from '../shared/prisma.js';
+import { prisma, ensurePrisma } from '../shared/prisma.js';
 import { TIER } from '../config/resource-tiers.js';
-import { engineCache, engineWriteBuffer } from '../services/cache/index.js';
-import * as engineReadDb from '../services/database/engine-read-db.js';
-import * as engineWriteDb from '../services/database/engine-write-db.js';
-import { getEngineWorkersStatus } from '../workers/engine-workers.js';
+import { engineCache } from '../services/cache/index.js';
 
 import { createDripAlertManager, DRIP_ALERT_SEVERITY, type DripAlertManager, type DescribeUserFunction } from './dripAlerts.js';
 import { SecurityEventService } from './security/services/security-event-service.js';
@@ -99,6 +95,7 @@ import { initializeState, shutdownState, startAutoSave, stopAutoSave } from './s
 import { recordSweep, recordMemberFetchTimeout } from './state/stats.js';
 import { getRecentActivitySummary } from './state/timeline.js';
 import type { SecurityBotState, TimelineEvent, GuildState } from './state/types.js';
+import { handleDmMessage, handleConsoleInteraction, isConsoleInteraction, type ConsoleContext } from './dm-console/index.js';
 
 // ============================================================================
 // Type Definitions
@@ -1908,175 +1905,6 @@ async function notifyServiceRestart(): Promise<void> {
   }
 }
 
-async function measureDatabasePing(
-  db: { $queryRawUnsafe(query: string): Promise<unknown> } | null,
-): Promise<number | null> {
-  if (!db) {
-    return null;
-  }
-  const start = process.hrtime.bigint();
-  await db.$queryRawUnsafe('SELECT 1');
-  return Number(process.hrtime.bigint() - start) / 1_000_000;
-}
-
-function formatDatabaseStatusLine(
-  label: string,
-  status: { status: string; latency: number | null; source: string; transport: string },
-  livePingMs: number | null,
-): string {
-  const parts = [
-    `${label}: ${status.status}`,
-    `heartbeat ${status.latency != null ? `${status.latency.toFixed(1)}ms` : 'n/a'}`,
-    `live ${livePingMs != null ? `${livePingMs.toFixed(1)}ms` : 'n/a'}`,
-    `${status.transport}/${status.source}`,
-  ];
-  return `• ${parts.join(' | ')}`;
-}
-
-function formatEngineWorkerLine(
-  label: string,
-  worker: { isRunning: boolean; successCount: number; errorCount: number; lastRunTime: Date | null },
-): string {
-  const status = worker.isRunning ? 'running' : 'idle';
-  return `• ${label}: ${status} | ${worker.successCount} runs | ${worker.errorCount} errors | last ${describeMomentForCli(worker.lastRunTime)}`;
-}
-
-async function buildDripStatsMessage(): Promise<string> {
-  await ensurePrisma();
-  await refreshMemberStats('drip-dm-stats');
-
-  const guildSnapshots = await Promise.all(
-    Array.from(client.guilds.cache.values()).map(async (guild) => {
-      const freshGuild = await guild.fetch().catch(() => guild);
-      return {
-        id: guild.id,
-        name: freshGuild.name,
-        memberCount: Number.isFinite(freshGuild.memberCount) ? freshGuild.memberCount : guild.members.cache.size,
-      };
-    }),
-  );
-
-  const totalMembers = guildSnapshots.reduce((sum, guild) => sum + (guild.memberCount || 0), 0);
-  const monitoredGuilds = botState
-    ? Object.values(botState.guilds).filter((guild) => guild.monitoring).length
-    : client.guilds.cache.size;
-
-  const dbStats = getDatabaseStats();
-  const [prodPingMs, onPremiseDevPingMs, onPremiseExperimentPingMs] = await Promise.all([
-    measureDatabasePing(prisma),
-    measureDatabasePing(onPremiseDevPrisma),
-    measureDatabasePing(onPremiseExperimentPrisma),
-  ]);
-
-  const [discordGuildRows, discordMemberRows, discordRoleRows] = await Promise.all([
-    prisma.discordGuild.count().catch(() => null),
-    prisma.discordMember.count().catch(() => null),
-    prisma.discordRole.count().catch(() => null),
-  ]);
-
-  const recentOpsErrors = typeof opsNotifier.getRecentErrors === 'function'
-    ? opsNotifier.getRecentErrors().slice(-5).reverse()
-    : [];
-
-  const lines: string[] = [];
-  lines.push('🛡️ **Dripbot Stats**');
-  lines.push(`Queried: ${toEasternString(new Date())}`);
-  lines.push(`Identity: ${client.user?.tag ?? 'unknown'} | Uptime: ${formatDuration(process.uptime() * 1000)}`);
-  lines.push(`Environment: ${process.env.NODE_ENV || (process.env.RENDER ? 'production' : 'development')} | Service: ${process.env.SERVICE_NAME || 'security-bot'}`);
-
-  lines.push('');
-  lines.push('👥 **Guilds**');
-  lines.push(`• Guilds: ${client.guilds.cache.size} total | ${monitoredGuilds} monitored`);
-  lines.push(`• Members: ${totalMembers.toLocaleString()} total`);
-  if (securityCliState.memberStats) {
-    const coverage = securityCliState.memberStats.totalMembers > 0
-      ? (securityCliState.memberStats.totalWithRole / securityCliState.memberStats.totalMembers) * 100
-      : 0;
-    lines.push(`• Trainer coverage: ${securityCliState.memberStats.totalWithRole}/${securityCliState.memberStats.totalMembers} (${coverage.toFixed(1)}%)${securityCliState.memberStats.partial ? ' est.' : ''}`);
-  }
-  const topGuilds = guildSnapshots
-    .sort((left, right) => right.memberCount - left.memberCount)
-    .slice(0, 3)
-    .map((guild) => `${guild.name}: ${guild.memberCount}`);
-  if (topGuilds.length > 0) {
-    lines.push(`• Top guilds: ${topGuilds.join(' | ')}`);
-  }
-
-  lines.push('');
-  lines.push('🧹 **Sweeps**');
-  lines.push(`• Total sweeps: ${botState?.cumulative.sweepCount ?? securityCliState.totalSweeps}`);
-  lines.push(`• Total alerts: ${botState?.cumulative.alertCount ?? 0}`);
-  if (securityCliState.lastSweepCompletedAt) {
-    lines.push(`• Last sweep: ${securityCliState.lastSweepGuild || 'unknown guild'} via ${securityCliState.lastSweepOrigin || 'unspecified'}`);
-    lines.push(`• Completed: ${describeMomentForCli(securityCliState.lastSweepCompletedAt)}`);
-    lines.push(`• Result: ${securityCliState.lastSweepAssigned} assigned, ${securityCliState.lastSweepFailed} failed${securityCliState.lastSweepResult ? ` | ${securityCliState.lastSweepResult}` : ''}`);
-  }
-  if (securityCliState.lastAlertSentAt) {
-    lines.push(`• Last alert: ${describeMomentForCli(securityCliState.lastAlertSentAt)}`);
-  }
-
-  lines.push('');
-  lines.push('🗄️ **Databases**');
-  lines.push(formatDatabaseStatusLine('PROD', dbStats.prod, prodPingMs));
-  lines.push(formatDatabaseStatusLine('ONPREMISE-DEV', dbStats.onPremiseDev, onPremiseDevPingMs));
-  lines.push(formatDatabaseStatusLine('ONPREMISE-EXPERIMENT', dbStats.onPremiseExperiment, onPremiseExperimentPingMs));
-  lines.push(`• Snapshot rows: guilds ${discordGuildRows ?? 'n/a'} | members ${discordMemberRows ?? 'n/a'} | roles ${discordRoleRows ?? 'n/a'}`);
-
-  lines.push('');
-  lines.push('⚙️ **Engine DB**');
-  const engineReady = Boolean((global as typeof globalThis & { engineReady?: boolean }).engineReady);
-  lines.push(`• Engine ready: ${engineReady ? 'yes' : 'no'}`);
-  try {
-    const cacheStats = engineCache.getStats();
-    const bufferStats = engineWriteBuffer.getStats();
-    const readDbStats = engineReadDb.getStats();
-    const writeDbStats = engineWriteDb.getStats();
-    const workerStatus = getEngineWorkersStatus();
-
-    lines.push(`• L1 Cache: ${cacheStats.isInitialized ? 'initialized' : 'offline'} | ${cacheStats.pokemonCount} pokemon | ${cacheStats.moveCount} moves | ${cacheStats.hitRate.toFixed(1)}% hit rate | ${cacheStats.avgLatencyUs.toFixed(2)} us | ${cacheStats.memorySizeMb.toFixed(1)} MB`);
-    lines.push(`• Write Buffer: ${bufferStats.totalQueueSize} pending | ${bufferStats.flushCount} flushes | ${(bufferStats.utilizationPercent * 100).toFixed(1)}% utilized | backpressure ${bufferStats.isBackpressureActive ? 'active' : 'inactive'}`);
-    lines.push(`• Read-DB: ${readDbStats.status} | ${readDbStats.pokemonCount} pokemon | ${readDbStats.moveCount} moves | ${readDbStats.typeEffectivenessCount} type chart | ${formatBytes(readDbStats.sizeBytes)} | ${readDbStats.latency != null ? `${readDbStats.latency.toFixed(1)}ms` : 'n/a'}`);
-    lines.push(`• Write-DB: ${writeDbStats.status} | ${writeDbStats.battleLogCount} battles | ${writeDbStats.moveUsageCount} moves | ${writeDbStats.anomalyCount} anomalies | ${writeDbStats.walEntryCount} WAL | ${formatBytes(writeDbStats.sizeBytes)} | oldest ${writeDbStats.oldestEntryAge > 0 ? formatDuration(writeDbStats.oldestEntryAge) : 'n/a'}`);
-    lines.push(formatEngineWorkerLine('Cache Refresh', workerStatus.cacheRefresh));
-    lines.push(formatEngineWorkerLine('Buffer Flush', workerStatus.bufferFlush));
-    lines.push(formatEngineWorkerLine('Read-DB Sync', workerStatus.readDbSync));
-    lines.push(formatEngineWorkerLine('Write-DB Validator', workerStatus.writeDbValidator));
-  } catch (error) {
-    lines.push(`• Engine stats unavailable: ${getErrorMessage(error)}`);
-  }
-
-  lines.push('');
-  lines.push('⚠️ **Recent Errors**');
-  if (recentOpsErrors.length > 0) {
-    for (const error of recentOpsErrors.slice(0, 4)) {
-      lines.push(`• ${describeMomentForCli(error.timestamp)}: ${error.message}`);
-    }
-  } else if (botState?.timeline) {
-    const timelineErrors = botState.timeline
-      .filter((entry) => entry.type === 'error')
-      .slice(-4)
-      .reverse();
-    if (timelineErrors.length > 0) {
-      for (const error of timelineErrors) {
-        const details = error.details as unknown as Record<string, unknown> | undefined;
-        const detailMessage = typeof details?.error === 'string'
-          ? details.error
-          : typeof details?.message === 'string'
-            ? details.message
-            : 'Unknown error';
-        lines.push(`• ${describeMomentForCli(error.timestamp)}: ${detailMessage}`);
-      }
-    } else {
-      lines.push('• None recorded recently');
-    }
-  } else {
-    lines.push('• None recorded recently');
-  }
-  lines.push(`• Pending ops queue: ${pendingOpsErrorQueue.length}`);
-
-  return lines.join('\n').slice(0, 1900);
-}
-
 function updateMonitoringPhase() {
   const count = client.guilds.cache.size;
   const label = `Monitoring ${count} guild${count === 1 ? '' : 's'}`;
@@ -2920,6 +2748,31 @@ function canUseDirectStatusCommand(userId: string): boolean {
   }
 
   return false;
+}
+
+/** Build the context object for the DM console module. */
+function buildConsoleContext(): ConsoleContext {
+  return {
+    client,
+    prisma,
+    ensurePrisma,
+    securityCliState,
+    continuousSweepState,
+    pendingOpsErrorQueue,
+    botState: botState as ConsoleContext['botState'],
+    dripRoleId: DRIP_ROLE_ID,
+    dripUserId: DRIP_USER_ID,
+    enableContinuousSweep: ENABLE_CONTINUOUS_SWEEP,
+    startContinuousSweepLoop,
+    sweepGuild,
+    enforceDripRoleAllChannels,
+    describeUser,
+    syncModeratorChannelRoles,
+    log: log as ConsoleContext['log'],
+    report,
+    engineCache,
+    cache,
+  };
 }
 
 function getDripChannelOverwriteEditability(channel: GuildChannel): {
@@ -4196,9 +4049,18 @@ client.once(Events.ClientReady, async () => {
   dripChannelSyncTimer.unref?.();
 });
 
-// Slash commands and autocomplete
+// Slash commands, autocomplete, and DM console interactions
 client.on(Events.InteractionCreate, async (interaction) => {
   try {
+    // ── DM Console button/select routing ──
+    if ((interaction.isButton() || interaction.isStringSelectMenu()) && isConsoleInteraction(interaction)) {
+      // Auth check: same gate as DM messages
+      if (!canUseDirectStatusCommand(interaction.user.id)) return;
+      const consoleCtx = buildConsoleContext();
+      await handleConsoleInteraction(interaction, consoleCtx);
+      return;
+    }
+
     if (!commands || commands.size === 0) return;
     if (interaction.isAutocomplete()) {
       const cmd = commands.get(interaction.commandName);
@@ -4711,618 +4573,8 @@ client.on(Events.MessageCreate, async (message) => {
   if (message.guildId) return;
   if (!canUseDirectStatusCommand(message.author.id)) return;
 
-  const content = message.content.trim().toLowerCase();
-
-  // ── help ──────────────────────────────────────────────────────────────────
-  if (content === 'help' || content === '?') {
-    const pad = (s: string, n: number) => s.padEnd(n);
-    const col = 16;
-    const lines: string[] = [
-      '```',
-      'Dripbot Direct-Message Commands',
-      '================================',
-      '',
-      `${pad('COMMAND', col)}  DESCRIPTION`,
-      `${pad('-------', col)}  -----------`,
-      '',
-      '--- Status ---',
-      `${pad('stats', col)}  Full system status (bot, guilds, DB, engine).`,
-      `${pad('status', col)}  Alias for STATS.`,
-      `${pad('guilds', col)}  List all monitored guilds with member counts.`,
-      `${pad('errors', col)}  Recent error log (last 8 entries).`,
-      '',
-      '--- Data Browse ---',
-      `${pad('roles', col)}  All roles with IDs, position, Drip indicator.`,
-      `${pad('members', col)}  Top 25 members by role count, Drip status.`,
-      `${pad('admins', col)}  Admin/owner members + dangerous roles.`,
-      `${pad('channels', col)}  All channels with Drip overwrite status.`,
-      `${pad('bots', col)}  Bot accounts with Dripbot indicator.`,
-      `${pad('audit', col)}  Last 15 role changes (add/remove/revert).`,
-      `${pad('changes', col)}  Last 20 change attempts incl. failures.`,
-      '',
-      '--- Sweep Control ---',
-      `${pad('force sweep', col)}  Run full compliance sweep on all guilds now.`,
-      `${pad('pause sweep', col)}  Stop the continuous sweep loop.`,
-      `${pad('resume sweep', col)}  Restart the continuous sweep loop.`,
-      `${pad('restart sweep', col)}  Stop then restart the sweep loop.`,
-      '',
-      '--- Cache ---',
-      `${pad('clear cache', col)}  Purge role-assignment cache entries so next`,
-      `${pad('', col)}  sweep re-evaluates every member from scratch.`,
-      `${pad('rebuild cache', col)}  Reload the L1 engine cache from Read-DB.`,
-      '',
-      '--- General ---',
-      `${pad('help', col)}  Show this command reference.`,
-      `${pad('?', col)}  Alias for HELP.`,
-      '',
-      'All commands are case-insensitive.',
-      '```',
-    ];
-    await message.reply({
-      content: lines.join('\n'),
-      allowedMentions: { repliedUser: false },
-    }).catch(() => undefined);
-    return;
-  }
-
-  // ── stats / status ────────────────────────────────────────────────────────
-  if (content === 'stats' || content === 'status') {
-    try {
-      const response = await buildDripStatsMessage();
-      await message.reply({
-        content: response,
-        allowedMentions: { repliedUser: false },
-      });
-    } catch (error) {
-      log('error', 'Failed to generate Drip DM stats response', mergeLogError({
-        requester: describeUser(message.author),
-      }, error));
-      await message.reply({
-        content: 'Failed to generate stats report. Check recent logs and database health.',
-        allowedMentions: { repliedUser: false },
-      }).catch(() => undefined);
-    }
-    return;
-  }
-
-  // ── guilds ────────────────────────────────────────────────────────────────
-  if (content === 'guilds') {
-    const guildLines: string[] = ['**Monitored Guilds**'];
-    let i = 0;
-    for (const guild of client.guilds.cache.values()) {
-      i++;
-      const lastSweep = securityCliState.lastSweepGuild?.startsWith(guild.name)
-        ? securityCliState.lastSweepCompletedAt
-        : null;
-      const sweepAgo = lastSweep
-        ? `last sweep ${Math.round((Date.now() - lastSweep.getTime()) / 60000)}m ago`
-        : 'not yet swept';
-      guildLines.push(`${i}. **${guild.name}** (${guild.id}) — ${guild.memberCount?.toLocaleString() ?? guild.members.cache.size.toLocaleString()} members | ${sweepAgo}`);
-    }
-    if (guildLines.length === 1) guildLines.push('No guilds found.');
-    await message.reply({
-      content: guildLines.join('\n').slice(0, 1900),
-      allowedMentions: { repliedUser: false },
-    }).catch(() => undefined);
-    return;
-  }
-
-  // ── errors ────────────────────────────────────────────────────────────────
-  if (content === 'errors') {
-    const errorLines: string[] = ['**Recent Errors (last 8)**'];
-    const queueErrors = pendingOpsErrorQueue.slice(-8);
-    if (queueErrors.length > 0) {
-      errorLines.push('*From ops queue:*');
-      for (const e of queueErrors) {
-        const ts = e.timestamp ? new Date(e.timestamp).toISOString().slice(11, 19) : '?';
-        errorLines.push(`• \`${ts}\` ${e.message}`);
-      }
-    }
-    const timelineErrors = botState?.timeline
-      ? (botState.timeline as TimelineEntryWithDetails[])
-          .filter((t) => t.type === 'error' || t.type === 'alert')
-          .slice(-8)
-      : [];
-    if (timelineErrors.length > 0) {
-      errorLines.push('*From timeline:*');
-      for (const e of timelineErrors) {
-        const ts = e.timestamp ? new Date(e.timestamp).toISOString().slice(11, 19) : '?';
-        const label = (e.details as { message?: string; error?: string } | null)?.message
-          ?? (e.details as { error?: string } | null)?.error
-          ?? e.type;
-        errorLines.push(`• \`${ts}\` ${label}`);
-      }
-    }
-    if (errorLines.length === 1) errorLines.push('No recent errors found.');
-    await message.reply({
-      content: errorLines.join('\n').slice(0, 1900),
-      allowedMentions: { repliedUser: false },
-    }).catch(() => undefined);
-    return;
-  }
-
-  // ── pause sweep ───────────────────────────────────────────────────────────
-  if (content === 'pause sweep' || content === 'pausesweep') {
-    const requester = describeUser(message.author);
-    if (!continuousSweepState.running) {
-      await message.reply({ content: 'ℹ️ Continuous sweep loop is already stopped.', allowedMentions: { repliedUser: false } }).catch(() => undefined);
-      return;
-    }
-    continuousSweepState.abortController?.abort();
-    log('warn', 'Continuous sweep loop paused via DM', { requester });
-    report('Sweep Loop Paused — DM Command', { requester }, 'warn');
-    await message.reply({ content: '⏸️ Sweep loop pause signalled. It will stop after the current guild finishes.', allowedMentions: { repliedUser: false } }).catch(() => undefined);
-    return;
-  }
-
-  // ── resume sweep ──────────────────────────────────────────────────────────
-  if (content === 'resume sweep' || content === 'resumesweep') {
-    const requester = describeUser(message.author);
-    if (continuousSweepState.running) {
-      await message.reply({ content: 'ℹ️ Continuous sweep loop is already running.', allowedMentions: { repliedUser: false } }).catch(() => undefined);
-      return;
-    }
-    if (!ENABLE_CONTINUOUS_SWEEP) {
-      await message.reply({ content: '⚠️ `ENABLE_CONTINUOUS_SWEEP` is disabled in config — cannot resume.', allowedMentions: { repliedUser: false } }).catch(() => undefined);
-      return;
-    }
-    startContinuousSweepLoop();
-    log('warn', 'Continuous sweep loop resumed via DM', { requester });
-    report('Sweep Loop Resumed — DM Command', { requester }, 'warn');
-    await message.reply({ content: '▶️ Sweep loop restarted.', allowedMentions: { repliedUser: false } }).catch(() => undefined);
-    return;
-  }
-
-  // ── restart sweep ─────────────────────────────────────────────────────────
-  if (content === 'restart sweep' || content === 'restartsweep') {
-    const requester = describeUser(message.author);
-    if (!ENABLE_CONTINUOUS_SWEEP) {
-      await message.reply({ content: '⚠️ `ENABLE_CONTINUOUS_SWEEP` is disabled in config — cannot restart.', allowedMentions: { repliedUser: false } }).catch(() => undefined);
-      return;
-    }
-    // Abort if running, then wait a beat and restart
-    if (continuousSweepState.running) {
-      continuousSweepState.abortController?.abort();
-      // Give the loop one tick to mark itself stopped before re-starting
-      await new Promise<void>((resolve) => setTimeout(resolve, 500));
-    }
-    startContinuousSweepLoop();
-    log('warn', 'Continuous sweep loop restarted via DM', { requester });
-    report('Sweep Loop Restarted — DM Command', { requester }, 'warn');
-    await message.reply({ content: '🔄 Sweep loop restarted.', allowedMentions: { repliedUser: false } }).catch(() => undefined);
-    return;
-  }
-
-  // ── clear cache ───────────────────────────────────────────────────────────
-  if (content === 'clear cache' || content === 'clearcache') {
-    const requester = describeUser(message.author);
-    log('warn', 'Cache clear triggered via DM', { requester });
-    await message.reply({ content: '🗑️ Clearing role-assignment cache…', allowedMentions: { repliedUser: false } }).catch(() => undefined);
-    try {
-      // Delete all assignment cache entries (discord-cache namespace, key prefix assign:)
-      const result = await prisma.cacheEntry.deleteMany({
-        where: {
-          namespace: 'discord-cache',
-          key: { startsWith: 'discord-cache:assign:' },
-        },
-      });
-      // Also clean expired entries from memory + DB
-      cache.cleanOldCache();
-      report('Cache Cleared — DM Command', { requester, deletedEntries: result.count }, 'warn');
-      await message.reply({
-        content: `✅ Cleared **${result.count}** assignment cache entry/entries. Expired entries also pruned. Next sweep will re-evaluate all members.`,
-        allowedMentions: { repliedUser: false },
-      }).catch(() => undefined);
-    } catch (err) {
-      log('error', 'Cache clear failed', mergeLogError({ requester }, err));
-      await message.reply({ content: `❌ Cache clear failed: ${getErrorMessage(err)}`, allowedMentions: { repliedUser: false } }).catch(() => undefined);
-    }
-    return;
-  }
-
-  // ── rebuild cache ─────────────────────────────────────────────────────────
-  if (content === 'rebuild cache' || content === 'rebuildcache') {
-    const requester = describeUser(message.author);
-    log('warn', 'Engine cache rebuild triggered via DM', { requester });
-    await message.reply({ content: '⚙️ Rebuilding L1 engine cache from Read-DB…', allowedMentions: { repliedUser: false } }).catch(() => undefined);
-    const start = Date.now();
-    try {
-      await engineCache.initialize();
-      const elapsed = Math.round((Date.now() - start) / 1000);
-      const stats = engineCache.getStats();
-      report('Engine Cache Rebuilt — DM Command', { requester, elapsedSeconds: elapsed }, 'warn');
-      await message.reply({
-        content: [
-          `✅ **L1 engine cache rebuilt** — ${elapsed}s`,
-          `Pokemon: ${stats.pokemonCount} | Moves: ${stats.moveCount} | Type chart: ${stats.typeEffectivenessCount}`,
-          `Memory: ${stats.memorySizeMb.toFixed(1)} MB`,
-        ].join('\n'),
-        allowedMentions: { repliedUser: false },
-      }).catch(() => undefined);
-    } catch (err) {
-      log('error', 'Engine cache rebuild failed', mergeLogError({ requester }, err));
-      await message.reply({ content: `❌ Cache rebuild failed: ${getErrorMessage(err)}`, allowedMentions: { repliedUser: false } }).catch(() => undefined);
-    }
-    return;
-  }
-
-  // ── roles ───────────────────────────────────────────────────────────────
-  if (content === 'roles') {
-    try {
-      const db = await ensurePrisma();
-      const roles = await db.discordRole.findMany({ orderBy: { position: 'desc' } });
-      if (roles.length === 0) {
-        await message.reply({ content: 'No roles found in database.', allowedMentions: { repliedUser: false } }).catch(() => undefined);
-        return;
-      }
-      const lines: string[] = ['**Roles** (' + roles.length + ')'];
-      for (const r of roles) {
-        const flags: string[] = [];
-        if (r.discordRoleId === DRIP_ROLE_ID) flags.push('🤖 DRIP ROLE');
-        if (r.isAdmin) flags.push('ADMIN');
-        if (r.isDangerous) flags.push('DANGEROUS');
-        if (r.managed) flags.push('managed');
-        if (r.hoist) flags.push('hoist');
-        const flagStr = flags.length > 0 ? ` [${flags.join(', ')}]` : '';
-        lines.push(`\`${r.position.toString().padStart(2)}\` **${r.name}** (${r.discordRoleId}) — ${r.memberCount} members${flagStr}`);
-      }
-      await message.reply({ content: lines.join('\n').slice(0, 1900), allowedMentions: { repliedUser: false } }).catch(() => undefined);
-    } catch (err) {
-      log('error', 'DM roles command failed', mergeLogError({}, err));
-      await message.reply({ content: `❌ Failed to fetch roles: ${getErrorMessage(err)}`, allowedMentions: { repliedUser: false } }).catch(() => undefined);
-    }
-    return;
-  }
-
-  // ── members ────────────────────────────────────────────────────────────────
-  if (content === 'members') {
-    try {
-      const db = await ensurePrisma();
-      const members = await db.discordMember.findMany({
-        where: { bot: false },
-        orderBy: { roleCount: 'desc' },
-        take: 25,
-      });
-      if (members.length === 0) {
-        await message.reply({ content: 'No members found in database.', allowedMentions: { repliedUser: false } }).catch(() => undefined);
-        return;
-      }
-      const total = await db.discordMember.count({ where: { bot: false } });
-      const lines: string[] = [`**Members** (top 25 of ${total})`];
-      for (let i = 0; i < members.length; i++) {
-        const m = members[i];
-        const flags: string[] = [];
-        if (m.isOwner) flags.push('👑');
-        if (m.isAdministrator) flags.push('ADMIN');
-        if (m.roles.includes(DRIP_ROLE_ID)) flags.push('🤖 Has Drip');
-        const flagStr = flags.length > 0 ? ` ${flags.join(' ')}` : '';
-        const display = m.displayName && m.displayName !== m.username ? ` (${m.displayName})` : '';
-        lines.push(`${i + 1}. **${m.username}**${display} \`${m.discordUserId}\` — ${m.roleCount} roles${flagStr}`);
-      }
-      await message.reply({ content: lines.join('\n').slice(0, 1900), allowedMentions: { repliedUser: false } }).catch(() => undefined);
-    } catch (err) {
-      log('error', 'DM members command failed', mergeLogError({}, err));
-      await message.reply({ content: `❌ Failed to fetch members: ${getErrorMessage(err)}`, allowedMentions: { repliedUser: false } }).catch(() => undefined);
-    }
-    return;
-  }
-
-  // ── admins ─────────────────────────────────────────────────────────────────
-  if (content === 'admins') {
-    try {
-      const db = await ensurePrisma();
-      const botUserId = client.user?.id ?? '';
-      const adminMembers = await db.discordMember.findMany({
-        where: { OR: [{ isAdministrator: true }, { isOwner: true }] },
-        orderBy: { roleCount: 'desc' },
-      });
-      const dangerousRoles = await db.discordRole.findMany({
-        where: { OR: [{ isAdmin: true }, { isDangerous: true }] },
-        orderBy: { position: 'desc' },
-      });
-      const lines: string[] = ['**Admins & Dangerous Roles**'];
-      if (adminMembers.length > 0) {
-        lines.push('');
-        lines.push('__Admin/Owner Members__');
-        for (const m of adminMembers) {
-          const tags: string[] = [];
-          if (m.isOwner) tags.push('👑 Owner');
-          if (m.isAdministrator) tags.push('Admin');
-          if (m.roles.includes(DRIP_ROLE_ID)) tags.push('🤖 Has Drip');
-          if (m.discordUserId === DRIP_USER_ID || m.discordUserId === botUserId) tags.push('🤖 Dripbot');
-          const display = m.displayName && m.displayName !== m.username ? ` (${m.displayName})` : '';
-          lines.push(`• **${m.username}**${display} \`${m.discordUserId}\` — ${tags.join(', ')}`);
-        }
-      }
-      if (dangerousRoles.length > 0) {
-        lines.push('');
-        lines.push('__Dangerous/Admin Roles__');
-        for (const r of dangerousRoles) {
-          const flags: string[] = [];
-          if (r.discordRoleId === DRIP_ROLE_ID) flags.push('🤖 DRIP ROLE');
-          if (r.isAdmin) flags.push('ADMIN');
-          if (r.isDangerous) flags.push('DANGEROUS');
-          lines.push(`• **${r.name}** (${r.discordRoleId}) — ${r.memberCount} members [${flags.join(', ')}]`);
-        }
-      }
-      if (adminMembers.length === 0 && dangerousRoles.length === 0) {
-        lines.push('No admin members or dangerous roles found.');
-      }
-      await message.reply({ content: lines.join('\n').slice(0, 1900), allowedMentions: { repliedUser: false } }).catch(() => undefined);
-    } catch (err) {
-      log('error', 'DM admins command failed', mergeLogError({}, err));
-      await message.reply({ content: `❌ Failed to fetch admins: ${getErrorMessage(err)}`, allowedMentions: { repliedUser: false } }).catch(() => undefined);
-    }
-    return;
-  }
-
-  // ── channels ───────────────────────────────────────────────────────────────
-  if (content === 'channels') {
-    const guild = client.guilds.cache.first();
-    if (!guild) {
-      await message.reply({ content: 'No guilds in cache.', allowedMentions: { repliedUser: false } }).catch(() => undefined);
-      return;
-    }
-    const typeLabel = (t: number): string => {
-      switch (t) {
-        case ChannelType.GuildText: return 'text';
-        case ChannelType.GuildVoice: return 'voice';
-        case ChannelType.GuildCategory: return 'category';
-        case ChannelType.GuildAnnouncement: return 'announce';
-        case ChannelType.GuildForum: return 'forum';
-        case ChannelType.GuildStageVoice: return 'stage';
-        default: return `type-${t}`;
-      }
-    };
-
-    const channels = [...guild.channels.cache.values()].sort((a, b) => ('position' in a ? a.position : 0) - ('position' in b ? b.position : 0));
-    const categories = channels.filter(c => c.type === ChannelType.GuildCategory);
-    const uncategorized = channels.filter(c => c.type !== ChannelType.GuildCategory && !c.parentId);
-
-    const dripTag = (ch: typeof channels[number]): string => {
-      if (ch.type === ChannelType.GuildCategory) return '';
-      if (!('permissionOverwrites' in ch)) return ' ❓';
-      const ow = (ch as { permissionOverwrites: { cache: Map<string, unknown> } }).permissionOverwrites.cache;
-      return ow.has(DRIP_ROLE_ID) ? ' ✅🤖' : ' ❌🤖';
-    };
-
-    const lines: string[] = [`**Channels** — ${guild.name} (${channels.length} total)`, '_✅🤖 = Drip overwrite present · ❌🤖 = missing_'];
-
-    if (uncategorized.length > 0) {
-      lines.push('');
-      lines.push('__No Category__');
-      for (const ch of uncategorized) {
-        lines.push(`  \`${typeLabel(ch.type).padEnd(8)}\` **${ch.name}** (${ch.id})${dripTag(ch)}`);
-      }
-    }
-
-    for (const cat of categories) {
-      const children = channels.filter(c => c.parentId === cat.id).sort((a, b) => ('position' in a ? a.position : 0) - ('position' in b ? b.position : 0));
-      lines.push('');
-      lines.push(`__${cat.name}__ (${cat.id})`);
-      for (const ch of children) {
-        lines.push(`  \`${typeLabel(ch.type).padEnd(8)}\` **${ch.name}** (${ch.id})${dripTag(ch)}`);
-      }
-    }
-
-    // Discord message limit — split if too long
-    const full = lines.join('\n');
-    if (full.length <= 1900) {
-      await message.reply({ content: full, allowedMentions: { repliedUser: false } }).catch(() => undefined);
-    } else {
-      // Send in chunks
-      let chunk = '';
-      for (const line of lines) {
-        if ((chunk + '\n' + line).length > 1900) {
-          await message.reply({ content: chunk, allowedMentions: { repliedUser: false } }).catch(() => undefined);
-          chunk = line;
-        } else {
-          chunk = chunk ? chunk + '\n' + line : line;
-        }
-      }
-      if (chunk) {
-        await message.reply({ content: chunk, allowedMentions: { repliedUser: false } }).catch(() => undefined);
-      }
-    }
-    return;
-  }
-
-  // ── audit ──────────────────────────────────────────────────────────────────
-  if (content === 'audit') {
-    try {
-      const db = await ensurePrisma();
-      const entries = await db.roleChangeAudit.findMany({
-        orderBy: { createdAt: 'desc' },
-        take: 15,
-      });
-      if (entries.length === 0) {
-        await message.reply({ content: 'No role change audit entries found.', allowedMentions: { repliedUser: false } }).catch(() => undefined);
-        return;
-      }
-      const total = await db.roleChangeAudit.count();
-      const lines: string[] = [`**Role Change Audit** (last 15 of ${total})`];
-      for (const e of entries) {
-        const ts = e.createdAt.toISOString().slice(0, 16).replace('T', ' ');
-        const action = e.changeType === 'addition' ? '➕' : '➖';
-        const flags: string[] = [];
-        if (e.reverted) flags.push('reverted');
-        if (!e.authorized) flags.push('UNAUTHORIZED');
-        const flagStr = flags.length > 0 ? ` [${flags.join(', ')}]` : '';
-        lines.push(`\`${ts}\` ${action} **${e.roleName}** → ${e.memberTag} by ${e.executorTag}${flagStr}`);
-      }
-      await message.reply({ content: lines.join('\n').slice(0, 1900), allowedMentions: { repliedUser: false } }).catch(() => undefined);
-    } catch (err) {
-      log('error', 'DM audit command failed', mergeLogError({}, err));
-      await message.reply({ content: `❌ Failed to fetch audit log: ${getErrorMessage(err)}`, allowedMentions: { repliedUser: false } }).catch(() => undefined);
-    }
-    return;
-  }
-
-  // ── changes ─────────────────────────────────────────────────────────────────
-  if (content === 'changes') {
-    try {
-      const db = await ensurePrisma();
-      const entries = await db.roleChangeAudit.findMany({
-        orderBy: { createdAt: 'desc' },
-        take: 20,
-      });
-      if (entries.length === 0) {
-        await message.reply({ content: 'No change attempts recorded.', allowedMentions: { repliedUser: false } }).catch(() => undefined);
-        return;
-      }
-      const total = await db.roleChangeAudit.count();
-      const lines: string[] = [`**Recent Changes** (last 20 of ${total})`];
-      for (const e of entries) {
-        const ts = e.createdAt.toISOString().slice(0, 16).replace('T', ' ');
-        const action = e.changeType === 'addition' ? '➕' : '➖';
-        const flags: string[] = [];
-        if (!e.authorized) flags.push('❌ UNAUTHORIZED');
-        if (e.reverted) flags.push('↩️ REVERTED');
-        if (e.roleId === DRIP_ROLE_ID) flags.push('🤖 Drip');
-        const flagStr = flags.length > 0 ? `\n    ${flags.join(' | ')}` : '';
-        const reason = e.revertReason ? `\n    Reason: ${e.revertReason}` : '';
-        const auth = e.authReason ? `\n    Auth: ${e.authReason}` : '';
-        lines.push(`\`${ts}\` ${action} **${e.roleName}** → ${e.memberTag}\n    by ${e.executorTag} · origin: ${e.origin}${flagStr}${reason}${auth}`);
-      }
-      // Split into chunks for Discord message limit
-      const full = lines.join('\n');
-      if (full.length <= 1900) {
-        await message.reply({ content: full, allowedMentions: { repliedUser: false } }).catch(() => undefined);
-      } else {
-        let chunk = '';
-        for (const line of lines) {
-          if ((chunk + '\n' + line).length > 1900) {
-            await message.reply({ content: chunk, allowedMentions: { repliedUser: false } }).catch(() => undefined);
-            chunk = line;
-          } else {
-            chunk = chunk ? chunk + '\n' + line : line;
-          }
-        }
-        if (chunk) {
-          await message.reply({ content: chunk, allowedMentions: { repliedUser: false } }).catch(() => undefined);
-        }
-      }
-    } catch (err) {
-      log('error', 'DM changes command failed', mergeLogError({}, err));
-      await message.reply({ content: `❌ Failed to fetch changes: ${getErrorMessage(err)}`, allowedMentions: { repliedUser: false } }).catch(() => undefined);
-    }
-    return;
-  }
-
-  // ── bots ───────────────────────────────────────────────────────────────────
-  if (content === 'bots') {
-    try {
-      const db = await ensurePrisma();
-      const bots = await db.discordMember.findMany({
-        where: { bot: true },
-        orderBy: { roleCount: 'desc' },
-      });
-      if (bots.length === 0) {
-        await message.reply({ content: 'No bot accounts found in database.', allowedMentions: { repliedUser: false } }).catch(() => undefined);
-        return;
-      }
-      const lines: string[] = [`**Bot Accounts** (${bots.length})`];
-      const botUserId = client.user?.id ?? '';
-      for (const b of bots) {
-        const display = b.displayName && b.displayName !== b.username ? ` (${b.displayName})` : '';
-        const roleList = b.roles.length > 0 ? ` — roles: ${b.roles.join(', ')}` : '';
-        const tags: string[] = [];
-        if (b.discordUserId === DRIP_USER_ID || b.discordUserId === botUserId) tags.push('🤖 THIS BOT');
-        if (b.roles.includes(DRIP_ROLE_ID)) tags.push('Has Drip');
-        const tagStr = tags.length > 0 ? ` [${tags.join(', ')}]` : '';
-        lines.push(`• **${b.username}**${display} \`${b.discordUserId}\` — ${b.roleCount} roles${roleList}${tagStr}`);
-      }
-      await message.reply({ content: lines.join('\n').slice(0, 1900), allowedMentions: { repliedUser: false } }).catch(() => undefined);
-    } catch (err) {
-      log('error', 'DM bots command failed', mergeLogError({}, err));
-      await message.reply({ content: `❌ Failed to fetch bots: ${getErrorMessage(err)}`, allowedMentions: { repliedUser: false } }).catch(() => undefined);
-    }
-    return;
-  }
-
-  // ── force sweep ───────────────────────────────────────────────────────────
-  if (content === 'force sweep' || content === 'forcesweep') {
-    const requester = describeUser(message.author);
-    log('warn', 'Force sweep triggered via DM', { requester });
-    report('Force Sweep — DM Triggered', { requester }, 'warn');
-
-    await message.reply({
-      content: `⚙️ Force sweep started across **${client.guilds.cache.size}** guild(s). This may take a moment…`,
-      allowedMentions: { repliedUser: false },
-    }).catch(() => undefined);
-
-    const guilds = [...client.guilds.cache.values()];
-    const sweepStart = Date.now();
-
-    let trainerAssigned = 0;
-    let trainerFailed = 0;
-    let dripApplied = 0;
-    let sweepErrors = 0;
-
-    // 1. Trainer role sweep across all guilds
-    for (const guild of guilds) {
-      try {
-        // Capture securityCliState counters before/after to measure deltas
-        const assignedBefore = securityCliState.lastSweepAssigned;
-        const failedBefore   = securityCliState.lastSweepFailed;
-        await sweepGuild(guild, 'dm-force-sweep');
-        trainerAssigned += Math.max(0, securityCliState.lastSweepAssigned - assignedBefore);
-        trainerFailed   += Math.max(0, securityCliState.lastSweepFailed   - failedBefore);
-      } catch (err) {
-        sweepErrors++;
-        log('error', 'Force sweep — sweepGuild error', mergeLogError({ guild: describeGuild(guild) }, err));
-      }
-    }
-
-    // 2. Drip role channel enforcement across all guilds
-    for (const guild of guilds) {
-      try {
-        const channelsBefore = securityCliState.totalSweeps; // use as proxy signal
-        await enforceDripRoleAllChannels(guild, 'dm-force-sweep');
-        void channelsBefore; // not used for counting — enforceDripRoleAllChannels reports internally
-        dripApplied++; // count guilds processed, not individual channels
-      } catch (err) {
-        sweepErrors++;
-        log('error', 'Force sweep — enforceDripRoleAllChannels error', mergeLogError({ guild: describeGuild(guild) }, err));
-      }
-    }
-
-    // 3. Gym Leader role sync (operates over all guilds internally)
-    try {
-      await syncModeratorChannelRoles('dm-force-sweep');
-    } catch (err) {
-      sweepErrors++;
-      log('error', 'Force sweep — syncModeratorChannelRoles error', mergeLogError({}, err));
-    }
-
-    const elapsed = Math.round((Date.now() - sweepStart) / 1000);
-    const lines: string[] = [
-      `✅ **Force sweep complete** — ${elapsed}s`,
-      ``,
-      `**Guilds swept:** ${guilds.length}`,
-      `**Trainer roles assigned:** ${trainerAssigned}`,
-      `**Trainer assignment failures:** ${trainerFailed}`,
-      `**Drip channel guilds enforced:** ${dripApplied}`,
-      `**Gym Leader role sync:** completed`,
-      sweepErrors > 0 ? `⚠️ **Errors encountered:** ${sweepErrors} — check logs` : `**Errors:** none`,
-    ];
-
-    await message.reply({
-      content: lines.join('\n'),
-      allowedMentions: { repliedUser: false },
-    }).catch(() => undefined);
-
-    report('Force Sweep — DM Complete', {
-      requester,
-      guilds: guilds.length,
-      trainerAssigned,
-      trainerFailed,
-      dripApplied,
-      sweepErrors,
-      elapsedSeconds: elapsed,
-    }, sweepErrors > 0 ? 'warn' : 'success');
-    return;
-  }
+  const consoleCtx = buildConsoleContext();
+  await handleDmMessage(message, consoleCtx);
 });
 
 // Sync Gym Leader role when members are added to or removed from the

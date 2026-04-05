@@ -2,9 +2,10 @@
 Title: Application Source
 Purpose: Root app source tree; see sub-routers for domains.
 Owned Globs: src/**
-Last Updated (UTC): 2025-12-23T00:00:00Z
+Last Updated (UTC): 2026-04-04T00:00:00Z
 
 Notes:
+- 2026-04-04: Security bot DM command surface expanded to 17 commands across 5 sections (Status, Data Browse, Sweep Control, Cache, General). Startup sync operations now blocking at boot. Guild snapshot sync, channel overwrite enforcement, and Drip relationship indicators added to all browse commands. See src/bot/ROUTER.md for full DM Command Surface table.
 - 2025-12-23: Architecture audit — Removed phantom subdomain references (src/cache, src/env deleted). Fixed src/worker → src/workers typo. Added src/cli.
 - 2025-12-20: Added `src/observability/**` — Centralized observability suite with Hub and Loki backend (see observability-bible.md).
 - 2025-11-02: Battle engine and Dex API now hydrate from `src/data/dexpack.js` for O(1) lookups instead of ad-hoc JSON parsing.

@@ -33,6 +33,7 @@ import {
   getConfidenceEmoji
 } from "../../utils/memory-measurement.js";
 import { collectMemoryMetrics, formatMemoryMetrics } from "../../services/monitoring/memory-metrics.js";
+import { getDatabaseHealthReport, forceProbe, formatHealthSummary, type DbHealthReport } from "../../kernel/database-resource-manager.js";
 
 // Query modules
 import { getUserBasic, countUsers } from "../../shared/models/user-queries-pg.js";
@@ -1652,6 +1653,108 @@ export async function handleOpsCommand(
       });
       const message = getErrorMessage(err);
       await interaction.editReply({ content: `Test alert failed: ${message}` });
+    }
+    return;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Database Resource Manager: /ops db — Intelligent DB health & trends
+  // ═══════════════════════════════════════════════════════════════════════════
+  if (sub === "db") {
+    await interaction.deferReply({ ephemeral: true });
+    try {
+      const dbSubcommand = interaction.options?.getString?.("subcommand");
+
+      if (dbSubcommand === "probe") {
+        // Force an immediate probe and return fresh data
+        const report = await forceProbe();
+        const summary = formatHealthSummary();
+        await interaction.editReply({
+          content:
+            `🔍 **Database Probe Complete**\n\n` +
+            summary +
+            `\n\n_Probe #${report.manager.probesCompleted} (${report.manager.probeErrors} errors)_`,
+        });
+      } else {
+        // Default: show health dashboard
+        const report = getDatabaseHealthReport();
+        const lines: string[] = [];
+        const emoji = { healthy: '🟢', warning: '🟡', critical: '🟠', emergency: '🔴' }[report.level];
+
+        lines.push(`${emoji} **Database Resource Manager**`);
+        lines.push('```');
+        lines.push(`Status:      ${report.level.toUpperCase()}`);
+        lines.push(`Size:        ${report.currentSizeMb.toFixed(0)} MB / ${report.storageLimitMb} MB (${report.usagePercent}%)`);
+        if (report.untrackedMb > 10) {
+          lines.push(`Untracked:   ${report.untrackedMb.toFixed(0)} MB (WAL/indexes/schema)`);
+        }
+        lines.push(`Thresholds:  Warn ${report.thresholds.warnMb} MB | Emergency ${report.thresholds.emergencyMb} MB`);
+        lines.push(`Retention:   ${report.thresholds.effectiveRetentionDays}d${report.thresholds.effectiveRetentionDays < report.thresholds.retentionDays ? ` (base: ${report.thresholds.retentionDays}d, reduced under pressure)` : ''}`);
+        lines.push('');
+
+        // Growth trend with R² and acceleration
+        const t = report.trend;
+        lines.push(`Growth:      ${t.mbPerDay > 0 ? '+' : ''}${t.mbPerDay} MB/day (${t.confidence}, R²=${t.rSquared}, ${t.sampleCount} samples)`);
+        if (t.accelerationMbPerDay2 !== 0) {
+          lines.push(`Accel:       ${t.accelerationMbPerDay2 > 0 ? '+' : ''}${t.accelerationMbPerDay2} MB/day²${t.accelerationMbPerDay2 > 5 ? ' ⚠️ ACCELERATING' : ''}`);
+        }
+        if (t.daysUntilFull !== Infinity && t.daysUntilFull < 365) {
+          lines.push(`Projection:  Full in ${t.daysUntilFull} days | Warn in ${t.daysUntilWarn === Infinity ? '∞' : t.daysUntilWarn} days`);
+        } else {
+          lines.push(`Projection:  No fill risk detected`);
+        }
+        lines.push('');
+
+        // GC effectiveness
+        if (report.gcEffectiveness.cycleCount > 0) {
+          lines.push(`GC:          ${report.gcEffectiveness.cycleCount} cycles | avg ${report.gcEffectiveness.avgMbFreed} MB freed | last ${report.gcEffectiveness.lastMbFreed} MB`);
+        }
+
+        // Manager stats with backoff state
+        const backoffTag = report.manager.consecutiveErrors > 0
+          ? ` | ⚠️ ${report.manager.consecutiveErrors} errors (interval: ${Math.round(report.manager.currentProbeIntervalMs / 1000)}s)`
+          : '';
+        lines.push(`Manager:     ${report.manager.running ? 'RUNNING' : 'STOPPED'} | ${report.manager.probesCompleted} probes | ${report.manager.probeErrors} errors${backoffTag}`);
+        if (report.manager.lastSampleTime) {
+          lines.push(`Last Probe:  ${report.manager.lastSampleTime}`);
+        }
+        lines.push('```');
+
+        // Namespace breakdown
+        if (report.namespaces.length > 0) {
+          lines.push('**Namespace breakdown:**');
+          lines.push('```');
+          for (const ns of report.namespaces.slice(0, 8)) {
+            const staleTag = ns.isStale ? ' [STALE]' : '';
+            lines.push(`  ${ns.namespace.padEnd(30)} ${ns.estimatedMb.toFixed(1).padStart(8)} MB  ${String(ns.entryCount).padStart(6)} rows${staleTag}`);
+          }
+          if (report.namespaces.length > 8) {
+            lines.push(`  ... and ${report.namespaces.length - 8} more namespaces`);
+          }
+          lines.push('```');
+        }
+
+        // Anomalies
+        if (report.anomalies.length > 0) {
+          lines.push(`\n⚠️ **Active Anomalies (${report.anomalies.length}):**`);
+          for (const a of report.anomalies.slice(0, 5)) {
+            const icon = a.severity === 'critical' ? '🔴' : a.severity === 'warning' ? '🟡' : 'ℹ️';
+            lines.push(`${icon} \`${a.type}\`: ${a.message}`);
+          }
+        }
+
+        await interaction.editReply({ content: lines.join('\n') });
+      }
+    } catch (err) {
+      await errorTracker.captureError(ensureError(err), {
+        category: 'ENGINE',
+        userId: interaction.user.id,
+        guildId: interaction.guildId || undefined,
+        commandName: '/ops db',
+        operation: 'getDatabaseHealthReport',
+      });
+      const message = getErrorMessage(err);
+      await interaction.editReply({ content: `DB health report unavailable: ${message}` });
     }
     return;
   }

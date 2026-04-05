@@ -188,7 +188,7 @@ Meta-only changes still need clear "Why" statements.
 - **Homestead Channels:** `src/bot/homestead/**` (private guild channel gameplay, 16 files)
 - **Battles:** `src/bot/battle/**` (move/switch/forfeit handlers)
 - **Wilds:** `src/bot/wilds/**` (walk, catch, throw, escape)
-- **Admin:** `src/bot/ops/admin.ts` (`/ops` commands with filters)
+- **Admin:** `src/bot/ops/admin.ts` (`/ops` commands: stats, cache, db, engine, filters)
 - **Error Handler:** `src/bot/error-handler.ts` (Discord API errors, rate limits, class: `BotErrorHandler`)
 
 **HOMESTEAD MIGRATION COMPLETE (2025-06-15):** All gameplay moved from DMs to private guild channels (homestead-{username}). `src/bot/dm/` directory DELETED. See `docs/architecture-bible/18-private-channel-architecture.md`.

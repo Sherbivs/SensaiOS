@@ -2,7 +2,7 @@
 Title: Kernel Root Observer Layer
 Purpose: Production-grade kernel module providing unified logging, error detection, system observation, metrics collection, and persistence.
 Owned Globs: src/kernel/**
-Last Updated (UTC): 2026-02-17T12:00:00Z
+Last Updated (UTC): 2026-04-06T00:00:00Z
 
 
 
@@ -50,7 +50,13 @@ All other modules depend on the kernel for observability and reliability.
 │                                                                             │
 │  ┌────────────────────────────────────────────────────────────────────────┐ │
 │  │                      kernel-persistence.ts                              │ │
-│  │   Snapshot management, database export, file retention policies        │ │
+│  │   Snapshot management, database export, retention (adaptive via DRM)   │ │
+│  └────────────────────────────────────────────────────────────────────────┘ │
+│                                                                             │
+│  ┌────────────────────────────────────────────────────────────────────────┐ │
+│  │                  database-resource-manager.ts                           │ │
+│  │   DB storage monitoring: growth trends, anomaly detection, adaptive   │ │
+│  │   retention, namespace budgets, health classification                  │ │
 │  └────────────────────────────────────────────────────────────────────────┘ │
 │                                                                             │
 │  ┌────────────────────────────────────────────────────────────────────────┐ │
@@ -95,7 +101,8 @@ All other modules depend on the kernel for observability and reliability.
 | `kernel-observer.ts` | ~400 | Observable patterns for system state tracking |
 | `kernel-hooks.ts` | ~250 | Lifecycle event system (boot, ready, shutdown) |
 | `kernel-metrics.ts` | ~350 | Performance metrics, rate tracking, dashboards |
-| `kernel-persistence.ts` | ~520 | Snapshot management, database export, retention |
+| `kernel-persistence.ts` | ~520 | Snapshot management, database export, retention (adaptive via DRM) |
+| `database-resource-manager.ts` | ~520 | DB storage monitoring: growth trends, anomaly detection, adaptive retention, namespace budgets |
 | `kernel-output-plugins.ts` | ~500 | Output plugin architecture for routing logs to multiple destinations |
 | `kernel-scrubber.ts` | ~220 | PII scrubbing pipeline for output dispatch (tokens/webhooks/emails/passwords) |
 
@@ -107,7 +114,7 @@ All other modules depend on the kernel for observability and reliability.
 | `correlation.ts` | ~430 | Correlation ID tracking with AsyncLocalStorage |
 | `log-sampling.ts` | ~520 | Log sampling and rate limiting for volume control |
 
-**Total:** ~4,995 lines of production-grade kernel code
+**Total:** ~5,515 lines of production-grade kernel code
 
 ---
 

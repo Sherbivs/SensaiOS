@@ -19,6 +19,8 @@ import { kernel, getKernelUptime, exportKernelLogs } from './kernel-logger.js';
 import { exportErrorData, getErrorStats } from './kernel-error-detector.js';
 import { exportKernelState, getMetrics as _getMetrics } from './kernel-observer.js';
 import { exportMetrics, getDashboard } from './kernel-metrics.js';
+import { TIER } from '../config/resource-tiers.js';
+import { getEffectiveRetentionDays } from './database-resource-manager.js';
 const writePersistenceError = (message: string, error: unknown): void => {
   const details = error instanceof Error ? `${error.name}: ${error.message}` : String(error);
   process.stderr.write(`${message} ${details}\n`);
@@ -39,6 +41,12 @@ export interface PersistenceConfig {
   maxSnapshotsPerDay: number;
   /** Whether to export full state on graceful shutdown */
   exportOnShutdown: boolean;
+  /** How often to run garbage collection (default: 4 hours) */
+  gcIntervalMs: number;
+  /** Database size warning threshold in MB (derived from TIER.database.sizeWarnMb) */
+  dbSizeWarnMb: number;
+  /** Database size emergency threshold in MB — triggers aggressive pruning (derived from TIER.database.sizeEmergencyMb) */
+  dbSizeEmergencyMb: number;
 }
 
 export interface KernelSnapshot {
@@ -85,18 +93,22 @@ const NAMESPACES = {
 
 const DEFAULT_CONFIG: PersistenceConfig = {
   enabled: true,
-  snapshotIntervalMs: 5 * 60 * 1000,  // Every 5 minutes
-  retentionDays: 7,
-  maxSnapshotsPerDay: 288,  // Every 5 min = 288 per day
+  snapshotIntervalMs: TIER.database.snapshotIntervalMs,
+  retentionDays: TIER.database.retentionDays,
+  maxSnapshotsPerDay: TIER.database.maxSnapshotsPerDay,
   exportOnShutdown: true,
+  gcIntervalMs: TIER.database.gcIntervalMs,
+  dbSizeWarnMb: TIER.database.sizeWarnMb,
+  dbSizeEmergencyMb: TIER.database.sizeEmergencyMb,
 };
 
 /** Maximum snapshots to keep in memory history */
 const MAX_SNAPSHOT_HISTORY = 100;
 
-/** Calculate expiration date based on retention config */
+/** Calculate expiration date based on adaptive retention (DB Resource Manager) */
 function getExpirationDate(): Date {
-  return new Date(Date.now() + config.retentionDays * 24 * 60 * 60 * 1000);
+  const days = getEffectiveRetentionDays();
+  return new Date(Date.now() + days * 24 * 60 * 60 * 1000);
 }
 
 // ============================================================================
@@ -105,8 +117,12 @@ function getExpirationDate(): Date {
 
 let config: PersistenceConfig = { ...DEFAULT_CONFIG };
 let snapshotInterval: NodeJS.Timeout | null = null;
+let gcInterval: NodeJS.Timeout | null = null;
 let snapshotCount = 0;
 let lastSnapshotTime = 0;
+let lastGcTime = 0;
+let gcRunCount = 0;
+let gcTotalDeleted = 0;
 const databaseHooks: DatabaseExportHook[] = [];
 const snapshotHistory: KernelSnapshot[] = [];
 let initialized = false;
@@ -139,10 +155,16 @@ export function initializePersistence(customConfig?: Partial<PersistenceConfig>)
     startSnapshotScheduler();
   }
   
+  // Start garbage collection scheduler
+  if (config.gcIntervalMs > 0) {
+    startGcScheduler();
+  }
+  
   initialized = true;
   kernel.boot('persistence', 'Kernel persistence initialized', {
     snapshotIntervalMs: config.snapshotIntervalMs,
     retentionDays: config.retentionDays,
+    gcIntervalMs: config.gcIntervalMs,
     storage: 'PostgreSQL (database-first)',
   });
 }
@@ -534,6 +556,201 @@ async function exportToDatabase(_triggerType: KernelSnapshot['type']): Promise<v
 }
 
 // ============================================================================
+// GARBAGE COLLECTION SCHEDULER
+// ============================================================================
+
+/** GC consecutive failures for backoff */
+let gcConsecutiveFailures = 0;
+const GC_MAX_CONSECUTIVE_FAILURES = 3;
+const GC_FAILURE_BACKOFF_MS = 60_000; // 1 minute
+
+/**
+ * Start the garbage collection scheduler.
+ * Runs an immediate catch-up collection, then periodically.
+ */
+function startGcScheduler(): void {
+  if (gcInterval) {
+    clearInterval(gcInterval);
+  }
+
+  kernel.info('persistence', `GC scheduler starting (every ${config.gcIntervalMs / 1000 / 60} min, retention: ${config.retentionDays} days)`);
+
+  // Run immediate catch-up GC on startup (delayed 30s to let boot finish)
+  setTimeout(async () => {
+    try {
+      kernel.info('persistence', 'Running startup GC catch-up...');
+      await runGarbageCollection();
+      gcConsecutiveFailures = 0;
+    } catch (error) {
+      kernel.error('persistence', `Startup GC catch-up failed: ${error}`);
+    }
+  }, 30_000);
+
+  // Periodic GC
+  gcInterval = setInterval(async () => {
+    try {
+      await runGarbageCollection();
+      gcConsecutiveFailures = 0;
+    } catch (error) {
+      gcConsecutiveFailures++;
+      kernel.error('persistence', `GC failed (${gcConsecutiveFailures}/${GC_MAX_CONSECUTIVE_FAILURES}): ${error}`);
+
+      if (gcConsecutiveFailures >= GC_MAX_CONSECUTIVE_FAILURES) {
+        kernel.warn('persistence', `Too many GC failures, pausing for ${GC_FAILURE_BACKOFF_MS / 1000}s`);
+        stopGcScheduler();
+        setTimeout(() => {
+          gcConsecutiveFailures = 0;
+          startGcScheduler();
+          kernel.info('persistence', 'GC scheduler resumed after backoff');
+        }, GC_FAILURE_BACKOFF_MS);
+      }
+    }
+  }, config.gcIntervalMs);
+}
+
+/**
+ * Stop the garbage collection scheduler
+ */
+function stopGcScheduler(): void {
+  if (gcInterval) {
+    clearInterval(gcInterval);
+    gcInterval = null;
+    kernel.info('persistence', 'GC scheduler stopped');
+  }
+}
+
+/**
+ * Run a full garbage collection cycle:
+ * 1. Delete expired CacheEntry rows (expiresAt < now) across ALL namespaces
+ * 2. Delete old kernel entries beyond retention period (createdAt-based)
+ * 3. Delete old RuntimeMetric records beyond retention period
+ * 4. Check DB size and trigger aggressive pruning if needed
+ */
+async function runGarbageCollection(): Promise<void> {
+  const startTime = Date.now();
+  let totalDeleted = 0;
+
+  const now = new Date();
+  const effectiveDays = getEffectiveRetentionDays();
+  const retentionCutoff = new Date(now.getTime() - effectiveDays * 24 * 60 * 60 * 1000);
+
+  if (effectiveDays < config.retentionDays) {
+    kernel.info('persistence', `GC using adaptive retention: ${effectiveDays}d (reduced from ${config.retentionDays}d due to DB pressure)`);
+  }
+
+  // Phase 1: Delete expired entries across ALL namespaces (TTL enforcement)
+  try {
+    const expired = await prisma.cacheEntry.deleteMany({
+      where: { expiresAt: { lt: now } },
+    });
+    if (expired.count > 0) {
+      kernel.info('persistence', `GC Phase 1: Deleted ${expired.count} expired cache entries`);
+      totalDeleted += expired.count;
+    }
+  } catch (err) {
+    kernel.error('persistence', `GC Phase 1 (expired entries) failed: ${err}`);
+  }
+
+  // Phase 2: Delete old kernel namespace entries beyond retention period
+  try {
+    const oldKernel = await prisma.cacheEntry.deleteMany({
+      where: {
+        namespace: { in: Object.values(NAMESPACES) },
+        createdAt: { lt: retentionCutoff },
+      },
+    });
+    if (oldKernel.count > 0) {
+      kernel.info('persistence', `GC Phase 2: Deleted ${oldKernel.count} old kernel entries`);
+      totalDeleted += oldKernel.count;
+    }
+  } catch (err) {
+    kernel.error('persistence', `GC Phase 2 (old kernel entries) failed: ${err}`);
+  }
+
+  // Phase 3: Delete old RuntimeMetric records beyond retention period
+  try {
+    const oldMetrics = await prisma.runtimeMetric.deleteMany({
+      where: {
+        metricType: { in: ['kernel-snapshot', 'kernel-crash'] },
+        createdAt: { lt: retentionCutoff },
+      },
+    });
+    if (oldMetrics.count > 0) {
+      kernel.info('persistence', `GC Phase 3: Deleted ${oldMetrics.count} old runtime metrics`);
+      totalDeleted += oldMetrics.count;
+    }
+  } catch (err) {
+    kernel.error('persistence', `GC Phase 3 (old runtime metrics) failed: ${err}`);
+  }
+
+  // Phase 4: Database size check — aggressive pruning if over thresholds
+  try {
+    const sizeResult = await prisma.$queryRawUnsafe<Array<{ size_bytes: bigint }>>(
+      `SELECT pg_database_size(current_database()) as size_bytes`
+    );
+    const dbSizeMb = Number(sizeResult[0]?.size_bytes ?? 0) / (1024 * 1024);
+
+    if (dbSizeMb >= config.dbSizeEmergencyMb) {
+      kernel.warn('persistence', `🚨 DB SIZE EMERGENCY: ${dbSizeMb.toFixed(0)} MB / ${TIER.database.storageLimitMb} MB — aggressive prune triggered`);
+      const emergencyDeleted = await aggressivePrune(1); // Keep only 1 day
+      totalDeleted += emergencyDeleted;
+    } else if (dbSizeMb >= config.dbSizeWarnMb) {
+      kernel.warn('persistence', `⚠️ DB SIZE WARNING: ${dbSizeMb.toFixed(0)} MB / ${TIER.database.storageLimitMb} MB — reducing retention to 3 days`);
+      const warnDeleted = await aggressivePrune(3); // Keep only 3 days
+      totalDeleted += warnDeleted;
+    } else {
+      kernel.debug('persistence', `DB size: ${dbSizeMb.toFixed(0)} MB / ${TIER.database.storageLimitMb} MB (OK)`);
+    }
+  } catch (err) {
+    kernel.error('persistence', `GC Phase 4 (size check) failed: ${err}`);
+  }
+
+  const durationMs = Date.now() - startTime;
+  lastGcTime = Date.now();
+  gcRunCount++;
+  gcTotalDeleted += totalDeleted;
+
+  if (totalDeleted > 0) {
+    kernel.info('persistence', `GC complete: ${totalDeleted} entries deleted in ${durationMs}ms (run #${gcRunCount}, lifetime: ${gcTotalDeleted})`);
+  } else {
+    kernel.debug('persistence', `GC complete: nothing to clean (${durationMs}ms)`);
+  }
+}
+
+/**
+ * Aggressive pruning — reduce retention to N days for all kernel data.
+ * Used when DB approaches size limits.
+ */
+async function aggressivePrune(keepDays: number): Promise<number> {
+  const cutoff = new Date(Date.now() - keepDays * 24 * 60 * 60 * 1000);
+  let deleted = 0;
+
+  try {
+    const cacheResult = await prisma.cacheEntry.deleteMany({
+      where: {
+        namespace: { in: Object.values(NAMESPACES) },
+        createdAt: { lt: cutoff },
+      },
+    });
+    deleted += cacheResult.count;
+
+    const metricsResult = await prisma.runtimeMetric.deleteMany({
+      where: {
+        metricType: { in: ['kernel-snapshot', 'kernel-crash'] },
+        createdAt: { lt: cutoff },
+      },
+    });
+    deleted += metricsResult.count;
+
+    kernel.info('persistence', `Aggressive prune (keep ${keepDays}d): deleted ${deleted} entries`);
+  } catch (err) {
+    kernel.error('persistence', `Aggressive prune failed: ${err}`);
+  }
+
+  return deleted;
+}
+
+// ============================================================================
 // CLEANUP
 // ============================================================================
 
@@ -541,11 +758,12 @@ async function exportToDatabase(_triggerType: KernelSnapshot['type']): Promise<v
  * Clean up old entries based on retention policy (database)
  */
 export async function cleanupOldFiles(): Promise<{ deleted: number; errors: number }> {
-  const cutoffTime = new Date(Date.now() - (config.retentionDays * 24 * 60 * 60 * 1000));
+  const effectiveDays = getEffectiveRetentionDays();
+  const cutoffTime = new Date(Date.now() - (effectiveDays * 24 * 60 * 60 * 1000));
   let deleted = 0;
   let errors = 0;
   
-  kernel.info('persistence', `Cleaning up entries older than ${config.retentionDays} days`);
+  kernel.info('persistence', `Cleaning up entries older than ${effectiveDays} days (adaptive retention)`);
   
   try {
     // Clean up old CacheEntry records for kernel namespaces
@@ -601,6 +819,13 @@ export function getPersistenceStats(): {
   consecutiveFailures: number;
   namespaces: typeof NAMESPACES;
   config: PersistenceConfig;
+  gc: {
+    schedulerActive: boolean;
+    runCount: number;
+    totalDeleted: number;
+    lastRunTime: string | null;
+    consecutiveFailures: number;
+  };
 } {
   return {
     enabled: config.enabled,
@@ -614,6 +839,13 @@ export function getPersistenceStats(): {
     consecutiveFailures,
     namespaces: NAMESPACES,
     config,
+    gc: {
+      schedulerActive: gcInterval !== null,
+      runCount: gcRunCount,
+      totalDeleted: gcTotalDeleted,
+      lastRunTime: lastGcTime ? new Date(lastGcTime).toISOString() : null,
+      consecutiveFailures: gcConsecutiveFailures,
+    },
   };
 }
 
@@ -628,6 +860,7 @@ export async function shutdownPersistence(): Promise<void> {
   kernel.boot('persistence', 'Kernel persistence shutting down');
   
   stopSnapshotScheduler();
+  stopGcScheduler();
   
   if (config.exportOnShutdown) {
     try {

@@ -159,7 +159,7 @@ Production safety: Repo .env stays EMPTY. Local secrets always from external fil
 - **Homestead Channels:** src/bot/homestead/** (private guild channel gameplay) — ACTIVE
 - **Battles:** src/bot/battle/** (move/switch/forfeit handlers)
 - **Wilds:** src/bot/wilds/** (walk, catch, throw, escape)
-- **Admin:** src/bot/ops/admin.ts (/ops commands with filters)
+- **Admin:** src/bot/ops/admin.ts (/ops commands: stats, cache, db, engine, filters)
 
 ### Core Engines (src/core/**)
 - **Battle:** src/core/battle/engine.ts (deterministic damage, status effects)

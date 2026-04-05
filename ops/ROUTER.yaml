@@ -1,7 +1,7 @@
 # Canonical AI routing map — single source of “where to look / where to write”.
 # All paths are repo-relative. Case-sensitive.
 version: 1
-updated_utc: 2025-12-23T00:00:00Z
+updated_utc: 2026-04-04T00:00:00Z
 
 meta_files:
   - Patch.md
@@ -80,7 +80,7 @@ categories:
       category: [validation, network, database, discord, engine, worker, config, unknown]
       timeRange: [1h, 24h, 7d, 30d]
     alert_channels:
-      critical_dm: DripTVDD (Discord ID: 275798742065938432)
+      critical_dm: "DripTVDD (Discord ID: 275798742065938432)"
       error_storm_threshold: 10 # errors per minute
       rate_limit_window: 300000 # 5 minutes in ms
     recovery_strategies:
@@ -134,7 +134,7 @@ categories:
     - data/ROUTER.md
     - data/bootstrap/ROUTER.md
     - data/cache/ROUTER.md
-  - assets/ROUTER.md
+    - assets/ROUTER.md
     - docs/ROUTER.md
     - playbooks/ROUTER.md
     - prisma/ROUTER.md
@@ -142,9 +142,9 @@ categories:
     - prisma/migrations/202510280500_scaling_indexes/ROUTER.md
     - prisma/migrations/202510290930_dex_reference_spine/ROUTER.md
     - prisma/migrations/202511010900_schema_constraints/ROUTER.md
-  - router/ROUTER.md
-  - Store/ROUTER.md
-  - Store/db/ROUTER.md
+    - router/ROUTER.md
+    - Store/ROUTER.md
+    - Store/db/ROUTER.md
     - secrets/ROUTER.md
     # NOTE: sync-layer/ routers removed (2025-12-23) - directory never existed
     - tools/ROUTER.md
@@ -167,6 +167,7 @@ categories:
     - src/cli/ROUTER.md
     - src/commands/ROUTER.md
     - src/config/ROUTER.md
+    - src/kernel/ROUTER.md
     - src/core/ROUTER.md
     - src/core/battle/ROUTER.md
     - src/core/encounter/ROUTER.md
@@ -198,9 +199,9 @@ categories:
     # NOTE: src/cache/, src/env/, src/errors/ removed in Architecture Audit Meeting #6 (2025-12-23)
     # NOTE: discord-pokemon-bot/ removed in Dead Code Cleanup Meeting #4 (2025-12-20)
     - tests/ROUTER.md
-  - tests/battle/ROUTER.md
-  - tests/pbsl/ROUTER.md
-  - tests/pbsl/fixtures/ROUTER.md
+    - tests/battle/ROUTER.md
+    - tests/pbsl/ROUTER.md
+    - tests/pbsl/fixtures/ROUTER.md
     - scripts/guard_*.sh
 
 router_contract:

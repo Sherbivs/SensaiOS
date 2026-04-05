@@ -1,6 +1,6 @@
 # Section 16: Boot Sequence Architecture
 
-**Last Updated**: 2025-12-27 | **Created**: 2025-11-19 | **Status**: Production
+**Last Updated**: 2026-04-06 | **Created**: 2025-11-19 | **Status**: Production
 
 **Source File:** `src/index.ts` (1626 lines)  
 **Entry Point:** `npm start` → `node dist/index.js` → `boot()` function
@@ -238,7 +238,8 @@ These happen **in parallel** to reduce startup time.
 5. **Discord Security Bot** (optional)
    - Only if `ENABLE_SECURITY_BOT=true`
    - Connects to Discord API with `SECURITY_BOT_TOKEN`
-   - Loads persistent state from `/Store/security-bot-state/`
+   - Loads persistent state from PostgreSQL (`CacheEntry` table)
+   - On `ClientReady`: awaits `syncGuildSnapshot()`, `syncModeratorChannelRoles('boot')`, `enforceDripRoleAllChannels('boot')` — blocking sync before periodic sweeps begin (see [07-security-bot.md](07-security-bot.md) §7.5)
 
 **Memory Recorded:** `pre_engine_and_bots` → `post_engine_and_bots`
 
@@ -293,14 +294,25 @@ These happen **in parallel** to reduce startup time.
    - Monitors memory, CPU, disk usage
    - Logs resource warnings if thresholds exceeded
 
-2. **Mark Engine Ready** (Line ~1420)
+2. **Start Database Resource Manager** (Kernel Step 9.5)
+   ```typescript
+   startDatabaseResourceManager(); // 15-minute probe interval
+   ```
+   - **Continuous probing:** Tracks `pg_database_size()` and per-namespace breakdown from `cache_entries` + `runtime_metrics`
+   - **Growth trend analysis:** Linear regression over rolling 168-sample window (MB/day rate, days-until-warn/emergency/full, confidence level)
+   - **Anomaly detection:** Spike, stale-namespace, runaway-namespace, unexpected-shrink (24h auto-clear)
+   - **Adaptive retention:** Under DB pressure (>75% full), GC retention days compress smoothly down to 1 day at 90%+
+   - **Health classification:** HEALTHY / WARNING / CRITICAL / EMERGENCY based on TIER thresholds
+   - **Exposes:** `Kernel.dbResource.getHealthReport()`, `forceProbe()`, `formatHealthSummary()`
+
+3. **Mark Engine Ready** (Line ~1420)
    ```typescript
    global.engineReady = true;
    ```
    - Signals that battle system is ready
    - Allows users to start battles
 
-3. **Schedule Auto-Restart** (Line ~1430, production only)
+4. **Schedule Auto-Restart** (Line ~1430, production only)
    ```typescript
    if (process.env.RENDER) {
      scheduleAutoRestart(); // 12-hour timer
@@ -1730,7 +1742,7 @@ See `docs/SEAMLESS-RESTART-ARCHITECTURE.md` for comprehensive roadmap.
 - **[17-service-registry.md](17-service-registry.md)** — Service Registry shutdown mechanism (Section 17.5)
 - **[02-database-architecture.md](02-database-architecture.md)** — Database connection cleanup
 - **[09-game-engine.md](09-game-engine.md)** — Engine DB Write-DB save, Read-DB close
-- **[07-security-bot.md](07-security-bot.md)** — Security bot state persistence on shutdown
+- **[07-security-bot.md](07-security-bot.md)** — Security bot state persistence on shutdown, startup sync blocking (§7.5), DM command surface (§7.4)
 
 #### Related Operations Documentation
 - **[operations-bible/01-service-matrix.md](../operations-bible/01-service-matrix.md)** — Render restart behavior, exit codes

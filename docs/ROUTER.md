@@ -20,6 +20,7 @@ Directory Structure (CURRENT):
 - **development-bible/** — Development practices Bible (10 sections + INDEX)
 - **ai-collaboration-guide.md** — Comprehensive AI assistant playbook for effective project contributions [🟢 ONBOARDING]
 - **prisma-7-bible.md** — Comprehensive AI agent playbook (1000+ lines): emergency triage, migration guide, 7 failure modes, golden configs [🔴 CRITICAL]
+- **troubleshooting/** — Post-mortems and incident analysis (schema drift, SSL, production failures)
 - **archive/** — Obsolete technical documentation (Accelerate-era files)
 
 ## Standalone Bibles (Root Level)
@@ -121,6 +122,11 @@ Directory Structure (CURRENT):
 - **PBSL Manifesto**: architecture-bible/09-game-engine.md § 9.1 (Deterministic battle testing)
 - **Render Path Mapping**: operations-bible/03-deployment-procedures.md § 3.2 (Expected nested structure)
 - **Security Bot State**: architecture-bible/07-security-bot.md § 7.2 (7-day retention, cumulative stats)
+
+### Troubleshooting & Post-Mortems
+- **CacheEntry Storage Bloat**: troubleshooting/cache-entries-storage-bloat-postmortem.md [2026-04-05: 341 MB in cache_entries (88% of DB), cleanup functions existed but never scheduled, GC scheduler added]
+- **Security Events Schema Drift**: troubleshooting/security-events-schema-drift-postmortem.md [2026-04-05: `prisma db push` created untracked schema, 3 months of silent failures]
+- **Prisma 7 SSL/Render Fix**: troubleshooting/PRISMA7-SSL-RENDER.md [SSL connection issues on Render]
 
 ### Operations Quick Refs
 - **Service Matrix**: operations-bible/01-service-matrix.md (8 Render services, deployment targets)

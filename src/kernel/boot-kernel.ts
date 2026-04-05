@@ -261,7 +261,24 @@ import {
   type SampledLogger,
 } from './log-sampling.js';
 
-// Step 9: Import hooks for application systems (lazy - no init)
+// Step 9.5: Import Database Resource Manager (intelligent DB monitoring)
+import {
+  startDatabaseResourceManager,
+  stopDatabaseResourceManager,
+  getDatabaseHealthReport,
+  getGrowthTrend,
+  getEffectiveRetentionDays,
+  getActiveAnomalies as getDbAnomalies,
+  forceProbe,
+  formatHealthSummary,
+  type DbHealthReport,
+  type DbHealthLevel,
+  type GrowthTrend,
+  type DbAnomaly,
+  type NamespaceUsage,
+} from './database-resource-manager.js';
+
+// Step 10: Import hooks for application systems (lazy - no init)
 // These are used by application code to connect to kernel
 import type {
   LoggerHook,
@@ -287,6 +304,9 @@ installErrorHandlers();
 
 // Initialize persistence layer
 initializePersistence();
+
+// Start Database Resource Manager (intelligent DB size monitoring, trends, anomalies)
+startDatabaseResourceManager();
 
 // Initialize output plugin system (wires dispatch into kernel-logger pipeline)
 initializePluginSystem();
@@ -359,6 +379,9 @@ export function shutdownKernel(): void {
   
   kernel.boot('boot-kernel', `✕ SHUTDOWN — Uptime: ${(uptimeMs / 1000).toFixed(2)}s | Logs: ${dashboard.kernelLogEntries} | Errors: ${dashboard.kernelErrors} | Systems: ${dashboard.totalSystems} | Health: ${health.status}`);
   
+  // Stop DB Resource Manager BEFORE persistence shutdown
+  stopDatabaseResourceManager();
+
   // Shutdown persistence (saves final snapshot)
   shutdownPersistence().catch(error => {
     kernel.error('boot-kernel', `Persistence shutdown error: ${error}`);
@@ -512,6 +535,19 @@ export {
   type SamplingStats,
   type ComponentSamplingStats,
   type SampledLogger,
+
+  // ─── DB Resource Manager ─────────────────────────────────────────────────
+  getDatabaseHealthReport,
+  getGrowthTrend,
+  getEffectiveRetentionDays,
+  getDbAnomalies,
+  forceProbe,
+  formatHealthSummary,
+  type DbHealthReport,
+  type DbHealthLevel,
+  type GrowthTrend,
+  type DbAnomaly,
+  type NamespaceUsage,
 };
 
 // ============================================================================
@@ -726,6 +762,16 @@ const Kernel = {
   
   // ─── Audit ───────────────────────────────────────────────────────────────
   audit: getAuditTrail,
+
+  // ─── Database Resource Manager ───────────────────────────────────────────
+  dbResource: {
+    getHealthReport: getDatabaseHealthReport,
+    getGrowthTrend,
+    getEffectiveRetentionDays,
+    getAnomalies: getDbAnomalies,
+    forceProbe,
+    formatHealthSummary,
+  },
 };
 
 export default Kernel;
