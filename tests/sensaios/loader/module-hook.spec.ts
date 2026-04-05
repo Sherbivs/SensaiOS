@@ -6,10 +6,9 @@
  * @module tests/sensaios/loader/module-hook.spec
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import {
   normalizePath,
-  resolveModulePath,
   isExternalModule,
   getRingLevel,
   getRingInfo,
@@ -201,8 +200,7 @@ describe('Module Hook Stats', () => {
   });
 
   it('should reset statistics when requested', () => {
-    const stats1 = getLoaderStats();
-    const initialImports = stats1.totalImports;
+    getLoaderStats();
     
     resetStats();
     

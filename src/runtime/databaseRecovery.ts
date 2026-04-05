@@ -170,6 +170,6 @@ export async function runDatabaseRecovery(): Promise<void> {
     logger.info('databaseRecovery', 'recovery', 'Database recovery sequence completed');
   } catch (error) {
     logger.error('databaseRecovery', 'recovery', 'Database recovery sequence failed', { error: { name: 'Error', message: String(error) } });
-    throw new Error(`Database recovery failed: ${getErrorMessage(error)}`);
+    throw new Error(`Database recovery failed: ${getErrorMessage(error)}`, { cause: error });
   }
 }

@@ -283,7 +283,7 @@ function assertDatabaseUrl(nodeEnv: string, url: string): void {
       if (error instanceof Error) {
         throw error;
       }
-      throw new Error("Database URL must be a valid URL in production.");
+      throw new Error("Database URL must be a valid URL in production.", { cause: error });
     }
   }
 }

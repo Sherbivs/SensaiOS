@@ -24,7 +24,6 @@ import {
 import {
   API_CAPABILITIES,
   DEFAULT_RATE_LIMITS,
-  type EncryptedToken,
   type GameCapability,
 } from '../../../src/sensaios/gameserver/types.js';
 import type { ComponentContext } from '../../../src/sensaios/component-context.js';

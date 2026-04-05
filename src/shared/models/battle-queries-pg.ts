@@ -371,7 +371,6 @@ export async function countFinishedBattles(
       OR "p2Id" IN (SELECT id FROM "User" WHERE "discordId" = $${paramIndex})
     )`;
     values.push(filters.participant);
-    paramIndex++;
   }
   
   const result = await db.query<{ count: string }>(sql, values);

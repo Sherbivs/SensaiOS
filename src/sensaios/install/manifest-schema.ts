@@ -186,7 +186,8 @@ export function validateManifestJson(json: string): AppManifest {
     parsed = JSON.parse(json);
   } catch (error) {
     throw new Error(
-      `Failed to parse manifest JSON: ${error instanceof Error ? error.message : 'Unknown error'}`
+      `Failed to parse manifest JSON: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      { cause: error }
     );
   }
 

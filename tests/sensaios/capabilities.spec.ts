@@ -6,7 +6,7 @@
  * @module tests/sensaios/capabilities.spec
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { checkCapability, assertCapability, listCapabilities } from '../../src/sensaios/capabilities/assert-capability.js';
 import { SensaiError } from '../../src/sensaios/sensai-error.js';
 import type { PrismaClient } from '../../src/generated/prisma/client.js';
@@ -32,7 +32,6 @@ describe('Capability System', () => {
   describe('checkCapability', () => {
     it('should grant capability when valid grant exists', async () => {
       const prisma = createMockPrisma();
-      const now = new Date();
       const grantedAt = new Date(Date.now() - 1000);
 
       vi.mocked(prisma.componentCapability.findFirst).mockResolvedValue({
@@ -79,7 +78,6 @@ describe('Capability System', () => {
 
     it('should deny capability when grant is expired', async () => {
       const prisma = createMockPrisma();
-      const expiredDate = new Date(Date.now() - 1000); // 1 second ago
 
       // Prisma should not return expired grants (handled in where clause)
       vi.mocked(prisma.componentCapability.findFirst).mockResolvedValue(null);

@@ -9,7 +9,6 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import {
   // Types
   type UniversalEnvelope,
-  type LogEnvelope,
   ObservationKind,
   LogLevel,
   
@@ -33,7 +32,6 @@ import {
   // Query
   query,
   errors,
-  recent,
   search,
   levelFilter,
   and,
@@ -47,10 +45,6 @@ import {
   configureConsole,
   flushBuffer,
   peekBuffer,
-  
-  // Converters
-  fromLogObservation,
-  toObservabilityEvent,
 } from '../../src/observability/envelope/index.js';
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -233,7 +227,7 @@ describe('Envelope Query', () => {
   
   it('sorts by timestamp', () => {
     const newest = query(testLogs).newest().toArray();
-    const oldest = query(testLogs).oldest().toArray();
+    query(testLogs).oldest().toArray();
     
     // Newest first should have last created at top
     expect(new Date(newest[0].timestamp).getTime())

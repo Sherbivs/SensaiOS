@@ -11,7 +11,6 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { SensaiError } from '../../../src/sensaios/sensai-error.js';
 import { RING } from '../../../src/sensaios/types.js';
 import type { TenantScope } from '../../../src/sensaios/tenant-scope.js';
 
@@ -20,7 +19,7 @@ import type { TenantScope } from '../../../src/sensaios/tenant-scope.js';
 // =============================================================================
 
 /** Standard test scope */
-const testScope: TenantScope = {
+const _testScope: TenantScope = {
   tenant: 'test-guild-123',
   environment: 'test',
   service: 'test-service',

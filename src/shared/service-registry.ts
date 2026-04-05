@@ -343,7 +343,7 @@ export class ServiceRegistry {
       });
       
       logger.error('ServiceRegistry', 'initializeService', `Failed to initialize service: ${serviceName}`, { metadata: { error } });
-      throw new Error(`Failed to initialize service '${serviceName}': ${getErrorMessage(error)}`);
+      throw new Error(`Failed to initialize service '${serviceName}': ${getErrorMessage(error)}`, { cause: error });
     }
   }
 

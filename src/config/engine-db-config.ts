@@ -524,7 +524,8 @@ export async function validateEngineDbConfig(): Promise<void> {
   } catch (error) {
     throw new Error(
       `Engine DB config validation failed: Cannot create storage directory ${STORAGE_BASE_DIR}. ` +
-      `Error: ${getErrorMessage(error)}`
+      `Error: ${getErrorMessage(error)}`,
+      { cause: error }
     );
   }
 }

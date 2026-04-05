@@ -439,12 +439,9 @@ export class ImmutableAuditService {
     const signatureValid = timingSafeHexCompare(entry.signature, computedSignature);
 
     // Verify previous hash link
-    let previousHashValid = true;
-    if (entry.sequence === 1n) {
-      previousHashValid = entry.previousHash === null;
-    } else {
-      previousHashValid = entry.previousHash === expectedPreviousHash;
-    }
+    const previousHashValid = entry.sequence === 1n
+      ? entry.previousHash === null
+      : entry.previousHash === expectedPreviousHash;
 
     const valid = contentHashValid && signatureValid && previousHashValid;
 

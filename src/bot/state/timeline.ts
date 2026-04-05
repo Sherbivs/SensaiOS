@@ -234,7 +234,7 @@ export function buildTimelineEmbedFields(state: SecurityBotState, limit: number 
   const fields: EmbedField[] = events.map((event) => {
     const icon = getEventIcon(event.type);
     const relativeTime = getRelativeTime(event.timestamp);
-    let description = '';
+    let description: string;
     
     switch (event.type) {
       case 'sweep': {

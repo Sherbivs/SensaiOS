@@ -13,10 +13,9 @@
  * @module tests/sensaios/ring-security.spec
  */
 
-import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { checkCapability, assertCapability, listCapabilities } from '../../src/sensaios/capabilities/assert-capability.js';
 import {
-  secureImport,
   validateImport,
   assertImportAllowed,
   getRingLevel,
@@ -820,7 +819,7 @@ describe('Ring Security Model — Comprehensive Tests', () => {
 
       try {
         await checkCapability(prisma, 'game.battles', 'db.write', testScope);
-      } catch (error) {
+      } catch (_error) {
         // Database error logged via scopedLogger
         expect(true).toBe(true);
       }

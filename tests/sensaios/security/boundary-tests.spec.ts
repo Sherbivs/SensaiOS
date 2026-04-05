@@ -11,7 +11,6 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { SensaiError } from '../../../src/sensaios/sensai-error.js';
-import { RING } from '../../../src/sensaios/types.js';
 import type { TenantScope } from '../../../src/sensaios/tenant-scope.js';
 
 // =============================================================================
@@ -549,7 +548,7 @@ describe('Boundary Tests — No Data Leakage Through Errors', () => {
     const stack = error.stack ?? '';
 
     // Stack traces may contain file paths - ensure sanitization handles this
-    const sanitized = sanitizeError(new Error(stack));
+    sanitizeError(new Error(stack));
     
     // Original error message preserved
     expect(error.message).toBe('Test error');
@@ -599,7 +598,7 @@ describe('Boundary Tests — Cross-Ring Data Boundaries', () => {
 
   it('should prevent cross-component data access without capability', () => {
     const componentAData = new Map<string, unknown>([['key', 'component-a-data']]);
-    const componentBData = new Map<string, unknown>([['key', 'component-b-data']]);
+    new Map<string, unknown>([['key', 'component-b-data']]);
 
     // Component A can only access its own data
     expect(componentAData.get('key')).toBe('component-a-data');

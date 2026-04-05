@@ -99,7 +99,7 @@ function getHealthStatus(): HealthResponse {
   const engineReady = global.engineReady ?? false;
 
   // Check Service Registry health
-  let status: HealthResponse['status'] = 'initializing';
+  let status: HealthResponse['status'];
   let services: HealthResponse['services'] | undefined;
 
   try {

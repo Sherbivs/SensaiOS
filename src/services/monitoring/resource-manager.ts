@@ -514,7 +514,6 @@ class ResourceManager {
   }
 
   public async clearAllConnections(owner?: string): Promise<number> {
-    let count = 0;
     const promises: Promise<boolean>[] = [];
     
     for (const [id, resource] of this.resources.entries()) {
@@ -524,7 +523,7 @@ class ResourceManager {
     }
 
     const results = await Promise.all(promises);
-    count = results.filter(Boolean).length;
+    const count = results.filter(Boolean).length;
     
     return count;
   }
@@ -807,7 +806,6 @@ class ResourceManager {
   }
 
   public async clearAllDiskResources(owner?: string): Promise<number> {
-    let count = 0;
     const promises: Promise<boolean>[] = [];
     
     for (const [id, resource] of this.resources.entries()) {
@@ -827,7 +825,7 @@ class ResourceManager {
     }
 
     const results = await Promise.all(promises);
-    count = results.filter(Boolean).length;
+    const count = results.filter(Boolean).length;
     
     return count;
   }

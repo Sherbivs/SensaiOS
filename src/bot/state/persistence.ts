@@ -556,7 +556,7 @@ export async function saveState(state: SecurityBotState): Promise<boolean> {
  */
 export async function initializeState(): Promise<SecurityBotState> {
   const startTime = performance.now();
-  let recoveryTier: 'current' | 'previous' | 'snapshot' | 'fresh' = 'current';
+  let recoveryTier: 'current' | 'previous' | 'snapshot' | 'fresh';
   
   logger.info('security-state', 'init', '[State] Initializing state persistence (Database-First)...');
   logger.info('security-state', 'init', '[State] Database namespace', { metadata: { namespace: STATE_NAMESPACE } });

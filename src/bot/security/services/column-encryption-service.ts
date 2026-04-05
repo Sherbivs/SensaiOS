@@ -301,7 +301,8 @@ export class ColumnEncryptionService {
     } catch (error) {
       this.stats.encryptionErrors++;
       throw new Error(
-        `Field encryption failed: ${getErrorMessage(error)}`
+        `Field encryption failed: ${getErrorMessage(error)}`,
+        { cause: error }
       );
     }
   }
@@ -369,7 +370,8 @@ export class ColumnEncryptionService {
     } catch (error) {
       this.stats.decryptionErrors++;
       throw new Error(
-        `Field decryption failed: ${getErrorMessage(error)}`
+        `Field decryption failed: ${getErrorMessage(error)}`,
+        { cause: error }
       );
     }
   }

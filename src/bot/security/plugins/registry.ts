@@ -193,7 +193,8 @@ export class PluginRegistry extends EventEmitter {
         await plugin.initialize(this.context);
       } catch (error) {
         throw new Error(
-          `Failed to initialize plugin '${id}': ${getErrorMessage(error)}`
+          `Failed to initialize plugin '${id}': ${getErrorMessage(error)}`,
+          { cause: error }
         );
       }
     }
@@ -386,7 +387,8 @@ export class PluginRegistry extends EventEmitter {
       await this.register(plugin, filePath);
     } catch (error) {
       throw new Error(
-        `Failed to load plugin from ${filePath}: ${getErrorMessage(error)}`
+        `Failed to load plugin from ${filePath}: ${getErrorMessage(error)}`,
+        { cause: error }
       );
     }
   }
