@@ -24,6 +24,11 @@ import {
   type PanelResult,
 } from './types.js';
 
+import { resourceMonitor } from '../../services/monitoring/resource-monitor.js';
+import { resourceManager } from '../../services/monitoring/resource-manager.js';
+import { getDatabaseHealthReport } from '../../kernel/database-resource-manager.js';
+import { TIER } from '../../config/resource-tiers.js';
+
 // ─── Theme ───────────────────────────────────────────────────────────────────
 
 const Color = {
@@ -110,10 +115,11 @@ export function renderMainMenu(ctx: ConsoleContext): PanelResult {
     embeds: [embed],
     components: [
       row(
-        btn(Panel.OVERVIEW,  'Overview',  ButtonStyle.Primary,   '📊'),
-        btn(Panel.SECURITY,  'Security',  ButtonStyle.Primary,   '🔒'),
-        btn(Panel.SYSTEM,    'System',    ButtonStyle.Primary,   '⚙️'),
-        btn(Panel.LOGS,      'Logs',      ButtonStyle.Primary,   '📋'),
+        btn(Panel.OVERVIEW,   'Overview',   ButtonStyle.Primary,   '📊'),
+        btn(Panel.RESOURCES,  'Resources',  ButtonStyle.Primary,   '📈'),
+        btn(Panel.SECURITY,   'Security',   ButtonStyle.Primary,   '🔒'),
+        btn(Panel.SYSTEM,     'System',     ButtonStyle.Primary,   '⚙️'),
+        btn(Panel.LOGS,       'Logs',       ButtonStyle.Primary,   '📋'),
       ),
     ],
   };
@@ -646,5 +652,166 @@ export async function renderBots(ctx: ConsoleContext): Promise<PanelResult> {
   return {
     embeds: [embed],
     components: [row(backBtn(Panel.LOGS))],
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  RESOURCE USAGE PANEL
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Renders a comprehensive resource usage dashboard with real system metrics.
+ *
+ * DATA SOURCES — All values are queried from actual OS/runtime APIs:
+ * - RAM: process.memoryUsage() → RSS, heap, external, array buffers
+ * - CPU: process.cpuUsage() → user + system time (microseconds → seconds)
+ * - Disk (/Store): Directory walk via getCachedDirectorySize() (60s cache)
+ *   On Render, statfsSync shows the container overlay FS, NOT the mounted
+ *   volume quota. The only accurate measure is a directory walk of /Store.
+ *   The 1 GB total is Render's /Store persistent disk quota (hardcoded).
+ * - DB: pg_database_size() via kernel database-resource-manager probes
+ * - Tier: Auto-detected via os.totalmem() / process.constrainedMemory()
+ * - Resources: resourceManager tracks listeners, timers, connections, caches
+ */
+export function renderResources(): PanelResult {
+  // ── Collect live metrics ───────────────────────────────────────────────
+  const mem = process.memoryUsage();
+  const cpuRaw = process.cpuUsage();
+  const uptimeS = process.uptime();
+  const metrics = resourceMonitor.getMetrics();
+  const diskStatus = resourceMonitor.getDiskStatus();
+  const resourceStats = resourceManager.getStats();
+
+  // DB health (safe — returns defaults if manager not yet started)
+  let dbReport: ReturnType<typeof getDatabaseHealthReport> | null = null;
+  try {
+    dbReport = getDatabaseHealthReport();
+  } catch { /* DB resource manager may not be running */ }
+
+  // ── Format memory ──────────────────────────────────────────────────────
+  const rss     = (mem.rss / 1024 / 1024).toFixed(1);
+  const heapU   = (mem.heapUsed / 1024 / 1024).toFixed(1);
+  const heapT   = (mem.heapTotal / 1024 / 1024).toFixed(1);
+  const ext     = (mem.external / 1024 / 1024).toFixed(1);
+  const arrBuf  = (mem.arrayBuffers / 1024 / 1024).toFixed(1);
+  const planMB  = TIER.memory.planLimitMB;
+  const rssMB   = mem.rss / 1024 / 1024;
+  const rssPct  = ((rssMB / planMB) * 100).toFixed(1);
+
+  const memPressure = rssMB >= TIER.memory.emergencyMB ? '🔴 EMERGENCY'
+    : rssMB >= TIER.memory.criticalMB ? '🟠 CRITICAL'
+    : rssMB >= TIER.memory.warningMB ? '🟡 WARNING'
+    : '🟢 NORMAL';
+
+  // ── Format CPU ─────────────────────────────────────────────────────────
+  const cpuUserS   = (cpuRaw.user / 1_000_000).toFixed(1);
+  const cpuSystemS = (cpuRaw.system / 1_000_000).toFixed(1);
+  const cpuTotalS  = ((cpuRaw.user + cpuRaw.system) / 1_000_000).toFixed(1);
+  // Approximate CPU % = (cpu time / wall clock time) × 100
+  const cpuPct = uptimeS > 0
+    ? (((cpuRaw.user + cpuRaw.system) / 1_000_000) / uptimeS * 100).toFixed(1)
+    : '0.0';
+
+  // ── Format disk (/Store) ───────────────────────────────────────────────
+  const diskTotalMB = (metrics.diskTotal / 1024 / 1024).toFixed(0);
+  const diskUsedMB  = (metrics.diskUsed / 1024 / 1024).toFixed(1);
+  const diskPct     = metrics.diskTotal > 0
+    ? ((metrics.diskUsed / metrics.diskTotal) * 100).toFixed(1)
+    : '0.0';
+  const diskPressure = diskStatus.pressureLevel === 'EMERGENCY' ? '🔴 EMERGENCY'
+    : diskStatus.pressureLevel === 'CRITICAL' ? '🟠 CRITICAL'
+    : diskStatus.pressureLevel === 'WARNING' ? '🟡 WARNING'
+    : '🟢 NORMAL';
+  const cacheSizeMB = (metrics.cacheSize / 1024 / 1024).toFixed(1);
+
+  // ── Format DB storage ──────────────────────────────────────────────────
+  let dbLine: string;
+  if (dbReport) {
+    const emoji = { healthy: '🟢', warning: '🟡', critical: '🟠', emergency: '🔴' }[dbReport.level];
+    dbLine = `${emoji} **${dbReport.level.toUpperCase()}** — ${dbReport.currentSizeMb.toFixed(1)} MB / ${dbReport.storageLimitMb} MB (${dbReport.usagePercent}%)`;
+    if (dbReport.trend.sampleCount >= 3) {
+      const dir = dbReport.trend.mbPerDay > 0 ? '+' : '';
+      dbLine += `\nGrowth: ${dir}${dbReport.trend.mbPerDay} MB/day`;
+      if (dbReport.trend.daysUntilFull !== Infinity && dbReport.trend.daysUntilFull < 90) {
+        dbLine += ` · ${dbReport.trend.daysUntilFull}d until full`;
+      }
+    }
+    dbLine += `\nRetention: ${dbReport.thresholds.effectiveRetentionDays}d`;
+    if (dbReport.thresholds.effectiveRetentionDays < dbReport.thresholds.retentionDays) {
+      dbLine += ` (reduced from ${dbReport.thresholds.retentionDays}d)`;
+    }
+  } else {
+    dbLine = 'DB resource manager not active';
+  }
+
+  // ── Format resource lifecycle ──────────────────────────────────────────
+  const rs = resourceStats;
+  const resourceLines = [
+    `Total tracked: **${rs.total}**`,
+    `Listeners: ${rs.byType.listener} · Timers: ${rs.byType.timer}`,
+    `Connections: ${rs.byType.connection} · Caches: ${rs.byType.cache}`,
+    `Disk caches: ${rs.byType['disk-cache']} · Buffers: ${rs.byType['disk-buffer']} · Logs: ${rs.byType['disk-log']}`,
+  ];
+  if (rs.leakSuspects.length > 0) {
+    resourceLines.push(`⚠️ Leak suspects: ${rs.leakSuspects.length}`);
+  }
+  if (rs.diskUsage && rs.diskUsage.totalDiskBytes > 0) {
+    resourceLines.push(`Tracked disk: ${(rs.diskUsage.totalDiskBytes / 1024 / 1024).toFixed(1)} MB`);
+  }
+
+  // ── Format Render tier ─────────────────────────────────────────────────
+  const tierLine = `**${TIER.label}** (detected via ${TIER.detectedVia})`;
+
+  // ── Build embeds ───────────────────────────────────────────────────────
+  const memEmbed = new EmbedBuilder()
+    .setColor(rssMB >= TIER.memory.criticalMB ? Color.DANGER : rssMB >= TIER.memory.warningMB ? Color.WARNING : Color.SUCCESS)
+    .setTitle('📊  Resource Usage — Memory & CPU')
+    .addFields(
+      { name: 'Render Plan', value: tierLine },
+      { name: 'RSS (Total Process)', value: `\`${rss} MB / ${planMB} MB (${rssPct}%)\``, inline: true },
+      { name: 'Heap', value: `\`${heapU} / ${heapT} MB\``, inline: true },
+      { name: 'Pressure', value: memPressure, inline: true },
+      { name: 'External', value: `\`${ext} MB\``, inline: true },
+      { name: 'Array Buffers', value: `\`${arrBuf} MB\``, inline: true },
+      { name: 'V8 Heap Limit', value: `\`${TIER.heap.maxOldSpaceMB} MB\``, inline: true },
+      { name: 'CPU Time', value: `\`${cpuTotalS}s\` (${cpuPct}% avg)\nUser: ${cpuUserS}s · System: ${cpuSystemS}s`, inline: false },
+    )
+    .setFooter({ text: `PID ${metrics.pid} · Node ${metrics.nodeVersion} · Uptime ${formatUptime(uptimeS * 1000)}` })
+    .setTimestamp();
+
+  const storageEmbed = new EmbedBuilder()
+    .setColor(diskStatus.pressureLevel !== 'NORMAL' ? Color.WARNING : Color.INFO)
+    .setTitle('💾  Resource Usage — Storage')
+    .addFields(
+      { name: '/Store Disk', value: `\`${diskUsedMB} MB / ${diskTotalMB} MB (${diskPct}%)\` ${diskPressure}\nCache files: ${cacheSizeMB} MB`, inline: false },
+      { name: 'Database (PostgreSQL)', value: truncField(dbLine), inline: false },
+      { name: 'Resource Lifecycle', value: truncField(resourceLines.join('\n')), inline: false },
+    )
+    .setFooter({ text: 'Disk = directory walk of /Store · DB = pg_database_size()' })
+    .setTimestamp();
+
+  // ── Data source documentation ──────────────────────────────────────────
+  const sourceEmbed = new EmbedBuilder()
+    .setColor(Color.MUTED)
+    .setTitle('🔎  Data Source Methodology')
+    .setDescription([
+      '**RAM** — `process.memoryUsage()` (actual Node.js RSS + heap)',
+      '**CPU** — `process.cpuUsage()` (actual user + system μs)',
+      '**Disk** — Directory walk of `/Store` with 60s cache',
+      '> `statfsSync` shows container overlay FS on Render,',
+      '> not the mounted volume. Walk matches Render Dashboard.',
+      '**Disk Total** — Render /Store quota (1 GB, hardcoded)',
+      `**DB** — \`pg_database_size()\` via ${dbReport ? `${dbReport.manager.probesCompleted} probes` : 'kernel probes'}`,
+      `**Tier** — Auto-detected: \`${TIER.detectedVia}\` (${TIER.detectedRamMB} MB raw)`,
+    ].join('\n'));
+
+  return {
+    embeds: [memEmbed, storageEmbed, sourceEmbed],
+    components: [
+      row(
+        btn(`${Panel.RESOURCES}:refresh`, 'Refresh', ButtonStyle.Success, '🔄'),
+        backBtn(),
+      ),
+    ],
   };
 }

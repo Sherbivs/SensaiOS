@@ -18,6 +18,7 @@ import {
 import {
   renderMainMenu,
   renderOverview,
+  renderResources,
   renderSecurity,
   renderRoles,
   renderMembers,
@@ -56,6 +57,12 @@ const TEXT_COMMAND_MAP: Record<string, string> = {
   'overview':      Panel.OVERVIEW,
   'guilds':        Panel.OVERVIEW,
   'security':      Panel.SECURITY,
+  'resources':     Panel.RESOURCES,
+  'resource':      Panel.RESOURCES,
+  'usage':         Panel.RESOURCES,
+  'ram':           Panel.RESOURCES,
+  'memory':        Panel.RESOURCES,
+  'disk':          Panel.RESOURCES,
   'roles':         Panel.SEC_ROLES,
   'members':       Panel.SEC_MEMBERS,
   'admins':        Panel.SEC_ADMINS,
@@ -203,6 +210,8 @@ async function resolvePanel(panelId: string, ctx: ConsoleContext, requesterTag: 
     case Panel.MAIN:         return renderMainMenu(ctx);
     case Panel.OVERVIEW:     return renderOverview(ctx);
     case `${Panel.OVERVIEW}:refresh`: return renderOverview(ctx);
+    case Panel.RESOURCES:    return renderResources();
+    case `${Panel.RESOURCES}:refresh`: return renderResources();
     case Panel.SECURITY:     return renderSecurity(ctx);
     case Panel.SYSTEM:       return renderSystem(ctx);
     case Panel.LOGS:         return renderLogs(ctx);

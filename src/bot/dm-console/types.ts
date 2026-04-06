@@ -34,6 +34,7 @@ export const Panel = {
   // Top-level navigation
   MAIN:        'nav:main',
   OVERVIEW:    'nav:overview',
+  RESOURCES:   'nav:resources',
   SECURITY:    'nav:security',
   SYSTEM:      'nav:system',
   LOGS:        'nav:logs',
