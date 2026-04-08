@@ -810,11 +810,59 @@ let memberStatsRefreshing = false;
 
 const memberRoleReversionsInProgress = new Set<string>();
 const rolePermissionReversionsInProgress = new Set<string>();
+const expectedBotRoleMutations = new Map<string, number>();
 function scheduleCleanup<T>(container: Set<T>, key: T, ttlMs = 5000): void {
   const timer = setTimeout(() => {
     container.delete(key);
   }, ttlMs);
   timer.unref?.();
+}
+
+function mutationKey(memberId: string, roleId: string, action: 'add' | 'remove'): string {
+  return `${memberId}:${roleId}:${action}`;
+}
+
+function markExpectedBotRoleMutation(
+  memberId: string,
+  roleId: string,
+  action: 'add' | 'remove',
+  ttlMs = 15_000,
+): void {
+  const key = mutationKey(memberId, roleId, action);
+  const expiresAt = Date.now() + ttlMs;
+  expectedBotRoleMutations.set(key, expiresAt);
+  const timer = setTimeout(() => {
+    const currentExpiry = expectedBotRoleMutations.get(key);
+    if (currentExpiry !== undefined && currentExpiry <= Date.now()) {
+      expectedBotRoleMutations.delete(key);
+    }
+  }, ttlMs + 1000);
+  timer.unref?.();
+}
+
+function consumeExpectedBotRoleMutations(
+  memberId: string,
+  addedRoles: Role[],
+  removedRoles: Role[],
+): boolean {
+  const now = Date.now();
+  const addedKeys = addedRoles.map((role) => mutationKey(memberId, role.id, 'add'));
+  const removedKeys = removedRoles.map((role) => mutationKey(memberId, role.id, 'remove'));
+  const allKeys = [...addedKeys, ...removedKeys];
+  if (allKeys.length === 0) {
+    return false;
+  }
+
+  const allExpected = allKeys.every((key) => {
+    const expiry = expectedBotRoleMutations.get(key);
+    return typeof expiry === 'number' && expiry > now;
+  });
+  if (!allExpected) {
+    return false;
+  }
+
+  allKeys.forEach((key) => expectedBotRoleMutations.delete(key));
+  return true;
 }
 
 function isClientReady(): boolean {
@@ -2198,6 +2246,16 @@ async function maybeAlertRoleAssignments(oldMember: GuildMember | PartialGuildMe
     return { changed: false };
   }
 
+  if (consumeExpectedBotRoleMutations(newMember.id, addedRoles, removedRoles)) {
+    report('Role Change Matched Expected Bot Mutation', {
+      guild: describeGuild(guild),
+      member: describeMember(newMember),
+      addedRoles: addedRoles.map((role) => describeRole(role)),
+      removedRoles: removedRoles.map((role) => describeRole(role)),
+    }, 'detail');
+    return { changed: true, skipped: true };
+  }
+
   const auditEntry = await lookupRoleAuditEntry(guild, newMember.id, {
     addedRoleIds: addedRoles.map((role) => role.id),
     removedRoleIds: removedRoles.map((role) => role.id),
@@ -3000,6 +3058,7 @@ async function ensureTrainerFor(member: GuildMember | PartialGuildMember | null,
   }
 
   try {
+    markExpectedBotRoleMutation(member.id, role.id, 'add');
     await member.roles.add(role);
     report('Assignment Success', {
       origin,
@@ -3151,6 +3210,7 @@ async function sweepGuild(guild: Guild, origin: string): Promise<void> {
             return;
           }
 
+          markExpectedBotRoleMutation(member.id, role.id, 'add');
           await member.roles.add(role);
           success += 1;
           report('Assignment Success', {
