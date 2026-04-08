@@ -838,6 +838,14 @@ function markTrainerAssignmentInFlight(guildId: string, memberId: string, ttlMs 
   timer.unref?.();
 }
 
+/**
+ * Backward-compatible alias kept to prevent deploy/build failures when
+ * downstream branches still reference the previous helper name.
+ */
+function markExpectedBotRoleMutation(guildId: string, memberId: string, ttlMs = 120_000): void {
+  markTrainerAssignmentInFlight(guildId, memberId, ttlMs);
+}
+
 function isTrainerAssignmentInFlight(guildId: string, memberId: string): boolean {
   const key = trainerAssignmentKey(guildId, memberId);
   const expiresAt = trainerRoleAssignmentInFlight.get(key);
@@ -3068,6 +3076,7 @@ async function ensureTrainerFor(member: GuildMember | PartialGuildMember | null,
   try {
     markExpectedBotRoleMutation(member.id, role.id, 'add');
     await member.roles.add(role);
+    markExpectedBotRoleMutation(member.guild.id, member.id);
     markTrainerAssignmentInFlight(member.guild.id, member.id);
     report('Assignment Success', {
       origin,
@@ -3221,6 +3230,7 @@ async function sweepGuild(guild: Guild, origin: string): Promise<void> {
 
           markExpectedBotRoleMutation(member.id, role.id, 'add');
           await member.roles.add(role);
+          markExpectedBotRoleMutation(guild.id, member.id);
           markTrainerAssignmentInFlight(guild.id, member.id);
           success += 1;
           report('Assignment Success', {
