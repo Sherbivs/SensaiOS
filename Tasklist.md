@@ -1,6 +1,6 @@
 # Tasklist
-Last Updated (UTC): 2026-04-05T22:00:00Z
-Revision: 2.177
+Last Updated (UTC): 2026-04-08T02:10:00Z
+Revision: 2.178
 <!-- # TASKLIST UPDATE -->
 
 **Recent Activity (2026-04-05T22:00Z):**
@@ -11,6 +11,9 @@ Revision: 2.177
   - QA: ~170 lines dead code removed, 14 lint warnings fixed, ROUTER.yaml structural errors fixed
   - Post-mortems: schema drift + cache bloat documented
 - ✅ **MEMLEAK.PHASE4.2 → DONE** — OOM fix v3 soak passed (6 weeks, no recurrence). RSS stable.
+
+**Recent Activity (2026-04-08T02:10Z):**
+- ⚠️ **Trainer coverage semantics follow-up logged** — multiple commits hardened runtime/DM/DB telemetry split and build compatibility alias for `markExpectedBotRoleMutation`, but a broader audit remains needed for all downstream analytics/reporting consumers.
 
 **Recent Activity (2026-02-17T18:00Z):**
 - ✅ **SENSAIOS-PERFECTED-VISION.md v1.0.2 created and committed** (commit 3d5f04f7)

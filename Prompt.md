@@ -1,10 +1,10 @@
 # Prompt.md
-Timestamp (UTC): 2026-04-05T22:00:00Z
-Revision: 7.8
+Timestamp (UTC): 2026-04-08T02:10:00Z
+Revision: 7.9
 
 **Cross-References**:
 - See `Patch.md` for contract rules (updated 2026-02-09T00:00:00Z Rev 1.76)
-- See `Tasklist.md` for active backlog and current tasks (Rev 2.177)
+- See `Tasklist.md` for active backlog and current tasks (Rev 2.178)
 - See `docs/archive/tasks/` for completed task history (~115+ tasks archived by project/phase)
 - See `ops/NEXT.yaml` for current task pointer (KERNEL.LOGGING.CORRELATION_IDS — READY, P1-HIGH)
 - See `ops/MEMORY-LEAK-PATCH-BLUEPRINT.md` for comprehensive memory leak fix plan (1776 lines)
@@ -25,6 +25,13 @@ Revision: 7.8
 5. When Git remote validation or CI guards fail locally, stop and request human assistance rather than proceeding.
 
 ## Last Repo Changes
+- **⚠️ Trainer Coverage Regression Follow-up + Build Compatibility Patch (2026-04-08, commits bc98b8a / 5a37040 / 5681637 / f2ccbe2):**
+  - Coverage semantics split hardened across runtime + DM overview + DB snapshot telemetry:
+    - Members (all), Bots, Eligible Members (non-bot), Trainer Assigned (Eligible), Trainer Assigned (All)
+  - Added backward-compatible alias `markExpectedBotRoleMutation()` → delegates to `markTrainerAssignmentInFlight()` to prevent TS2304 deploy breaks from mixed branch naming.
+  - Added canonical operations-bible vocabulary note to prevent numerator/denominator drift causing >100% coverage.
+  - **Known follow-up needed:** unify and validate trainer coverage semantics across any remaining analytics/reporting paths not yet migrated to the canonical split model.
+
 - **✅ PHASE 9: DM Console UI + DB Resource Manager + QA Cleanup (2026-04-05, commit 27cfe06f):**
   - Phase 3: Security events schema drift fix (migration deployed to prod)
   - Phase 4: Cache bloat GC fix (kernel-persistence.ts scheduler)
