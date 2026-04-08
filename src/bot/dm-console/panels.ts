@@ -150,8 +150,11 @@ export async function renderOverview(ctx: ConsoleContext): Promise<PanelResult> 
   let coverageStr = 'N/A';
   if (ctx.securityCliState.memberStats) {
     const ms = ctx.securityCliState.memberStats;
-    const pct = ms.totalMembers > 0 ? ((ms.totalWithRole / ms.totalMembers) * 100).toFixed(1) : '0';
-    coverageStr = `${ms.totalWithRole}/${ms.totalMembers} (${pct}%)${ms.partial ? ' est.' : ''}`;
+    const denominator = ms.totalEligibleMembers && ms.totalEligibleMembers > 0
+      ? ms.totalEligibleMembers
+      : ms.totalMembers;
+    const pct = denominator > 0 ? ((ms.totalWithRole / denominator) * 100).toFixed(1) : '0';
+    coverageStr = `${ms.totalWithRole}/${denominator} (${pct}%)${ms.partial ? ' est.' : ''}`;
   }
 
   // Engine cache stats

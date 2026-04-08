@@ -132,6 +132,7 @@ interface GuildStatsEntry {
   guildId: string;
   guild: string;
   memberCount: number;
+  eligibleMemberCount: number;
   roleCount: number;
   complete: boolean;
 }
@@ -139,6 +140,7 @@ interface GuildStatsEntry {
 /** Member statistics snapshot */
 interface MemberStatsSnapshot {
   totalMembers: number;
+  totalEligibleMembers: number;
   totalWithRole: number;
   guilds: GuildStatsEntry[];
   updatedAt: Date;
@@ -810,7 +812,8 @@ let memberStatsRefreshing = false;
 
 const memberRoleReversionsInProgress = new Set<string>();
 const rolePermissionReversionsInProgress = new Set<string>();
-const expectedBotRoleMutations = new Map<string, number>();
+const trainerRoleAssignmentInFlight = new Map<string, number>();
+
 function scheduleCleanup<T>(container: Set<T>, key: T, ttlMs = 5000): void {
   const timer = setTimeout(() => {
     container.delete(key);
@@ -818,50 +821,33 @@ function scheduleCleanup<T>(container: Set<T>, key: T, ttlMs = 5000): void {
   timer.unref?.();
 }
 
-function mutationKey(memberId: string, roleId: string, action: 'add' | 'remove'): string {
-  return `${memberId}:${roleId}:${action}`;
+function trainerAssignmentKey(guildId: string, memberId: string): string {
+  return `${guildId}:${memberId}`;
 }
 
-function markExpectedBotRoleMutation(
-  memberId: string,
-  roleId: string,
-  action: 'add' | 'remove',
-  ttlMs = 15_000,
-): void {
-  const key = mutationKey(memberId, roleId, action);
+function markTrainerAssignmentInFlight(guildId: string, memberId: string, ttlMs = 120_000): void {
+  const key = trainerAssignmentKey(guildId, memberId);
   const expiresAt = Date.now() + ttlMs;
-  expectedBotRoleMutations.set(key, expiresAt);
+  trainerRoleAssignmentInFlight.set(key, expiresAt);
   const timer = setTimeout(() => {
-    const currentExpiry = expectedBotRoleMutations.get(key);
-    if (currentExpiry !== undefined && currentExpiry <= Date.now()) {
-      expectedBotRoleMutations.delete(key);
+    const current = trainerRoleAssignmentInFlight.get(key);
+    if (typeof current === 'number' && current <= Date.now()) {
+      trainerRoleAssignmentInFlight.delete(key);
     }
-  }, ttlMs + 1000);
+  }, ttlMs);
   timer.unref?.();
 }
 
-function consumeExpectedBotRoleMutations(
-  memberId: string,
-  addedRoles: Role[],
-  removedRoles: Role[],
-): boolean {
-  const now = Date.now();
-  const addedKeys = addedRoles.map((role) => mutationKey(memberId, role.id, 'add'));
-  const removedKeys = removedRoles.map((role) => mutationKey(memberId, role.id, 'remove'));
-  const allKeys = [...addedKeys, ...removedKeys];
-  if (allKeys.length === 0) {
+function isTrainerAssignmentInFlight(guildId: string, memberId: string): boolean {
+  const key = trainerAssignmentKey(guildId, memberId);
+  const expiresAt = trainerRoleAssignmentInFlight.get(key);
+  if (!expiresAt) {
     return false;
   }
-
-  const allExpected = allKeys.every((key) => {
-    const expiry = expectedBotRoleMutations.get(key);
-    return typeof expiry === 'number' && expiry > now;
-  });
-  if (!allExpected) {
+  if (expiresAt <= Date.now()) {
+    trainerRoleAssignmentInFlight.delete(key);
     return false;
   }
-
-  allKeys.forEach((key) => expectedBotRoleMutations.delete(key));
   return true;
 }
 
@@ -908,6 +894,7 @@ async function refreshMemberStats(reason = 'unspecified'): Promise<void> {
   try {
     const snapshot: MemberStatsSnapshot = {
       totalMembers: 0,
+      totalEligibleMembers: 0,
       totalWithRole: 0,
       guilds: [],
       updatedAt: new Date(),
@@ -918,6 +905,8 @@ async function refreshMemberStats(reason = 'unspecified'): Promise<void> {
     for (const [, guild] of client.guilds.cache) {
       const guildSummary = describeGuild(guild);
       const memberCount = Number.isFinite(guild.memberCount) ? guild.memberCount : guild.members.cache.size;
+      const cachedBots = guild.members.cache.filter((member) => member.user.bot).size;
+      const eligibleMemberCount = Math.max(0, memberCount - cachedBots);
       let roleCount = 0;
       let complete = false;
       const role = findRole(guild);
@@ -951,11 +940,13 @@ async function refreshMemberStats(reason = 'unspecified'): Promise<void> {
       }
 
       snapshot.totalMembers += memberCount;
+      snapshot.totalEligibleMembers += eligibleMemberCount;
       snapshot.totalWithRole += roleCount;
       snapshot.guilds.push({
         guildId: guild.id,
         guild: guildSummary,
         memberCount,
+        eligibleMemberCount,
         roleCount,
         complete,
       });
@@ -979,11 +970,21 @@ function bumpRoleMemberCount(guild: Guild, delta = 1): void {
   if (!stats) {
     securityCliState.memberStats = {
       totalMembers: Number.isFinite(guild.memberCount) ? guild.memberCount : guild.members.cache.size,
+      totalEligibleMembers: Math.max(
+        0,
+        (Number.isFinite(guild.memberCount) ? guild.memberCount : guild.members.cache.size)
+          - guild.members.cache.filter((member) => member.user.bot).size
+      ),
       totalWithRole: Math.max(0, delta),
       guilds: [{
         guildId: guild.id,
         guild: describeGuild(guild),
         memberCount: Number.isFinite(guild.memberCount) ? guild.memberCount : guild.members.cache.size,
+        eligibleMemberCount: Math.max(
+          0,
+          (Number.isFinite(guild.memberCount) ? guild.memberCount : guild.members.cache.size)
+            - guild.members.cache.filter((member) => member.user.bot).size
+        ),
         roleCount: Math.max(0, delta),
         complete: false,
       }],
@@ -998,19 +999,28 @@ function bumpRoleMemberCount(guild: Guild, delta = 1): void {
   stats.totalWithRole = Math.max(0, stats.totalWithRole + delta);
   stats.updatedAt = updatedAt;
   stats.partial = true;
-  let entry = stats.guilds.find((item) => item.guildId === guild.id);
-  if (!entry) {
-    entry = {
+  const entry = stats.guilds.find((item) => item.guildId === guild.id) ?? (() => {
+    const created: GuildStatsEntry = {
       guildId: guild.id,
       guild: describeGuild(guild),
       memberCount: Number.isFinite(guild.memberCount) ? guild.memberCount : guild.members.cache.size,
+      eligibleMemberCount: Math.max(
+        0,
+        (Number.isFinite(guild.memberCount) ? guild.memberCount : guild.members.cache.size)
+          - guild.members.cache.filter((member) => member.user.bot).size
+      ),
       roleCount: 0,
       complete: false,
     };
-    stats.guilds.push(entry);
-  }
+    stats.guilds.push(created);
+    return created;
+  })();
   entry.guild = describeGuild(guild);
   entry.memberCount = Number.isFinite(guild.memberCount) ? guild.memberCount : guild.members.cache.size;
+  entry.eligibleMemberCount = Math.max(
+    0,
+    entry.memberCount - guild.members.cache.filter((member) => member.user.bot).size
+  );
   entry.roleCount = Math.max(0, entry.roleCount + delta);
   entry.complete = false;
   updateSecurityCliSection({});
@@ -1061,14 +1071,15 @@ function updateSecurityCliSection(overrides: Partial<SecurityCliState> = {}): vo
 
   if (securityCliState.memberStats) {
     const stats = securityCliState.memberStats;
-    const coverageRatio = stats.totalMembers > 0 ? stats.totalWithRole / stats.totalMembers : 0;
-    metrics.push(['role coverage', `${stats.totalWithRole}/${stats.totalMembers || 0}`]);
+    const denominator = stats.totalEligibleMembers > 0 ? stats.totalEligibleMembers : stats.totalMembers;
+    const coverageRatio = denominator > 0 ? stats.totalWithRole / denominator : 0;
+    metrics.push(['role coverage', `${stats.totalWithRole}/${denominator || 0}`]);
     metrics.push(['coverage %', `${(coverageRatio * 100).toFixed(coverageRatio >= 0.1 ? 1 : 2)}%${stats.partial ? ' (est)' : ''}`]);
     const guildSummaryParts = stats.guilds
       .slice(0, 3)
       .map((entry) => {
         const suffix = entry.complete ? '' : ' (est)';
-        const memberTotal = entry.memberCount || 0;
+        const memberTotal = entry.eligibleMemberCount || entry.memberCount || 0;
         return `${entry.roleCount}/${memberTotal} ${entry.guild}${suffix}`;
       });
     if (guildSummaryParts.length > 0) {
@@ -2246,14 +2257,11 @@ async function maybeAlertRoleAssignments(oldMember: GuildMember | PartialGuildMe
     return { changed: false };
   }
 
-  if (consumeExpectedBotRoleMutations(newMember.id, addedRoles, removedRoles)) {
-    report('Role Change Matched Expected Bot Mutation', {
-      guild: describeGuild(guild),
-      member: describeMember(newMember),
-      addedRoles: addedRoles.map((role) => describeRole(role)),
-      removedRoles: removedRoles.map((role) => describeRole(role)),
-    }, 'detail');
-    return { changed: true, skipped: true };
+  const trainerRoleOnlyAddition = addedRoles.length === 1
+    && addedRoles[0]?.id === TRAINER_ROLE_ID
+    && removedRoles.length === 0;
+  if (trainerRoleOnlyAddition && isTrainerAssignmentInFlight(guild.id, newMember.id)) {
+    return { changed: false, skipped: true };
   }
 
   const auditEntry = await lookupRoleAuditEntry(guild, newMember.id, {
@@ -3060,6 +3068,7 @@ async function ensureTrainerFor(member: GuildMember | PartialGuildMember | null,
   try {
     markExpectedBotRoleMutation(member.id, role.id, 'add');
     await member.roles.add(role);
+    markTrainerAssignmentInFlight(member.guild.id, member.id);
     report('Assignment Success', {
       origin,
       guild: guildSummary,
@@ -3212,6 +3221,7 @@ async function sweepGuild(guild: Guild, origin: string): Promise<void> {
 
           markExpectedBotRoleMutation(member.id, role.id, 'add');
           await member.roles.add(role);
+          markTrainerAssignmentInFlight(guild.id, member.id);
           success += 1;
           report('Assignment Success', {
             origin,

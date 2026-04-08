@@ -93,6 +93,7 @@ export interface ConsoleContext {
     lastAlertMessage: string | null;
     memberStats: {
       totalMembers: number;
+      totalEligibleMembers?: number;
       totalWithRole: number;
       partial: boolean;
     } | null;
