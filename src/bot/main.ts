@@ -3066,6 +3066,7 @@ async function ensureTrainerFor(member: GuildMember | PartialGuildMember | null,
   }
 
   try {
+    markExpectedBotRoleMutation(member.id, role.id, 'add');
     await member.roles.add(role);
     markTrainerAssignmentInFlight(member.guild.id, member.id);
     report('Assignment Success', {
@@ -3218,6 +3219,7 @@ async function sweepGuild(guild: Guild, origin: string): Promise<void> {
             return;
           }
 
+          markExpectedBotRoleMutation(member.id, role.id, 'add');
           await member.roles.add(role);
           markTrainerAssignmentInFlight(guild.id, member.id);
           success += 1;
