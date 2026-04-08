@@ -137,14 +137,39 @@ interface GuildStatsEntry {
   complete: boolean;
 }
 
-/** Member statistics snapshot */
+/** Member statistics snapshot
+ * 
+ * TRAINER COVERAGE CALCULATION:
+ * Coverage % = (totalWithRole / denominator) × 100
+ * - Denominator: totalEligibleMembers if available, else totalMembers
+ * - totalWithRole: Members with the Trainor/Drip role
+ * - totalEligibleMembers: Guild members excluding bot accounts
+ * - totalMembers: All guild members (including bots)
+ * 
+ * Bots are excluded from the denominator because they do not require trainer assignments;
+ * only human members count toward coverage metrics.
+ * 
+ * Used by:
+ * - DM Console Overview panel (renderOverview)
+ * - Logger metrics output (formatSecurityMetrics)
+ */
 interface MemberStatsSnapshot {
+  /** Total guild members (including bots and humans) */
   totalMembers: number;
+  
+  /** Total eligible members (humans only) — used as coverage denominator */
   totalEligibleMembers: number;
+  
+  /** Members with the Trainer/Drip role — numerator for coverage % */
   totalWithRole: number;
+  
   guilds: GuildStatsEntry[];
   updatedAt: Date;
+  
+  /** True if data is estimated (partial guild member fetch); false if complete */
   partial: boolean;
+  
+  /** Reason for stats refresh (e.g., 'sweep complete', 'unspecified') */
   reason: string;
 }
 
@@ -3074,7 +3099,7 @@ async function ensureTrainerFor(member: GuildMember | PartialGuildMember | null,
   }
 
   try {
-    markExpectedBotRoleMutation(member.id, role.id, 'add');
+    markExpectedBotRoleMutation(member.id, role.id);
     await member.roles.add(role);
     markExpectedBotRoleMutation(member.guild.id, member.id);
     markTrainerAssignmentInFlight(member.guild.id, member.id);
@@ -3228,7 +3253,7 @@ async function sweepGuild(guild: Guild, origin: string): Promise<void> {
             return;
           }
 
-          markExpectedBotRoleMutation(member.id, role.id, 'add');
+          markExpectedBotRoleMutation(member.id, role.id);
           await member.roles.add(role);
           markExpectedBotRoleMutation(guild.id, member.id);
           markTrainerAssignmentInFlight(guild.id, member.id);

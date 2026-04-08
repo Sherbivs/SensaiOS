@@ -440,7 +440,27 @@ MODERATOR_ONLY_CHANNEL_ID=1129075047416463381
 
 > **Note**: The original 17 text-based DM commands (stats, status, roles, etc.) remain functional via backward-compatible text command mapping in `dm-console/index.ts`. Typing a legacy command name automatically routes to the corresponding panel.
 
-### 7.4.1 Panel Architecture
+### 7.4.1 Trainer Coverage Calculation
+
+**Coverage Formula:** Members with Role / Eligible Members × 100
+
+**Coverage Metrics**:
+- **Eligible Members**: All guild members excluding bot accounts (Discord.js reports these as `bot: true`)
+- **Members with Role**: Count of members assigned the Trainer/Drip role
+- **Fallback Denominator**: If eligible count is unavailable, use total members
+
+**Reason for Bot Exclusion**: Bot accounts should not consume trainer coverage quota; only human members count as part of coverage responsibility. A guild with 470 human members + 2 bots shows as 470/470 (100%) if all humans have the role, not 470/472.
+
+**Display Sources** (all using identical calculation):
+- DM Console Overview panel (`renderOverview()` in panels.ts)
+- Logger metrics (`formatSecurityMetrics()` in main.ts)
+- Both fallback to `totalMembers` when `totalEligibleMembers` is unavailable
+
+**Data Quality**:
+- `partial: true` = Estimated coverage (partial guild member fetch)
+- `partial: false` = Complete coverage (all guild members cached)
+
+### 7.4.2 Panel Architecture
 
 | Panel | Type | Content |
 |-------|------|---------|
