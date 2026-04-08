@@ -1104,7 +1104,9 @@ function updateSecurityCliSection(overrides: Partial<SecurityCliState> = {}): vo
 
   if (securityCliState.memberStats) {
     const stats = securityCliState.memberStats;
-    const denominator = stats.totalEligibleMembers > 0 ? stats.totalEligibleMembers : stats.totalMembers;
+    const denominator = !stats.partial && stats.totalEligibleMembers > 0 && stats.totalWithRole <= stats.totalEligibleMembers
+      ? stats.totalEligibleMembers
+      : stats.totalMembers;
     const coverageRatio = denominator > 0 ? stats.totalWithRole / denominator : 0;
     metrics.push(['role coverage', `${stats.totalWithRole}/${denominator || 0}`]);
     metrics.push(['coverage %', `${(coverageRatio * 100).toFixed(coverageRatio >= 0.1 ? 1 : 2)}%${stats.partial ? ' (est)' : ''}`]);

@@ -150,9 +150,12 @@ export async function renderOverview(ctx: ConsoleContext): Promise<PanelResult> 
   let coverageStr = 'N/A';
   if (ctx.securityCliState.memberStats) {
     const ms = ctx.securityCliState.memberStats;
-    const denominator = ms.totalEligibleMembers && ms.totalEligibleMembers > 0
-      ? ms.totalEligibleMembers
-      : ms.totalMembers;
+    // Sanity check: if partial or if totalWithRole > eligible, use totalMembers
+    // This prevents >100% coverage when eligible count is calculated incorrectly
+    let denominator = ms.totalMembers;
+    if (!ms.partial && ms.totalEligibleMembers && ms.totalEligibleMembers > 0 && ms.totalWithRole <= ms.totalEligibleMembers) {
+      denominator = ms.totalEligibleMembers; // Use eligible only if data is complete and consistent
+    }
     const pct = denominator > 0 ? ((ms.totalWithRole / denominator) * 100).toFixed(1) : '0';
     coverageStr = `${ms.totalWithRole}/${denominator} (${pct}%)${ms.partial ? ' est.' : ''}`;
   }
