@@ -1409,3 +1409,19 @@ model InstalledApp {
   @@index([installedAt(sort: Desc)], map: "idx_installed_app_installed")
   @@map("installed_apps")
 }
+
+/// ---- Security Bot Persistent Member Snapshot ----
+model SecurityMemberSnapshot {
+  id           Int      @id @default(autoincrement())
+  guildId      String   // Discord guild ID
+  userId       String   // Discord user ID (eligible member)
+  username     String?  // Username at snapshot time
+  discriminator String? // Discriminator/tag at snapshot time
+  isBot        Boolean  // Should always be false (eligible = non-bot)
+  snapshotAt   DateTime @default(now()) // When this snapshot was taken
+
+  // Composite index for fast lookup
+  @@index([guildId, userId])
+  @@index([guildId, snapshotAt])
+  @@map("security_member_snapshot")
+}

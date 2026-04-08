@@ -800,8 +800,7 @@ Each task has:
 
 ---
 
-### ═══════════════════════════════════════════════════════════
-### HOTFIX: DISCORD MEMBER FETCH RATE LIMITS
+### 🚨 Hotfix: Discord Member Fetch Rate Limits
 ### ═══════════════════════════════════════════════════════════
 
 - id: DISCORD.MEMBER_FETCH.RATE_LIMIT

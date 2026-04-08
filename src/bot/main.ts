@@ -96,6 +96,7 @@ import { recordSweep, recordMemberFetchTimeout } from './state/stats.js';
 import { getRecentActivitySummary } from './state/timeline.js';
 import type { SecurityBotState, TimelineEvent, GuildState } from './state/types.js';
 import { handleDmMessage, handleConsoleInteraction, isConsoleInteraction, type ConsoleContext } from './dm-console/index.js';
+import { startMemberSnapshotScheduler } from './security/member-snapshot-scheduler.js';
 
 // ============================================================================
 // Type Definitions
@@ -521,6 +522,7 @@ const client = new Client({
   },
 }) as ExtendedClient;
 
+
 // Load slash commands (optional; safe if none present)
 let commands: Collection<string, SlashCommand> | null = null;
 try {
@@ -533,6 +535,16 @@ try {
 } catch (err) {
   log('warn', '[commands] loader failed', { error: getErrorMessage(err) });
 }
+
+// --- Persistent Member Snapshot Scheduler Integration ---
+client.once(Events.ClientReady, () => {
+  try {
+    startMemberSnapshotScheduler(client);
+    log('info', '[member-snapshot] Scheduler started on bot ready');
+  } catch (err) {
+    log('error', '[member-snapshot] Failed to start scheduler', { error: getErrorMessage(err) });
+  }
+});
 
 const GUILD_MEMBERS_TIMEOUT_FRAGMENT = "Members didn't arrive in time.";
 const guildMemberFetchCooldowns = new Map<string, number>();
@@ -1018,7 +1030,7 @@ function bumpRoleMemberCount(guild: Guild, delta = 1): void {
           (Number.isFinite(guild.memberCount) ? guild.memberCount : guild.members.cache.size)
             - guild.members.cache.filter((member) => member.user.bot).size
         ),
-        roleCount: Math.max(0, delta),
+        roleCount: 0,
         complete: false,
       }],
       updatedAt,
@@ -2027,8 +2039,7 @@ const ROLE_POLICY_REGISTRY: Record<string, RolePolicy> = {
     'KickMembers','BanMembers','ManageMessages','ModerateMembers','ManageNicknames','ViewAuditLog','CreateEvents',
     'UseApplicationCommands','ManageThreads','CreatePublicThreads','CreatePrivateThreads','SendMessages','EmbedLinks',
     'AttachFiles','ReadMessageHistory','MentionEveryone','UseExternalEmojis','Connect','Speak','DeafenMembers','MoveMembers',
-    'UseVAD','PrioritySpeaker','Stream','UseEmbeddedActivities','UseSoundboard','CreateGuildExpressions','UseExternalSounds',
-    'SendPolls','UseExternalApps'
+    'MuteMembers','UseSoundboard','UseExternalSounds','RequestToSpeak',
   ]},
   [GYM_LEADER_ROLE_ID]:   { name: 'Gym Leader',    permissions: [
     'ManageMessages','ModerateMembers','ManageThreads','CreatePublicThreads','CreatePrivateThreads','SendMessages',
@@ -3577,7 +3588,7 @@ async function runCliDebugDump() {
   process.exit(0);
 }
 
-function startContinuousSweepLoop(transformer?: (guilds: Guild[], signal?: AbortSignal) => Guild[]): Promise<void> | undefined {
+function startContinuousSweepLoop(transformer?: (guilds: Guild[], signal?: AbortSignal) => Guild[] | Collection<string, Guild> | Iterable<Guild>): Promise<void> | undefined {
   if (continuousSweepState.running) {
     return continuousSweepState.loopPromise;
   }
