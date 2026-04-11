@@ -273,6 +273,13 @@ function resolveBytesExpression(columns: Set<string>, preferredColumns: string[]
   return '0::bigint as total_bytes';
 }
 
+export const __dbResourceManagerTestUtils = {
+  resolveBytesExpression,
+  clearColumnSnapshot: () => {
+    tableColumnSnapshot = null;
+  },
+};
+
 // ============================================================================
 // CORE: Probing
 // ============================================================================
