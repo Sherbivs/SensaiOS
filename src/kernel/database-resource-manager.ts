@@ -230,41 +230,43 @@ let namespaceBudgets: NamespaceBudget[] = [...DEFAULT_NAMESPACE_BUDGETS];
 const gcDeltas: number[] = [];  // negative deltas (MB freed), up to last 50
 const MAX_GC_DELTAS = 50;
 
-type TableColumnSnapshot = {
-  cacheEntries: Set<string>;
-  runtimeMetrics: Set<string>;
+const tableColumnSnapshot = new Map<string, Set<string>>();
+
+const TABLE_BYTE_COLUMN_PREFERENCES: Record<string, string[]> = {
+  cache_entries: ['size_bytes', 'value', 'payload', 'metadata'],
+  runtime_metrics: ['metadata', 'value', 'payload'],
 };
 
-let tableColumnSnapshot: TableColumnSnapshot | null = null;
-
 async function getTableColumns(tableName: string): Promise<Set<string>> {
-  const rows = await prisma.$queryRawUnsafe<Array<{ column_name: string }>>(
-    `
-      SELECT column_name
-      FROM information_schema.columns
-      WHERE table_schema = 'public'
-        AND table_name = $1
-    `,
-    tableName
-  );
-  return new Set(rows.map((row) => row.column_name));
+  try {
+    const rows = await prisma.$queryRawUnsafe<Array<{ column_name: string }>>(
+      `
+        SELECT column_name
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = $1
+      `,
+      tableName
+    );
+    return new Set(rows.map((row) => row.column_name));
+  } catch (err) {
+    kernel.warn('db-resource', `Failed to introspect columns for ${tableName}: ${err instanceof Error ? err.message : String(err)}`);
+    return new Set();
+  }
 }
 
-async function getTableColumnSnapshot(): Promise<TableColumnSnapshot> {
-  if (tableColumnSnapshot) {
-    return tableColumnSnapshot;
+async function getTableColumnSnapshot(tableName: string): Promise<Set<string>> {
+  const cached = tableColumnSnapshot.get(tableName);
+  if (cached) {
+    return cached;
   }
 
-  const [cacheEntries, runtimeMetrics] = await Promise.all([
-    getTableColumns('cache_entries'),
-    getTableColumns('runtime_metrics'),
-  ]);
-
-  tableColumnSnapshot = { cacheEntries, runtimeMetrics };
-  return tableColumnSnapshot;
+  const columns = await getTableColumns(tableName);
+  tableColumnSnapshot.set(tableName, columns);
+  return columns;
 }
 
-function resolveBytesExpression(columns: Set<string>, preferredColumns: string[]): string {
+export function resolveBytesExpression(columns: Set<string>, preferredColumns: string[]): string {
   for (const column of preferredColumns) {
     if (columns.has(column)) {
       return `COALESCE(SUM(LENGTH(${column}::text)::bigint), 0) as total_bytes`;
@@ -273,12 +275,11 @@ function resolveBytesExpression(columns: Set<string>, preferredColumns: string[]
   return '0::bigint as total_bytes';
 }
 
-export const __dbResourceManagerTestUtils = {
-  resolveBytesExpression,
-  clearColumnSnapshot: () => {
-    tableColumnSnapshot = null;
-  },
-};
+async function getTableBytesExpression(tableName: string): Promise<string> {
+  const columns = await getTableColumnSnapshot(tableName);
+  const preferredColumns = TABLE_BYTE_COLUMN_PREFERENCES[tableName] ?? [];
+  return resolveBytesExpression(columns, preferredColumns);
+}
 
 // ============================================================================
 // CORE: Probing
@@ -306,10 +307,7 @@ async function probe(): Promise<void> {
     }
 
     // 3. Collect namespace breakdown
-    const columnSnapshot = await getTableColumnSnapshot();
-    const cacheTotalBytesExpr = columnSnapshot.cacheEntries.has('size_bytes')
-      ? 'COALESCE(SUM(size_bytes::bigint), 0) as total_bytes'
-      : resolveBytesExpression(columnSnapshot.cacheEntries, ['value']);
+    const cacheTotalBytesExpr = await getTableBytesExpression('cache_entries');
 
     const namespaceRows = await prisma.$queryRawUnsafe<Array<{
       namespace: string;
@@ -342,10 +340,7 @@ async function probe(): Promise<void> {
     }));
 
     // 4. Also collect runtime_metrics table size
-    const runtimeMetricsTotalBytesExpr = resolveBytesExpression(
-      columnSnapshot.runtimeMetrics,
-      ['metadata', 'value', 'payload']
-    );
+    const runtimeMetricsTotalBytesExpr = await getTableBytesExpression('runtime_metrics');
     const metricsRows = await prisma.$queryRawUnsafe<Array<{
       metric_type: string;
       entry_count: bigint;

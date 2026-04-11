@@ -2,11 +2,11 @@
 Title: Ops Command Surface
 Purpose: Administrator slash command handlers for `/ops stats`, `/ops cache`, `/ops db`, and related telemetry.
 Owned Globs: src/bot/ops/**
-Last Updated (UTC): 2026-04-06T00:00:00Z
+Last Updated (UTC): 2026-04-10T00:00:00Z
 
 Notes:
 - Aggregates battle history, cache summaries, database health, and participant filters for staff reviews.
-- `/ops db` surfaces Database Resource Manager health reports, growth trends, anomalies, and adaptive retention status.
+- `/ops db` surfaces Database Resource Manager health reports, growth trends, anomalies, adaptive retention status, and schema-drift tolerant cache/runtime metrics sizing.
 - Integrates with cache facade metrics, kernel database-resource-manager, and Prisma reporting models to keep admin dashboards consistent.
 - Extend this module when introducing new `/ops` subcommands so audit logging remains centralized.
 

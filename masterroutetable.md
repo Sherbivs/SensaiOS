@@ -366,7 +366,7 @@ empty ROUTER.md placeholder files with no actual code. Modern implementation is 
 ### Kernel Root Observer (`src/kernel/ROUTER.md`)
 - Purpose: Production-grade kernel module providing unified logging, error detection, system observation, metrics, persistence, and database resource management.
 - Owned Globs: `src/kernel/**`
-- Last Updated: 2026-04-06T00:00:00Z
+- Last Updated: 2026-04-10T00:00:00Z
 - Key Files:
   - `boot-kernel.ts` — Unified Kernel API facade (9+ step boot sequence)
   - `database-resource-manager.ts` — DB storage monitoring: growth trends, anomaly detection, adaptive retention, namespace budgets
@@ -379,7 +379,7 @@ empty ROUTER.md placeholder files with no actual code. Modern implementation is 
   - `kernel-scrubber.ts` — PII scrubbing pipeline for output dispatch
 - Notes:
   - ~5,515 lines of production-grade kernel code
-  - Database Resource Manager starts at kernel boot Step 9.5, provides adaptive GC retention
+  - Database Resource Manager starts at kernel boot Step 9.5, provides adaptive GC retention, and now detects schema drift in cache_entries/runtime_metrics sizing
   - Exposed via `Kernel.dbResource.*` API and `/ops db` command
 
 ### Event Bus & Battle Primitives (`src/engine/ROUTER.md`)

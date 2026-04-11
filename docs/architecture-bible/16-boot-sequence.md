@@ -299,6 +299,7 @@ These happen **in parallel** to reduce startup time.
    startDatabaseResourceManager(); // 15-minute probe interval
    ```
    - **Continuous probing:** Tracks `pg_database_size()` and per-namespace breakdown from `cache_entries` + `runtime_metrics`
+   - **Schema drift tolerance:** Probe introspects `cache_entries` / `runtime_metrics` columns and chooses available size aggregation fields, avoiding failures when `value` is absent.
    - **Growth trend analysis:** Linear regression over rolling 168-sample window (MB/day rate, days-until-warn/emergency/full, confidence level)
    - **Anomaly detection:** Spike, stale-namespace, runaway-namespace, unexpected-shrink (24h auto-clear)
    - **Adaptive retention:** Under DB pressure (>75% full), GC retention days compress smoothly down to 1 day at 90%+
