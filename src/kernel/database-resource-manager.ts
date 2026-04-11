@@ -230,6 +230,49 @@ let namespaceBudgets: NamespaceBudget[] = [...DEFAULT_NAMESPACE_BUDGETS];
 const gcDeltas: number[] = [];  // negative deltas (MB freed), up to last 50
 const MAX_GC_DELTAS = 50;
 
+type TableColumnSnapshot = {
+  cacheEntries: Set<string>;
+  runtimeMetrics: Set<string>;
+};
+
+let tableColumnSnapshot: TableColumnSnapshot | null = null;
+
+async function getTableColumns(tableName: string): Promise<Set<string>> {
+  const rows = await prisma.$queryRawUnsafe<Array<{ column_name: string }>>(
+    `
+      SELECT column_name
+      FROM information_schema.columns
+      WHERE table_schema = 'public'
+        AND table_name = $1
+    `,
+    tableName
+  );
+  return new Set(rows.map((row) => row.column_name));
+}
+
+async function getTableColumnSnapshot(): Promise<TableColumnSnapshot> {
+  if (tableColumnSnapshot) {
+    return tableColumnSnapshot;
+  }
+
+  const [cacheEntries, runtimeMetrics] = await Promise.all([
+    getTableColumns('cache_entries'),
+    getTableColumns('runtime_metrics'),
+  ]);
+
+  tableColumnSnapshot = { cacheEntries, runtimeMetrics };
+  return tableColumnSnapshot;
+}
+
+function resolveBytesExpression(columns: Set<string>, preferredColumns: string[]): string {
+  for (const column of preferredColumns) {
+    if (columns.has(column)) {
+      return `COALESCE(SUM(LENGTH(${column}::text)::bigint), 0) as total_bytes`;
+    }
+  }
+  return '0::bigint as total_bytes';
+}
+
 // ============================================================================
 // CORE: Probing
 // ============================================================================
@@ -256,6 +299,11 @@ async function probe(): Promise<void> {
     }
 
     // 3. Collect namespace breakdown
+    const columnSnapshot = await getTableColumnSnapshot();
+    const cacheTotalBytesExpr = columnSnapshot.cacheEntries.has('size_bytes')
+      ? 'COALESCE(SUM(size_bytes::bigint), 0) as total_bytes'
+      : resolveBytesExpression(columnSnapshot.cacheEntries, ['value']);
+
     const namespaceRows = await prisma.$queryRawUnsafe<Array<{
       namespace: string;
       entry_count: bigint;
@@ -266,7 +314,7 @@ async function probe(): Promise<void> {
       SELECT
         namespace,
         COUNT(*) as entry_count,
-        COALESCE(SUM(LENGTH(value::text)::bigint), 0) as total_bytes,
+        ${cacheTotalBytesExpr},
         MIN(created_at) as oldest_entry,
         MAX(updated_at) as newest_entry
       FROM cache_entries
@@ -287,6 +335,10 @@ async function probe(): Promise<void> {
     }));
 
     // 4. Also collect runtime_metrics table size
+    const runtimeMetricsTotalBytesExpr = resolveBytesExpression(
+      columnSnapshot.runtimeMetrics,
+      ['metadata', 'value', 'payload']
+    );
     const metricsRows = await prisma.$queryRawUnsafe<Array<{
       metric_type: string;
       entry_count: bigint;
@@ -297,7 +349,7 @@ async function probe(): Promise<void> {
       SELECT
         metric_type,
         COUNT(*) as entry_count,
-        COALESCE(SUM(LENGTH(value::text)::bigint), 0) as total_bytes,
+        ${runtimeMetricsTotalBytesExpr},
         MIN(created_at) as oldest_entry,
         MAX(updated_at) as newest_entry
       FROM runtime_metrics
